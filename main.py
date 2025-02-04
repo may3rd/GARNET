@@ -24,7 +24,7 @@ import pandas as pd
 import logging
 
 from garnet import utils
-import Settings
+import garnet.Settings as Settings
 import yaml
 
 # Configure logging
