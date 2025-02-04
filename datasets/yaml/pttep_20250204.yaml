@@ -1,0 +1,24 @@
+path: /content/pttep_output
+test: images/test
+train: images/train
+val: images/val
+nc: 18
+names:
+- angle valve
+- ball valve
+- blowdown valve
+- check valve
+- control valve
+- gate valve
+- hand valve
+- instrument dcs
+- instrument tag
+- interlock
+- line number
+- mov valve
+- needle valve
+- pressure relief valve
+- reducer
+- shutdown valve
+- three ways valve
+- xsv

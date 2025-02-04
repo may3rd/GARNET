@@ -22,12 +22,12 @@ class NumpyTypeEncoder(json.JSONEncoder):
 
 # Define the function to predict images and save the predictions in JSON and CSV format
 def predict_images(
-    image_path: str = "test/images",  # Replace with your image folder path 
+    image_path: str = "../test/images",  # Replace with your image folder path 
     output_path: str = "",  # Replace with your JSON output folder
     output_csv_path: str = "",  # Replace with your CSV output path
     model_type: str = "yolov8onnx",  # Replace with your model type (e.g., "yolov5", "mmdet", etc.)
-    model_path: str = "yolo_weights/yolo11n_PPCL_640_20250203.onnx",  # Replace with your SAHI-compatible model path
-    model_config_path: str = "datasets/yaml/data.yaml",  # Replace with your model config path
+    model_path: str = "../yolo_weights/yolov8n_PTTEP_640_finetune_20240924.onnx",  # Replace with your SAHI-compatible model path
+    model_config_path: str = "../datasets/yaml/pttep.yaml",  # Replace with your model config path
     model_confidence_threshold: float = 0.7,  # Confidence threshold for predictions
     image_size: int = 640,  # Resize images to this size before running inference
     overlab_ratio: float = 0.5,  # Overlap ratio for slicing
