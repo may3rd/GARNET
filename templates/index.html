@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="x-ua-compatible" content="ie=edge" />
+  <title>E-PT AI</title>
+  <meta name="msapplication-TileImage" content="{{ url_for('static', path='images/cropped-gcme.webp') }}" />
+  <link rel="icon" href="{{ url_for('static', path='images/cropped-gcme.webp') }}" size="32x32" />
+  <link rel="icon" href="{{ url_for('static', path='images/cropped-gcme.webp') }}" size="192x192" />
+  <link rel="apple-touch-icon" href="{{ url_for('static', path='images/cropped-gcme.webp') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', path='css/all.min.css') }}" />
+  <link rel="stlysheet" href="{{ url_for('static', path='css/bootstrap-treeview.css') }}" />
+  <script src="{{ url_for('static', path='scripts/fabric.js') }}"></script>
+  <script src="{{ url_for('static', path='scripts/jquery-3.7.0.js') }}"></script>
+  <script src="{{ url_for('static', path='scripts/bootstrap-treeview.js') }}"></script>
+  <script>
+    var jsonData = {{ json_data|safe }};
+    var categoryData = {{ category_id|safe }};
+    var weightFilesData = {{ weight_files|safe }};
+  </script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap" />
+  <!-- MDB -->
+  <link rel="stylesheet" href="{{ url_for('static', path='css/mdb.min.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', path='css/bootstrap.min.css') }}" />
+
+  <!-- DataTable -->
+  <link rel="stylesheet" href="{{ url_for('static', path='css/jquery.dataTables.min.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', path='css/select.dataTables.min.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', path='css/buttons.dataTables.min.css') }}" />
+  <script src="{{ url_for('static', path='scripts/jquery.dataTables.min.js') }}"></script>
+  <script src="{{ url_for('static', path='scripts/dataTables.select.min.js') }}"></script>
+  <script src="{{ url_for('static', path='scripts/dataTables.buttons.min.js') }}"></script>
+
+  <!-- Waitme -->
+  <link rel="stylesheet" type="text/css" href="{{ url_for('static', path='css/waitMe.min.css') }}" />
+  <script src="{{ url_for('static', path='scripts/waitMe.min.js') }}"></script>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    body,
+    html {
+      padding-left: 5px;
+      padding-top: 5px;
+      padding-right: 5px;
+    }
+
+    .grid-container {
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      /* Two columns with 1:2 ratio */
+      grid-template-rows: 1fr auto auto;
+      /* Two rows with automatic height */
+      gap: 5px;
+      /* Gap between grid items */
+      /* Set a fixed height for the grid */
+      hegiht: 100vh;
+      position: relative;
+
+      grid-template-areas:
+        "canvas-container right-menu-container"
+        "zoom-menu-container right-menu-container"
+        "table-container right-menu-container";
+    }
+
+    .canvas-container {
+      grid-area: canvas-container;
+    }
+
+    .zoom-menu-container {
+      grid-area: zoom-menu-container;
+    }
+
+    .table-container {
+      grid-area: table-container;
+    }
+
+    .right-menu-container {
+      grid-area: right-menu-container;
+      overflow-y: auto;
+      max-height: 100vh;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .small-font {
+      font-size: 0.8rem;
+    }
+
+    .tiny-font {
+      font-size: 0.6rem;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="main-container" class="container-fluid m-0 p-0">
+    <div id="grid-container" class="grid-container">
+      <div class="canvas-container m-0" id="canvas-container">
+        <div id="last-run-filename" class="lead text-center small-font bg-body-secondary border rounded mb-1 p-1 hidden">{{ output_text }}</div>
+        <canvas id="canvas" class="border shadow-sm mb-5 rounded"></canvas>
+        {% if run_flag %}
+        <img id="output-image" src="{{ url_for('static', path='images/prediction_results.png') }}" alt=""
+          class="hidden" />
+        <script>const imagePath = '{{ url_for('static', path = 'images/prediction_results.png') }}'; const runFlag = true;</script>
+        {% else %}
+        <img id="output-image" src="{{ url_for('static', path='images/gcmethumb-3.png') }}" alt="" class="hidden" />
+        <script>const imagePath = `{{ url_for('static', path = 'images/gcmethumb-3.png') }}`; const runFlag = false;</script>
+        {% endif %}
+      </div>
+      <div id="zoom-menu-container" class="zoom-menu-container hidden">
+        <div class="container text-center mb-1">
+          <div class="row align-middle">
+            <div id="" class="col-auto mx-auto align-self-end h-100 d-inline-block ms-0 ps-0">
+              <button id="hide-table-btn" class="btn btn-primary" type="button" data-status="show"><i class="fa-solid fa-table-list" aria-hidden="true"></i></button>
+            </div>
+            <div id="zoom-btn-container" class="col w-50 align-self-end h-100 d-inline-block">
+              <button zoom-in id="zoom-in" class="btn btn-secondary" type="button" disabled><i class="fa fa-magnifying-glass-plus"></i></button>
+              <button zoom-out id="zoom-out" class="btn btn-secondary" type="button" disabled><i class="fa fa-magnifying-glass-minus"></i></button>
+              <button zoom-org id="zoom-one" class="btn btn-secondary" type="button" disabled>1:1</button>
+              <button zoom-tofit id="zoom-to-fit" class="btn btn-secondary" type="button" disabled><i class="fa fa-left-right"></i></button>
+              <button zoom-all id="zoom-all" class="btn btn-secondary" type="button" disabled><i class="fa fa-up-down-left-right"></i></button>
+              
+            </div>
+            <div class="col d-inline-block">
+              <div id="zoom-text" class="form-text small-font">Slide to zoom.</div>
+              <input id="zoom-range" class="form-range" type="range" min="0.1" max="5" step="0.1" value="1"/>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="table-container" class="table-container small-font mb-2 hidden">
+        <table id="output-table" class="display compact" width="100%">
+          <thead class="tabel-dark">
+            <tr>
+              <th class="toggle-column text-center tiny-font">B.Box<br/>On/Off</th>
+              <th class="text-center">Item No.</th>
+              <th>Object Detected</th>
+              <th>Text Detected</th>
+              <th>Score</th>
+              <th class="zoom-to-column text-center tiny-font">Zoom To</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            {% for item in table_data %}
+            <tr>
+              <td class="text-center"><div class=""><button class="toggle-btn btn btn-sm btn-primary small tiny-font btn-outline-light" data-status="on" data-index="{{ item.Index }}">On</button></div></td>
+              <td class="item-index text-center">{{ item.Index }}</td>
+              <td class="item-object">{{ item.Object }}</td>
+              <td class="item-text">{{ item.Text }}</td>
+              <td>{{ item.Score }}</td>
+              <td class="text-center"><div class=""><button class="zoom-to-btn btn btn-sm btn-primary small tiny-font btn-outline-light " data-selected="false" data-index="{{ item.Index }}">Find</button></div></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="right-menu-container small-font">
+        <div class="container">
+          <div class="text-end mb-1">
+            <button id="toggle-file-menu" class="btn btn-primary btn-sm" data-status="show"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
+          </div>
+          <div id="select-file-menu" class="border shadow p-2 pb-0 rounded">
+            <form id="main-form" action="/submit" enctype="multipart/form-data" method="post">
+              <div class="row align-items-start mb-2">
+                <div class="col">
+                  <label for="file-input" class="form-label mb-0">P&amp;ID input:</label>
+                  <input id="file-input" class="form-control form-control-sm" name="file_input" type="file" />
+                </div>
+              </div>
+              <div class="row align-items-top">
+                <div class="col w-50">
+                  <label for="conf-th" class="form-label mb-0">Confident Threshold</label>
+                  <input id="conf-th" class="form-control form-control-sm" name="conf_th" type="text" placeholder=""
+                    aria-label="example" value="0.80" />
+                  <div id="" class="form-text">The confidential threshold for model detection.</div>
+                </div>
+                <div class="col w-50">
+                  <label for="image-size" class="form-label mb-0">Segment Size</label>
+                  <input id="image-size" class="form-control form-control-sm" name="image_size" type="text"
+                    placeholder="640" aria-label="example" value="640" />
+                  <div id="" class="form-text">The segment size of image, equal to imgsz in yolov8.<br>288 for yolov8_300.</div>
+                </div>
+              </div>
+              <div class="row align-items-center mt-1">
+                <div class="col">
+                  <label for="selected_model" class="form-label mb-0">Model type: </label>
+                  <select id="selected_model" class="form-select form-select-sm" name="selected_model">
+                    {% for item in model_types %}
+                    <option value="{{ item.value }}">{{ item.name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div id="weight-path-container" class="row align-items-center mt-1">
+                <div class="col">
+                  <label for="weight_file" class="form-label mb-0">Weight file: </label>
+                  <select id="weight_file" class="form-select form-select-sm" name="weight_file">
+                    {% for item in weight_files %}
+                    <option value="{{ item.item }}">{{ item.item }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div id="config-path-container" class="row align-items-center mt-1">
+                <div class="col">
+                  <label for="config_file" class="form-label mb-0">Config file: </label>
+                  <select id="config_file" class="form-select form-select-sm" name="config_file">
+                    {% for item in config_files %}
+                    <option value="{{ item.item }}">{{ item.item }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div id="textOCR-container" class="row">
+                <div class="col mt-2">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="True" id="text_OCR" name="text_OCR" />
+                    <label class="form-check-label" for="textOCR">Apply Text Recognition (EasyOCR)</label>
+                  </div>
+                </div>
+              </div>
+              <div class="row">
+                <div class="col text-center">
+                  <button id="submit" class="btn btn-secondary btn-sm mt-2 mb-2" type="submit"
+                    disabled>Submit</button>
+                </div>
+              </div>
+            </form>
+          </div>
+          <div id="category-treeview" class="row align-items-start mb-2">
+            <div class="row">
+              <div class="text-body"><h5>Select by Category</h5></div>
+              <div class="mb-1 hidden">
+                <button id="master-toggle" class="btn btn-primary btn-sm text-nowrap tiny-font" data-status="on">Hide all B Box</button>
+                <button id="select-all" class="btn btn-secondary btn-sm text-nowrap tiny-font" data-status="on">Hightlight
+                  All</button>
+                <button id="deselect-all" class="btn btn-secondary btn-sm text-nowrap tiny-font" data-status="on">Unhightlight All</button>
+              </div>
+              <div id="tree"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="{{ url_for('static', path='scripts/script.js') }}"></script>
+</body>
+
+</html>

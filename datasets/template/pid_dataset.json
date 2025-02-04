@@ -1,0 +1,14 @@
+{
+  "categories": [
+    { "id": 0, "name": "angle valve", "supercategory": "valves" },
+    { "id": 1, "name": "ball valve", "supercategory": "valves" },
+    { "id": 2, "name": "butterfly valve", "supercategory": "valves" },
+    { "id": 3, "name": "check valve", "supercategory": "valves" },
+    { "id": 4, "name": "gate valve", "supercategory": "valves" },
+    { "id": 5, "name": "globe valve", "supercategory": "valves" },
+    { "id": 6, "name": "plug valve", "supercategory": "valves" },
+    { "id": 7, "name": "safety valve", "supercategory": "valves" },
+    { "id": 8, "name": "three way valve", "supercategory": "valves" },
+    { "id": 9, "name": "control valve", "supercategory": "valves" }
+  ]
+}

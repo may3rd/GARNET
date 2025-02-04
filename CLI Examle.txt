@@ -1,0 +1,87 @@
+sahi predict --source test --model_type yolov8 --model_path yolo_weights\yolov8n_PPCL_640_finetune_20240918.pt --model_config_path datasets\data\balanced.yaml --name PPCL_test --slice_width 640 --slice_height 640 --model_confidence_threshold 0.80 --visual_bbox_thickness 2 --visual_text_size 0.5 --visual_text_thickness 2 --visual_export_format png --export_crop true --dataset_json_path datasets.json
+
+sahi predict --source test --model_type yolov8 --model_path yolo_weights\yolov8n_PPCL_640_finetune_20240918.pt --model_config_path datasets\data\balanced.yaml --name PPCL_test --slice_width 640 --slice_height 640 --model_confidence_threshold 0.80 --visual_bbox_thickness 2 --visual_text_size 5 --visual_text_thickness 1 --visual_hide_labels false --visual_hide_conf false --visual_export_format png --export_crop true --dataset_json_path datasets.json
+
+    Performs prediction for all present images in given folder.
+
+    Args:
+        detection_model: sahi.model.DetectionModel
+            Optionally provide custom DetectionModel to be used for inference. When provided,
+            model_type, model_path, config_path, model_device, model_category_mapping, image_size
+            params will be ignored
+        model_type: str
+            mmdet for 'MmdetDetectionModel', 'yolov5' for 'Yolov5DetectionModel'.
+        model_path: str
+            Path for the model weight
+        model_config_path: str
+            Path for the detection model config file
+        model_confidence_threshold: float
+            All predictions with score < model_confidence_threshold will be discarded.
+        model_device: str
+            Torch device, "cpu" or "cuda"
+        model_category_mapping: dict
+            Mapping from category id (str) to category name (str) e.g. {"1": "pedestrian"}
+        model_category_remapping: dict: str to int
+            Remap category ids after performing inference
+        source: str
+            Folder directory that contains images or path of the image to be predicted. Also video to be predicted.
+        no_standard_prediction: bool
+            Dont perform standard prediction. Default: False.
+        no_sliced_prediction: bool
+            Dont perform sliced prediction. Default: False.
+        image_size: int
+            Input image size for each inference (image is scaled by preserving asp. rat.).
+        slice_height: int
+            Height of each slice.  Defaults to ``512``.
+        slice_width: int
+            Width of each slice.  Defaults to ``512``.
+        overlap_height_ratio: float
+            Fractional overlap in height of each window (e.g. an overlap of 0.2 for a window
+            of size 512 yields an overlap of 102 pixels).
+            Default to ``0.2``.
+        overlap_width_ratio: float
+            Fractional overlap in width of each window (e.g. an overlap of 0.2 for a window
+            of size 512 yields an overlap of 102 pixels).
+            Default to ``0.2``.
+        postprocess_type: str
+            Type of the postprocess to be used after sliced inference while merging/eliminating predictions.
+            Options are 'NMM', 'GREEDYNMM', 'LSNMS' or 'NMS'. Default is 'GREEDYNMM'.
+        postprocess_match_metric: str
+            Metric to be used during object prediction matching after sliced prediction.
+            'IOU' for intersection over union, 'IOS' for intersection over smaller area.
+        postprocess_match_threshold: float
+            Sliced predictions having higher iou than postprocess_match_threshold will be
+            postprocessed after sliced prediction.
+        postprocess_class_agnostic: bool
+            If True, postprocess will ignore category ids.
+        novisual: bool
+            Dont export predicted video/image visuals.
+        view_video: bool
+            View result of prediction during video inference.
+        frame_skip_interval: int
+            If view_video or export_visual is slow, you can process one frames of 3(for exp: --frame_skip_interval=3).
+        export_pickle: bool
+            Export predictions as .pickle
+        export_crop: bool
+            Export predictions as cropped images.
+        dataset_json_path: str
+            If coco file path is provided, detection results will be exported in coco json format.
+        project: str
+            Save results to project/name.
+        name: str
+            Save results to project/name.
+        visual_bbox_thickness: int
+        visual_text_size: float
+        visual_text_thickness: int
+        visual_hide_labels: bool
+        visual_hide_conf: bool
+        visual_export_format: str
+            Can be specified as 'jpg' or 'png'
+        verbose: int
+            0: no print
+            1: print slice/prediction durations, number of slices
+            2: print model loading/file exporting durations
+        return_dict: bool
+            If True, returns a dict with 'export_dir' field.
+        force_postprocess_type: bool
+            If True, auto postprocess check will e disabled

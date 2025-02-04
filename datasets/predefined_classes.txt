@@ -1,0 +1,9 @@
+angle valve
+ball valve
+butterfly valve
+check valve
+gate valve
+globe valve
+plug valve
+safety valve
+three way valve

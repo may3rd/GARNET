@@ -1,0 +1,11 @@
+butterfly valve
+check valve
+control valve
+gate valve
+globe valve
+heat exchanger
+instrument DCS
+instrument tag
+page connection
+three way valve
+utility connection

@@ -1,0 +1,25 @@
+train: images/train
+val: images/val
+nc: 19
+names:
+    [
+      "angle valve",
+      "ball valve",
+      "blowdown valve",
+      "check valve",
+      "control valve",
+      "gate valve",
+      "hand valve",
+      "instrument dcs",
+      "instrument tag",
+      "interlock",
+      "line number",
+      "mov valve",
+      "needle valve",
+      "pressure control valve",
+      "pressure relief valve",
+      "reducer",
+      "shutdown valve",
+      "three ways valve",
+      "xsv",
+    ]

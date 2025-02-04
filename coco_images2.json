@@ -1,0 +1,103 @@
+{
+    "images": [
+        {
+            "id": 1,
+            "file_name": "ER_0009.png",
+            "width": 4963,
+            "height": 3508,
+            "date_captured": "",
+            "license": 0,
+            "coco_url": "",
+            "flickr_url": ""
+        },
+        {
+            "id": 2,
+            "file_name": "ER_0008.png",
+            "width": 4963,
+            "height": 3508,
+            "date_captured": "",
+            "license": 0,
+            "coco_url": "",
+            "flickr_url": ""
+        }
+    ],
+    "annotations": [],
+    "categories": [
+        {
+            "id": 0,
+            "name": "angle valve"
+        },
+        {
+            "id": 1,
+            "name": "ball valve"
+        },
+        {
+            "id": 2,
+            "name": "blowdown valve"
+        },
+        {
+            "id": 3,
+            "name": "check valve"
+        },
+        {
+            "id": 4,
+            "name": "control valve"
+        },
+        {
+            "id": 5,
+            "name": "gate valve"
+        },
+        {
+            "id": 6,
+            "name": "hand valve"
+        },
+        {
+            "id": 7,
+            "name": "instrument dcs"
+        },
+        {
+            "id": 8,
+            "name": "instrument tag"
+        },
+        {
+            "id": 9,
+            "name": "interlock"
+        },
+        {
+            "id": 10,
+            "name": "line number"
+        },
+        {
+            "id": 11,
+            "name": "mov valve"
+        },
+        {
+            "id": 12,
+            "name": "needle valve"
+        },
+        {
+            "id": 13,
+            "name": "pressure control valve"
+        },
+        {
+            "id": 14,
+            "name": "pressure relief valve"
+        },
+        {
+            "id": 15,
+            "name": "reducer"
+        },
+        {
+            "id": 16,
+            "name": "shutdown valve"
+        },
+        {
+            "id": 17,
+            "name": "three ways valve"
+        },
+        {
+            "id": 18,
+            "name": "xsv"
+        }
+    ]
+}

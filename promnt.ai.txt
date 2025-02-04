@@ -1,0 +1,3 @@
+Help me write the code for loop trough the images in the folder and apply the SAHI prediction on each image.
+The output should be the predicted bounding box for each image save in json format. And export the prediction result to a csv file.
+then print out the object detection count for each class for each image and totaled for all images.

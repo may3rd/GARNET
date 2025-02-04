@@ -1,0 +1,25 @@
+path: /Users/maetee/Code/GARNET/datasets/balanced/
+train: images/train
+val: images/val
+nc: 18
+names:
+    [
+        "butterfly valve",
+        "check valve",
+        "connection",
+        "control valve",
+        "gate valve",
+        "globe valve",
+        "heat exchanger",
+        "instrument dcs",
+        "instrument logic",
+        "instrument tag",
+        "page connection",
+        "pressure relief valve",
+        "pump",
+        "sampling point",
+        "strainer",
+        "three way valve",
+        "trip function",
+        "utility connection",
+    ]
