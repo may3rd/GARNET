@@ -57,7 +57,7 @@ Run the web interface to upload P&IDs, select models, and view results in real t
     - **Run Inference**: Click "Submit" to detect symbols and display results.
     - **Results**: View annotated images, symbol counts, and download reports (CSV/JSON).
 
-![Web Interface Demo](assets/web_demo.gif)
+![Web Interface Demo](assets/web_demo.png)
 
 ---
 
