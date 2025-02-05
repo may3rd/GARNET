@@ -28,8 +28,14 @@ def visualize_folder_in_fiftyone(
         confidence_threshold=model_confidence_threshold,
     )
     
+    dataset_name = "PID_SAHI_Folder_Predictions"
+    
+    # Check if dataset already exists and delete if necessary
+    if dataset_name in fo.list_datasets():
+        fo.delete_dataset(dataset_name)
+    
     # Create a new FiftyOne dataset
-    dataset = fo.Dataset(name="PID_SAHI_Folder_Predictions")
+    dataset = fo.Dataset(name=dataset_name)
     
     # Define image extensions to consider
     image_extensions = (".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff")
@@ -90,17 +96,18 @@ def visualize_folder_in_fiftyone(
     session = fo.launch_app(dataset)
     session.wait()
 
-# Example usage:
-visualize_folder_in_fiftyone(
-    image_path="test/fiftyone_test",
-    model_type="yolov8",
-    model_path="yolo_weights/yolo11n_PPCL_640_20250204.pt",
-    model_confidence_threshold=0.5,
-    image_size=640,
-    overlab_ratio=0.1,
-    preform_standard_pred=True,
-    postprocess_type="GREEDYNMM",
-    postprocess_match_metric="IOU",
-    postprocess_match_threshold=0.2,
-    postprocess_class_agnostic=True,
-)
+if __name__ == "__main__":
+    # Example usage:
+    visualize_folder_in_fiftyone(
+        image_path="../test/fiftyone_test",
+        model_type="yolov8",
+        model_path="../yolo_weights/yolo11n_PPCL_640_20250204.pt",
+        model_confidence_threshold=0.5,
+        image_size=640,
+        overlab_ratio=0.1,
+        preform_standard_pred=True,
+        postprocess_type="GREEDYNMM",
+        postprocess_match_metric="IOU",
+        postprocess_match_threshold=0.2,
+        postprocess_class_agnostic=True,
+    )

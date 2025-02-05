@@ -1,1 +1,0 @@
-sahi predict-fiftyone --image_dir test/fiftyone_test --dataset_json_path json/coco_images.json --model_type yolov8 --model_path yolo_weights/yolo11n_PPCL_640_20250204.pt --model_config_path datasets/yaml/data.yaml --verbose 1 --slice_width 640 --slice_height 640 --overlap_height_ratio 0.1 --overlap_width_ratio 0.1
