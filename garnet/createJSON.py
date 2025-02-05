@@ -6,9 +6,6 @@ from PIL import Image
 def load_categories_from_yaml(yaml_file):
     with open(yaml_file, 'r') as f:
         data = yaml.safe_load(f)
-    
-    print(data)
-    
     categories = []
     
     # Add an ID to each category
@@ -22,7 +19,12 @@ def load_categories_from_yaml(yaml_file):
 
     return categories
 
-def create_coco_images_json(image_dir, output_file, category_file):
+def create_coco_images_json(
+    image_dir: str = "test/fiftyone_test",
+    output_file: str = "json/coco_images.json",
+    category_file: str = "datasets/yaml/data.yaml"
+    ):
+    # Create an empty COCO JSON object
     coco = {
         "images": [],
         "annotations": [],
@@ -63,9 +65,9 @@ def create_coco_images_json(image_dir, output_file, category_file):
     with open(output_file, 'w') as f:
         json.dump(coco, f, indent=4)
 
-# Usage
-image_dir = 'PTTEP/ER'
-output_file = 'coco_images2.json'
-category_file = 'datasets/yaml/pttep.yaml'  # Your YAML file with categories
-create_coco_images_json(image_dir, output_file, category_file)
-
+if __name__ == '__main__':
+    # Usage
+    image_dir = 'test/fiftyone_test'
+    output_file = 'json/coco_images.json'
+    category_file = 'datasets/yaml/data.yaml'  # Your YAML file with categories
+    create_coco_images_json(image_dir, output_file, category_file)

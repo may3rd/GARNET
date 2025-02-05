@@ -1,0 +1,72 @@
+{
+    "images": [
+        {
+            "id": 1,
+            "file_name": "Test-00002.jpg",
+            "width": 4963,
+            "height": 3509,
+            "date_captured": "",
+            "license": 0,
+            "coco_url": "",
+            "flickr_url": ""
+        },
+        {
+            "id": 2,
+            "file_name": "Test-00001.jpg",
+            "width": 4963,
+            "height": 3509,
+            "date_captured": "",
+            "license": 0,
+            "coco_url": "",
+            "flickr_url": ""
+        }
+    ],
+    "classes": [],
+    "annotations": [],
+    "categories": [
+        {
+            "id": 0,
+            "name": 0
+        },
+        {
+            "id": 1,
+            "name": 1
+        },
+        {
+            "id": 2,
+            "name": 2
+        },
+        {
+            "id": 3,
+            "name": 3
+        },
+        {
+            "id": 4,
+            "name": 4
+        },
+        {
+            "id": 5,
+            "name": 5
+        },
+        {
+            "id": 6,
+            "name": 6
+        },
+        {
+            "id": 7,
+            "name": 7
+        },
+        {
+            "id": 8,
+            "name": 8
+        },
+        {
+            "id": 9,
+            "name": 9
+        },
+        {
+            "id": 10,
+            "name": 10
+        }
+    ]
+}
