@@ -69,6 +69,7 @@ def visualize_folder_in_fiftyone(
         result = get_sliced_prediction(
             image=img_path,
             detection_model=detection_model,
+            perform_standard_pred=preform_standard_pred,
             slice_height=image_size,
             slice_width=image_size,
             overlap_height_ratio=overlab_ratio,
@@ -106,15 +107,20 @@ def visualize_folder_in_fiftyone(
                 bbox[2],
                 bbox[3],
             ]
+            
             excel_rows.append({
+                "category id": pred.category.id,
                 "label": pred.category.name,
+                "confidence": pred.score.value,
                 "x": pixel_bbox[0],
                 "y": pixel_bbox[1],
                 "width": pixel_bbox[2],
                 "height": pixel_bbox[3],
-                "confidence": pred.score.value,
             })
 
+        # Sort excel_rows by category id and confidence
+        excel_rows.sort(key=lambda x: (x["category id"], x["confidence"]))
+        
         # Create a sample, add metadata for image dimensions, and predictions
         sample = fo.Sample(filepath=img_path)
         sample.metadata = fo.ImageMetadata(width=image_width, height=image_height)
