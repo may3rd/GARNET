@@ -1,7 +1,6 @@
 import os
 import glob
 import json
-import uuid
 import pandas as pd
 import fiftyone as fo
 from sahi import AutoDetectionModel
@@ -78,6 +77,19 @@ def visualize_folder_in_fiftyone(
             postprocess_match_threshold=postprocess_match_threshold,
             postprocess_class_agnostic=postprocess_class_agnostic,
         )
+        
+        # Save the prediction result for visualization
+        # Create a safe file name for the image
+        image_name = os.path.splitext(os.path.basename(img_path))[0]
+        output_path = "predictions"
+        result.export_visuals(
+            export_dir=output_path,
+            file_name=image_name,
+            text_size=1,
+            rect_th=3,
+            hide_conf=True,
+            hide_labels=True
+        )
 
         # Convert predictions to FiftyOne format
         detections = []
@@ -134,10 +146,10 @@ def visualize_folder_in_fiftyone(
         excel_data[sheet_name] = excel_rows
 
     # Save predictions to COCO JSON file
-    save_predictions_to_coco(dataset, output_path="predictions_coco.json")
+    save_predictions_to_coco(dataset, output_path="predictions/predictions_coco.json")
 
     # Save predictions to an Excel file with each image's predictions in a separate sheet
-    save_predictions_to_excel(excel_data, output_path="predictions.xlsx")
+    save_predictions_to_excel(excel_data, output_path="predictions/predictions.xlsx")
     
     # Launch the FiftyOne app to visualize the dataset
     session = fo.launch_app(dataset)
@@ -234,9 +246,9 @@ def save_predictions_to_excel(excel_data: dict, output_path: str):
 if __name__ == "__main__":
     # Example usage:
     visualize_folder_in_fiftyone(
-        image_path="test/fiftyone_test",
+        image_path="test/pttep",
         model_type="yolov8",
-        model_path="yolo_weights/yolo11n_PPCL_640_20250204.pt",
+        model_path="yolo_weights/yolo11s_PTTEP_640_20250207.pt",
         model_confidence_threshold=0.5,
         image_size=640,
         overlab_ratio=0.1,
