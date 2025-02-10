@@ -6,7 +6,15 @@ import fiftyone as fo
 from sahi import AutoDetectionModel
 from sahi.predict import get_sliced_prediction
 from PIL import Image
+import easyocr
+import cv2
+import numpy as np
+import Settings
 
+# Initialize the OCR reader
+reader = easyocr.Reader(["en"])
+allowlist = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-"'
+settings = Settings.Settings()
 def visualize_folder_in_fiftyone(
     image_path: str,
     model_type: str = "yolov8",  # e.g., "yolov5", "mmdet", etc.
@@ -112,14 +120,58 @@ def visualize_folder_in_fiftyone(
                     confidence=pred.score.value,
                 )
             )
-            # Also prepare data for Excel (convert normalized bbox back to pixel coordinates)
-            pixel_bbox = [
-                bbox[0],
-                bbox[1],
-                bbox[2],
-                bbox[3],
-            ]
             
+
+            x = int(bbox[0])  # Convert to pixel coordinates for cropping
+            y = int(bbox[1])
+            w = int(bbox[2])
+            h = int(bbox[3])
+
+            if pred.category.name in settings.SYMBOL_WITH_TEXT:
+                # Crop the detected object from the original image
+                cropped_image_pil = Image.open(img_path).crop((x, y, x + w, y + h))
+                
+                cropped_image_cv = cv2.cvtColor(np.array(cropped_image_pil), cv2.COLOR_RGB2BGR)
+                
+                inverted_img = cv2.bitwise_not(cropped_image_cv)
+                kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+                dilated_img = cv2.dilate(inverted_img, kernel, iterations=1)
+                cropped_img = cv2.bitwise_not(dilated_img)
+                
+                detail = 0  # Set detail to 0 for text detection
+
+                # Perform OCR on the cropped image
+                ocr_result = reader.readtext(
+                    cropped_img,
+                    decoder="wordbeamsearch",
+                    batch_size=4,
+                    paragraph=True,
+                    detail=detail,  # Or 1, as needed
+                    mag_ratio=1.0,
+                    text_threshold=0.7,
+                    low_text=0.2,
+                    allowlist=allowlist,
+                )
+
+                extracted_text = ""
+                ocr_confidence = 0.0
+
+                if detail == 0:  # Handle the case where detail = 0
+                    if ocr_result:
+                        extracted_text = ocr_result  # Assuming it returns just the text string
+                        ocr_confidence = 1.0 # If detail = 0 then there is no confidence returned
+                elif detail == 1: # Handle the case where detail = 1
+                    if ocr_result:
+                        extracted_text = " ".join([text for (bbox, text, score) in ocr_result])
+                        ocr_confidence = max([score for (bbox, text, score) in ocr_result]) if ocr_result else 0.0 # Handle empty result case
+                else:
+                    print("Invalid detail parameter. Please use 0 or 1.")
+            else:
+                extracted_text = ""
+                ocr_confidence = 0.0
+                
+            pixel_bbox = [x, y, w, h]  # Keep pixel coordinates for Excel
+
             excel_rows.append({
                 "category id": pred.category.id,
                 "label": pred.category.name,
@@ -128,6 +180,8 @@ def visualize_folder_in_fiftyone(
                 "y": pixel_bbox[1],
                 "width": pixel_bbox[2],
                 "height": pixel_bbox[3],
+                "extracted_text": extracted_text,  # Add extracted text
+                "ocr_confidence": ocr_confidence, # Add OCR confidence
             })
 
         # Sort excel_rows by category id and confidence
@@ -246,9 +300,9 @@ def save_predictions_to_excel(excel_data: dict, output_path: str):
 if __name__ == "__main__":
     # Example usage:
     visualize_folder_in_fiftyone(
-        image_path="test/pttep",
+        image_path="test/ppcl",
         model_type="yolov8",
-        model_path="yolo_weights/yolo11s_PTTEP_640_20250207.pt",
+        model_path="yolo_weights/yolo11s_PPCL_640_20250207.pt",
         model_confidence_threshold=0.5,
         image_size=640,
         overlab_ratio=0.1,
