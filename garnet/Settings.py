@@ -19,5 +19,6 @@ class Settings:
         "instrument logic",
         "instrument tag",
         "line number",
+        "utility connection",
     ]
     VERTICAL_TEXT = ["page connection", "line number"]

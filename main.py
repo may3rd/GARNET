@@ -113,6 +113,9 @@ def extract_text_from_image(
         # Create Reader for text OCR
         logger.log(logging.INFO, f"Create easyOCR reader.")
         reader = easyocr.Reader(['en'])
+        
+        # Create allowlist for object detection
+        allowlist = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-"½'
 
         return_list = []
         
@@ -128,7 +131,7 @@ def extract_text_from_image(
                 object["Top"] + object["Height"]
             )
 
-            cropped_img_name = os.path.join(settings.TEXT_PATH, "cropped_image_with_text_{index}.png")
+            cropped_img_name = os.path.join(settings.TEXT_PATH, f"cropped_image_with_text_{index}.png")
             cropped_img = image[y_start:y_end, x_start:x_end]
 
             # rotate if object is page connection and dimension wide is less than height
@@ -138,18 +141,25 @@ def extract_text_from_image(
                     cropped_img = utils.rotate_image(cropped_img, 270)
                     logger.log(logging.INFO, f"Rotated cropped image for vertical text.")
 
-            # remove circle from instrument tag
-            if "instrument" in object["Object"]:
-                logger.log(logging.INFO, f"Removing circle from instrument tag.")
-                cropped_img = utils.remove_circular_lines(
-                    cropped_img, 
-                    param1=50,
-                    param2=80, 
-                    minRadius=30,
-                    maxRadius=100, 
-                    thickness=3, 
-                    outside=False,
-                    )
+            # # remove circle from instrument tag
+            # if "instrument" in object["Object"]:
+            #     logger.log(logging.INFO, f"Removing circle from instrument tag.")
+            #     cropped_img = utils.remove_circular_lines(
+            #         cropped_img, 
+            #         param1=50,
+            #         param2=80, 
+            #         minRadius=30,
+            #         maxRadius=100, 
+            #         thickness=3, 
+            #         outside=False,
+            #         )
+
+            # make line thickness 2
+            logger.log(logging.INFO, f"Making line thickness 2.")
+            inverted_img = cv2.bitwise_not(cropped_img)
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+            dilated_img = cv2.dilate(inverted_img, kernel, iterations=1)
+            cropped_img = cv2.bitwise_not(dilated_img)
 
             # save a processed cropped image
             logger.log(logging.INFO, f"Saving cropped image with text to {cropped_img_name}.")  
@@ -159,10 +169,15 @@ def extract_text_from_image(
             logger.log(logging.INFO, f"Reading text from cropped image with text.")
             result = reader.readtext(
                 cropped_img,
+                decoder="wordbeamsearch",
+                batch_size=4,
+                paragraph=True,
                 detail = 0,
-                decoder="beamsearch",
-                mag_ratio=3.5,
-                text_threshold=0.1)
+                mag_ratio=1.0,
+                text_threshold=0.7,
+                low_text=0.2,
+                allowlist=allowlist,
+            )
 
             # save read result to list
             logger.log(logging.INFO, f"Saving read result to list.")
