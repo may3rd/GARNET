@@ -5,76 +5,86 @@ import pandas as pd
 import fiftyone as fo
 from sahi import AutoDetectionModel
 from sahi.predict import get_sliced_prediction
-from PIL import Image
-import easyocr
 import cv2
 import numpy as np
 import Settings
+import easyocr
+from PIL import Image
 
-# Initialize the OCR reader
+# Initialize global components once
 reader = easyocr.Reader(["en"])
 allowlist = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-"'
+kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
 settings = Settings.Settings()
+SYMBOL_WITH_TEXT = set(settings.SYMBOL_WITH_TEXT)
+
 def visualize_folder_in_fiftyone(
     image_path: str,
-    model_type: str = "yolov8",  # e.g., "yolov5", "mmdet", etc.
+    model_type: str = "yolov8",
     model_path: str = "../yolo_weights/yolo11n_PPCL_640_20250204.pt",
     model_confidence_threshold: float = 0.5,
     image_size: int = 640,
     overlab_ratio: float = 0.5,
     preform_standard_pred: bool = True,
-    postprocess_type: str = "GREEDYNMM",  # Options: None, "GREEDYNMM", "NMS", etc.
-    postprocess_match_metric: str = "IOU",  # Options: "IOS", "IOU", etc.
+    postprocess_type: str = "GREEDYNMM",
+    postprocess_match_metric: str = "IOU",
     postprocess_match_threshold: float = 0.2,
     postprocess_class_agnostic: bool = True,
 ):
-    """
-    Process all images in a folder with SAHI slicing predictions, visualize in FiftyOne,
-    and save prediction results in COCO JSON and Excel formats.
-    """
-    # Load the model with the provided parameters.
+    """Optimized version of the original function with key improvements."""
+    
+        
+    # if model_type == "yolov8onnx" load category mapping from data.yaml
+    if "yolov8onnx" == model_type:
+        import onnx
+        import ast
+        model = onnx.load(model_path)
+        props = { p.key: p.value for p in model.metadata_props }
+        names = ast.literal_eval(props['names'])
+        category_mapping = { str(key): value for key, value in names.items() }
+    else:
+        category_mapping = None
+        
     detection_model = AutoDetectionModel.from_pretrained(
         model_type=model_type,
         model_path=model_path,
         confidence_threshold=model_confidence_threshold,
+        category_mapping=category_mapping,
     )
-    
+
+    # Dataset setup
     dataset_name = "PID_SAHI_Folder_Predictions"
-    
-    # Check if dataset already exists and delete if necessary
     if dataset_name in fo.list_datasets():
         fo.delete_dataset(dataset_name)
-    
-    # Create a new FiftyOne dataset
     dataset = fo.Dataset(name=dataset_name)
-    
-    # Define image extensions to consider
-    image_extensions = (".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff")
-    
-    # Recursively find image files in the folder
+
+    # Find and sort images
     image_paths = []
-    for ext in image_extensions:
-        image_paths.extend(glob.glob(os.path.join(image_path, f"**/*{ext}"), recursive=True))
+    for ext in ("*.png", "*.jpg", "*.jpeg", "*.bmp", "*.tif", "*.tiff"):
+        image_paths.extend(glob.glob(os.path.join(image_path, "**", ext), recursive=True))
     
     if not image_paths:
-        print("No images found in the folder.")
+        print("No images found.")
         return
 
-    # Sort the image paths alphabetically
     image_paths.sort()
-    
-    # This dictionary will hold predictions per image for Excel output
+    total_images = len(image_paths)
     excel_data = {}
 
-    # Process each image
-    for img_path in image_paths:
-        # Open image to get dimensions
-        with Image.open(img_path) as img:
-            image_width, image_height = img.size
+    for idx, img_path in enumerate(image_paths):
+        print(f"Processing {idx+1}/{total_images}: {img_path}")
+        
+        # Single image load with OpenCV
+        img_cv = cv2.imread(img_path)
+        if img_cv is None:
+            continue
 
-        # Run SAHI sliced inference with additional parameters.
+        img_rgb = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
+        h, w = img_rgb.shape[:2]
+            
+        # SAHI prediction
         result = get_sliced_prediction(
-            image=img_path,
+            image=img_rgb,
             detection_model=detection_model,
             perform_standard_pred=preform_standard_pred,
             slice_height=image_size,
@@ -85,13 +95,11 @@ def visualize_folder_in_fiftyone(
             postprocess_match_threshold=postprocess_match_threshold,
             postprocess_class_agnostic=postprocess_class_agnostic,
         )
-        
-        # Save the prediction result for visualization
-        # Create a safe file name for the image
+
+        # Visualization export
         image_name = os.path.splitext(os.path.basename(img_path))[0]
-        output_path = "predictions"
         result.export_visuals(
-            export_dir=output_path,
+            export_dir="predictions",
             file_name=image_name,
             text_size=1,
             rect_th=3,
@@ -99,115 +107,82 @@ def visualize_folder_in_fiftyone(
             hide_labels=True
         )
 
-        # Convert predictions to FiftyOne format
+        # Process detections
         detections = []
-        # Prepare list of predictions for Excel output
         excel_rows = []
+        
         for pred in result.object_prediction_list:
-            # Convert bbox from (x, y, w, h) and normalize coordinates
             bbox = pred.bbox.to_xywh()
-            # Normalize coordinates with respect to image dimensions
-            norm_bbox = [
-                bbox[0] / image_width,
-                bbox[1] / image_height,
-                bbox[2] / image_width,
-                bbox[3] / image_height,
-            ]
-            detections.append(
-                fo.Detection(
-                    label=pred.category.name,
-                    bounding_box=norm_bbox,
-                    confidence=pred.score.value,
-                )
-            )
+            x, y, width, height = map(int, bbox)
             
+            # FiftyOne formatting
+            norm_bbox = [
+                bbox[0]/w,
+                bbox[1]/h,
+                bbox[2]/w,
+                bbox[3]/h,
+            ]
+            detections.append(fo.Detection(
+                label=pred.category.name,
+                bounding_box=norm_bbox,
+                confidence=pred.score.value,
+            ))
 
-            x = int(bbox[0])  # Convert to pixel coordinates for cropping
-            y = int(bbox[1])
-            w = int(bbox[2])
-            h = int(bbox[3])
-
-            if pred.category.name in settings.SYMBOL_WITH_TEXT:
-                # Crop the detected object from the original image
-                cropped_image_pil = Image.open(img_path).crop((x, y, x + w, y + h))
-                
-                cropped_image_cv = cv2.cvtColor(np.array(cropped_image_pil), cv2.COLOR_RGB2BGR)
-                
-                inverted_img = cv2.bitwise_not(cropped_image_cv)
-                kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
-                dilated_img = cv2.dilate(inverted_img, kernel, iterations=1)
-                cropped_img = cv2.bitwise_not(dilated_img)
-                
-                detail = 0  # Set detail to 0 for text detection
-
-                # Perform OCR on the cropped image
+            # OCR processing
+            if pred.category.name in SYMBOL_WITH_TEXT:
+                cropped = img_cv[y:y+height, x:x+width]
+                processed = cv2.bitwise_not(
+                    cv2.dilate(
+                        cv2.bitwise_not(cropped),
+                        kernel, 
+                        iterations=1
+                    )
+                )
                 ocr_result = reader.readtext(
-                    cropped_img,
+                    processed,
                     decoder="wordbeamsearch",
-                    batch_size=4,
+                    batch_size=8,  # Increased batch size
                     paragraph=True,
-                    detail=detail,  # Or 1, as needed
-                    mag_ratio=1.0,
+                    detail=0,
                     text_threshold=0.7,
-                    low_text=0.2,
                     allowlist=allowlist,
                 )
-
-                extracted_text = ""
-                ocr_confidence = 0.0
-
-                if detail == 0:  # Handle the case where detail = 0
-                    if ocr_result:
-                        extracted_text = ocr_result  # Assuming it returns just the text string
-                        ocr_confidence = 1.0 # If detail = 0 then there is no confidence returned
-                elif detail == 1: # Handle the case where detail = 1
-                    if ocr_result:
-                        extracted_text = " ".join([text for (bbox, text, score) in ocr_result])
-                        ocr_confidence = max([score for (bbox, text, score) in ocr_result]) if ocr_result else 0.0 # Handle empty result case
-                else:
-                    print("Invalid detail parameter. Please use 0 or 1.")
+                text = " ".join(ocr_result) if ocr_result else "" # type: ignore
             else:
-                extracted_text = ""
-                ocr_confidence = 0.0
-                
-            pixel_bbox = [x, y, w, h]  # Keep pixel coordinates for Excel
+                text = ""
 
             excel_rows.append({
                 "category id": pred.category.id,
                 "label": pred.category.name,
                 "confidence": pred.score.value,
-                "x": pixel_bbox[0],
-                "y": pixel_bbox[1],
-                "width": pixel_bbox[2],
-                "height": pixel_bbox[3],
-                "extracted_text": extracted_text,  # Add extracted text
-                "ocr_confidence": ocr_confidence, # Add OCR confidence
+                "x": x,
+                "y": y,
+                "width": width,
+                "height": height,
+                "extracted_text": text,
+                "ocr_confidence": 1.0 if text else 0.0,
             })
 
-        # Sort excel_rows by category id and confidence
-        excel_rows.sort(key=lambda x: (x["category id"], x["confidence"]))
-        
-        # Create a sample, add metadata for image dimensions, and predictions
+        # Dataset update
         sample = fo.Sample(filepath=img_path)
-        sample.metadata = fo.ImageMetadata(width=image_width, height=image_height)
+        sample.metadata = fo.ImageMetadata(width=w, height=h)
         sample["predictions"] = fo.Detections(detections=detections)
         dataset.add_sample(sample)
 
-        # Save predictions for this image to excel_data using a safe sheet name
-        sheet_name = os.path.splitext(os.path.basename(img_path))[0]
-        # Sheet names must be <= 31 characters and not contain certain characters
-        sheet_name = sheet_name[:31].replace(":", "_").replace("/", "_")
+        # Excel data preparation
+        excel_rows.sort(key=lambda x: (x["category id"], x["confidence"]))
+        sheet_name = os.path.basename(img_path)[:31].replace(":", "_").replace("/", "_")
         excel_data[sheet_name] = excel_rows
 
-    # Save predictions to COCO JSON file
-    save_predictions_to_coco(dataset, output_path="predictions/predictions_coco.json")
-
-    # Save predictions to an Excel file with each image's predictions in a separate sheet
-    save_predictions_to_excel(excel_data, output_path="predictions/predictions.xlsx")
+    # Save outputs
+    save_predictions_to_coco(dataset, "predictions/predictions_coco.json")
+    save_predictions_to_excel(excel_data, "predictions/predictions.xlsx")
     
-    # Launch the FiftyOne app to visualize the dataset
-    session = fo.launch_app(dataset)
+    session = fo.launch_app(dataset) # type: ignore
     session.wait()
+    return
+
+# Rest of the functions (save_predictions_to_coco, save_predictions_to_excel) remain the same
 
 
 def save_predictions_to_coco(dataset: fo.Dataset, output_path: str):
@@ -301,14 +276,14 @@ if __name__ == "__main__":
     # Example usage:
     visualize_folder_in_fiftyone(
         image_path="test/ppcl",
-        model_type="yolov8",
-        model_path="yolo_weights/yolo11s_PPCL_640_20250207.pt",
+        model_type="yolov8onnx",
+        model_path="yolo_weights/yolo11s_PPCL_640_20250207.onnx",
         model_confidence_threshold=0.5,
         image_size=640,
-        overlab_ratio=0.1,
+        overlab_ratio=0.2,
         preform_standard_pred=True,
         postprocess_type="GREEDYNMM",
-        postprocess_match_metric="IOU",
+        postprocess_match_metric="IOS",
         postprocess_match_threshold=0.2,
         postprocess_class_agnostic=True,
     )
