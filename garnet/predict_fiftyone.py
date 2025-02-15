@@ -23,6 +23,7 @@ def visualize_folder_in_fiftyone(
     image_path: str,
     model_type: str = "yolov8",
     model_path: str = "../yolo_weights/yolo11n_PPCL_640_20250204.pt",
+    output_path: str = "predictions",
     model_confidence_threshold: float = 0.5,
     image_size: int = 640,
     overlab_ratio: float = 0.5,
@@ -32,6 +33,10 @@ def visualize_folder_in_fiftyone(
     postprocess_match_threshold: float = 0.2,
     postprocess_class_agnostic: bool = True,
     class_list: list = [],
+    rect_th: int = 2,
+    text_size: float = 0.3,
+    hide_conf: bool = True,
+    hide_labels: bool = True,
 ):
     """Optimized version of the original function with key improvements."""
     
@@ -96,6 +101,7 @@ def visualize_folder_in_fiftyone(
             postprocess_match_metric=postprocess_match_metric,
             postprocess_match_threshold=postprocess_match_threshold,
             postprocess_class_agnostic=postprocess_class_agnostic,
+            verbose=2,
         )
 
         # Visualization export
@@ -111,21 +117,21 @@ def visualize_folder_in_fiftyone(
             visualize_object_predictions(
                 image=img_rgb,
                 object_prediction_list=filtered_preductions,
-                text_size=1,
-                rect_th=3,
-                hide_conf=False,
-                hide_labels=False,
-                output_dir="predictions",
+                text_size=text_size,
+                rect_th=rect_th,
+                hide_conf=hide_conf,
+                hide_labels=hide_labels,
+                output_dir=output_path,
                 file_name=image_name,
             )
         else:
             result.export_visuals(
-                export_dir="predictions",
+                export_dir=output_path,
                 file_name=image_name,
-                text_size=1,
-                rect_th=3,
-                hide_conf=True,
-                hide_labels=True
+                text_size=text_size,
+                rect_th=rect_th,
+                hide_conf=hide_conf,
+                hide_labels=hide_labels
             )
 
         # Process detections
@@ -196,8 +202,8 @@ def visualize_folder_in_fiftyone(
         excel_data[sheet_name] = excel_rows
 
     # Save outputs
-    save_predictions_to_coco(dataset, "predictions/predictions_coco.json")
-    save_predictions_to_excel(excel_data, "predictions/predictions.xlsx")
+    save_predictions_to_coco(dataset, os.path.join(output_path, "predictions_coco.json"))
+    save_predictions_to_excel(excel_data, os.path.join(output_path, "predictions.xlsx"))
     
     session = fo.launch_app(dataset) # type: ignore
     session.wait()
@@ -296,16 +302,18 @@ def save_predictions_to_excel(excel_data: dict, output_path: str):
 if __name__ == "__main__":
     # Example usage:
     visualize_folder_in_fiftyone(
-        image_path="PTTEP/test01",
-        model_type="yolov8",
-        model_path="yolo_weights/yolo11s_PTTEP_640_20250207.pt",
+        image_path="test/pttep/PLCPP2",
+        model_type="yolov8onnx",
+        model_path="yolo_weights/yolo11s_PTTEP_640_20250207.onnx",
+        output_path="predictions/pttep/PLCPP2",
         model_confidence_threshold=0.5,
         image_size=640,
         overlab_ratio=0.2,
         preform_standard_pred=True,
         postprocess_type="GREEDYNMM",
         postprocess_match_metric="IOS",
-        postprocess_match_threshold=0.2,
+        postprocess_match_threshold=0.1,
         postprocess_class_agnostic=True,
-        class_list=["pressure relief valve", "control valve", "instrument tag"]
+        class_list=["pressure relief valve", "control valve", "shutdown valve"],
+        rect_th=4
     )
