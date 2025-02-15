@@ -5,6 +5,7 @@ import pandas as pd
 import fiftyone as fo
 from sahi import AutoDetectionModel
 from sahi.predict import get_sliced_prediction
+from sahi.utils.cv import visualize_object_predictions
 import cv2
 import numpy as np
 import Settings
@@ -30,6 +31,7 @@ def visualize_folder_in_fiftyone(
     postprocess_match_metric: str = "IOU",
     postprocess_match_threshold: float = 0.2,
     postprocess_class_agnostic: bool = True,
+    class_list: list = [],
 ):
     """Optimized version of the original function with key improvements."""
     
@@ -98,14 +100,33 @@ def visualize_folder_in_fiftyone(
 
         # Visualization export
         image_name = os.path.splitext(os.path.basename(img_path))[0]
-        result.export_visuals(
-            export_dir="predictions",
-            file_name=image_name,
-            text_size=1,
-            rect_th=3,
-            hide_conf=True,
-            hide_labels=True
-        )
+        
+        # If class_list is provided, filter the predictions before visualization
+        if class_list:
+            filtered_preductions = [
+                obj for obj in result.object_prediction_list if obj.category.name in class_list
+            ]
+            
+            # Visulize only the filtered predictions
+            visualize_object_predictions(
+                image=img_rgb,
+                object_prediction_list=filtered_preductions,
+                text_size=1,
+                rect_th=3,
+                hide_conf=False,
+                hide_labels=False,
+                output_dir="predictions",
+                file_name=image_name,
+            )
+        else:
+            result.export_visuals(
+                export_dir="predictions",
+                file_name=image_name,
+                text_size=1,
+                rect_th=3,
+                hide_conf=True,
+                hide_labels=True
+            )
 
         # Process detections
         detections = []
@@ -275,9 +296,9 @@ def save_predictions_to_excel(excel_data: dict, output_path: str):
 if __name__ == "__main__":
     # Example usage:
     visualize_folder_in_fiftyone(
-        image_path="test/ppcl",
-        model_type="yolov8onnx",
-        model_path="yolo_weights/yolo11s_PPCL_640_20250207.onnx",
+        image_path="PTTEP/test01",
+        model_type="yolov8",
+        model_path="yolo_weights/yolo11s_PTTEP_640_20250207.pt",
         model_confidence_threshold=0.5,
         image_size=640,
         overlab_ratio=0.2,
@@ -286,4 +307,5 @@ if __name__ == "__main__":
         postprocess_match_metric="IOS",
         postprocess_match_threshold=0.2,
         postprocess_class_agnostic=True,
+        class_list=["pressure relief valve", "control valve", "instrument tag"]
     )
