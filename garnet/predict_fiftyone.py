@@ -19,6 +19,9 @@ kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
 settings = Settings.Settings()
 SYMBOL_WITH_TEXT = set(settings.SYMBOL_WITH_TEXT)
 
+# Disable FiftyOne analytics
+os.environ["FIFTYONE_DISABLE_ANALYTICS"] = "True"
+
 def visualize_folder_in_fiftyone(
     image_path: str,
     model_type: str = "yolov8",
@@ -302,10 +305,10 @@ def save_predictions_to_excel(excel_data: dict, output_path: str):
 if __name__ == "__main__":
     # Example usage:
     visualize_folder_in_fiftyone(
-        image_path="test/pttep/PLCPP2",
+        image_path="test/pttep/test",
         model_type="yolov8onnx",
         model_path="yolo_weights/yolo11s_PTTEP_640_20250207.onnx",
-        output_path="predictions/pttep/PLCPP2",
+        output_path="predictions/pttep/test",
         model_confidence_threshold=0.5,
         image_size=640,
         overlab_ratio=0.2,
