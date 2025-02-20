@@ -171,7 +171,7 @@ class BoundingBoxTemplateRefiner:
                 region_bgr = self.rotate_image(region_bgr, -90)
                 
                 print(f"Rotated '{class_name}' region 90° clockwise (vertical: height={height}, width={width})")
-                cv2.imwrite(f"debug_rotated_{class_name}.png", region_bgr)
+                # cv2.imwrite(f"debug_rotated_{class_name}.png", region_bgr)
 
             # Extract text using EasyOCR
             results = self.reader.readtext(region_bgr, rotation_info=None)
@@ -179,24 +179,24 @@ class BoundingBoxTemplateRefiner:
                 return "No text detected"
             
             # Debugging: Highlight detected text regions
-            debug_img = region_bgr.copy()
-            for (bbox_coords, text, confidence) in results:
-                top_left = tuple(map(int, bbox_coords[0]))
-                bottom_right = tuple(map(int, bbox_coords[2]))
-                cv2.rectangle(debug_img, top_left, bottom_right, (0, 255, 0), 1)
-                cv2.putText(debug_img, f"{text} ({confidence:.2f})", 
-                            (top_left[0], top_left[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-            cv2.imwrite(f"debug_text_regions_{class_name}.png", debug_img)
-            print(f"Debug image saved: debug_text_regions_{class_name}.png")
+            # debug_img = region_bgr.copy()
+            # for (bbox_coords, text, confidence) in results:
+            #     top_left = tuple(map(int, bbox_coords[0]))
+            #     bottom_right = tuple(map(int, bbox_coords[2]))
+            #     cv2.rectangle(debug_img, top_left, bottom_right, (0, 255, 0), 1)
+            #     cv2.putText(debug_img, f"{text} ({confidence:.2f})", 
+            #                 (top_left[0], top_left[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            # cv2.imwrite(f"debug_text_regions_{class_name}.png", debug_img)
+            # print(f"Debug image saved: debug_text_regions_{class_name}.png")
 
             # Filter detections with confidence > 0.5
-            results = [res for res in results if res[2] > 0.5]
+            results = [res for res in results if res[2] > 0.5] # type: ignore
             if not results:
                 return "No confident text detected"
             
             # Combine all detected text fragments with spaces, sorted by y-coordinate (top to bottom)
-            sorted_results = sorted(results, key=lambda x: min(p[1] for p in x[0]))
-            combined_text = ' '.join([det[1].strip() for det in sorted_results])
+            sorted_results = sorted(results, key=lambda x: min(p[1] for p in x[0]))  # type: ignore
+            combined_text = ' '.join([det[1].strip() for det in sorted_results]) # type: ignore
             
             print(f"Line number text: '{combined_text}' (Detections: {len(results)}, Vertical: {is_vertical})")
             return combined_text
@@ -207,28 +207,28 @@ class BoundingBoxTemplateRefiner:
                 return "No text detected"
             
             # Debugging: Highlight detected text regions
-            debug_img = region_bgr.copy()
-            for (bbox_coords, text, confidence) in results:
-                top_left = tuple(map(int, bbox_coords[0]))
-                bottom_right = tuple(map(int, bbox_coords[2]))
-                cv2.rectangle(debug_img, top_left, bottom_right, (0, 255, 0), 1)
-                cv2.putText(debug_img, f"{text} ({confidence:.2f})", 
-                            (top_left[0], top_left[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-            cv2.imwrite(f"debug_text_regions_{class_name}.png", debug_img)
-            print(f"Debug image saved: debug_text_regions_{class_name}.png")
+            # debug_img = region_bgr.copy()
+            # for (bbox_coords, text, confidence) in results:
+            #     top_left = tuple(map(int, bbox_coords[0]))
+            #     bottom_right = tuple(map(int, bbox_coords[2]))
+            #     cv2.rectangle(debug_img, top_left, bottom_right, (0, 255, 0), 1)
+            #     cv2.putText(debug_img, f"{text} ({confidence:.2f})", 
+            #                 (top_left[0], top_left[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            # cv2.imwrite(f"debug_text_regions_{class_name}.png", debug_img)
+            # print(f"Debug image saved: debug_text_regions_{class_name}.png")
 
             if len(results) >= 1:  # Relaxed to capture at least one line
                 # Sort all detections by y-coordinate (top to bottom)
-                sorted_results = sorted(results, key=lambda x: min(p[1] for p in x[0]))
+                sorted_results = sorted(results, key=lambda x: min(p[1] for p in x[0])) # type: ignore
                 
                 # Group text by vertical position (y-coordinate) to identify lines
                 lines = []
                 current_line = [sorted_results[0]]
                 for i in range(1, len(sorted_results)):
-                    prev_y = min(p[1] for p in sorted_results[i-1][0])
-                    curr_y = min(p[1] for p in sorted_results[i][0])
+                    prev_y = min(p[1] for p in sorted_results[i-1][0]) # type: ignore
+                    curr_y = min(p[1] for p in sorted_results[i][0]) # type: ignore
                     # If y-coordinates are close (within 20 pixels), group as same line
-                    if abs(curr_y - prev_y) < 20:
+                    if abs(curr_y - prev_y) < 20: # type: ignore
                         current_line.append(sorted_results[i])
                     else:
                         lines.append(current_line)
@@ -247,7 +247,7 @@ class BoundingBoxTemplateRefiner:
 
                 return f"{upper_text} {lower_text}"
 
-            return "No text detected"
+        return "No text detected"
 
     def refine_bbox(self, bbox: Tuple[int, int, int, int], class_name: str) -> Tuple[int, int, int, int]:
         """Refine bbox based on class type"""
@@ -290,7 +290,7 @@ class BoundingBoxTemplateRefiner:
         cv2.imwrite(output_path, color_img)
 
 def main():
-    image_path = 'test/test03.png'
+    image_path = 'test/test02.png'
     model_path = 'yolo_weights/best.pt'
     template_dir = 'matching_templates'
     output_path = 'predictions/output_refined.png'
