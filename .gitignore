@@ -170,3 +170,4 @@ sahi_slice/sliced/*
 .conda/
 predictions/*
 matching_templates/
+debug_*.png
