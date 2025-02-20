@@ -169,3 +169,4 @@ sahi_slice/data/*
 sahi_slice/sliced/*
 .conda/
 predictions/*
+matching_templates/
