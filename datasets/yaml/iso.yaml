@@ -1,0 +1,23 @@
+path: /content/iso
+train: images/train
+val: images/val
+names:
+  0: 45 elbow
+  1: 90 elbow
+  2: arrow
+  3: blind flange
+  4: cap
+  5: check valve
+  6: control valve
+  7: expander
+  8: flange
+  9: gate valve
+  10: instrument
+  11: instrument tag
+  12: north
+  13: pipe bend
+  14: pipe blend
+  15: reducer
+  16: slope
+  17: spectacle blind
+  18: tee branch

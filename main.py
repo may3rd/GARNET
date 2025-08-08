@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import Response
 
-from sahi import AutoDetectionModel
+from sahi import AutoDetectionModel, DetectionModel
 from sahi.predict import get_sliced_prediction
 from sahi.utils.cv import crop_object_predictions
 
@@ -28,23 +28,25 @@ import garnet.Settings as Settings
 import yaml
 
 # Configure logging
+log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'garnet.log')
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('garnet.log'),
+        logging.FileHandler(log_file, mode='a', encoding='utf-8'),
         logging.StreamHandler()
-    ]
+    ],
+    force=True
 )
 
 logger = logging.getLogger(__name__)
 
 # Test logging
-logger.info("Application started")
-logger.debug("Debug message")
-logger.warning("Warning message")
-logger.error("Error message")
-logger.critical("Critical message")
+# logger.info("Application started")
+# logger.debug("Debug message")
+# logger.warning("Warning message")
+# logger.error("Error message")
+# logger.critical("Critical message")
 
 # Create Settings object
 settings = Settings.Settings()
@@ -87,6 +89,9 @@ def list_config_files() -> list:
     logger.log(logging.INFO, f"Found {len(config_files)} config files.")
     return config_files
 
+logger.log(logging.INFO, f"* *********************************** *")
+logger.log(logging.INFO, f"* Preloading weight files and configs *")
+logger.log(logging.INFO, f"* *********************************** *")
 
 MODEL_LIST = list_weight_files()
 CONFIG_FILE_LIST = list_config_files()
@@ -312,7 +317,7 @@ async def inferencing_image_and_text(
     
     # Set up the model to be used for inferencing.
     logger.log(logging.INFO, f"Setting up the model to be used for inferencing.")
-    detection_model = AutoDetectionModel.from_pretrained(
+    detection_model: DetectionModel = AutoDetectionModel.from_pretrained(
         model_type=selected_model,
         model_path=weight_file,
         config_path=config_file,
@@ -406,7 +411,7 @@ async def inferencing_image_and_text(
         coco["annotations"][i]["image_id"] = 0
     
     # Create category mapping for COCO annotation
-    for category_id, category_name in detection_model.category_mapping.items():
+    for category_id, category_name in detection_model.category_mapping.items(): # type: ignore
         category_info = {
             "id": category_id,
             "name": category_name,
@@ -454,7 +459,7 @@ async def inferencing_image_and_text(
     logger.log(logging.INFO, f"Found {len(prediction_list)} objects.")
 
     # Count the number of objects for each category
-    category_object_count = [0 for i in range(len(list(detection_model.category_mapping.values())))]
+    category_object_count = [0 for i in range(len(list(detection_model.category_mapping.values())))] # type: ignore
     category_names = {}
     # Loop through prediction list and extract data for HTML table
     # Extarct bboxes from prediction result
@@ -482,7 +487,7 @@ async def inferencing_image_and_text(
             "Top": math.floor(y_min),
             "Width": math.ceil(width),
             "Height": math.ceil(height),
-            "Score": round(prediction.score.value, 3),
+            "Score": round(float(prediction.score.value), 3),
             "Text": f"{object_category} - no. {str(category_object_count[object_category_id] + 1)}",
         })
 
@@ -498,7 +503,7 @@ async def inferencing_image_and_text(
     logger.log(logging.INFO, f"Number of objects found for each category.")
     for i in range(len(category_object_count)):
         if category_object_count[i] > 0:
-            logger.log(logging.INFO, f"Category {i}: {detection_model.category_mapping[str(i)]} - {category_object_count[i]}")
+            logger.log(logging.INFO, f"Category {i}: {detection_model.category_mapping[str(i)]} - {category_object_count[i]}") # type: ignore
     
     if text_OCR:
         # Extract the text from prediciton
@@ -535,7 +540,7 @@ async def inferencing_image_and_text(
     # save category id and name for create checkbox table
     category_ids_list = list(category_ids)
     category_ids_list.sort()
-    category_mapping = list(detection_model.category_mapping.values())
+    category_mapping = list(detection_model.category_mapping.values()) # type: ignore
     category_id_found = [item["CategoryID"] for item in table_data]
 
     checkboxes = []
@@ -574,6 +579,8 @@ async def inferencing_image_and_text(
     )
 
 if __name__ == "__main__":
-    logger.log(logging.INFO, f"Starting GARNET.")
+    logger.log(logging.INFO, f"* *********************************** *")
+    logger.log(logging.INFO, f"*           Starting GARNET           *")
+    logger.log(logging.INFO, f"* *********************************** *")
     uvicorn.run("main:app", reload=True)
     

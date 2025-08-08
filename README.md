@@ -3,9 +3,10 @@
 **G**CME **A**I-**R**ecognition **N**etwork for **E**ngineering **T**echnology  
 _Precision in Every Connection_
 
-[![YOLOv8](https://img.shields.io/badge/YOLOv8-💻-brightgreen)](https://ultralytics.com/yolov8)
+[![YOLOv11](https://img.shields.io/badge/YOLOv11-💻-brightgreen)](https://github.com/ultralytics/ultralytics)
 [![OpenCV](https://img.shields.io/badge/OpenCV-🖼️-orange)](https://opencv.org/)
 [![NetworkX](https://img.shields.io/badge/NetworkX-📊-blue)](https://networkx.org/)
+[![EasyOCR](https://img.shields.io/badge/EasyOCR-🔤-yellow)](https://github.com/JaidedAI/EasyOCR)
 
 GARNET is an AI-powered tool designed to **automate symbol detection, classification, and connectivity analysis** in Piping and Instrumentation Diagrams (P&IDs). Built for engineers and maintenance teams, it combines state-of-the-art object detection (YOLOv8) with graph-based analytics to transform P&ID workflows.
 
@@ -94,14 +95,55 @@ predict_images(
 
 ---
 
-### 3. **Todo: Graph-Based Connectivity Analysis** _(Coming Soon!)_
+### 3. **Pipeline: End-to-End P&ID Digitization and Connectivity Analysis**
 
--   **Feature**: Automatically generate connectivity graphs from P&IDs.
--   **Planned Workflow**:
-    1. Detect symbols and pipelines.
-    2. Build a graph network using NetworkX.
-    3. Analyze critical paths, cycles, and dependencies.
-    4. Export graphs as PNG/PDF or integrate with CAD tools.
+Based on our reference methodology, the following pipeline will be implemented:
+
+1. **Preprocessing**
+   - Load and normalize the P&ID image.
+   - Optional: Denoising, binarization, and removal of scanning artifacts.
+  
+2. **Object Detection**
+   - Detect P&ID symbols using YOLOv11/YOLOv8.
+   - Classes include valves, pumps, tanks, instruments, and custom symbols.
+   - Export detections as bounding boxes (YOLO or COCO format).
+
+3. **Text Recognition**
+   - Use EasyOCR or PaddleOCR for text extraction (supports horizontal and vertical text).
+   - Merge OCR results from multiple rotations.
+   - Output text annotations (JSON).
+
+4. **Line Extraction**
+   - Remove detected symbols and text areas from the image to isolate pipelines.
+   - Apply morphological operations to extract lines (handles 90° turns and intersections).
+   - Merge fragmented line segments.
+
+5. **Line-Symbol Connection**
+   - Detect intersection points between line segments and symbol bounding boxes.
+   - Assign connectivity relationships between symbols and lines.
+
+6. **Graph Construction**
+   - Convert connected symbols and pipelines into a NetworkX graph.
+   - Nodes = symbols (with attributes like tag, type).
+   - Edges = pipelines (with attributes like length, type).
+
+7. **Graph Analysis**
+   - Perform connectivity analysis: critical paths, loops, flow direction inference.
+   - Detect isolated components or redundant loops.
+
+8. **DEXPI Export**
+   - Convert the annotated P&ID into DEXPI-compliant XML.
+   - Include geometry, symbol metadata, and connectivity.
+
+9. **Visualization and Reporting**
+   - Overlay detected objects, text, and pipelines on the original P&ID.
+   - Export results as PNG/PDF/JSON.
+   - Provide interactive graph visualization (future feature).
+
+
+**Note:** This pipeline is designed to be modular, so each step can be run independently or as part of the full digitization workflow.
+
+*Reference:* Adapted from "End-to-End Digitization of Image Format Piping and Instrumentation Diagrams" (2024).
 
 ---
 
@@ -152,6 +194,15 @@ names: ["valve", "gate_valve", "globe_valve", "check_valve", "pump", "tank"]
 | ![Detected Symbols](assets/detection_example.jpg) | ![Graph Visualization](assets/graph_example.png) |
 
 _Example output: Symbol counts and connectivity graph for a P&ID._
+
+---
+
+## 📈 Future Outcomes
+
+Additional planned outcomes from the GARNET project include:
+
+-   **MTO for Valves**: Automated generation of material take-off lists for all detected valve types, including specifications and quantities.
+-   **Line List**: Extraction and tabulation of pipeline data, including line tags, sizes, service, and connected equipment.
 
 ---
 

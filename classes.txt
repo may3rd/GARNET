@@ -1,0 +1,19 @@
+45 elbow
+90 elbow
+arrow
+blind flange
+cap
+check valve
+control valve
+expander
+flange
+gate valve
+instrument
+instrument tag
+north
+pipe bend
+pipe blend
+reducer
+slope
+spectacle blind
+tee branch

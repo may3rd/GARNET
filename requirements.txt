@@ -10,7 +10,6 @@ torchvision
 ultralytics
 requests
 tqdm
-tensorflow
 uvicorn
 clearml
 sahi
@@ -18,3 +17,4 @@ EasyOCR
 onnx
 onnxruntime
 openpyxl
+fiftyone

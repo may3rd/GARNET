@@ -167,5 +167,7 @@ PTTEP/
 sahi_slice/data/*
 sahi_slice/sliced/*
 .conda/
+.qodo/
 predictions/*
-debug_*.png
+datasets/iso*
+temp/

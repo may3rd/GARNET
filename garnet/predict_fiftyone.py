@@ -8,7 +8,7 @@ from sahi.predict import get_sliced_prediction
 from sahi.utils.cv import visualize_object_predictions
 import cv2
 import numpy as np
-import Settings
+import garnet.Settings as Settings
 import easyocr
 from PIL import Image
 
