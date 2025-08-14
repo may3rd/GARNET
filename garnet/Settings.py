@@ -10,7 +10,6 @@ class Settings:
     TEXT_PATH = os.path.join(OUTPUT_PATH, "text detected")
     MODEL_PATH = "yolo_weights"
     MODEL_TYPES = [
-        {"name": 'yolov8onnx', "value": 'yolov8onnx'},
         {"name": 'ultralytics', "value": 'ultralytics'},
         ]
     SYMBOL_WITH_TEXT = [

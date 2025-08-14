@@ -1062,7 +1062,7 @@ $(document).ready(function () {
 
         modelSelected.on(`change`, function () {
             const selectedModel = $(this).val();
-            updateWeightFileOptions(selectedModel);
+            //updateWeightFileOptions(selectedModel);
         });
 
         function updateWeightFileOptions(selectedModel) {
@@ -1099,7 +1099,7 @@ $(document).ready(function () {
             }
         }
         
-        updateWeightFileOptions(modelSelected.val());
+        //updateWeightFileOptions(modelSelected.val());
     } catch (error) {
         console.error('Error during initial setup:', error);
     }

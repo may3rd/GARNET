@@ -9,7 +9,7 @@ from sahi import AutoDetectionModel, DetectionModel
 from sahi.predict import get_sliced_prediction
 from sahi.utils.cv import crop_object_predictions
 
-import onnxruntime as ort
+# import onnxruntime as ort
 import torch
 import easyocr
 
@@ -253,16 +253,16 @@ async def main(request: Request):
 async def inferencing_image_and_text(
         request: Request,
         file_input: UploadFile = File(...),
-        selected_model: str = Form("yolov8"),
+        selected_model: str = Form("ultralytics"),
         weight_file: str = Form(os.path.join(settings.MODEL_PATH, "yolov8_640_20231022.pt")),
-        config_file: str = Form("datasets/yaml/data.yaml"),
+        # config_file: str = Form("datasets/yaml/data.yaml"),
         conf_th: float = Form(0.8),
         image_size: int = Form(640),
         text_OCR: bool = Form(False),
 ):
     logger.log(logging.INFO, f"Start inferencing image and text with selected model {selected_model}.")
     logger.log(logging.INFO, f"Weight file is {weight_file}.")
-    logger.log(logging.INFO, f"Config file is {config_file}.")
+    # logger.log(logging.INFO, f"Config file is {config_file}.")
     logger.log(logging.INFO, f"Confidence threshold is {conf_th}.")
     logger.log(logging.INFO, f"Image size is {image_size}.")
     logger.log(logging.INFO, f"Text OCR is {text_OCR}.")
@@ -289,41 +289,40 @@ async def inferencing_image_and_text(
     print("start detecting by using", selected_model, "model with conf =", conf_th)
     print("weight_path is", weight_file)
 
-    # Set category_mapping for ONNX model, required by updated version of SAHI
-    logger.log(logging.INFO, f"Setting category mapping if the model is ONNX.")
-    if "yolov8onnx" == selected_model:
-        import onnx
-        import ast
-        model = onnx.load(weight_file)
-        props = { p.key: p.value for p in model.metadata_props }
-        names = ast.literal_eval(props['names'])
-        category_mapping = { str(key): value for key, value in names.items() }
-    else:
-        category_mapping = None
+    # Not required in SAHI v.0.11.32
+    # # Set category_mapping for ONNX model, required by updated version of SAHI
+    # logger.log(logging.INFO, f"Setting category mapping if the model is ONNX.")
+    # if "yolov8onnx" == selected_model:
+    #     import onnx
+    #     import ast
+    #     model = onnx.load(weight_file)
+    #     props = { p.key: p.value for p in model.metadata_props }
+    #     names = ast.literal_eval(props['names'])
+    #     category_mapping = { str(key): value for key, value in names.items() }
+    # else:
+    #     category_mapping = None
     
-    # Create session options
-    sess_options = ort.SessionOptions()
-    providers = ['CPUExecutionProvider']  # Default to CPU
+    # # Create session options
+    # sess_options = ort.SessionOptions()
+    # providers = ['CPUExecutionProvider']  # Default to CPU
 
-    # Check if MPS is available and set the provider accordingly
-    logger.log(logging.INFO, f"Checking if MPS is available.")
-    if is_mps_available():
-        providers = ['CoreMLExecutionProvider']
-        device = 'mps'
-    else:
-        device = 'cpu'
+    # # Check if MPS is available and set the provider accordingly
+    # logger.log(logging.INFO, f"Checking if MPS is available.")
+    # if is_mps_available():
+    #     providers = ['CoreMLExecutionProvider']
+    #     device = 'mps'
+    # else:
+    #     device = 'cpu'
 
-    logger.log(logging.INFO, f"The model will be run on {device}.")
+    # logger.log(logging.INFO, f"The model will be run on {device}.")
     
     # Set up the model to be used for inferencing.
     logger.log(logging.INFO, f"Setting up the model to be used for inferencing.")
     detection_model: DetectionModel = AutoDetectionModel.from_pretrained(
         model_type=selected_model,
         model_path=weight_file,
-        config_path=config_file,
         confidence_threshold=conf_th,
-        category_mapping=category_mapping,
-        device=device,
+        # device=device,
     )
     # Calculate the overlap ratio
     logger.log(logging.INFO, f"Calculating the overlap ratio.")
