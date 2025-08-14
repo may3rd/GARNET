@@ -171,3 +171,5 @@ sahi_slice/sliced/*
 predictions/*
 datasets/iso*
 temp/
+test/
+*.pt
