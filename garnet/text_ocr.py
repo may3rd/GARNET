@@ -3,11 +3,11 @@ import os
 import json
 import warnings
 from contextlib import redirect_stdout, redirect_stderr
+from typing import List, Dict, Any
 
 import cv2
 import numpy as np
 import easyocr
-
 
 # =========================
 # Utilities
@@ -107,34 +107,106 @@ def remove_long_lines_bgr(rgb_img, h_kernel=35, v_kernel=35):
     return inpainted
 
 
-def export_results_to_json(items, out_path, image_size, image_file_name):
-    """Write minimal JSON with image info + annotations [{bbox, text, score}]."""
+# def export_results_to_json(items, out_path, image_size, image_file_name):
+#     """Write minimal JSON with image info + annotations [{bbox, text, score}]."""
+#     if out_path:
+#         os.makedirs(os.path.dirname(out_path), exist_ok=True)
+#     data = {
+#         "image": {
+#             "file_name": os.path.basename(image_file_name),
+#             "width": int(image_size[0]),
+#             "height": int(image_size[1]),
+#         },
+#         "annotations": [],
+#     }
+#     for item in items:
+#         data["annotations"].append(
+#             {"bbox": [float(x) for x in item["bbox"]], "text": item["text"], "score": float(item["score"])}
+#         )
+#     with open(out_path, "w", encoding="utf-8") as f:
+#         json.dump(data, f, ensure_ascii=False, indent=2)
+#     return out_path
+
+
+def export_results_to_coco_json(items, out_path, image_size, image_file_name):
+    """
+    Exports detection results to a JSON file in MS COCO object detection format.
+    """
     if out_path:
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    data = {
-        "image": {
-            "file_name": os.path.basename(image_file_name),
-            "width": int(image_size[0]),
-            "height": int(image_size[1]),
-        },
+
+    # 1. Root structure
+    coco_output = {
+        "images": [],
         "annotations": [],
+        "categories": []
     }
-    for item in items:
-        data["annotations"].append(
-            {"bbox": [float(x) for x in item["bbox"]], "text": item["text"], "score": float(item["score"])}
-        )
+
+    # 2. Image entry
+    image_id = 1
+    image_info = {
+        "id": image_id,
+        "file_name": os.path.basename(image_file_name),
+        "width": int(image_size[0]),
+        "height": int(image_size[1]),
+    }
+    coco_output["images"].append(image_info)
+
+    # 3. Category entry (we only have one category: 'text')
+    category_id = 1
+    category_info = {
+        "id": category_id,
+        "name": "text",
+        "supercategory": "text",
+    }
+    coco_output["categories"].append(category_info)
+
+    # 4. Annotation entries
+    for i, item in enumerate(items):
+        x1, y1, x2, y2 = item["bbox"]
+        
+        # COCO format is [x_min, y_min, width, height]
+        coco_bbox = [float(x1), float(y1), float(x2 - x1), float(y2 - y1)]
+        area = coco_bbox[2] * coco_bbox[3]
+
+        annotation_info = {
+            "id": i + 1,  # Unique ID for each annotation
+            "image_id": image_id,
+            "category_id": category_id,
+            "bbox": coco_bbox,
+            "area": float(area),
+            "iscrowd": 0,
+            # Optional: custom fields for your own use
+            "attributes": {
+                "text": item["text"],
+                "score": item["score"]
+            }
+        }
+        coco_output["annotations"].append(annotation_info)
+
     with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+        json.dump(coco_output, f, ensure_ascii=False, indent=2)
+    
     return out_path
 
 
 # =========================
 # Public API
 # =========================
+def init_reader(languages=['en'], use_gpu=False):
+    # Initialize the reader ONCE
+    print("Initializing EasyOCR Reader...")
+    with open(os.devnull, "w") as devnull:
+        with redirect_stdout(devnull), redirect_stderr(devnull):
+            main_reader = easyocr.Reader(lang_list=languages, gpu=use_gpu)
+    print("Reader initialized.")
+    
+    return main_reader
+
+
 def text_extract_pid(
+    reader,
     img_path,
-    # runtime
-    use_gpu=False,
     # OCR tuning
     upscale_factor=1.0,
     allowlist="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_/().,\"'×%:° ",
@@ -158,7 +230,7 @@ def text_extract_pid(
     fill_color=(0, 255, 255),
     export_json=False,
     json_out=None,
-):
+) -> List[Dict[str, Any]]:
     """
     Run EasyOCR on a full P&ID image (with vertical-text handling), merge results, and optionally
     export to JSON and/or visualize overlays.
@@ -166,11 +238,6 @@ def text_extract_pid(
     Returns:
         merged_items: list of dicts { 'quad': [[x,y]...], 'bbox': [x1,y1,x2,y2], 'text': str, 'score': float }
     """
-    # ---- init reader quietly ----
-    with open(os.devnull, "w") as devnull:
-        with redirect_stdout(devnull), redirect_stderr(devnull):
-            reader = easyocr.Reader(["en"], gpu=use_gpu)
-
     # ---- load image ----
     img = cv2.imread(img_path)
     if img is None:
@@ -249,7 +316,7 @@ def text_extract_pid(
 
     # ---- optional JSON export ----
     if export_json and json_out:
-        export_results_to_json(merged, json_out, (w0, h0), img_path)
+        export_results_to_coco_json(merged, json_out, (w0, h0), img_path)
 
     # ---- optional visualization ----
     if visualize and overlay_out:
@@ -260,10 +327,13 @@ def text_extract_pid(
 
 # Optional CLI entry for quick testing:
 if __name__ == "__main__":
+    # Initialize Reader
+    reader = init_reader(use_gpu=False)
+
     # Example usage; adjust paths as needed
     results = text_extract_pid(
+        reader=reader,
         img_path="test/!test01.png",
-        use_gpu=False,
         upscale_factor=1.0,
         visualize=True,
         overlay_out="output/ocr_overlay.png",
@@ -271,3 +341,4 @@ if __name__ == "__main__":
         json_out="output/ocr_results.json",
     )
     print(f"Detections: {len(results)}")
+    

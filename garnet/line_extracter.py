@@ -15,7 +15,7 @@ from tqdm.auto import tqdm
 
 # Optional: OpenCV ximgproc thinning if available
 try:
-    from cv2 import ximgproc as cv_ximgproc
+    from cv2 import ximgproc as cv_ximgproc # pyright: ignore[reportAttributeAccessIssue]
 except Exception:
     cv_ximgproc = None
 
@@ -119,9 +119,101 @@ def read_gray(image_path: str) -> np.ndarray:
         raise FileNotFoundError(f"Cannot read {image_path}")
     return img
 
+def merge_collinear_segments(segments: List[Segment], cfg: Dict) -> List[Segment]:
+    """Post-process to merge collinear horizontal and vertical line segments."""
+    angle_tol_deg = cfg.get('merge_angle_tol', 2.0)
+    gap_tol_px = cfg.get('merge_gap_tol', 15)
+    y_tol_px = cfg.get('merge_y_tol', 5)  # y-tolerance for horizontal lines
+    x_tol_px = cfg.get('merge_x_tol', 5)  # x-tolerance for vertical lines
+
+    horizontals, verticals, others = [], [], []
+
+    # 1. Classify segments
+    for seg in segments:
+        p1 = seg.start
+        p2 = seg.end
+        dx, dy = abs(p2[0] - p1[0]), abs(p2[1] - p1[1])
+        if dx < 1 and dy < 1: continue # skip zero-length segments
+
+        angle = math.degrees(math.atan2(dy, dx))
+        if angle < angle_tol_deg:
+            horizontals.append(seg)
+        elif angle > (90 - angle_tol_deg):
+            verticals.append(seg)
+        else:
+            others.append(seg)
+
+    # 2. Merge horizontal segments
+    horizontals.sort(key=lambda s: (min(s.start[1], s.end[1]), min(s.start[0], s.end[0])))
+    merged_horz = []
+    if horizontals:
+        current_h = horizontals[0]
+        for next_h in horizontals[1:]:
+            cy_min = min(current_h.start[1], current_h.end[1])
+            ny_min = min(next_h.start[1], next_h.end[1])
+
+            cx_max = max(current_h.start[0], current_h.end[0])
+            nx_min = min(next_h.start[0], next_h.end[0])
+
+            # Check for alignment and proximity
+            if abs(cy_min - ny_min) < y_tol_px and (0 < (nx_min - cx_max) < gap_tol_px):
+                # Merge: create a new line from the outer points
+                all_x = [current_h.start[0], current_h.end[0], next_h.start[0], next_h.end[0]]
+                all_y = [current_h.start[1], current_h.end[1], next_h.start[1], next_h.end[1]]
+                new_x1, new_x2 = min(all_x), max(all_x)
+                new_y = int(np.mean(all_y)) # Average the y-coordinates
+                
+                new_poly = np.array([[new_x1, new_y], [new_x2, new_y]], dtype=np.int32)
+                current_h = Segment(id=-1, polyline=new_poly, start=(new_x1, new_y), end=(new_x2, new_y),
+                                    bbox=bbox_of_polyline(new_poly), length_px=length_of_polyline(new_poly),
+                                    neighbors=[])
+            else:
+                merged_horz.append(current_h)
+                current_h = next_h
+        merged_horz.append(current_h)
+    
+    # 3. Merge vertical segments
+    verticals.sort(key=lambda s: (min(s.start[0], s.end[0]), min(s.start[1], s.end[1])))
+    merged_vert = []
+    if verticals:
+        current_v = verticals[0]
+        for next_v in verticals[1:]:
+            cx_min = min(current_v.start[0], current_v.end[0])
+            nx_min = min(next_v.start[0], next_v.end[0])
+            
+            cy_max = max(current_v.start[1], current_v.end[1])
+            ny_min = min(next_v.start[1], next_v.end[1])
+
+            if abs(cx_min - nx_min) < x_tol_px and (0 < (ny_min - cy_max) < gap_tol_px):
+                all_y = [current_v.start[1], current_v.end[1], next_v.start[1], next_v.end[1]]
+                all_x = [current_v.start[0], current_v.end[0], next_v.start[0], next_v.end[0]]
+                new_y1, new_y2 = min(all_y), max(all_y)
+                new_x = int(np.mean(all_x))
+                
+                new_poly = np.array([[new_x, new_y1], [new_x, new_y2]], dtype=np.int32)
+                current_v = Segment(id=-1, polyline=new_poly, start=(new_x, new_y1), end=(new_x, new_y2),
+                                    bbox=bbox_of_polyline(new_poly), length_px=length_of_polyline(new_poly),
+                                    neighbors=[])
+            else:
+                merged_vert.append(current_v)
+                current_v = next_v
+        merged_vert.append(current_v)
+        
+    # 4. Recombine and re-index
+    final_segments = merged_horz + merged_vert + others
+    for i, seg in enumerate(final_segments):
+        seg.id = i
+        
+    return final_segments
+
 # ------------------------------
 # B. Binarization and skeletonization
 # ------------------------------
+
+def _fill_line_gaps(bin_img, kernel_size=5):
+    """Fills gaps in lines using a morphological closing operation."""
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_size, kernel_size))
+    return cv2.morphologyEx(bin_img, cv2.MORPH_CLOSE, kernel, iterations=1)
 
 def binarize(img_gray: np.ndarray,
              use_adaptive: bool = False,
@@ -136,6 +228,12 @@ def binarize(img_gray: np.ndarray,
                                         block_size, C)
     else:
         _, bin_img = cv2.threshold(eq, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    
+    
+    # --- ADD THIS LINE ---
+    # Fill gaps from thick lines that became parallel
+    bin_img = _fill_line_gaps(bin_img, kernel_size=7) # You can tune the kernel_size
+
     # Despeckle: remove tiny CCs
     nb_components, labels, stats, _ = cv2.connectedComponentsWithStats(bin_img, connectivity=8)
     sizes = stats[:, cv2.CC_STAT_AREA]
@@ -223,7 +321,7 @@ def build_symbol_text_mask(H: int, W: int, boxes: List[BBox],
     for b in boxes:
         x0 = max(0, b.x - inflate); y0 = max(0, b.y - inflate)
         x1 = min(W, b.x + b.w + inflate); y1 = min(H, b.y + b.h + inflate)
-        cv2.rectangle(mask, (x0, y0), (x1, y1), 255, thickness=-1)
+        cv2.rectangle(mask, (x0, y0), (x1, y1), 255, thickness=-1) # type: ignore
         
     if erode_ksize > 0 and erode_iter > 0:
         k = cv2.getStructuringElement(cv2.MORPH_RECT, (erode_ksize, erode_ksize))
@@ -357,12 +455,12 @@ def dedup_near_parallel(line_geoms, tol=1.5, overlap_ratio=0.8):
 def verify_and_trace_diagonal(skel: np.ndarray,
                               line: Tuple[int,int,int,int],
                               band: int = 1,
-                              min_overlap_ratio: float = 0.7) -> Tuple[np.ndarray, Tuple[int,int], Tuple[int,int]] or None:
+                              min_overlap_ratio: float = 0.7) -> Tuple[np.ndarray, Tuple[int,int], Tuple[int,int]] or None: # type: ignore
     x1, y1, x2, y2 = line
     # draw candidate with a thin line and test overlap within a band
     H, W = skel.shape
     cand = np.zeros_like(skel)
-    cv2.line(cand, (x1, y1), (x2, y2), 255, thickness=1)
+    cv2.line(cand, (x1, y1), (x2, y2), 255, thickness=1) # type: ignore
     # Dilate candidate to create band
     if band > 0:
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2*band+1, 2*band+1))
@@ -419,7 +517,7 @@ def walk_edges_splitted(G: nx.Graph, progress: bool = False) -> List[List[Tuple[
     visited_edges = set()
 
     def is_junction(n):
-        return G.degree[n] != 2
+        return G.degree[n] != 2 # type: ignore
 
     it_nodes = tqdm(G.nodes, desc="Walk edges", leave=False) if progress else G.nodes
     for n in it_nodes:
@@ -444,7 +542,7 @@ def walk_edges_splitted(G: nx.Graph, progress: bool = False) -> List[List[Tuple[
                     path.append(nxt)
                     visited_edges.add(e)
                     prev, cur = cur, nxt
-                    if G.degree[cur] != 2:
+                    if G.degree[cur] != 2: # type: ignore
                         break
                 segments.append(path)
     return segments
@@ -474,7 +572,7 @@ def length_of_polyline(pts: np.ndarray) -> float:
 
 def extract_lines(img_gray: np.ndarray,
                   boxes: List[BBox],
-                  cfg: Dict = None) -> List[Segment]:
+                  cfg: Dict = None) -> Tuple[List[Segment], np.ndarray, np.ndarray, np.ndarray]: # type: ignore
     if cfg is None:
         cfg = {}
     progress = cfg.get('progress', True)
@@ -537,7 +635,7 @@ def extract_lines(img_gray: np.ndarray,
         if merged.geom_type == 'LineString':
             line_geoms_merged = [merged]
         else:
-            line_geoms_merged = list(merged.geoms)
+            line_geoms_merged = list(merged.geoms) # type: ignore
     else:
         line_geoms_merged = []
 
@@ -578,6 +676,8 @@ def extract_lines(img_gray: np.ndarray,
         ))
         seg_id += 1
 
+    segments = merge_collinear_segments(segments, cfg)
+    
     return segments, skel_masked, bin_img_masked, mask
 
 # Save segments to JSON (convert numpy types to native Python)
@@ -626,10 +726,15 @@ if __name__ == "__main__":
         'mask_erode_ksize': 3,
         'mask_erode_iter': 1,
         'hough_max_lines': 200,
+        # --- ADD THESE NEW PARAMETERS FOR MERGING ---
+        'merge_angle_tol': 2.0,  # Angle (in degrees) to classify a line as H or V
+        'merge_gap_tol': 15,     # Max gap (in pixels) between segments to merge
+        'merge_y_tol': 5,        # Max y-difference for merging horizontal lines
+        'merge_x_tol': 5,        # Max x-difference for merging vertical lines
     }
 
     # Load OCR text boxes (mask out text areas as well)
-    ocr_boxes = load_ocr(ocr_path)
+    _, _, _, ocr_boxes = load_coco(ocr_path)
     boxes_all = boxes + ocr_boxes
 
     segments, skel_masked, bin_img, mask = extract_lines(img_gray, boxes_all, cfg)
@@ -641,6 +746,15 @@ if __name__ == "__main__":
         pts = seg.polyline.reshape(-1,1,2)
         cv2.polylines(vis, [pts], isClosed=False, color=(0,0,255), thickness=2)
 
+        # --- ADD THESE LINES FOR DEBUGGING ---
+        # Draw a filled circle at the start point (green)
+        start_point = (int(seg.start[0]), int(seg.start[1]))
+        cv2.circle(vis, start_point, radius=5, color=(0, 255, 0), thickness=-1)
+
+        # Draw a filled circle at the end point (blue)
+        end_point = (int(seg.end[0]), int(seg.end[1]))
+        cv2.circle(vis, end_point, radius=5, color=(255, 0, 0), thickness=-1)
+        
     # Save debug images
     cv2.imwrite("output/debug_binary.png", bin_img)
     cv2.imwrite("output/debug_skeleton_masked.png", skel_masked)
@@ -659,5 +773,5 @@ if __name__ == "__main__":
         }
         out.append(rec)
 
-    with open("extracted_segments.json", "w") as f:
+    with open("output/extracted_segments.json", "w") as f:
         json.dump(out, f, indent=2, default=to_native)
