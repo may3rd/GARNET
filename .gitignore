@@ -173,3 +173,10 @@ datasets/iso*
 temp/
 test/*
 *.pt
+*.png
+*.json
+garnet/setpoint*
+output/
+out/
+DeepLSD/
+SOLD2*/

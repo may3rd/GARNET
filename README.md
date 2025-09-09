@@ -145,6 +145,8 @@ Based on our reference methodology, the following pipeline will be implemented:
 
 *Reference:* Adapted from "End-to-End Digitization of Image Format Piping and Instrumentation Diagrams" (2024).
 
+Note: A staged, runnable pipeline with CLI is available in `garnet/pid_extractor.py`. See `garnet/README_pid_pipeline.md` for usage, stages, tuning knobs, and output artifacts.
+
 ---
 
 ### 4. **Model Training (Optional)**

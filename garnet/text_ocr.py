@@ -333,12 +333,12 @@ if __name__ == "__main__":
     # Example usage; adjust paths as needed
     results = text_extract_pid(
         reader=reader,
-        img_path="test/!test01.png",
+        img_path="/Users/maetee/Downloads/!test01.png",
         upscale_factor=1.0,
         visualize=True,
-        overlay_out="output/ocr_overlay.png",
+        overlay_out="/Users/maetee/Downloads/ocr_overlay.png",
         export_json=True,
-        json_out="output/ocr_results.json",
+        json_out="/Users/maetee/Downloads/ocr_results.json",
     )
     print(f"Detections: {len(results)}")
     

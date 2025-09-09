@@ -48,6 +48,7 @@ except Exception:  # pragma: no cover
     ImageDraw = None
 
 from garnet.dexpi_exporter import export_dexpi
+from garnet.utils.deeplsd_utils import define_torch_device, load_deeplsd_model, detect_lines, draw_and_save_lines, export_lines_to_json, combine_close_lines
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -828,15 +829,6 @@ class PIDPipeline:
 
         self.skeleton = skel
         self._save_img("stage4_skeleton", skel * 255)
-        # Also save a gray-background overlay of the skeleton for easier viewing
-        try:
-            if self.gray is not None:
-                gray_bg = self.gray.copy()
-                # draw skeleton as dark lines on gray background
-                gray_bg[skel > 0] = 0
-                self._save_img("stage4_skeleton_gray", gray_bg)
-        except Exception:
-            pass
         logger.info("Stage 4 done in %.2fs", time.time() - t0)
 
     # ---------- Stage 5: Graph construction ----------
@@ -1521,6 +1513,14 @@ class PIDPipeline:
                 for e in self.edges:
                     x1, y1 = map(int, e.path[0]); x2, y2 = map(int, e.path[-1])
                     cv2.line(img_vis, (x1, y1), (x2, y2), BLUE, 2)
+                
+                # Draw DeepLSD lines
+                if hasattr(self, 'combined_deeplsd_lines') and self.combined_deeplsd_lines:
+                    for line in self.combined_deeplsd_lines:
+                        x1, y1 = map(int, line[0])
+                        x2, y2 = map(int, line[1])
+                        cv2.line(img_vis, (x1, y1), (x2, y2), GREEN_COLOR, 1) # Green color for DeepLSD lines
+
                 self._save_img("stage5_step4_boxes_on_image", img_vis)
             elif Image is not None and self.image_bgr is not None:
                 rgb = self.image_bgr[:, :, ::-1]
@@ -1529,7 +1529,7 @@ class PIDPipeline:
                 for s in self.symbols:
                     x, y, w2, h2 = map(int, s.bbox)
                     dr.rectangle([x, y, x + w2, y + h2], outline=(255,0,0), width=2)
-                # draw ports as small blue circles
+                # draw ports
                 try:
                     for n in self.nodes:
                         if n.type == NodeType.PORT:
@@ -1540,6 +1540,14 @@ class PIDPipeline:
                     for e in self.edges:
                         x1, y1 = map(int, e.path[0]); x2, y2 = map(int, e.path[-1])
                         dr.line([x1, y1, x2, y2], fill=(0,0,255), width=2)
+                    
+                    # Draw DeepLSD lines
+                    if hasattr(self, 'combined_deeplsd_lines') and self.combined_deeplsd_lines:
+                        for line in self.combined_deeplsd_lines:
+                            x1, y1 = map(int, line[0])
+                            x2, y2 = map(int, line[1])
+                            dr.line([x1, y1, x2, y2], fill=(0,255,0), width=1) # Green color for DeepLSD lines
+
                 except Exception:
                     pass
                 out = np.array(pil)[:, :, ::-1]
@@ -1552,10 +1560,37 @@ class PIDPipeline:
         if self.skeleton is None:
             raise RuntimeError("Run stage4_linework first")
 
+        # Invert stage4_skeleton.png and save it
+        skeleton_path = self.out_dir / "stage4_skeleton.png"
+        if cv2 is not None:
+            skel_img = cv2.imread(str(skeleton_path), cv2.IMREAD_GRAYSCALE)
+            if skel_img is not None:
+                inverted = cv2.bitwise_not(skel_img)
+                self._save_img("stage5_skeleton_inverted", inverted)
+        elif Image is not None:
+            try:
+                im = Image.open(skeleton_path).convert("L")
+                skel_array = np.array(im)
+                inverted = 255 - skel_array
+                self._save_img("stage5_skeleton_inverted", inverted)
+            except Exception:
+                pass
         # Initialize graph structures
         self.nodes = []
         self.edges = []
         self.graph.clear()
+
+        # DeepLSD Integration
+        logger.info("Running DeepLSD line detection...")
+        device = define_torch_device()
+        deeplsd_model, deeplsd_conf = load_deeplsd_model(device)
+        
+        if self.gray is None:
+            raise RuntimeError("Gray image is None; run stage2_preprocess first")
+        
+        _, detected_deeplsd_lines = detect_lines(deeplsd_model, inverted, device)
+        self.combined_deeplsd_lines = combine_close_lines(detected_deeplsd_lines.tolist())
+        logger.info(f"DeepLSD detected {len(detected_deeplsd_lines)} lines, combined into {len(self.combined_deeplsd_lines)} lines.")
 
         # Step 1: Initial overlay
         self._create_skeleton_overlay_with_boxes()

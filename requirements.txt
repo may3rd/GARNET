@@ -5,8 +5,8 @@ python-multipart
 fastapi
 pandas
 torch
-pyyaml
 torchvision
+pyyaml
 ultralytics
 requests
 tqdm
@@ -18,3 +18,23 @@ onnx
 onnxruntime
 openpyxl
 fiftyone
+scikit-image
+scikit-learn
+networkx
+matplotlib
+scipy
+brewer2mpl
+opencv-contrib-python
+tensorboard
+omegaconf
+future  # tensorboard dependency
+kornia
+cython
+shapely
+h5py
+flow_vis
+jupyter
+seaborn
+pytlsd
+paddlepaddle
+paddleocr
