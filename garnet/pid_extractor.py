@@ -30,6 +30,7 @@ from typing import Any, Dict, List, Optional, Tuple, Callable, Set
 import numpy as np
 import networkx as nx
 import pandas as pd
+from scipy.spatial import KDTree
 
 try:
     import cv2  # type: ignore
@@ -49,6 +50,7 @@ except Exception:  # pragma: no cover
 
 from garnet.dexpi_exporter import export_dexpi
 from garnet.utils.deeplsd_utils import define_torch_device, load_deeplsd_model, detect_lines, draw_and_save_lines, export_lines_to_json, combine_close_lines
+from garnet.connectivity_graph import ConnectivityEngine
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -75,6 +77,8 @@ class NodeType(Enum):
     ENDPOINT = "endpoint"
     OFFPAGE = "offpage"
     PORT = "port"
+    SYMBOL = "symbol" # Added
+    TEXT = "text"     # Added
     UNKNOWN = "unknown"
 
 
@@ -1385,44 +1389,6 @@ class PIDPipeline:
             ))
             return port_id
 
-        def _find_connection_hit_original(self, ppos: Tuple[float, float], R: int, canny_img: Optional[np.ndarray], bin_img: Optional[np.ndarray]) -> Tuple[Optional[Tuple[int, int]], str]:
-            """Find nearby connection in original image, preferring Canny then binary."""
-            cx, cy = int(round(ppos[0])), int(round(ppos[1]))
-            h_img, w_img = (canny_img.shape if canny_img is not None else (0, 0))
-            # 1) Canny
-            if canny_img is not None and 0 <= cx < w_img and 0 <= cy < h_img and canny_img[cy, cx] > 0:
-                return (cx, cy), "canny"
-            hit = self._ring_search_original(canny_img, cx, cy, R) if canny_img is not None else None
-            if hit is not None:
-                return hit, "canny"
-            # 2) Binary
-            if bin_img is not None:
-                hit = self._ring_search_original(bin_img, cx, cy, R)
-                if hit is not None:
-                    return hit, "binary"
-            return None, "none"
-
-        def _ring_search_original(self, img: Optional[np.ndarray], cx: int, cy: int, R: int) -> Optional[Tuple[int, int]]:
-            if img is None:
-                return None
-            h_img, w_img = img.shape
-            for r in range(0, int(R) + 1):
-                x0, x1 = max(0, cx - r), min(w_img - 1, cx + r)
-                y0, y1 = max(0, cy - r), min(h_img - 1, cy + r)
-                # rows
-                for x in range(x0, x1 + 1):
-                    if img[y0, x] > 0:
-                        return (x, y0)
-                    if img[y1, x] > 0:
-                        return (x, y1)
-                # cols
-                for y in range(y0, y1 + 1):
-                    if img[y, x0] > 0:
-                        return (x0, y)
-                    if img[y, x1] > 0:
-                        return (x1, y)
-            return None
-
         other_edges = 0
         # Prepare Canny on original gray if not present
         if canny_im is None and cv2 is not None and self.gray is not None:
@@ -1555,6 +1521,103 @@ class PIDPipeline:
         except Exception:
             pass
 
+    def _save_graph_overlay(self) -> None:
+        """Save overlay of the constructed graph on the original image."""
+        try:
+            if cv2 is not None and self.image_bgr is not None:
+                img_vis = self.image_bgr.copy()
+                
+                # Draw graph edges (lines)
+                for edge in self.edges:
+                    if edge.path:
+                        # Convert path to numpy array for polylines
+                        pts = np.array(edge.path, np.int32).reshape((-1, 1, 2))
+                        
+                        line_color = ORANGE_COLOR # Default color
+                        if edge.attributes.get("type") == "deeplsd_line":
+                            line_color = BLUE_COLOR # Blue for DeepLSD lines
+                        
+                        cv2.polylines(img_vis, [pts], False, line_color, 2)
+
+                # Draw object bounding boxes (symbols and text) in red, 1px
+                for s in getattr(self, 'symbols', []):
+                    try:
+                        x, y, w, h = map(int, s.bbox)
+                        cv2.rectangle(img_vis, (x, y), (x + w, y + h), RED_COLOR, 1)
+                    except Exception:
+                        pass
+                for t in getattr(self, 'texts', []):
+                    try:
+                        x, y, w, h = map(int, t.bbox)
+                        cv2.rectangle(img_vis, (x + 0, y + 0), (x + w, y + h), RED_COLOR, 1)
+                    except Exception:
+                        pass
+                
+                # Draw graph nodes (symbols, text, ports, endpoints, junctions)
+                for node in self.nodes:
+                    x, y = map(int, node.position)
+                    if node.type == NodeType.SYMBOL:
+                        cv2.circle(img_vis, (x, y), 8, RED_COLOR, -1) # Red for symbols
+                    elif node.type == NodeType.TEXT:
+                        cv2.circle(img_vis, (x, y), 6, YELLOW_COLOR, -1) # Yellow for text
+                    elif node.type == NodeType.PORT:
+                        cv2.circle(img_vis, (x, y), 4, BLUE_COLOR, -1) # Blue for ports
+                    elif node.type == NodeType.ENDPOINT:
+                        cv2.circle(img_vis, (x, y), 3, WHITE_COLOR, -1) # White for endpoints
+                    elif node.type == NodeType.JUNCTION:
+                        cv2.circle(img_vis, (x, y), 5, BLACK_COLOR, -1) # Black for junctions
+                
+                self._save_img("stage6_graph_overlay", img_vis)
+            elif Image is not None and self.image_bgr is not None:
+                rgb = self.image_bgr[:, :, ::-1]
+                pil = Image.fromarray(rgb)
+                dr = ImageDraw.Draw(pil)
+                
+                # Draw graph edges (lines)
+                for edge in self.edges:
+                    if edge.path:
+                        dr.line(edge.path, fill=ORANGE_COLOR, width=2)
+
+                # Draw object bounding boxes (symbols and text) in red, 1px
+                try:
+                    for s in getattr(self, 'symbols', []):
+                        x, y, w, h = map(int, s.bbox)
+                        dr.rectangle([x, y, x + w, y + h], outline=(255, 0, 0), width=1)
+                    for t in getattr(self, 'texts', []):
+                        x, y, w, h = map(int, t.bbox)
+                        dr.rectangle([x, y, x + w, y + h], outline=(255, 0, 0), width=1)
+                except Exception:
+                    pass
+                
+                # Draw graph nodes
+                for node in self.nodes:
+                    x, y = map(int, node.position)
+                    r = 0
+                    color = (0,0,0)
+                    if node.type == NodeType.SYMBOL:
+                        r = 8
+                        color = RED_COLOR
+                    elif node.type == NodeType.TEXT:
+                        r = 6
+                        color = YELLOW_COLOR
+                    elif node.type == NodeType.PORT:
+                        r = 4
+                        color = BLUE_COLOR
+                    elif node.type == NodeType.ENDPOINT:
+                        r = 3
+                        color = WHITE_COLOR
+                    elif node.type == NodeType.JUNCTION:
+                        r = 5
+                        color = BLACK_COLOR
+                    
+                    if r > 0:
+                        dr.ellipse([x - r, y - r, x + r, y + r], fill=color, outline=color)
+                
+                out = np.array(pil)[:, :, ::-1]
+                self._save_img("stage6_graph_overlay", out)
+        except Exception as e:
+            logger.warning(f"Graph overlay failed: {e}")
+
     def stage5_graph(self) -> None: # type: ignore
         t0 = time.time()
         if self.skeleton is None:
@@ -1611,8 +1674,208 @@ class PIDPipeline:
 
         # Save stats
         self._save_json("stage5_stats", {"nodes": len(self.nodes), "edges": len(self.edges), "arrow_edges": arrow_edges, "object_edges": other_edges})
+        
+        # Export DeepLSD-detected lines to JSON (raw and combined)
+        try:
+            if 'detected_deeplsd_lines' in locals() and detected_deeplsd_lines is not None:
+                export_lines_to_json(np.array(detected_deeplsd_lines), str(self.out_dir / "stage5_deeplsd_lines.json"))
+            if hasattr(self, 'combined_deeplsd_lines') and self.combined_deeplsd_lines:
+                export_lines_to_json(np.array(self.combined_deeplsd_lines), str(self.out_dir / "stage5_deeplsd_lines_combined.json"))
+        except Exception as e:
+            logger.warning(f"Failed to export DeepLSD lines JSON: {e}")
         logger.info("Stage 5 (ports: arrows + objects) done in %.2fs", time.time() - t0)
         return
+
+    def stage6_line_graph(self) -> None:
+        t0 = time.time()
+        logger.info("Stage 6: Building line graph with ConnectivityEngine...")
+
+        self.graph.clear()
+        self.nodes = []
+        self.edges = []
+        
+        # 0. Collect Line Segments (from DeepLSD)
+        if not hasattr(self, 'combined_deeplsd_lines') or not self.combined_deeplsd_lines:
+            logger.warning("No DeepLSD lines found for graph construction.")
+            return
+            
+        lines = []
+        for line in self.combined_deeplsd_lines:
+            p1 = (float(line[0][0]), float(line[0][1]))
+            p2 = (float(line[1][0]), float(line[1][1]))
+            lines.append((p1, p2))
+
+        # 1. Collect Ports (from Stage 5)
+        # Note: self.nodes was populated in Stage 5 with PORT, ENDPOINT, JUNCTION, etc.
+        # We extract only the PORTs that are relevant for snapping.
+        ports = []
+        # Also include symbol centers as fallback 'ports' if no specific ports were found for them
+        # (Though ConnectivityEngine prefers explicit ports)
+        
+        # Mapping to track original symbol IDs for ports
+        # self.nodes in Stage 5 is a list of Node objects.
+        # We need to scan self.edges (Stage 5) to see which ports connect to which symbols.
+        
+        # Re-index Stage 5 nodes temporarily to find ports
+        # (The self.nodes list will be overwritten by the new graph, but we read from it first)
+        stage5_nodes = self.nodes
+        stage5_edges = self.edges
+        
+        # Identify ports linked to symbols
+        # Format: {'id': int, 'pos': (x, y), 'parent_id': int, 'type': str}
+        # We can iterate through Stage 5 edges to find "object_port" connections
+        
+        # Map node_id -> Node for quick lookup
+        s5_node_map = {n.id: n for n in stage5_nodes}
+        
+        for e in stage5_edges:
+            if e.attributes.get("object_port") or e.attributes.get("arrow_port"):
+                # e.source is usually the port, e.target is endpoint on skeleton (or vice versa, check logic)
+                # In _process_arrows/other_symbols: 
+                #   pid = add_node(ppos, PORT)
+                #   tgt = add_node(hit, ENDPOINT)
+                #   edge source=pid, target=tgt
+                # So the port node is e.source.
+                
+                # Wait, we need the SYMBOL ID associated with this port.
+                # In Stage 5, we didn't explicitly store "parent_symbol_id" on the port node in all cases?
+                # Actually, in Stage 5 we computed ports per symbol.
+                pass
+
+        # Better approach: Re-scan symbols and find their associated ports from the Stage 5 list?
+        # Actually, Stage 5 didn't robustly link ports back to symbols in the Node object attributes (except maybe implicitly).
+        # However, we can simply pass *all* Stage 5 PORT nodes to the engine.
+        # The engine will snap them to lines.
+        # We also need to add the Symbols themselves to the final graph.
+        
+        # Let's collect all PORT nodes from Stage 5.
+        for n in stage5_nodes:
+            if n.type == NodeType.PORT:
+                # Try to find which symbol this port belongs to.
+                # In Stage 5, we didn't strictly store the parent ID on the node.
+                # But we can find the symbol geographically or just treat it as a "known connection point".
+                
+                # Heuristic: Find nearest symbol
+                parent_id = -1
+                best_dist = 50.0 # px
+                n_pos = np.array(n.position)
+                
+                for s in self.symbols:
+                    # simplistic: dist to center? or bbox?
+                    # dist to bbox is better.
+                    # For now, let's just use the port position. 
+                    # If we want to link the symbol node later, we need to know this relationship.
+                    pass
+                
+                ports.append({
+                    'id': n.id, # Keep Stage 5 ID if useful, or just ignore
+                    'pos': n.position,
+                    'parent_id': n.port_of if n.port_of is not None else -1, # Using port_of if available
+                    'type': 'port'
+                })
+
+        # 2. Run Connectivity Engine
+        engine = ConnectivityEngine(
+            merge_dist=float(self.cfg.merge_node_dist), 
+            snap_dist=float(self.cfg.connect_radius) # Using generous snap radius
+        )
+        
+        nx_graph, graph_nodes = engine.build_graph(lines, ports)
+        
+        # 3. Convert back to internal structures (Node, Edge)
+        new_nodes = []
+        new_edges = []
+        node_id_map = {} # Engine Node ID -> New Pipeline Node ID
+        
+        # 3a. Add Pipeline Nodes (Junctions, Endpoints, Snapped Ports)
+        for gn_id, gn in graph_nodes.items():
+            new_id = len(new_nodes)
+            node_id_map[gn_id] = new_id
+            
+            # Map string type back to NodeType
+            ntype = NodeType.ENDPOINT
+            if gn.type == "junction": ntype = NodeType.JUNCTION
+            elif gn.type == "port": ntype = NodeType.PORT
+            
+            new_nodes.append(Node(id=new_id, position=(gn.x, gn.y), type=ntype))
+        
+        # 3b. Add Edges (Pipelines)
+        for u, v, data in nx_graph.edges(data=True):
+            if u not in node_id_map or v not in node_id_map: continue
+            
+            nu = node_id_map[u]
+            nv = node_id_map[v]
+            
+            eid = len(new_edges)
+            path = data.get('path', [])
+            # ensure path consists of tuples
+            clean_path = [(float(p[0]), float(p[1])) for p in path]
+            
+            new_edges.append(Edge(
+                id=eid, source=nu, target=nv, 
+                path=clean_path, 
+                attributes=data
+            ))
+            
+        # 3c. Re-integrate Symbols and Text
+        # We need to add Symbol nodes and connect them to their corresponding Ports (if any)
+        # or snap them to the nearest graph node if they have no explicit port.
+        
+        # Helper: Spatial index of the new graph nodes
+        graph_node_positions = [n.position for n in new_nodes]
+        graph_tree = KDTree(np.array(graph_node_positions)) if graph_node_positions else None
+        
+        for s in self.symbols:
+            sid = len(new_nodes)
+            new_nodes.append(Node(id=sid, position=s.center, type=NodeType.SYMBOL, label=s.type, symbol_ids=[s.id]))
+            
+            # Connect to graph?
+            # 1. If we have ports linked to this symbol (via parent_id/port_of), connect Symbol -> Port
+            # 2. Else, snap to nearest node? (Fallback)
+            
+            # Find ports in the new graph that ref this symbol
+            linked_ports = []
+            for gn_id, gn in graph_nodes.items():
+                if gn.ref_id == s.id: # explicit link
+                    linked_ports.append(node_id_map[gn_id])
+            
+            if linked_ports:
+                for pid in linked_ports:
+                    eid = len(new_edges)
+                    # Edge from Symbol to Port
+                    port_node = new_nodes[pid]
+                    new_edges.append(Edge(
+                        id=eid, source=sid, target=pid,
+                        path=[s.center, port_node.position],
+                        attributes={"type": "symbol_connection"}
+                    ))
+            else:
+                # No fallback: Symbols must connect via valid ports
+                pass
+
+        # 3d. Add Text Nodes (simple proximity snap)
+        for t in self.texts:
+            tid = len(new_nodes)
+            new_nodes.append(Node(id=tid, position=t.center, type=NodeType.TEXT, label=t.text))
+            # Optional: link text to nearest symbol or line?
+            # For now, just adding the node so it appears in export.
+
+        # 4. Finalize
+        self.nodes = new_nodes
+        self.edges = new_edges
+        
+        # Rebuild NX graph for consistency/export
+        self.graph.clear()
+        for n in self.nodes:
+            self.graph.add_node(n.id, type=n.type.value, position=n.position, label=n.label)
+        for e in self.edges:
+            # Filter attributes to avoid collision with explicit arguments
+            attrs = {k: v for k, v in e.attributes.items() if k not in ('id', 'path')}
+            self.graph.add_edge(e.source, e.target, id=e.id, path=e.path, **attrs)
+
+        logger.info(f"Stage 6: Graph rebuilt. Nodes: {len(self.nodes)}, Edges: {len(self.edges)}")
+        self._save_graph_overlay()
+        logger.info("Stage 6 done in %.2fs", time.time() - t0)
 
 def main():
     import argparse
@@ -1643,6 +1906,9 @@ def main():
         return
     pipe.stage5_graph()
     if args.stop_after <= 5:
+        return
+    pipe.stage6_line_graph()
+    if args.stop_after <= 6:
         return
 
 if __name__ == "__main__":
