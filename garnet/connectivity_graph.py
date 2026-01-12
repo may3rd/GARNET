@@ -198,66 +198,60 @@ class ConnectivityEngine:
         if self.graph.number_of_edges() == 0:
             return
 
-        # Build edge index (midpoints for coarse search)
-        edge_keys = list(self.graph.edges(keys=True)) if self.graph.is_multigraph() else list(self.graph.edges())
-        edge_data = []
-        
-        for idx, (u, v) in enumerate(edge_keys):
+        # Prepare edge spatial index
+        edges = list(self.graph.edges())
+        edge_midpoints = []
+        edge_data_list = []
+
+        for u, v in edges:
             p1 = np.array([self.nodes[u].x, self.nodes[u].y])
             p2 = np.array([self.nodes[v].x, self.nodes[v].y])
             mid = (p1 + p2) / 2
-            edge_data.append({'u': u, 'v': v, 'p1': p1, 'p2': p2, 'mid': mid, 'idx': idx})
-            
-        if not edge_data:
+            edge_midpoints.append(mid)
+            edge_data_list.append({'u': u, 'v': v, 'p1': p1, 'p2': p2})
+
+        if not edge_midpoints:
             return
 
-        midpoints = np.array([e['mid'] for e in edge_data])
-        tree = KDTree(midpoints)
+        tree = KDTree(np.array(edge_midpoints))
 
         for port in ports:
-            px, py = port['pos']
-            p_vec = np.array([px, py])
+            port_pos = np.array(port['pos'])
             
-            # Query candidate edges (nearest midpoints)
-            # Search radius is generous to catch long segments whose midpoint is far
-            # but which pass close to the point.
-            # Ideally we check all edges or use a spatial index on segments (R-tree).
-            # For simplicity, we check K nearest midpoints.
-            k = min(10, len(edge_data))
-            dists, indices = tree.query(p_vec, k=k)
-            
-            best_dist = float('inf')
-            best_proj = None
-            best_edge = None
-            
+            # Find candidate edges (check nearest 10 midpoints)
+            k = min(10, len(edge_midpoints))
+            _, indices = tree.query(port_pos, k=k)
             indices = [indices] if k == 1 else indices
             
-            for i in indices:
-                edge = edge_data[i]
-                dist, proj = self._point_to_segment(p_vec, edge['p1'], edge['p2'])
-                if dist < best_dist:
-                    best_dist = dist
-                    best_proj = proj
-                    best_edge = edge
-            
-            if best_dist <= self.snap_dist:
-                # Snap!
-                # 1. Create Port Node
-                pid = self._add_node(px, py, "port", ref_id=port.get('parent_id'))
+            best_match = None
+            min_dist = float('inf')
+
+            for idx in indices:
+                edge = edge_data_list[idx]
+                dist, proj = self._point_to_segment(port_pos, edge['p1'], edge['p2'])
                 
-                # 2. Remove old edge
-                u, v = best_edge['u'], best_edge['v']
-                if self.graph.has_edge(u, v):
-                    self.graph.remove_edge(u, v)
-                    
-                    # 3. Add two new edges (u-port, port-v)
-                    self._add_edge(u, pid, attrs={'type': 'pipe'})
-                    self._add_edge(pid, v, attrs={'type': 'pipe'})
-                    
-                    # Update edge_data to prevent other ports from trying to snap to the removed edge
-                    # (A robust implementation would rebuild the index, but for sparse ports this is ok)
-                    # Ideally, we should update the graph incrementally. 
-                    # For this pass, assumes ports are sparse enough on one segment.
+                if dist < min_dist:
+                    min_dist = dist
+                    best_match = (edge, proj)
+            
+            if best_match and min_dist <= self.snap_dist:
+                self._insert_port_into_edge(port, best_match[0], best_match[1])
+
+    def _insert_port_into_edge(self, port_data, edge_info, proj_point):
+        """Splits an edge to insert a port node."""
+        u, v = edge_info['u'], edge_info['v']
+        
+        # Verify edge still exists (might have been removed by previous snap)
+        if not self.graph.has_edge(u, v):
+            return
+
+        # Create Port Node
+        pid = self._add_node(port_data['pos'][0], port_data['pos'][1], "port", ref_id=port_data.get('parent_id'))
+        
+        # Remove old edge and add new split edges
+        self.graph.remove_edge(u, v)
+        self._add_edge(u, pid, attrs={'type': 'pipe'})
+        self._add_edge(pid, v, attrs={'type': 'pipe'})
     
     def _point_to_segment(self, p, a, b):
         """Distance from point p to segment a-b, and the projection point."""

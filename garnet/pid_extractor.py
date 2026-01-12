@@ -1686,6 +1686,19 @@ class PIDPipeline:
         logger.info("Stage 5 (ports: arrows + objects) done in %.2fs", time.time() - t0)
         return
 
+    def _collect_ports_for_graph(self) -> List[Dict]:
+        """Collects all PORT nodes from Stage 5 to be used in the new graph."""
+        ports = []
+        for n in self.nodes:
+            if n.type == NodeType.PORT:
+                ports.append({
+                    'id': n.id,
+                    'pos': n.position,
+                    'parent_id': n.port_of if n.port_of is not None else -1,
+                    'type': 'port'
+                })
+        return ports
+
     def stage6_line_graph(self) -> None:
         t0 = time.time()
         logger.info("Stage 6: Building line graph with ConnectivityEngine...")
@@ -1694,90 +1707,23 @@ class PIDPipeline:
         self.nodes = []
         self.edges = []
         
-        # 0. Collect Line Segments (from DeepLSD)
+        # 0. Collect Line Segments
         if not hasattr(self, 'combined_deeplsd_lines') or not self.combined_deeplsd_lines:
             logger.warning("No DeepLSD lines found for graph construction.")
             return
             
-        lines = []
-        for line in self.combined_deeplsd_lines:
-            p1 = (float(line[0][0]), float(line[0][1]))
-            p2 = (float(line[1][0]), float(line[1][1]))
-            lines.append((p1, p2))
+        lines = [
+            ((float(line[0][0]), float(line[0][1])), (float(line[1][0]), float(line[1][1])))
+            for line in self.combined_deeplsd_lines
+        ]
 
-        # 1. Collect Ports (from Stage 5)
-        # Note: self.nodes was populated in Stage 5 with PORT, ENDPOINT, JUNCTION, etc.
-        # We extract only the PORTs that are relevant for snapping.
-        ports = []
-        # Also include symbol centers as fallback 'ports' if no specific ports were found for them
-        # (Though ConnectivityEngine prefers explicit ports)
-        
-        # Mapping to track original symbol IDs for ports
-        # self.nodes in Stage 5 is a list of Node objects.
-        # We need to scan self.edges (Stage 5) to see which ports connect to which symbols.
-        
-        # Re-index Stage 5 nodes temporarily to find ports
-        # (The self.nodes list will be overwritten by the new graph, but we read from it first)
-        stage5_nodes = self.nodes
-        stage5_edges = self.edges
-        
-        # Identify ports linked to symbols
-        # Format: {'id': int, 'pos': (x, y), 'parent_id': int, 'type': str}
-        # We can iterate through Stage 5 edges to find "object_port" connections
-        
-        # Map node_id -> Node for quick lookup
-        s5_node_map = {n.id: n for n in stage5_nodes}
-        
-        for e in stage5_edges:
-            if e.attributes.get("object_port") or e.attributes.get("arrow_port"):
-                # e.source is usually the port, e.target is endpoint on skeleton (or vice versa, check logic)
-                # In _process_arrows/other_symbols: 
-                #   pid = add_node(ppos, PORT)
-                #   tgt = add_node(hit, ENDPOINT)
-                #   edge source=pid, target=tgt
-                # So the port node is e.source.
-                
-                # Wait, we need the SYMBOL ID associated with this port.
-                # In Stage 5, we didn't explicitly store "parent_symbol_id" on the port node in all cases?
-                # Actually, in Stage 5 we computed ports per symbol.
-                pass
-
-        # Better approach: Re-scan symbols and find their associated ports from the Stage 5 list?
-        # Actually, Stage 5 didn't robustly link ports back to symbols in the Node object attributes (except maybe implicitly).
-        # However, we can simply pass *all* Stage 5 PORT nodes to the engine.
-        # The engine will snap them to lines.
-        # We also need to add the Symbols themselves to the final graph.
-        
-        # Let's collect all PORT nodes from Stage 5.
-        for n in stage5_nodes:
-            if n.type == NodeType.PORT:
-                # Try to find which symbol this port belongs to.
-                # In Stage 5, we didn't strictly store the parent ID on the node.
-                # But we can find the symbol geographically or just treat it as a "known connection point".
-                
-                # Heuristic: Find nearest symbol
-                parent_id = -1
-                best_dist = 50.0 # px
-                n_pos = np.array(n.position)
-                
-                for s in self.symbols:
-                    # simplistic: dist to center? or bbox?
-                    # dist to bbox is better.
-                    # For now, let's just use the port position. 
-                    # If we want to link the symbol node later, we need to know this relationship.
-                    pass
-                
-                ports.append({
-                    'id': n.id, # Keep Stage 5 ID if useful, or just ignore
-                    'pos': n.position,
-                    'parent_id': n.port_of if n.port_of is not None else -1, # Using port_of if available
-                    'type': 'port'
-                })
+        # 1. Collect Ports
+        ports = self._collect_ports_for_graph()
 
         # 2. Run Connectivity Engine
         engine = ConnectivityEngine(
             merge_dist=float(self.cfg.merge_node_dist), 
-            snap_dist=float(self.cfg.connect_radius) # Using generous snap radius
+            snap_dist=float(self.cfg.connect_radius)
         )
         
         nx_graph, graph_nodes = engine.build_graph(lines, ports)
@@ -1785,14 +1731,13 @@ class PIDPipeline:
         # 3. Convert back to internal structures (Node, Edge)
         new_nodes = []
         new_edges = []
-        node_id_map = {} # Engine Node ID -> New Pipeline Node ID
+        node_id_map = {} 
         
-        # 3a. Add Pipeline Nodes (Junctions, Endpoints, Snapped Ports)
+        # 3a. Add Pipeline Nodes
         for gn_id, gn in graph_nodes.items():
             new_id = len(new_nodes)
             node_id_map[gn_id] = new_id
             
-            # Map string type back to NodeType
             ntype = NodeType.ENDPOINT
             if gn.type == "junction": ntype = NodeType.JUNCTION
             elif gn.type == "port": ntype = NodeType.PORT
@@ -1803,73 +1748,42 @@ class PIDPipeline:
         for u, v, data in nx_graph.edges(data=True):
             if u not in node_id_map or v not in node_id_map: continue
             
-            nu = node_id_map[u]
-            nv = node_id_map[v]
-            
-            eid = len(new_edges)
-            path = data.get('path', [])
-            # ensure path consists of tuples
-            clean_path = [(float(p[0]), float(p[1])) for p in path]
+            nu, nv = node_id_map[u], node_id_map[v]
+            path = [(float(p[0]), float(p[1])) for p in data.get('path', [])]
             
             new_edges.append(Edge(
-                id=eid, source=nu, target=nv, 
-                path=clean_path, 
-                attributes=data
+                id=len(new_edges), source=nu, target=nv, 
+                path=path, attributes=data
             ))
             
         # 3c. Re-integrate Symbols and Text
-        # We need to add Symbol nodes and connect them to their corresponding Ports (if any)
-        # or snap them to the nearest graph node if they have no explicit port.
-        
-        # Helper: Spatial index of the new graph nodes
-        graph_node_positions = [n.position for n in new_nodes]
-        graph_tree = KDTree(np.array(graph_node_positions)) if graph_node_positions else None
-        
         for s in self.symbols:
             sid = len(new_nodes)
             new_nodes.append(Node(id=sid, position=s.center, type=NodeType.SYMBOL, label=s.type, symbol_ids=[s.id]))
             
-            # Connect to graph?
-            # 1. If we have ports linked to this symbol (via parent_id/port_of), connect Symbol -> Port
-            # 2. Else, snap to nearest node? (Fallback)
+            # Connect Symbol -> Port (Strict: only if linked port exists)
+            linked_ports = [node_id_map[gn_id] for gn_id, gn in graph_nodes.items() if gn.ref_id == s.id]
             
-            # Find ports in the new graph that ref this symbol
-            linked_ports = []
-            for gn_id, gn in graph_nodes.items():
-                if gn.ref_id == s.id: # explicit link
-                    linked_ports.append(node_id_map[gn_id])
-            
-            if linked_ports:
-                for pid in linked_ports:
-                    eid = len(new_edges)
-                    # Edge from Symbol to Port
-                    port_node = new_nodes[pid]
-                    new_edges.append(Edge(
-                        id=eid, source=sid, target=pid,
-                        path=[s.center, port_node.position],
-                        attributes={"type": "symbol_connection"}
-                    ))
-            else:
-                # No fallback: Symbols must connect via valid ports
-                pass
+            for pid in linked_ports:
+                port_node = new_nodes[pid]
+                new_edges.append(Edge(
+                    id=len(new_edges), source=sid, target=pid,
+                    path=[s.center, port_node.position],
+                    attributes={"type": "symbol_connection"}
+                ))
 
-        # 3d. Add Text Nodes (simple proximity snap)
+        # 3d. Add Text Nodes
         for t in self.texts:
-            tid = len(new_nodes)
-            new_nodes.append(Node(id=tid, position=t.center, type=NodeType.TEXT, label=t.text))
-            # Optional: link text to nearest symbol or line?
-            # For now, just adding the node so it appears in export.
+            new_nodes.append(Node(id=len(new_nodes), position=t.center, type=NodeType.TEXT, label=t.text))
 
         # 4. Finalize
         self.nodes = new_nodes
         self.edges = new_edges
         
-        # Rebuild NX graph for consistency/export
         self.graph.clear()
         for n in self.nodes:
             self.graph.add_node(n.id, type=n.type.value, position=n.position, label=n.label)
         for e in self.edges:
-            # Filter attributes to avoid collision with explicit arguments
             attrs = {k: v for k, v in e.attributes.items() if k not in ('id', 'path')}
             self.graph.add_edge(e.source, e.target, id=e.id, path=e.path, **attrs)
 
