@@ -102,9 +102,9 @@
                     <div id="last-run-filename" class="lead text-center small-font bg-body-secondary border rounded mb-1 p-1 hidden">{{ output_text }}</div>
                     <canvas id="canvas" class="border shadow-sm mb-5 rounded"></canvas>
                     {% if run_flag %}
-                    <img id="output-image" src="{{ url_for('static', path='images/prediction_results.png') }}" alt="" class="hidden" />
+                    <img id="output-image" src="{{ url_for('static', path='images/prediction_results.png') }}?t={{ cache_buster }}" alt="" class="hidden" />
                     <script>
-                        const imagePath = '{{ url_for('static', path = 'images/prediction_results.png') }}'; const runFlag = true;
+                        const imagePath = '{{ url_for('static', path = 'images/prediction_results.png') }}?t={{ cache_buster }}'; const runFlag = true;
                     </script>
                     {% else %}
                     <img id="output-image" src="{{ url_for('static', path='images/gcmethumb-3.png') }}" alt="" class="hidden" />

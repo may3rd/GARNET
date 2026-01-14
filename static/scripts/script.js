@@ -65,7 +65,7 @@ const canvasUtils = {
 
         const minZoom = canvasUtils.minZoom();
         const maxZoom = canvasUtils.maxZoom();
-        
+
         // Enable all zoom buttons
         const zoomButtons = [`#zoom-in`, `#zoom-out`, `#zoom-one`, `#zoom-all`, `#zoom-to-fit`];
         zoomButtons.forEach((selector) => {
@@ -111,7 +111,7 @@ const canvasUtils = {
         const offsetWidth = canvas.width - imageWidth * zoom;
         const offsetHeight = canvas.height - imageHeight * zoom;
 
-        const minX = offsetWidth > 0 ? offsetWidth /2 : offsetWidth;
+        const minX = offsetWidth > 0 ? offsetWidth / 2 : offsetWidth;
         const maxX = offsetWidth > 0 ? offsetWidth / 2 : 0;
         const minY = offsetHeight > 0 ? offsetHeight / 2 : offsetHeight;
         const maxY = offsetHeight > 0 ? offsetHeight / 2 : 0;
@@ -119,13 +119,13 @@ const canvasUtils = {
         // Adjust left and top values to stay within the limits
         x = Math.max(Math.min(x, maxX), minX);
         y = Math.max(Math.min(y, maxY), minY);
-        
+
         return [x, y];
     },
 
     // Ensure that the current position or new, (x, y) position of left top of
     // image makes the image is inside canvas.
-    
+
     validateImagePosition: function (x, y) {
         const vpt = canvas.viewportTransform;
 
@@ -137,7 +137,7 @@ const canvasUtils = {
 
         // Calculate the new position within canvas bounds
         const xy = canvasUtils.calculatePosition(x, y);
-        
+
         // Update viewport transform
         vpt[4] = xy[0];
         vpt[5] = xy[1];
@@ -147,9 +147,9 @@ const canvasUtils = {
         canvas.calcOffset();
         canvas.renderAll();
     },
-    
+
     // Zoom the image to zoom factor, and center of the image
-    
+
     zoom: function (zoom, runFlag) {
         const container = $(`#canvas-container`);
         const width = container.width();
@@ -163,7 +163,7 @@ const canvasUtils = {
     },
 
     // Zoom with animation
-    
+
     zoomAnimate: function (zoom, runFlag) {
         const container = $(`#canvas-container`);
         const width = container.width();
@@ -233,7 +233,7 @@ const canvasUtils = {
             rect.animate('opacity', 0, {
                 onChange: canvas.renderAll.bind(canvas),
                 duration: 200,
-                onComplete: function() {
+                onComplete: function () {
                     rect.animate('opacity', 1, {
                         onChange: canvas.renderAll.bind(canvas),
                         duration: 200,
@@ -247,7 +247,7 @@ const canvasUtils = {
             const objs = canvas.getObjects();
             const rect = objs[objs.length - 1];
             canvas.remove(rect);
-        };  
+        };
     },
 
     // Adding the bounding boxes to the canvas
@@ -263,7 +263,7 @@ const canvasUtils = {
         imageHeight = canvasImg.height;
 
         canvas.add(canvasImg);
-        
+
         if (runFlag) {
             // for each item in jsonData => create bbox and add it to canvas
             jsonData.forEach((item) => {
@@ -280,7 +280,7 @@ const canvasUtils = {
                 });
                 boxes.push(box);
             });
-            var group = new fabric.Group(boxes, {selectable: false,});
+            var group = new fabric.Group(boxes, { selectable: false, });
             canvas.add(group);
         }
         // reset zoom
@@ -300,7 +300,7 @@ const canvasUtils = {
             const rect = objects[objects.length - 1];
             canvas.remove(rect);
         }
-        
+
         const bbox = canvas.item(1);
         // Reset the bounding box to original state
         for (let i = 0; i < bbox.size(); i++) {
@@ -352,21 +352,21 @@ const canvasUtils = {
 
     // Set the opacity of the bounding box when On/Off toggle button clicked
 
-setBBoxOpacity(index, flag, runFlag) {
-    if (runFlag) {
-        const group = canvas.item(1);
-        
-        // Error handling: Check if the group and the index are valid
-        if (!group || index < 0 || index >= group.size()) {
-            console.error('Invalid index or group item is not available.');
-            return;
-        }
+    setBBoxOpacity(index, flag, runFlag) {
+        if (runFlag) {
+            const group = canvas.item(1);
 
-        const opc = flag ? 1 : 0;
-        group.item(index).set(`opacity`, opc);
-        canvas.renderAll();
+            // Error handling: Check if the group and the index are valid
+            if (!group || index < 0 || index >= group.size()) {
+                console.error('Invalid index or group item is not available.');
+                return;
+            }
+
+            const opc = flag ? 1 : 0;
+            group.item(index).set(`opacity`, opc);
+            canvas.renderAll();
+        }
     }
-}
 
 };
 
@@ -439,7 +439,7 @@ function updateToggleOnOffButton(index, toggleButtons, status, runFlag) {
         console.error('Invalid index provided to updateToggleOnOffButton.');
         return;
     }
-    
+
     const $btn = toggleButtons[index];
 
     // Set button status based on the provided status
@@ -508,7 +508,7 @@ $(document).ready(function () {
         canvasUtils.zoomAnimate(canvasUtils.toFitZoom(), runFlag);
         this.blur();
     });
-    
+
     $(`#zoom-range`).on(`input`, function (event) {
         var zoom = parseFloat($(this).val());
         const container = $(`#canvas-container`);
@@ -519,7 +519,7 @@ $(document).ready(function () {
         canvasUtils.validateImagePosition();
         canvasUtils.updateZoomButtons(zoom, runFlag);
     });
-    
+
     $(`#zoom-range`).on(`mouse:up`, function () {
         this.blur();
     });
@@ -560,18 +560,18 @@ $(document).ready(function () {
     // Handles the mouse movement on the canvas, allowing for dragging of elements
     // based on user interaction. Applies the validation for image position and 
     // renders the canvas appropriately.
-        canvas.on(`mouse:move`, function (opt) {
-            if (this.isDragging) {
-                const evt = opt.e;
-                const vpt = this.viewportTransform;
-                const newX = vpt[4] + evt.clientX - this.lastPosX;
-                const newY = vpt[5] + evt.clientY - this.lastPosY;
-                canvasUtils.validateImagePosition(newX, newY);
-                this.requestRenderAll();
-                this.lastPosX = evt.clientX;
-                this.lastPosY = evt.clientY;
-            }
-        });
+    canvas.on(`mouse:move`, function (opt) {
+        if (this.isDragging) {
+            const evt = opt.e;
+            const vpt = this.viewportTransform;
+            const newX = vpt[4] + evt.clientX - this.lastPosX;
+            const newY = vpt[5] + evt.clientY - this.lastPosY;
+            canvasUtils.validateImagePosition(newX, newY);
+            this.requestRenderAll();
+            this.lastPosX = evt.clientX;
+            this.lastPosY = evt.clientY;
+        }
+    });
 
     canvas.on(`mouse:up`, function (opt) {
         // on mouse up we want to recalculate new interaction
@@ -694,7 +694,7 @@ $(document).ready(function () {
         updateOnOffMaster(toggleButtons);
     });
 
-    
+
     $(`#tree`).on(`nodeUnchecked`, function (event, data) {
         const children = data.nodes;
         if (children) {
@@ -778,7 +778,7 @@ $(document).ready(function () {
     });
 
 
-        // Master toggle button functionality
+    // Master toggle button functionality
     $(`#master-toggle`).on(`click`, function () {
         const $masterBtn = $(this);
         const masterStatus = $masterBtn.data(`status`) === `on`;
@@ -794,7 +794,7 @@ $(document).ready(function () {
         table.rows().every(function () {
             const $row = $(this.node());
             const $btn = $row.find(`.toggle-btn`);
-            
+
             // Update button status and text
             $btn.data(`status`, newStatus);
             $btn.text(newText);
@@ -810,7 +810,7 @@ $(document).ready(function () {
                 console.error('Error updating tree view or bounding box opacity:', error);
             }
         });
-        
+
         this.blur();
     });
 
@@ -843,14 +843,14 @@ $(document).ready(function () {
             // update Deselect All button
             updateDeselectAllButton(table);
         });
-    
+
     // Correct the height of the table on last page by adding empty rows
-    
+
     table.on('draw', function () {
         var info = table.page.info(),
             rowsOnPage = info.end - info.start,
             missingRowsOnPage = info.length - rowsOnPage;
-        
+
         if (missingRowsOnPage > 0) {
             for (var i = 0; i < missingRowsOnPage; i++) {
                 $(table.body()).append(buildEmptyRow(6));
@@ -879,7 +879,7 @@ $(document).ready(function () {
         }
     });
 
-    
+
     $(`#hide-table-btn`).on(`click`, function () {
         // Error handling: Ensure the toggled element exists
         const $this = $(this);
@@ -899,7 +899,7 @@ $(document).ready(function () {
         adjustGridContainerHeight();
     });
 
-    
+
     // handler for file change
 
     // handler for file change
@@ -949,29 +949,40 @@ $(document).ready(function () {
     //
     // Event handling when image is loaded
     //
+    var canvasInitialized = false;
+
+    function initializeCanvas(imageElement) {
+        if (canvasInitialized) {
+            console.log('Canvas already initialized, skipping');
+            return;
+        }
+        canvasInitialized = true;
+        console.log('Initializing canvas with image');
+        try {
+            canvasUtils.addItemsToCanvas(imageElement, runFlag);
+        } catch (error) {
+            console.error('Error while adding items to canvas:', error);
+        }
+    }
+
     $(`#output-image`)
         .on(`load`, function () {
-            try {
-                // Only call if image is not already processed
-                if (!this.complete) {
-                    canvasUtils.addItemsToCanvas(this, runFlag);
-                }
-            } catch (error) {
-                console.error('Error while adding items to canvas:', error);
-            }
+            console.log('Image load event fired');
+            initializeCanvas(this);
+        })
+        .on(`error`, function () {
+            console.error('Error loading image:', this.src);
         })
         .each(function () {
-            // Handle case when image is already loaded
-            if (this.complete) {
-                try {
-                    canvasUtils.addItemsToCanvas(this, runFlag);
-                } catch (error) {
-                    console.error('Error while adding items to canvas after completion:', error);
-                }
+            // Handle case when image is already loaded (from cache)
+            console.log('Checking image complete status:', this.complete);
+            if (this.complete && this.naturalWidth > 0) {
+                console.log('Image already complete, initializing');
+                initializeCanvas(this);
             }
         });
 
-        ////
+    ////
     // Auto adjust grid container height when window change size
     //
     var savedHeight = 0;
@@ -1098,7 +1109,7 @@ $(document).ready(function () {
                 weightSelected.append(`<option>`, { value: '', text: 'No weight file found' });
             }
         }
-        
+
         //updateWeightFileOptions(modelSelected.val());
     } catch (error) {
         console.error('Error during initial setup:', error);

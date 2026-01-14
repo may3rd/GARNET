@@ -11,6 +11,7 @@ class Settings:
     MODEL_PATH = "yolo_weights"
     MODEL_TYPES = [
         {"name": 'ultralytics', "value": 'ultralytics'},
+        {"name": 'azure_custom_vision', "value": 'azure_custom_vision'},
         ]
     SYMBOL_WITH_TEXT = [
         "page connection",

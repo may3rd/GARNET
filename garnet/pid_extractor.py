@@ -682,6 +682,146 @@ class PIDPipeline:
             return None
         return 'h' if best_h >= best_v else 'v'
 
+    def _refine_bbox(self, bbox: Tuple[float, float, float, float], padding: int = 2) -> Tuple[float, float, float, float]:
+        """
+        Shrinks the bounding box to tightly fit the foreground pixels in the binary image.
+        Uses the binary mask to find the minimal rectangle containing non-zero pixels within the original bbox.
+        """
+        if self.binary is None:
+            return bbox
+            
+        x, y, w, h = map(int, bbox)
+        H, W = self.binary.shape
+        
+        # Clamp to image bounds
+        x0, y0 = max(0, x), max(0, y)
+        x1, y1 = min(W, x + w), min(H, y + h)
+        
+        # Extract Region of Interest (ROI)
+        if x1 <= x0 or y1 <= y0:
+            return bbox
+            
+        roi = self.binary[y0:y1, x0:x1]
+        
+        # Find all foreground pixels
+        if cv2 is not None:
+            points = cv2.findNonZero(roi)
+            if points is None:
+                return bbox # Empty box, return original
+            
+            # Get bounding rect of the pixels
+            rx, ry, rw, rh = cv2.boundingRect(points)
+        else:
+            # Numpy fallback
+            ys, xs = np.where(roi > 0)
+            if len(xs) == 0:
+                return bbox
+            rx, ry = np.min(xs), np.min(ys)
+            rw = np.max(xs) - rx + 1
+            rh = np.max(ys) - ry + 1
+
+        # Calculate new global coordinates with padding
+        # Ensure we don't expand beyond the original crop if not needed, but allow padding up to image bounds
+        new_x = max(0, x0 + rx - padding)
+        new_y = max(0, y0 + ry - padding)
+        
+        # Width/Height should accommodate the found content + padding
+        new_w = rw + 2 * padding
+        new_h = rh + 2 * padding
+        
+        # Optional: Ensure we don't shrink drastically if it looks like a mistake (e.g., < 10% area)?
+        # For now, trust the binary mask.
+        
+        return (float(new_x), float(new_y), float(new_w), float(new_h))
+
+    def _refine_bbox(self, bbox: Tuple[float, float, float, float], padding: int = 2, skip_trim: bool = False) -> Tuple[float, float, float, float]:
+        """
+        Shrinks the bounding box to tightly fit the symbol body, trimming both empty space
+        and connecting pipelines (tails).
+        """
+        if self.binary is None or skip_trim:
+            return bbox
+            
+        x, y, w, h = map(int, bbox)
+        H, W = self.binary.shape
+        
+        # 1. Clamp and Extract ROI
+        x0, y0 = max(0, x), max(0, y)
+        x1, y1 = min(W, x + w), min(H, y + h)
+        if x1 <= x0 or y1 <= y0:
+            return bbox
+            
+        roi = self.binary[y0:y1, x0:x1]
+        
+        # 2. Find Tight Bounding Box (Trim Empty Space)
+        if cv2 is not None:
+            points = cv2.findNonZero(roi)
+            if points is None: return bbox
+            rx, ry, rw, rh = cv2.boundingRect(points)
+        else:
+            ys, xs = np.where(roi > 0)
+            if len(xs) == 0: return bbox
+            rx, ry = np.min(xs), np.min(ys)
+            rw = np.max(xs) - rx + 1
+            rh = np.max(ys) - ry + 1
+            
+        # Refined ROI coordinates relative to original ROI
+        roi_sub = roi[ry:ry+rh, rx:rx+rw]
+        
+        # 3. Trim Tails (Pipelines)
+        # Heuristic: A pipeline connection usually has a small cross-section (e.g. < 6px).
+        # We shrink from edges inwards as long as the pixel count is small (but > 0).
+        
+        tail_thresh = 6  # max pixels to consider as "just a line"
+        h_sub, w_sub = roi_sub.shape
+        
+        # Offsets relative to the tight box (rx, ry)
+        trim_l, trim_r = 0, 0
+        trim_t, trim_b = 0, 0
+        
+        # Trim Left
+        for i in range(w_sub // 2):
+            count = np.count_nonzero(roi_sub[:, i])
+            if 0 < count <= tail_thresh: trim_l += 1
+            elif count > tail_thresh: break
+            
+        # Trim Right
+        for i in range(w_sub - 1, w_sub // 2, -1):
+            count = np.count_nonzero(roi_sub[:, i])
+            if 0 < count <= tail_thresh: trim_r += 1
+            elif count > tail_thresh: break
+            
+        # Trim Top
+        for i in range(h_sub // 2):
+            count = np.count_nonzero(roi_sub[i, :])
+            if 0 < count <= tail_thresh: trim_t += 1
+            elif count > tail_thresh: break
+            
+        # Trim Bottom
+        for i in range(h_sub - 1, h_sub // 2, -1):
+            count = np.count_nonzero(roi_sub[i, :])
+            if 0 < count <= tail_thresh: trim_b += 1
+            elif count > tail_thresh: break
+
+        # Calculate final coordinates
+        # Start from original top-left (x0, y0) -> add tight box offset (rx, ry) -> add trim offsets
+        final_x = x0 + rx + trim_l
+        final_y = y0 + ry + trim_t
+        final_w = rw - trim_l - trim_r
+        final_h = rh - trim_t - trim_b
+        
+        # Safety: If we trimmed everything away (e.g. symbol is just lines), revert to tight box
+        if final_w <= 0 or final_h <= 0:
+            final_x, final_y, final_w, final_h = x0 + rx, y0 + ry, rw, rh
+
+        # Apply padding
+        final_x = max(0, final_x - padding)
+        final_y = max(0, final_y - padding)
+        final_w += 2 * padding
+        final_h += 2 * padding
+        
+        return (float(final_x), float(final_y), float(final_w), float(final_h))
+
     # ---------- Stage 3: Symbols/Text ----------
     def stage3_symbols_text(self) -> None:
         t0 = time.time()
@@ -699,14 +839,26 @@ class PIDPipeline:
             min_thr = self.cfg.class_conf_thresh.get(tkey, self.cfg.default_conf_thresh)
             if conf < min_thr:
                 continue
+            
             # Shrink bbox for 'line number' class
             if "line number" in str(typ).lower() and self.binary is not None and w > 0 and h > 0:
                 x, y, w, h = self._shrink_text_bbox(x, y, w, h)
-                cx, cy = x + w / 2.0, y + h / 2.0
+            
+            # Check for no-shrink classes
+            no_shrink_list = ["page connection", "off page", "connection", "utility connection"]
+            skip_trim = any(ns in tkey for ns in no_shrink_list)
+
+            # Refine bbox using binary mask for all symbols
+            final_bbox = self._refine_bbox((x, y, w, h), skip_trim=skip_trim)
+            
+            # Recalculate center based on new bbox
+            fx, fy, fw, fh = final_bbox
+            cx, cy = fx + fw / 2.0, fy + fh / 2.0
+
             self.symbols.append(Symbol(
                 id=i,
                 type=str(typ),
-                bbox=(float(x), float(y), float(w), float(h)),
+                bbox=final_bbox,
                 confidence=conf,
                 center=(float(cx), float(cy)),
                 text=None,
@@ -726,11 +878,16 @@ class PIDPipeline:
             # Shrink bbox if edges are all empty or all lines
             if self.binary is not None and w > 0 and h > 0:
                 x, y, w, h = self._shrink_text_bbox(x, y, w, h)
-            cx, cy = x + w / 2.0, y + h / 2.0
+            
+            # Refine text bbox as well
+            final_bbox = self._refine_bbox((x, y, w, h))
+            fx, fy, fw, fh = final_bbox
+            cx, cy = fx + fw / 2.0, fy + fh / 2.0
+            
             self.texts.append(TextItem(
                 id=i,
                 text=str(t.get("text", "")),
-                bbox=(float(x), float(y), float(w), float(h)),
+                bbox=final_bbox,
                 confidence=float(t.get("confidence", 1.0)),
                 center=(float(cx), float(cy)),
             ))
@@ -1530,12 +1687,11 @@ class PIDPipeline:
                 # Draw graph edges (lines)
                 for edge in self.edges:
                     if edge.path:
-                        # Convert path to numpy array for polylines
                         pts = np.array(edge.path, np.int32).reshape((-1, 1, 2))
                         
-                        line_color = ORANGE_COLOR # Default color
+                        line_color = ORANGE_COLOR
                         if edge.attributes.get("type") == "deeplsd_line":
-                            line_color = BLUE_COLOR # Blue for DeepLSD lines
+                            line_color = BLUE_COLOR
                         
                         cv2.polylines(img_vis, [pts], False, line_color, 2)
 
@@ -1549,7 +1705,7 @@ class PIDPipeline:
                 for t in getattr(self, 'texts', []):
                     try:
                         x, y, w, h = map(int, t.bbox)
-                        cv2.rectangle(img_vis, (x + 0, y + 0), (x + w, y + h), RED_COLOR, 1)
+                        cv2.rectangle(img_vis, (x, y), (x + w, y + h), RED_COLOR, 1)
                     except Exception:
                         pass
                 
@@ -1557,15 +1713,15 @@ class PIDPipeline:
                 for node in self.nodes:
                     x, y = map(int, node.position)
                     if node.type == NodeType.SYMBOL:
-                        cv2.circle(img_vis, (x, y), 8, RED_COLOR, -1) # Red for symbols
+                        cv2.circle(img_vis, (x, y), 8, RED_COLOR, -1)
                     elif node.type == NodeType.TEXT:
-                        cv2.circle(img_vis, (x, y), 6, YELLOW_COLOR, -1) # Yellow for text
+                        cv2.circle(img_vis, (x, y), 6, YELLOW_COLOR, -1)
                     elif node.type == NodeType.PORT:
-                        cv2.circle(img_vis, (x, y), 4, BLUE_COLOR, -1) # Blue for ports
+                        cv2.circle(img_vis, (x, y), 4, BLUE_COLOR, -1)
                     elif node.type == NodeType.ENDPOINT:
-                        cv2.circle(img_vis, (x, y), 3, WHITE_COLOR, -1) # White for endpoints
+                        cv2.circle(img_vis, (x, y), 3, WHITE_COLOR, -1)
                     elif node.type == NodeType.JUNCTION:
-                        cv2.circle(img_vis, (x, y), 5, BLACK_COLOR, -1) # Black for junctions
+                        cv2.circle(img_vis, (x, y), 5, BLACK_COLOR, -1)
                 
                 self._save_img("stage6_graph_overlay", img_vis)
             elif Image is not None and self.image_bgr is not None:
@@ -1578,7 +1734,7 @@ class PIDPipeline:
                     if edge.path:
                         dr.line(edge.path, fill=ORANGE_COLOR, width=2)
 
-                # Draw object bounding boxes (symbols and text) in red, 1px
+                # Draw object bounding boxes
                 try:
                     for s in getattr(self, 'symbols', []):
                         x, y, w, h = map(int, s.bbox)
@@ -1595,20 +1751,15 @@ class PIDPipeline:
                     r = 0
                     color = (0,0,0)
                     if node.type == NodeType.SYMBOL:
-                        r = 8
-                        color = RED_COLOR
+                        r = 8; color = RED_COLOR
                     elif node.type == NodeType.TEXT:
-                        r = 6
-                        color = YELLOW_COLOR
+                        r = 6; color = YELLOW_COLOR
                     elif node.type == NodeType.PORT:
-                        r = 4
-                        color = BLUE_COLOR
+                        r = 4; color = BLUE_COLOR
                     elif node.type == NodeType.ENDPOINT:
-                        r = 3
-                        color = WHITE_COLOR
+                        r = 3; color = WHITE_COLOR
                     elif node.type == NodeType.JUNCTION:
-                        r = 5
-                        color = BLACK_COLOR
+                        r = 5; color = BLACK_COLOR
                     
                     if r > 0:
                         dr.ellipse([x - r, y - r, x + r, y + r], fill=color, outline=color)
@@ -1772,11 +1923,112 @@ class PIDPipeline:
                     attributes={"type": "symbol_connection"}
                 ))
 
-        # 3d. Add Text Nodes
+    def _repair_inline_connections(self, nx_graph: nx.Graph, graph_nodes: Dict[int, GraphNode], node_id_map: Dict[int, int], new_nodes: List[Node], new_edges: List[Edge]) -> None:
+        """
+        Attempts to repair connectivity for inline 2-port symbols (valves/reducers) 
+        that failed to connect to 2 lines.
+        """
+        # Identify inline candidates from symbols
+        inline_types = ["valve", "reducer", "flange"]
+        
+        # Build spatial index of graph endpoints for fast query
+        endpoint_ids = []
+        endpoint_coords = []
+        for gn_id, gn in graph_nodes.items():
+            if gn.type == "endpoint" or gn.type == "junction":
+                endpoint_ids.append(gn_id)
+                endpoint_coords.append((gn.x, gn.y))
+        
+        if not endpoint_coords:
+            return
+            
+        endpoint_tree = KDTree(np.array(endpoint_coords))
+        search_radius = float(self.cfg.connect_radius) * 1.5 # slightly larger search for repair
+        
+        # Check each symbol in the new graph
+        # Note: We need to map from Symbol ID -> Graph Node ID
+        # The 'new_nodes' list contains Symbol nodes. We need to find them.
+        
+        symbol_node_indices = [i for i, n in enumerate(new_nodes) if n.type == NodeType.SYMBOL]
+        
+        for sid_idx in symbol_node_indices:
+            s_node = new_nodes[sid_idx]
+            s_type = s_node.label.lower() if s_node.label else ""
+            
+            if not any(t in s_type for t in inline_types):
+                continue
+                
+            # Check current degree in the *reconstructed* graph logic
+            # We must check 'new_edges' to see how many connect to 'sid_idx'
+            current_degree = sum(1 for e in new_edges if e.source == sid_idx or e.target == sid_idx)
+            
+            if current_degree >= 2:
+                continue
+                
+            # Needs repair. Find aligned endpoints.
+            # 1. Find nearby endpoints
+            dists, indices = endpoint_tree.query(s_node.position, k=10, distance_upper_bound=search_radius)
+            if isinstance(indices, int): indices = [indices]
+            
+            # 2. Filter by alignment (horizontal/vertical relative to symbol)
+            # Simple heuristic: if symbol is roughly 2-port, we expect connections on opposite sides.
+            
+            candidates = []
+            sx, sy = s_node.position
+            
+            for i, d in zip(indices, dists):
+                if d == float('inf'): continue
+                
+                ep_id = endpoint_ids[i]
+                ep_node = graph_nodes[ep_id]
+                ex, ey = ep_node.x, ep_node.y
+                
+                # Check alignment
+                dx, dy = abs(ex - sx), abs(ey - sy)
+                is_horz = dy < 10 and dx > 0
+                is_vert = dx < 10 and dy > 0
+                
+                if is_horz or is_vert:
+                    candidates.append((d, ep_id))
+            
+            # Sort by distance
+            candidates.sort(key=lambda x: x[0])
+            
+            # Attempt to connect to up to (2 - current_degree) distinct endpoints
+            needed = 2 - current_degree
+            connected_count = 0
+            
+            for _, ep_graph_id in candidates:
+                if connected_count >= needed:
+                    break
+                    
+                target_node_idx = node_id_map[ep_graph_id]
+                
+                # Avoid duplicate edges
+                exists = any(
+                    (e.source == sid_idx and e.target == target_node_idx) or 
+                    (e.source == target_node_idx and e.target == sid_idx) 
+                    for e in new_edges
+                )
+                
+                if not exists:
+                    # Create Bridge Edge
+                    new_edges.append(Edge(
+                        id=len(new_edges),
+                        source=sid_idx,
+                        target=target_node_idx,
+                        path=[s_node.position, new_nodes[target_node_idx].position],
+                        attributes={"type": "inferred_connection", "confidence": "low"}
+                    ))
+                    connected_count += 1
+
+    # 3d. Add Text Nodes
+    def _add_text_nodes(self, new_nodes: List[Node]) -> None:
         for t in self.texts:
             new_nodes.append(Node(id=len(new_nodes), position=t.center, type=NodeType.TEXT, label=t.text))
 
-        # 4. Finalize
+    # 4. Finalize
+    def _finalize_graph(self, new_nodes: List[Node], new_edges: List[Edge]) -> None:
         self.nodes = new_nodes
         self.edges = new_edges
         
@@ -1787,9 +2039,93 @@ class PIDPipeline:
             attrs = {k: v for k, v in e.attributes.items() if k not in ('id', 'path')}
             self.graph.add_edge(e.source, e.target, id=e.id, path=e.path, **attrs)
 
-        logger.info(f"Stage 6: Graph rebuilt. Nodes: {len(self.nodes)}, Edges: {len(self.edges)}")
+        pipe_count = sum(1 for e in self.edges if e.attributes.get("type") in ("pipe", "inferred_connection", "deeplsd_line"))
+        logger.info(f"Stage 6: Graph rebuilt. Nodes: {len(self.nodes)}, Edges: {len(self.edges)} (Pipelines: {pipe_count})")
         self._save_graph_overlay()
-        logger.info("Stage 6 done in %.2fs", time.time() - t0)
+        logger.info("Stage 6 done in %.2fs", time.time() - self._t0) # self._t0 needs to be passed or stored
+
+    def stage6_line_graph(self) -> None:
+        self._t0 = time.time() # Store t0 for finalize
+        logger.info("Stage 6: Building line graph with ConnectivityEngine...")
+
+        self.graph.clear()
+        self.nodes = []
+        self.edges = []
+        
+        # 0. Collect Line Segments
+        if not hasattr(self, 'combined_deeplsd_lines') or not self.combined_deeplsd_lines:
+            logger.warning("No DeepLSD lines found for graph construction.")
+            return
+            
+        lines = [
+            ((float(line[0][0]), float(line[0][1])), (float(line[1][0]), float(line[1][1])))
+            for line in self.combined_deeplsd_lines
+        ]
+
+        # 1. Collect Ports
+        ports = self._collect_ports_for_graph()
+
+        # 2. Run Connectivity Engine
+        engine = ConnectivityEngine(
+            merge_dist=float(self.cfg.merge_node_dist), 
+            snap_dist=25.0, # Relaxed from default
+            ortho_tol=5.0   # Relaxed from 2.0
+        )
+        
+        nx_graph, graph_nodes = engine.build_graph(lines, ports)
+        
+        # 3. Convert back to internal structures (Node, Edge)
+        new_nodes = []
+        new_edges = []
+        node_id_map = {} 
+        
+        # 3a. Add Pipeline Nodes
+        for gn_id, gn in graph_nodes.items():
+            new_id = len(new_nodes)
+            node_id_map[gn_id] = new_id
+            
+            ntype = NodeType.ENDPOINT
+            if gn.type == "junction": ntype = NodeType.JUNCTION
+            elif gn.type == "port": ntype = NodeType.PORT
+            
+            new_nodes.append(Node(id=new_id, position=(gn.x, gn.y), type=ntype))
+        
+        # 3b. Add Edges (Pipelines)
+        for u, v, data in nx_graph.edges(data=True):
+            if u not in node_id_map or v not in node_id_map: continue
+            
+            nu, nv = node_id_map[u], node_id_map[v]
+            path = [(float(p[0]), float(p[1])) for p in data.get('path', [])]
+            
+            new_edges.append(Edge(
+                id=len(new_edges), source=nu, target=nv, 
+                path=path, attributes=data
+            ))
+            
+        # 3c. Re-integrate Symbols and Text
+        for s in self.symbols:
+            sid = len(new_nodes)
+            new_nodes.append(Node(id=sid, position=s.center, type=NodeType.SYMBOL, label=s.type, symbol_ids=[s.id]))
+            
+            # Connect Symbol -> Port (Strict: only if linked port exists)
+            linked_ports = [node_id_map[gn_id] for gn_id, gn in graph_nodes.items() if gn.ref_id == s.id]
+            
+            for pid in linked_ports:
+                port_node = new_nodes[pid]
+                new_edges.append(Edge(
+                    id=len(new_edges), source=sid, target=pid,
+                    path=[s.center, port_node.position],
+                    attributes={"type": "symbol_connection"}
+                ))
+
+        # ** Repair Pass: Try to bridge disconnected 2-port symbols **
+        self._repair_inline_connections(nx_graph, graph_nodes, node_id_map, new_nodes, new_edges)
+
+        # 3d. Add Text Nodes
+        self._add_text_nodes(new_nodes)
+
+        # 4. Finalize
+        self._finalize_graph(new_nodes, new_edges)
 
 def main():
     import argparse
