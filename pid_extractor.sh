@@ -1,0 +1,1 @@
+python -m garnet.pid_extractor --image pid_image.png --coco coco_annotations.json --ocr ocr_results.json --out output --stop-after 6

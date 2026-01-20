@@ -32,17 +32,18 @@ UPLOAD → DETECT → REVIEW → CORRECT → EXPORT
 
 | Component | Technology | Rationale |
 |-----------|------------|-----------|
-| Backend | FastAPI (Python) | Async, modern, ML-friendly |
+| Backend | FastAPI (Python), use port: 8001 | Async, modern, ML-friendly |
 | Frontend | React 18 + TypeScript | Type safety, ecosystem |
 | UI Components | Shadcn/ui + Radix | Accessible, unstyled primitives |
 | Styling | Tailwind CSS | Utility-first, consistent |
-| Canvas | Fabric.js or Konva | Rich interactions |
+| Canvas | Fabric.js (reuse code from existing*) | Rich interactions |
 | State | Zustand | Simple, scalable |
 | Data Grid | TanStack Table + Virtual | Virtualized for 1000+ rows |
 | Icons | Lucide React | Modern, consistent |
 
 > **Note**: Avoid mixing styling systems. Shadcn/ui is Tailwind-native—do not add Material UI.
 
+> **Existing Code**: Reuse Fabric.js implementation from current prototype, /static/scripts/scripts.js.
 ---
 
 ## 3. Application States

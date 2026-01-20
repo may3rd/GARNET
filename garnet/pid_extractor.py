@@ -2028,6 +2028,56 @@ class PIDPipeline:
             new_nodes.append(Node(id=len(new_nodes), position=t.center, type=NodeType.TEXT, label=t.text))
 
     # 4. Finalize
+    def _save_pipeline_only_overlay(self) -> None:
+        """Save overlay of only the pipeline graph (no symbols/text circles) on original image."""
+        try:
+            if self.image_bgr is None: return
+            img_vis = self.image_bgr.copy()
+            
+            if cv2 is not None:
+                # Draw graph edges (pipelines)
+                for edge in self.edges:
+                    if edge.path:
+                        pts = np.array(edge.path, np.int32).reshape((-1, 1, 2))
+                        line_color = ORANGE_COLOR
+                        if edge.attributes.get("type") == "deeplsd_line":
+                            line_color = BLUE_COLOR
+                        cv2.polylines(img_vis, [pts], False, line_color, 2)
+
+                # Draw graph nodes (pipeline only: ports, endpoints, junctions)
+                for node in self.nodes:
+                    x, y = map(int, node.position)
+                    if node.type == NodeType.PORT:
+                        cv2.circle(img_vis, (x, y), 4, BLUE_COLOR, -1)
+                    elif node.type == NodeType.ENDPOINT:
+                        cv2.circle(img_vis, (x, y), 3, WHITE_COLOR, -1)
+                    elif node.type == NodeType.JUNCTION:
+                        cv2.circle(img_vis, (x, y), 5, BLACK_COLOR, -1)
+                
+                self._save_img("stage6_final_pipeline_only", img_vis)
+            elif Image is not None:
+                rgb = self.image_bgr[:, :, ::-1]
+                pil = Image.fromarray(rgb)
+                dr = ImageDraw.Draw(pil)
+                for edge in self.edges:
+                    if edge.path:
+                        dr.line(edge.path, fill=ORANGE_COLOR, width=2)
+                for node in self.nodes:
+                    x, y = map(int, node.position)
+                    r = 0; color = (0,0,0)
+                    if node.type == NodeType.PORT:
+                        r = 4; color = BLUE_COLOR
+                    elif node.type == NodeType.ENDPOINT:
+                        r = 3; color = WHITE_COLOR
+                    elif node.type == NodeType.JUNCTION:
+                        r = 5; color = BLACK_COLOR
+                    if r > 0:
+                        dr.ellipse([x - r, y - r, x + r, y + r], fill=color, outline=color)
+                out = np.array(pil)[:, :, ::-1]
+                self._save_img("stage6_final_pipeline_only", out)
+        except Exception as e:
+            logger.warning(f"Pipeline-only overlay failed: {e}")
+
     def _finalize_graph(self, new_nodes: List[Node], new_edges: List[Edge]) -> None:
         self.nodes = new_nodes
         self.edges = new_edges
@@ -2042,6 +2092,7 @@ class PIDPipeline:
         pipe_count = sum(1 for e in self.edges if e.attributes.get("type") in ("pipe", "inferred_connection", "deeplsd_line"))
         logger.info(f"Stage 6: Graph rebuilt. Nodes: {len(self.nodes)}, Edges: {len(self.edges)} (Pipelines: {pipe_count})")
         self._save_graph_overlay()
+        self._save_pipeline_only_overlay()
         logger.info("Stage 6 done in %.2fs", time.time() - self._t0) # self._t0 needs to be passed or stored
 
     def stage6_line_graph(self) -> None:

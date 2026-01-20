@@ -1,2 +1,0 @@
-from .custom_vision_detector import CustomVisionSAHIDetector
-from .config import CustomVisionConfig
