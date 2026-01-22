@@ -9,9 +9,11 @@
 **GARNET** (GCME AI-Recognition Network for Engineering Technology) is a web application for automated symbol detection and analysis in Piping and Instrumentation Diagrams (P&IDs).
 
 ### Core Value Proposition
+
 Transform static P&ID images into structured, queryable data in minutes—not hours of manual work.
 
 ### User Workflow
+
 ```
 UPLOAD → DETECT → REVIEW → CORRECT → EXPORT
    │        │        │         │         │
@@ -20,6 +22,7 @@ UPLOAD → DETECT → REVIEW → CORRECT → EXPORT
 ```
 
 ### Core Functionality
+
 - Upload P&ID images (JPG, PNG, PDF)
 - AI-powered object detection using YOLO models
 - Interactive review with accept/reject/edit workflow
@@ -30,20 +33,21 @@ UPLOAD → DETECT → REVIEW → CORRECT → EXPORT
 
 ## 2. Tech Stack
 
-| Component | Technology | Rationale |
-|-----------|------------|-----------|
-| Backend | FastAPI (Python), use port: 8001 | Async, modern, ML-friendly |
-| Frontend | React 18 + TypeScript | Type safety, ecosystem |
-| UI Components | Shadcn/ui + Radix | Accessible, unstyled primitives |
-| Styling | Tailwind CSS | Utility-first, consistent |
-| Canvas | Fabric.js (reuse code from existing*) | Rich interactions |
-| State | Zustand | Simple, scalable |
-| Data Grid | TanStack Table + Virtual | Virtualized for 1000+ rows |
-| Icons | Lucide React | Modern, consistent |
+| Component     | Technology                            | Rationale                       |
+| ------------- | ------------------------------------- | ------------------------------- |
+| Backend       | FastAPI (Python), use port: 8001      | Async, modern, ML-friendly      |
+| Frontend      | React 18 + TypeScript                 | Type safety, ecosystem          |
+| UI Components | Shadcn/ui + Radix                     | Accessible, unstyled primitives |
+| Styling       | Tailwind CSS                          | Utility-first, consistent       |
+| Canvas        | Konva.js (reuse code from existing\*) | Rich interactions               |
+| State         | Zustand                               | Simple, scalable                |
+| Data Grid     | TanStack Table + Virtual              | Virtualized for 1000+ rows      |
+| Icons         | Lucide React                          | Modern, consistent              |
 
 > **Note**: Avoid mixing styling systems. Shadcn/ui is Tailwind-native—do not add Material UI.
 
 > **Existing Code**: Reuse Fabric.js implementation from current prototype, /static/scripts/scripts.js.
+
 ---
 
 ## 3. Application States
@@ -79,6 +83,7 @@ UPLOAD → DETECT → REVIEW → CORRECT → EXPORT
 ```
 
 **Key Features**:
+
 - Large, obvious drop zone (minimum 400x300px)
 - Sample P&ID demo button for first-time users
 - Recent files for quick access
@@ -116,6 +121,7 @@ UPLOAD → DETECT → REVIEW → CORRECT → EXPORT
 ```
 
 **Key Features**:
+
 - Image preview before processing
 - Minimal required options visible
 - Advanced options collapsed by default
@@ -158,6 +164,7 @@ UPLOAD → DETECT → REVIEW → CORRECT → EXPORT
 ```
 
 **Key Features**:
+
 - Step-by-step progress with current action
 - Live object count preview
 - Category breakdown updates in real-time
@@ -201,6 +208,7 @@ UPLOAD → DETECT → REVIEW → CORRECT → EXPORT
 ```
 
 **Key Features**:
+
 - **Docked sidebar** (not floating) - collapsible but persistent
 - **Category tree** with visibility toggles
 - **Confidence filter** slider to hide low-confidence detections
@@ -244,6 +252,7 @@ When an object is clicked:
 ```
 
 **Key Features**:
+
 - **Floating detail card** near selected object
 - **Accept/Reject/Edit** buttons for review workflow
 - **Resize handles** for box correction
@@ -256,54 +265,54 @@ When an object is clicked:
 
 ### 4.1 Mouse Interactions
 
-| Action | Empty Space | On Object |
-|--------|-------------|-----------|
-| Click | Deselect all | Select object |
-| Double-click | — | Enter edit mode |
-| Drag | Pan canvas | Move object (edit mode) |
-| Right-click | Context menu | Object context menu |
-| Scroll wheel | Zoom at cursor | Zoom at cursor |
-| Shift + Click | — | Add to selection |
-| Ctrl/Cmd + Drag | Box select | Box select |
+| Action          | Empty Space    | On Object               |
+| --------------- | -------------- | ----------------------- |
+| Click           | Deselect all   | Select object           |
+| Double-click    | —              | Enter edit mode         |
+| Drag            | Pan canvas     | Move object (edit mode) |
+| Right-click     | Context menu   | Object context menu     |
+| Scroll wheel    | Zoom at cursor | Zoom at cursor          |
+| Shift + Click   | —              | Add to selection        |
+| Ctrl/Cmd + Drag | Box select     | Box select              |
 
 ### 4.2 Keyboard Shortcuts
 
-| Category | Key | Action |
-|----------|-----|--------|
-| **Navigation** | Space + drag | Pan mode |
-| | F | Fit to window |
-| | 0 | Zoom 100% |
-| | - / = | Zoom out / in |
-| | Arrow keys | Pan canvas |
-| **Selection** | Tab | Select next object |
-| | Shift + Tab | Select previous |
-| | Ctrl/Cmd + A | Select all visible |
-| | Escape | Deselect all |
-| **Object Actions** | Enter | Accept selected |
-| | Backspace/Delete | Reject selected |
-| | E | Edit selected |
-| | H | Hide selected |
-| | 1-9 | Quick relabel to class 1-9 |
-| **Global** | Ctrl/Cmd + Z | Undo |
-| | Ctrl/Cmd + Shift + Z | Redo |
-| | Ctrl/Cmd + S | Save/Export |
-| | ? | Show keyboard shortcuts |
+| Category           | Key                  | Action                     |
+| ------------------ | -------------------- | -------------------------- |
+| **Navigation**     | Space + drag         | Pan mode                   |
+|                    | F                    | Fit to window              |
+|                    | 0                    | Zoom 100%                  |
+|                    | - / =                | Zoom out / in              |
+|                    | Arrow keys           | Pan canvas                 |
+| **Selection**      | Tab                  | Select next object         |
+|                    | Shift + Tab          | Select previous            |
+|                    | Ctrl/Cmd + A         | Select all visible         |
+|                    | Escape               | Deselect all               |
+| **Object Actions** | Enter                | Accept selected            |
+|                    | Backspace/Delete     | Reject selected            |
+|                    | E                    | Edit selected              |
+|                    | H                    | Hide selected              |
+|                    | 1-9                  | Quick relabel to class 1-9 |
+| **Global**         | Ctrl/Cmd + Z         | Undo                       |
+|                    | Ctrl/Cmd + Shift + Z | Redo                       |
+|                    | Ctrl/Cmd + S         | Save/Export                |
+|                    | ?                    | Show keyboard shortcuts    |
 
 ### 4.3 Bounding Box Visualization
 
-| Confidence | Border Width | Opacity | Color |
-|------------|-------------|---------|-------|
-| 90-100% | 3px solid | 100% | Category color |
-| 70-89% | 2px solid | 80% | Category color |
-| 50-69% | 1px dashed | 60% | Category color |
-| < 50% | 1px dotted | 40% | Gray |
+| Confidence | Border Width | Opacity | Color          |
+| ---------- | ------------ | ------- | -------------- |
+| 90-100%    | 3px solid    | 100%    | Category color |
+| 70-89%     | 2px solid    | 80%     | Category color |
+| 50-69%     | 1px dashed   | 60%     | Category color |
+| < 50%      | 1px dotted   | 40%     | Gray           |
 
-| Status | Visual Indicator |
-|--------|------------------|
-| Unreviewed | Default appearance |
-| Accepted | Green checkmark badge |
-| Rejected | Red X, 20% opacity |
-| Edited | Blue pencil badge |
+| Status     | Visual Indicator      |
+| ---------- | --------------------- |
+| Unreviewed | Default appearance    |
+| Accepted   | Green checkmark badge |
+| Rejected   | Red X, 20% opacity    |
+| Edited     | Blue pencil badge     |
 
 ---
 
@@ -325,6 +334,7 @@ When an object is clicked:
 ```
 
 **Features**:
+
 - Expand/collapse categories
 - Confidence % shown inline
 - Review status indicator (✓ / × / ✎)
@@ -405,39 +415,39 @@ When an object is clicked:
 
 ### 7.2 Category Colors (WCAG AA Contrast)
 
-| Category | Light Mode | Dark Mode |
-|----------|------------|-----------|
-| Gate Valve | #dc2626 | #f87171 |
-| Check Valve | #2563eb | #60a5fa |
-| Control Valve | #16a34a | #4ade80 |
-| Pump | #9333ea | #c084fc |
-| Instrument | #ea580c | #fb923c |
-| Line Number | #0891b2 | #22d3ee |
-| ... | ... | ... |
+| Category      | Light Mode | Dark Mode |
+| ------------- | ---------- | --------- |
+| Gate Valve    | #dc2626    | #f87171   |
+| Check Valve   | #2563eb    | #60a5fa   |
+| Control Valve | #16a34a    | #4ade80   |
+| Pump          | #9333ea    | #c084fc   |
+| Instrument    | #ea580c    | #fb923c   |
+| Line Number   | #0891b2    | #22d3ee   |
+| ...           | ...        | ...       |
 
 ---
 
 ## 8. Detected Object Classes
 
-| ID | Class Name | Icon | Has Text |
-|----|------------|------|----------|
-| 1 | check_valve | ⟨⟩ | No |
-| 2 | connection | ○ | No |
-| 3 | control_valve | ⧫ | No |
-| 4 | gate_valve | ═╪═ | No |
-| 5 | globe_valve | ⊙ | No |
-| 7 | instrument_dcs | ◯ | Yes |
-| 8 | instrument_logic | ◇ | Yes |
-| 9 | instrument_tag | ○─ | Yes |
-| 10 | line_number | ▭ | Yes |
-| 11 | page_connection | ⬡ | Yes |
-| 12 | pressure_relief_valve | ⋈ | No |
-| 13 | pump | ◐ | No |
-| 14 | reducer | ▷◁ | No |
-| 15 | sampling_point | ↓ | No |
-| 16 | spectacle_blind | ⊖ | No |
-| 17 | strainer | ⏛ | No |
-| 20 | utility_connection | ⬢ | Yes |
+| ID  | Class Name            | Icon | Has Text |
+| --- | --------------------- | ---- | -------- |
+| 1   | check_valve           | ⟨⟩   | No       |
+| 2   | connection            | ○    | No       |
+| 3   | control_valve         | ⧫    | No       |
+| 4   | gate_valve            | ═╪═  | No       |
+| 5   | globe_valve           | ⊙    | No       |
+| 7   | instrument_dcs        | ◯    | Yes      |
+| 8   | instrument_logic      | ◇    | Yes      |
+| 9   | instrument_tag        | ○─   | Yes      |
+| 10  | line_number           | ▭    | Yes      |
+| 11  | page_connection       | ⬡    | Yes      |
+| 12  | pressure_relief_valve | ⋈    | No       |
+| 13  | pump                  | ◐    | No       |
+| 14  | reducer               | ▷◁   | No       |
+| 15  | sampling_point        | ↓    | No       |
+| 16  | spectacle_blind       | ⊖    | No       |
+| 17  | strainer              | ⏛    | No       |
+| 20  | utility_connection    | ⬢    | Yes      |
 
 ---
 
@@ -445,26 +455,26 @@ When an object is clicked:
 
 ### 9.1 REST API
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/health` | Health check |
-| GET | `/api/models` | List available models |
-| POST | `/api/detect` | Run detection |
-| GET | `/api/results/{id}` | Get detection results |
-| PATCH | `/api/results/{id}/objects/{obj_id}` | Update object |
-| DELETE | `/api/results/{id}/objects/{obj_id}` | Delete object |
-| GET | `/api/export/{id}` | Export results |
+| Method | Endpoint                             | Description           |
+| ------ | ------------------------------------ | --------------------- |
+| GET    | `/api/health`                        | Health check          |
+| GET    | `/api/models`                        | List available models |
+| POST   | `/api/detect`                        | Run detection         |
+| GET    | `/api/results/{id}`                  | Get detection results |
+| PATCH  | `/api/results/{id}/objects/{obj_id}` | Update object         |
+| DELETE | `/api/results/{id}/objects/{obj_id}` | Delete object         |
+| GET    | `/api/export/{id}`                   | Export results        |
 
 ### 9.2 WebSocket (Optional - Real-time Progress)
 
 ```javascript
 // Client
-const ws = new WebSocket('/ws/detect/{session_id}');
+const ws = new WebSocket("/ws/detect/{session_id}");
 
 ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  // { type: 'progress', step: 'detection', percent: 45, objects: 47 }
-  // { type: 'complete', result_id: 'abc123' }
+    const data = JSON.parse(event.data);
+    // { type: 'progress', step: 'detection', percent: 45, objects: 47 }
+    // { type: 'complete', result_id: 'abc123' }
 };
 ```
 
@@ -529,32 +539,33 @@ GARNET/
 
 ## 11. Success Metrics
 
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| Time to first detection | < 30 seconds | From page load to results |
-| Review throughput | > 50 objects/min | With keyboard shortcuts |
-| Error rate | < 5% | Incorrect accept/reject |
-| Export time | < 3 seconds | For 500 objects |
-| Mobile usability | Usable | Review on tablet |
-| Accessibility | WCAG AA | Keyboard-only operation |
+| Metric                  | Target           | Measurement               |
+| ----------------------- | ---------------- | ------------------------- |
+| Time to first detection | < 30 seconds     | From page load to results |
+| Review throughput       | > 50 objects/min | With keyboard shortcuts   |
+| Error rate              | < 5%             | Incorrect accept/reject   |
+| Export time             | < 3 seconds      | For 500 objects           |
+| Mobile usability        | Usable           | Review on tablet          |
+| Accessibility           | WCAG AA          | Keyboard-only operation   |
 
 ---
 
 ## 12. Design Inspiration
 
-| Product | What to Learn |
-|---------|---------------|
-| [Figma](https://figma.com) | Canvas interactions, floating panels |
-| [Label Studio](https://labelstud.io) | Annotation review workflow |
-| [Roboflow](https://roboflow.com) | ML tool UX, progress indicators |
-| [Linear](https://linear.app) | Keyboard-first design, minimal UI |
-| [Vercel](https://vercel.com) | Dark mode, modern aesthetics |
+| Product                              | What to Learn                        |
+| ------------------------------------ | ------------------------------------ |
+| [Figma](https://figma.com)           | Canvas interactions, floating panels |
+| [Label Studio](https://labelstud.io) | Annotation review workflow           |
+| [Roboflow](https://roboflow.com)     | ML tool UX, progress indicators      |
+| [Linear](https://linear.app)         | Keyboard-first design, minimal UI    |
+| [Vercel](https://vercel.com)         | Dark mode, modern aesthetics         |
 
 ---
 
 ## 13. Implementation Priority
 
 ### Phase 1: Core (MVP)
+
 - [ ] Empty state with drag-drop upload
 - [ ] Basic detection with progress bar
 - [ ] Canvas with pan/zoom
@@ -562,6 +573,7 @@ GARNET/
 - [ ] Basic export (JSON)
 
 ### Phase 2: Review Workflow
+
 - [ ] Click-to-select objects
 - [ ] Accept/Reject buttons
 - [ ] Keyboard shortcuts (Tab, Enter, Delete)
@@ -569,6 +581,7 @@ GARNET/
 - [ ] Undo/Redo
 
 ### Phase 3: Polish
+
 - [ ] Dark mode
 - [ ] Minimap
 - [ ] Batch edit
@@ -576,6 +589,7 @@ GARNET/
 - [ ] Real-time WebSocket progress
 
 ### Phase 4: Advanced
+
 - [ ] Annotation editing (resize, relabel)
 - [ ] Create new boxes
 - [ ] Comparison mode
