@@ -1,15 +1,41 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, ChevronRight, Download, Search } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, Download, Eye, EyeOff, Search, X } from 'lucide-react'
 import type { DetectedObject } from '@/types'
 import { cn } from '@/lib/utils'
 import { getCategoryColor } from '@/lib/categoryColors'
+import { objectKey } from '@/lib/objectKey'
 
 type ObjectSidebarProps = {
   objects: DetectedObject[]
+  visibleObjects: DetectedObject[]
+  hiddenClasses: Set<string>
+  confidenceFilter: number
+  onToggleClass: (classKey: string) => void
+  onConfidenceChange: (value: number) => void
+  reviewStatus: Record<string, 'accepted' | 'rejected'>
+  onSetReviewStatus: (key: string, status: 'accepted' | 'rejected' | null) => void
+  selectedObjectKey: string | null
+  onSelectObject: (key: string) => void
   onExport: () => void
 }
 
-export function ObjectSidebar({ objects, onExport }: ObjectSidebarProps) {
+function classKeyFor(obj: DetectedObject) {
+  return obj.Object.toLowerCase().replace(/_/g, ' ').trim()
+}
+
+export function ObjectSidebar({
+  objects,
+  visibleObjects,
+  hiddenClasses,
+  confidenceFilter,
+  onToggleClass,
+  onConfidenceChange,
+  reviewStatus,
+  onSetReviewStatus,
+  selectedObjectKey,
+  onSelectObject,
+  onExport,
+}: ObjectSidebarProps) {
   const [query, setQuery] = useState('')
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
@@ -22,10 +48,33 @@ export function ObjectSidebar({ objects, onExport }: ObjectSidebarProps) {
     )
   }, [objects, query])
 
+  const filteredVisible = useMemo(() => {
+    if (!query) return visibleObjects
+    const lower = query.toLowerCase()
+    return visibleObjects.filter((obj) =>
+      obj.Object.toLowerCase().includes(lower) ||
+      obj.Text.toLowerCase().includes(lower)
+    )
+  }, [visibleObjects, query])
+
   const grouped = useMemo(() => {
-    const map = new Map<string, DetectedObject[]>()
+    const map = new Map<string, { label: string; items: DetectedObject[] }>()
     filtered.forEach((obj) => {
-      const key = obj.Object || 'Unknown'
+      const key = classKeyFor(obj) || 'unknown'
+      const bucket = map.get(key)
+      if (bucket) {
+        bucket.items.push(obj)
+      } else {
+        map.set(key, { label: obj.Object || 'Unknown', items: [obj] })
+      }
+    })
+    return Array.from(map.entries()).sort((a, b) => a[1].label.localeCompare(b[1].label))
+  }, [filtered])
+
+  const visibleByClass = useMemo(() => {
+    const map = new Map<string, DetectedObject[]>()
+    filteredVisible.forEach((obj) => {
+      const key = classKeyFor(obj) || 'unknown'
       const bucket = map.get(key)
       if (bucket) {
         bucket.push(obj)
@@ -33,8 +82,8 @@ export function ObjectSidebar({ objects, onExport }: ObjectSidebarProps) {
         map.set(key, [obj])
       }
     })
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]))
-  }, [filtered])
+    return map
+  }, [filteredVisible])
 
   const toggleGroup = (groupName: string) => {
     setExpandedGroups((prev) => {
@@ -83,38 +132,76 @@ export function ObjectSidebar({ objects, onExport }: ObjectSidebarProps) {
             )}
           />
         </label>
+        <label className="block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-secondary)] mt-3">
+          Confidence ≥ {Math.round(confidenceFilter * 100)}%
+          <input
+            type="range"
+            min={0}
+            max={0.95}
+            step={0.01}
+            value={confidenceFilter}
+            onChange={(event) => onConfidenceChange(Number(event.target.value))}
+            className="mt-3 w-full"
+          />
+        </label>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         {filtered.length === 0 && (
           <div className="p-5 text-sm text-[var(--text-secondary)]">No objects match your search.</div>
         )}
-        {grouped.map(([groupName, groupItems]) => (
-          <div key={groupName} className="border-b border-[var(--border-muted)]">
-            <button
-              type="button"
-              onClick={() => toggleGroup(groupName)}
-              className={cn(
-                'w-full px-5 py-3 bg-[var(--bg-primary)] sticky top-0 z-10',
-                'flex items-center justify-between text-xs font-semibold uppercase tracking-wide',
-                'hover:bg-[var(--bg-secondary)] transition-colors'
-              )}
-            >
-              <span className="flex items-center gap-2">
-                {expandedGroups.has(groupName) ? (
+        {grouped.map(([groupKey, groupMeta]) => {
+          const groupItems = visibleByClass.get(groupKey) || []
+          const isHidden = hiddenClasses.has(groupKey)
+          return (
+          <div key={groupKey} className="border-b border-[var(--border-muted)]">
+            <div className={cn(
+              'w-full px-5 py-3 bg-[var(--bg-primary)] sticky top-0 z-10',
+              'flex items-center justify-between text-xs font-semibold uppercase tracking-wide'
+            )}>
+              <button
+                type="button"
+                onClick={() => toggleGroup(groupKey)}
+                className="flex items-center gap-2 hover:text-[var(--accent)] transition-colors"
+              >
+                {expandedGroups.has(groupKey) ? (
                   <ChevronDown className="h-4 w-4 text-[var(--text-secondary)]" />
                 ) : (
                   <ChevronRight className="h-4 w-4 text-[var(--text-secondary)]" />
                 )}
-                {groupName}
+                {groupMeta.label}
+              </button>
+              <span className="flex items-center gap-3 text-[var(--text-secondary)]">
+                <span>{groupMeta.items.length}</span>
+                <button
+                  type="button"
+                  onClick={() => onToggleClass(groupKey)}
+                  className={cn(
+                    'h-7 w-7 rounded-md',
+                    'flex items-center justify-center',
+                    'hover:bg-[var(--bg-secondary)] transition-colors'
+                  )}
+                  aria-label={isHidden ? 'Show class' : 'Hide class'}
+                >
+                  {isHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </span>
-              <span className="text-[var(--text-secondary)]">{groupItems.length}</span>
-            </button>
-            {expandedGroups.has(groupName) && (
+            </div>
+            {expandedGroups.has(groupKey) && !isHidden && (
               <ul className="divide-y divide-[var(--border-muted)]">
                 {groupItems.map((obj) => (
                   <li key={`${obj.CategoryID}-${obj.ObjectID}-${obj.Index}`} className="p-4">
-                    <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => onSelectObject(objectKey(obj))}
+                      className={cn(
+                        'w-full text-left rounded-lg p-2 -m-2 transition-colors',
+                        selectedObjectKey === objectKey(obj)
+                          ? 'bg-[var(--accent)]/10'
+                          : 'hover:bg-[var(--bg-secondary)]'
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span
                           className="h-2.5 w-2.5 rounded-sm"
@@ -123,17 +210,69 @@ export function ObjectSidebar({ objects, onExport }: ObjectSidebarProps) {
                         />
                         <span className="text-sm font-semibold">{obj.Text}</span>
                       </div>
-                      <div className="text-xs text-[var(--text-secondary)]">{Math.round(obj.Score * 100)}%</div>
-                    </div>
-                    <div className="text-[11px] text-[var(--text-secondary)] mt-1">
-                      #{obj.ObjectID} · ({obj.Left}, {obj.Top}) {obj.Width}×{obj.Height}
+                      <div className="flex items-center gap-2">
+                        {reviewStatus[objectKey(obj)] === 'accepted' && (
+                          <span className="text-[10px] font-semibold text-[var(--success)]">Accepted</span>
+                        )}
+                        {reviewStatus[objectKey(obj)] === 'rejected' && (
+                          <span className="text-[10px] font-semibold text-[var(--danger)]">Rejected</span>
+                        )}
+                        <span className="text-xs text-[var(--text-secondary)]">{Math.round(obj.Score * 100)}%</span>
+                      </div>
+                      </div>
+                      <div className="text-[11px] text-[var(--text-secondary)] mt-1">
+                        #{obj.ObjectID} · ({obj.Left}, {obj.Top}) {obj.Width}×{obj.Height}
+                      </div>
+                    </button>
+                    <div className="flex items-center gap-2 mt-3">
+                      <button
+                        type="button"
+                        onClick={() => onSetReviewStatus(objectKey(obj), 'accepted')}
+                        className={cn(
+                          'px-2.5 py-1.5 rounded-md text-xs font-semibold',
+                          reviewStatus[objectKey(obj)] === 'accepted'
+                            ? 'bg-[var(--success)] text-white'
+                            : 'bg-[var(--bg-primary)] border border-[var(--border-muted)] text-[var(--text-secondary)]',
+                          'hover:border-[var(--success)] hover:text-[var(--success)] transition-colors'
+                        )}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          <Check className="h-3.5 w-3.5" />
+                          Accept
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onSetReviewStatus(objectKey(obj), 'rejected')}
+                        className={cn(
+                          'px-2.5 py-1.5 rounded-md text-xs font-semibold',
+                          reviewStatus[objectKey(obj)] === 'rejected'
+                            ? 'bg-[var(--danger)] text-white'
+                            : 'bg-[var(--bg-primary)] border border-[var(--border-muted)] text-[var(--text-secondary)]',
+                          'hover:border-[var(--danger)] hover:text-[var(--danger)] transition-colors'
+                        )}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          <X className="h-3.5 w-3.5" />
+                          Reject
+                        </span>
+                      </button>
+                      {reviewStatus[objectKey(obj)] && (
+                        <button
+                          type="button"
+                          onClick={() => onSetReviewStatus(objectKey(obj), null)}
+                          className="px-2.5 py-1.5 rounded-md text-xs font-semibold border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+                        >
+                          Reset
+                        </button>
+                      )}
                     </div>
                   </li>
                 ))}
               </ul>
             )}
           </div>
-        ))}
+        )})}
       </div>
     </aside>
   )

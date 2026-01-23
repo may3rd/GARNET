@@ -1,6 +1,7 @@
 import { ArrowLeft, Moon, Sun } from 'lucide-react'
 import { useAppStore } from '@/stores/appStore'
 import { cn } from '@/lib/utils'
+import { objectKey } from '@/lib/objectKey'
 
 export function Header() {
   const currentView = useAppStore((state) => state.currentView)
@@ -8,6 +9,11 @@ export function Header() {
   const toggleTheme = useAppStore((state) => state.toggleTheme)
   const darkMode = useAppStore((state) => state.darkMode)
   const setImageFile = useAppStore((state) => state.setImageFile)
+  const result = useAppStore((state) => state.result)
+  const reviewStatus = useAppStore((state) => state.reviewStatus)
+  const reviewedCount = result
+    ? result.objects.filter((obj) => reviewStatus[objectKey(obj)]).length
+    : 0
 
   return (
     <header className={cn(
@@ -46,6 +52,13 @@ export function Header() {
           </div>
         )}
       </div>
+
+      {currentView === 'results' && result && (
+        <div className="hidden md:flex items-center gap-4 text-sm">
+          <span className="text-[var(--text-primary)] font-semibold">{result.objects.length} objects</span>
+          <span className="text-[var(--text-secondary)]">Review: {reviewedCount}/{result.objects.length}</span>
+        </div>
+      )}
 
       <div className="flex items-center gap-2">
         <button

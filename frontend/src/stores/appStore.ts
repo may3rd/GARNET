@@ -9,6 +9,9 @@ export type AppState = {
   imageMeta: { width: number; height: number } | null
   options: DetectionOptions
   result: DetectionResult | null
+  resultRunId: number
+  reviewStatus: Record<string, 'accepted' | 'rejected'>
+  selectedObjectKey: string | null
   isProcessing: boolean
   progress: { step: string; percent: number } | null
   error: string | null
@@ -22,6 +25,8 @@ export type AppActions = {
   setView: (view: AppView) => void
   runDetection: () => Promise<void>
   toggleTheme: () => void
+  setReviewStatus: (key: string, status: 'accepted' | 'rejected' | null) => void
+  setSelectedObjectKey: (key: string | null) => void
 }
 
 const defaultOptions: DetectionOptions = {
@@ -54,6 +59,9 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   imageMeta: null,
   options: defaultOptions,
   result: null,
+  resultRunId: 0,
+  reviewStatus: {},
+  selectedObjectKey: null,
   isProcessing: false,
   progress: null,
   error: null,
@@ -117,6 +125,9 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       const result = await runDetection(imageFile, options)
       set({
         result,
+        resultRunId: Date.now(),
+        reviewStatus: {},
+        selectedObjectKey: null,
         isProcessing: false,
         currentView: 'results',
         progress: { step: 'Complete', percent: 100 },
@@ -146,5 +157,21 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       window.localStorage.setItem(THEME_KEY, 'light')
     }
     set({ darkMode: next })
+  },
+
+  setReviewStatus: (key, status) => {
+    set((state) => {
+      const next = { ...state.reviewStatus }
+      if (!status) {
+        delete next[key]
+      } else {
+        next[key] = status
+      }
+      return { reviewStatus: next }
+    })
+  },
+
+  setSelectedObjectKey: (key) => {
+    set({ selectedObjectKey: key })
   },
 }))

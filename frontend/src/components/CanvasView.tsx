@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import type { DetectedObject } from '@/types'
 import { getCategoryColor } from '@/lib/categoryColors'
+import { objectKey } from '@/lib/objectKey'
 import { ZoomControls } from '@/components/ZoomControls'
 import { cn } from '@/lib/utils'
 
 type CanvasViewProps = {
   imageUrl: string
   objects: DetectedObject[]
+  selectedObjectKey: string | null
+  fitKey?: string
 }
 
 const MIN_ZOOM = 0.2
@@ -14,7 +17,7 @@ const MAX_ZOOM = 4
 const MINI_MAX_WIDTH = 180
 const MINI_MAX_HEIGHT = 120
 
-export function CanvasView({ imageUrl, objects }: CanvasViewProps) {
+export function CanvasView({ imageUrl, objects, selectedObjectKey, fitKey }: CanvasViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const imageRef = useRef<HTMLImageElement>(null)
   const minimapRef = useRef<HTMLCanvasElement>(null)
@@ -27,15 +30,24 @@ export function CanvasView({ imageUrl, objects }: CanvasViewProps) {
   const [activePointerId, setActivePointerId] = useState<number | null>(null)
   const [isMinimapDragging, setIsMinimapDragging] = useState(false)
   const [minimapPointerId, setMinimapPointerId] = useState<number | null>(null)
+  const [hasAutoFit, setHasAutoFit] = useState(false)
+  const autoFitAttemptsRef = useRef(0)
+  const lastFitKeyRef = useRef<string | undefined>(undefined)
 
   useEffect(() => {
+    setHasAutoFit(false)
+    autoFitAttemptsRef.current = 0
     const img = imageRef.current
     if (!img) return
     const handleLoad = () => {
       const nextSize = { width: img.naturalWidth, height: img.naturalHeight }
       if (nextSize.width && nextSize.height) {
         setImageSize(nextSize)
-        requestAnimationFrame(() => fitToScreen(nextSize))
+        requestAnimationFrame(() => {
+          if (fitToScreen(nextSize)) {
+            setHasAutoFit(true)
+          }
+        })
       }
     }
     if (img.complete && img.naturalWidth) {
@@ -48,11 +60,55 @@ export function CanvasView({ imageUrl, objects }: CanvasViewProps) {
 
   useEffect(() => {
     const handleResize = () => {
+      if (!hasAutoFit) {
+        if (fitToScreen(imageSize)) {
+          setHasAutoFit(true)
+        }
+        return
+      }
       setOffset(clampOffset({ ...offset }, scale))
     }
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
-  }, [imageSize, offset, scale])
+  }, [imageSize, offset, scale, hasAutoFit])
+
+  useEffect(() => {
+    if (hasAutoFit) return
+    const tryAutoFit = () => {
+      if (hasAutoFit) return
+      autoFitAttemptsRef.current += 1
+      if (fitToScreen(imageSize)) {
+        setHasAutoFit(true)
+        return
+      }
+      if (autoFitAttemptsRef.current < 10) {
+        requestAnimationFrame(tryAutoFit)
+      }
+    }
+    requestAnimationFrame(tryAutoFit)
+  }, [hasAutoFit, imageSize])
+
+  useEffect(() => {
+    if (!fitKey || fitKey === lastFitKeyRef.current) return
+    lastFitKeyRef.current = fitKey
+    requestAnimationFrame(() => {
+      fitToScreen(imageSize)
+      setHasAutoFit(true)
+    })
+  }, [fitKey, imageSize])
+
+  useEffect(() => {
+    if (hasAutoFit) return
+    const container = containerRef.current
+    if (!container) return
+    const observer = new ResizeObserver(() => {
+      if (!hasAutoFit && fitToScreen(imageSize)) {
+        setHasAutoFit(true)
+      }
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [hasAutoFit, imageSize])
 
   useEffect(() => {
     const canvas = minimapRef.current
@@ -85,7 +141,7 @@ export function CanvasView({ imageUrl, objects }: CanvasViewProps) {
 
   const fitToScreen = (size = imageSize) => {
     const container = containerRef.current
-    if (!container) return
+    if (!container) return false
     const { clientWidth, clientHeight } = container
     const resolvedSize = size.width && size.height
       ? size
@@ -93,7 +149,7 @@ export function CanvasView({ imageUrl, objects }: CanvasViewProps) {
         ? { width: imageRef.current.naturalWidth, height: imageRef.current.naturalHeight }
         : size
     if (!resolvedSize.width || !resolvedSize.height || !clientWidth || !clientHeight) {
-      return
+      return false
     }
     const scaleX = clientWidth / resolvedSize.width
     const scaleY = clientHeight / resolvedSize.height
@@ -104,6 +160,7 @@ export function CanvasView({ imageUrl, objects }: CanvasViewProps) {
       y: (clientHeight - resolvedSize.height * nextScale) / 2,
     }
     setOffset(clampOffset(nextOffset, nextScale))
+    return true
   }
 
   const resetZoom = () => {
@@ -219,14 +276,19 @@ export function CanvasView({ imageUrl, objects }: CanvasViewProps) {
     const container = containerRef.current
     if (!canvas || !container) return null
     const meta = minimapMetaRef.current
+    const imageWidth = imageSize.width
+    const imageHeight = imageSize.height
+    if (!imageWidth || !imageHeight) return null
     const viewWidth = container.clientWidth / scale
     const viewHeight = container.clientHeight / scale
-    const viewX = Math.max(0, -offset.x / scale)
-    const viewY = Math.max(0, -offset.y / scale)
+    const maxViewX = Math.max(0, imageWidth - viewWidth)
+    const maxViewY = Math.max(0, imageHeight - viewHeight)
+    const viewX = Math.min(maxViewX, Math.max(0, -offset.x / scale))
+    const viewY = Math.min(maxViewY, Math.max(0, -offset.y / scale))
     const rectX = viewX * meta.scale
     const rectY = viewY * meta.scale
-    const rectWidth = Math.min(meta.width, viewWidth * meta.scale)
-    const rectHeight = Math.min(meta.height, viewHeight * meta.scale)
+    const rectWidth = Math.min(imageWidth, viewWidth) * meta.scale
+    const rectHeight = Math.min(imageHeight, viewHeight) * meta.scale
     return (
       <div
         className="absolute border-2 border-blue-400/90 shadow-[0_0_0_1px_rgba(0,0,0,0.35)] bg-blue-400/10 pointer-events-none"
@@ -305,14 +367,18 @@ export function CanvasView({ imageUrl, objects }: CanvasViewProps) {
               const nextSize = { width: target.naturalWidth, height: target.naturalHeight }
               if (nextSize.width && nextSize.height) {
                 setImageSize(nextSize)
-                requestAnimationFrame(() => fitToScreen(nextSize))
+                requestAnimationFrame(() => {
+                  if (fitToScreen(nextSize)) {
+                    setHasAutoFit(true)
+                  }
+                })
               }
             }}
           />
           {objects.map((obj) => (
             <div
               key={`${obj.CategoryID}-${obj.ObjectID}-${obj.Index}`}
-              className="absolute border border-[var(--accent)] pointer-events-none"
+              className="absolute border-2 border-[var(--accent)] pointer-events-none"
               style={{
                 left: obj.Left,
                 top: obj.Top,
@@ -320,6 +386,9 @@ export function CanvasView({ imageUrl, objects }: CanvasViewProps) {
                 height: obj.Height,
                 borderColor: getCategoryColor(obj.Object),
                 opacity: Math.max(obj.Score, 0.25),
+                boxShadow: selectedObjectKey === objectKey(obj)
+                  ? '0 0 0 2px rgba(59, 130, 246, 0.6)'
+                  : undefined,
               }}
               title={`${obj.Object} (${Math.round(obj.Score * 100)}%)`}
             />
