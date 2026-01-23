@@ -1,7 +1,7 @@
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-from fastapi import FastAPI, Request, Form, UploadFile, File
+from fastapi import FastAPI, Request, Form, UploadFile, File, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import Response
@@ -27,7 +27,11 @@ import logging
 from garnet import utils
 import garnet.Settings as Settings
 import yaml
-from garnet.azure_inference import CustomVisionSAHIDetector, CustomVisionConfig
+try:
+    from garnet.azure_inference import CustomVisionSAHIDetector, CustomVisionConfig
+except ModuleNotFoundError:
+    CustomVisionSAHIDetector = None
+    CustomVisionConfig = None
 
 # Configure logging
 log_file = os.path.join(os.path.dirname(
@@ -112,6 +116,29 @@ def list_config_files() -> list:
 
     logger.log(logging.INFO, f"Found {len(config_files)} config files.")
     return config_files
+
+
+def extract_item_list(items: list, key: str = "item") -> list[str]:
+    result: list[str] = []
+    for entry in items:
+        if isinstance(entry, dict) and key in entry:
+            value = entry.get(key)
+            if isinstance(value, str):
+                result.append(value)
+        elif isinstance(entry, str):
+            result.append(entry)
+    return result
+
+
+def pick_default_weight_file(model_type: str) -> str | None:
+    weight_files = extract_item_list(MODEL_LIST)
+    if not weight_files:
+        return None
+    if model_type == "ultralytics":
+        for item in weight_files:
+            if item.endswith(".pt"):
+                return item
+    return weight_files[0]
 
 
 logger.log(logging.INFO, f"* *********************************** *")
@@ -256,16 +283,34 @@ async def api_model_types():
     return settings.MODEL_TYPES
 
 
+@app.get("/api/models")
+async def api_models():
+    """Compatibility endpoint returning model type values."""
+    try:
+        return [item["value"] for item in settings.MODEL_TYPES if "value" in item]
+    except Exception as exc:
+        logger.error(f"Error loading model types: {exc}")
+        return ["ultralytics"]
+
+
 @app.get("/api/weight-files")
 async def api_weight_files():
     """Get available weight files."""
-    return MODEL_LIST
+    try:
+        return extract_item_list(MODEL_LIST)
+    except Exception as exc:
+        logger.error(f"Error loading weight files: {exc}")
+        return []
 
 
 @app.get("/api/config-files")
 async def api_config_files():
     """Get available config files."""
-    return CONFIG_FILE_LIST
+    try:
+        return extract_item_list(CONFIG_FILE_LIST)
+    except Exception as exc:
+        logger.error(f"Error loading config files: {exc}")
+        return ["datasets/yaml/data.yaml"]
 
 
 @app.post("/api/detect")
@@ -287,6 +332,15 @@ async def api_detect(
     logger.log(
         logging.INFO, f"API detect: model={selected_model}, weight={weight_file}")
 
+    if not weight_file:
+        weight_file = pick_default_weight_file(selected_model) or ""
+        logger.log(logging.INFO, f"API detect: using default weight file: {weight_file}")
+    if not weight_file:
+        raise HTTPException(
+            status_code=400,
+            detail="No weight file available. Add a model under yolo_weights or select a weight file.",
+        )
+
     # Read input image file
     input_filename = file_input.filename
     input_image_str = file_input.file.read()
@@ -301,6 +355,11 @@ async def api_detect(
 
     # Set up the model
     if selected_model == "azure_custom_vision":
+        if CustomVisionConfig is None or CustomVisionSAHIDetector is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Azure Custom Vision support is not installed. Remove the model selection or add garnet/azure_inference.py.",
+            )
         class_names = load_class_names_from_yaml(config_file)
         config = CustomVisionConfig(
             model_path=weight_file,
@@ -491,6 +550,13 @@ async def inferencing_image_and_text(
     print("start detecting by using", selected_model,
           "model with conf =", conf_th)
     print("weight_path is", weight_file)
+
+    if selected_model == "azure_custom_vision":
+        if CustomVisionConfig is None or CustomVisionSAHIDetector is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Azure Custom Vision support is not installed. Remove the model selection or add garnet/azure_inference.py.",
+            )
 
     # Not required in SAHI v.0.11.32
     # # Set category_mapping for ONNX model, required by updated version of SAHI
@@ -827,4 +893,4 @@ if __name__ == "__main__":
     logger.log(logging.INFO, f"* *********************************** *")
     logger.log(logging.INFO, f"*           Starting GARNET           *")
     logger.log(logging.INFO, f"* *********************************** *")
-    uvicorn.run("main:app", reload=True)
+    uvicorn.run("main:app", reload=True, port=8001)

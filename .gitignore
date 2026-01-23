@@ -180,3 +180,5 @@ output/
 out/
 DeepLSD/
 datesets/
+
+frontend/node_modules
