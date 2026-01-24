@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
+import type { ForwardedRef } from 'react'
 import type { DetectedObject } from '@/types'
 import { getCategoryColor } from '@/lib/categoryColors'
 import { objectKey } from '@/lib/objectKey'
@@ -9,7 +10,32 @@ type CanvasViewProps = {
   imageUrl: string
   objects: DetectedObject[]
   selectedObjectKey: string | null
+  selectedObject: DetectedObject | null
+  reviewStatus: Record<string, 'accepted' | 'rejected'>
+  onSelectObject: (key: string | null) => void
+  onSetReviewStatus: (key: string, status: 'accepted' | 'rejected' | null) => void
+  isEditing: boolean
+  editDraft: {
+    Object: string
+    Left: number
+    Top: number
+    Width: number
+    Height: number
+    Text: string
+  } | null
+  onStartEdit: (obj: DetectedObject) => void
+  onCancelEdit: () => void
+  onChangeEdit: (field: keyof NonNullable<CanvasViewProps['editDraft']>, value: string) => void
+  onSaveEdit: () => void
   fitKey?: string
+}
+
+export type CanvasViewHandle = {
+  zoomIn: () => void
+  zoomOut: () => void
+  resetZoom: () => void
+  fitToScreen: () => void
+  centerOnObject: (obj: DetectedObject) => void
 }
 
 const MIN_ZOOM = 0.2
@@ -17,7 +43,25 @@ const MAX_ZOOM = 4
 const MINI_MAX_WIDTH = 180
 const MINI_MAX_HEIGHT = 120
 
-export function CanvasView({ imageUrl, objects, selectedObjectKey, fitKey }: CanvasViewProps) {
+export const CanvasView = forwardRef(function CanvasView(
+  {
+    imageUrl,
+    objects,
+    selectedObjectKey,
+    selectedObject,
+    reviewStatus,
+    onSelectObject,
+    onSetReviewStatus,
+    isEditing,
+    editDraft,
+    onStartEdit,
+    onCancelEdit,
+    onChangeEdit,
+    onSaveEdit,
+    fitKey,
+  }: CanvasViewProps,
+  ref: ForwardedRef<CanvasViewHandle>
+) {
   const containerRef = useRef<HTMLDivElement>(null)
   const imageRef = useRef<HTMLImageElement>(null)
   const minimapRef = useRef<HTMLCanvasElement>(null)
@@ -31,8 +75,12 @@ export function CanvasView({ imageUrl, objects, selectedObjectKey, fitKey }: Can
   const [isMinimapDragging, setIsMinimapDragging] = useState(false)
   const [minimapPointerId, setMinimapPointerId] = useState<number | null>(null)
   const [hasAutoFit, setHasAutoFit] = useState(false)
+  const [cardSize, setCardSize] = useState({ width: 240, height: 150 })
+  const cardRef = useRef<HTMLDivElement>(null)
   const autoFitAttemptsRef = useRef(0)
   const lastFitKeyRef = useRef<string | undefined>(undefined)
+  const dragMovedRef = useRef(false)
+  const pointerStartRef = useRef({ x: 0, y: 0 })
 
   useEffect(() => {
     setHasAutoFit(false)
@@ -139,6 +187,14 @@ export function CanvasView({ imageUrl, objects, selectedObjectKey, fitKey }: Can
     drawMinimap()
   }, [imageUrl, imageSize])
 
+  useLayoutEffect(() => {
+    if (!cardRef.current) return
+    const rect = cardRef.current.getBoundingClientRect()
+    if (rect.width && rect.height) {
+      setCardSize({ width: rect.width, height: rect.height })
+    }
+  }, [selectedObjectKey, selectedObject])
+
   const fitToScreen = (size = imageSize) => {
     const container = containerRef.current
     if (!container) return false
@@ -201,6 +257,17 @@ export function CanvasView({ imageUrl, objects, selectedObjectKey, fitKey }: Can
     return nextOffset
   }
 
+  const zoomAt = (nextScale: number, centerX: number, centerY: number) => {
+    const clamped = clampScale(nextScale)
+    const scaleRatio = clamped / scale
+    const nextOffset = {
+      x: centerX - (centerX - offset.x) * scaleRatio,
+      y: centerY - (centerY - offset.y) * scaleRatio,
+    }
+    setScale(clamped)
+    setOffset(clampOffset(nextOffset, clamped))
+  }
+
   const handleWheel = (event: React.WheelEvent) => {
     event.preventDefault()
     const container = containerRef.current
@@ -209,15 +276,7 @@ export function CanvasView({ imageUrl, objects, selectedObjectKey, fitKey }: Can
     const cursorX = event.clientX - rect.left
     const cursorY = event.clientY - rect.top
     const zoomDirection = event.deltaY < 0 ? 1.08 : 0.92
-    const nextScale = clampScale(scale * zoomDirection)
-    const scaleRatio = nextScale / scale
-
-    const nextOffset = {
-      x: cursorX - (cursorX - offset.x) * scaleRatio,
-      y: cursorY - (cursorY - offset.y) * scaleRatio,
-    }
-    setScale(nextScale)
-    setOffset(clampOffset(nextOffset, nextScale))
+    zoomAt(scale * zoomDirection, cursorX, cursorY)
   }
 
   const handlePointerDown = (event: React.PointerEvent) => {
@@ -226,11 +285,20 @@ export function CanvasView({ imageUrl, objects, selectedObjectKey, fitKey }: Can
     event.currentTarget.setPointerCapture(event.pointerId)
     setActivePointerId(event.pointerId)
     setIsDragging(true)
+    dragMovedRef.current = false
+    pointerStartRef.current = { x: event.clientX, y: event.clientY }
     setDragStart({ x: event.clientX - offset.x, y: event.clientY - offset.y })
   }
 
   const handlePointerMove = (event: React.PointerEvent) => {
     if (!isDragging || (activePointerId !== null && event.pointerId !== activePointerId)) return
+    if (!dragMovedRef.current) {
+      const deltaX = Math.abs(event.clientX - pointerStartRef.current.x)
+      const deltaY = Math.abs(event.clientY - pointerStartRef.current.y)
+      if (deltaX > 3 || deltaY > 3) {
+        dragMovedRef.current = true
+      }
+    }
     const nextOffset = {
       x: event.clientX - dragStart.x,
       y: event.clientY - dragStart.y,
@@ -239,6 +307,18 @@ export function CanvasView({ imageUrl, objects, selectedObjectKey, fitKey }: Can
   }
 
   const handlePointerUp = (event: React.PointerEvent) => {
+    if (activePointerId !== null) {
+      event.currentTarget.releasePointerCapture(activePointerId)
+    }
+    setIsDragging(false)
+    setActivePointerId(null)
+    if (!dragMovedRef.current) {
+      onSelectObject(null)
+    }
+  }
+
+  const handlePointerLeave = (event: React.PointerEvent) => {
+    if (!isDragging) return
     if (activePointerId !== null) {
       event.currentTarget.releasePointerCapture(activePointerId)
     }
@@ -257,6 +337,32 @@ export function CanvasView({ imageUrl, objects, selectedObjectKey, fitKey }: Can
     }
     setOffset(clampOffset(nextOffset))
   }
+
+  const centerOnObject = (obj: DetectedObject) => {
+    centerToImagePoint(obj.Left + obj.Width / 2, obj.Top + obj.Height / 2)
+  }
+
+  const zoomIn = () => {
+    const container = containerRef.current
+    if (!container) return
+    zoomAt(scale * 1.1, container.clientWidth / 2, container.clientHeight / 2)
+  }
+
+  const zoomOut = () => {
+    const container = containerRef.current
+    if (!container) return
+    zoomAt(scale / 1.1, container.clientWidth / 2, container.clientHeight / 2)
+  }
+
+  useImperativeHandle(ref, () => ({
+    zoomIn,
+    zoomOut,
+    resetZoom,
+    fitToScreen: () => {
+      fitToScreen(imageSize)
+    },
+    centerOnObject,
+  }), [scale, imageSize, resetZoom, fitToScreen])
 
   const handleMinimapClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = minimapRef.current
@@ -334,6 +440,22 @@ export function CanvasView({ imageUrl, objects, selectedObjectKey, fitKey }: Can
     setMinimapPointerId(null)
   }
 
+  const selectionCardStyle = (() => {
+    if (!selectedObject || !containerRef.current) return null
+    const container = containerRef.current
+    const baseX = offset.x + (selectedObject.Left + selectedObject.Width) * scale + 12
+    const baseY = offset.y + selectedObject.Top * scale
+    const clampedX = Math.min(
+      container.clientWidth - cardSize.width - 12,
+      Math.max(12, baseX)
+    )
+    const clampedY = Math.min(
+      container.clientHeight - cardSize.height - 12,
+      Math.max(12, baseY)
+    )
+    return { left: clampedX, top: clampedY }
+  })()
+
   return (
     <div className="relative h-full w-full bg-[var(--bg-canvas)]">
       <div
@@ -347,7 +469,7 @@ export function CanvasView({ imageUrl, objects, selectedObjectKey, fitKey }: Can
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
+        onPointerLeave={handlePointerLeave}
       >
         <div
           className="absolute top-0 left-0 origin-top-left"
@@ -375,58 +497,172 @@ export function CanvasView({ imageUrl, objects, selectedObjectKey, fitKey }: Can
               }
             }}
           />
-          {objects.map((obj) => (
-            <div
-              key={`${obj.CategoryID}-${obj.ObjectID}-${obj.Index}`}
-              className="absolute border-2 border-[var(--accent)] pointer-events-none"
-              style={{
-                left: obj.Left,
-                top: obj.Top,
-                width: obj.Width,
-                height: obj.Height,
-                borderColor: getCategoryColor(obj.Object),
-                opacity: Math.max(obj.Score, 0.25),
-                boxShadow: selectedObjectKey === objectKey(obj)
-                  ? '0 0 0 2px rgba(59, 130, 246, 0.6)'
-                  : undefined,
-              }}
-              title={`${obj.Object} (${Math.round(obj.Score * 100)}%)`}
-            />
-          ))}
+          {objects.map((obj) => {
+            const key = objectKey(obj)
+            const status = reviewStatus[key]
+            const opacity = status === 'accepted'
+              ? 1
+              : status === 'rejected'
+                ? 0.15
+                : 0.5
+            return (
+              <div
+                key={key}
+                className={cn(
+                  'absolute border-2 pointer-events-auto',
+                  'transition-shadow',
+                  selectedObjectKey === key && 'ring-2 ring-white/80',
+                  status === 'accepted' && 'shadow-[0_0_0_1px_rgba(22,163,74,0.6)]'
+                )}
+                style={{
+                  left: obj.Left,
+                  top: obj.Top,
+                  width: obj.Width,
+                  height: obj.Height,
+                  borderColor: getCategoryColor(obj.Object),
+                  opacity,
+                  borderWidth: selectedObjectKey === key ? 3 : 2,
+                  backgroundColor: selectedObjectKey === key
+                    ? 'rgba(59, 130, 246, 0.01)'
+                    : status === 'rejected'
+                      ? 'rgba(239, 68, 68, 0.06)'
+                      : status === 'accepted'
+                        ? 'rgba(34, 197, 94, 0.1)'
+                        : 'rgba(59, 130, 246, 0.6)',
+                  boxShadow: selectedObjectKey === key
+                    ? '0 0 0 3px rgba(59, 130, 246, 0.8), 0 0 12px rgba(59, 130, 246, 0.6)'
+                    : undefined,
+                  borderStyle: status === 'rejected' ? 'dashed' : 'solid',
+                }}
+                title={`${obj.Object} (${Math.round(obj.Score * 100)}%)`}
+                onPointerDown={(event) => event.stopPropagation()}
+                onPointerUp={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onSelectObject(key)
+                }}
+              />
+            )
+          })}
         </div>
       </div>
+
+      {selectedObject && selectionCardStyle && (
+        <div
+          ref={cardRef}
+          className="absolute z-20 w-60 rounded-xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-3 shadow-lg"
+          style={selectionCardStyle}
+        >
+          <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+            Selected object
+          </div>
+          {!isEditing ? (
+            <>
+              <div className="mt-1 text-sm font-semibold">{selectedObject.Object}</div>
+              <div className="text-xs text-[var(--text-secondary)]">
+                Confidence {Math.round(selectedObject.Score * 100)}%
+              </div>
+              {selectedObject.Text && (
+                <div className="mt-2 text-xs text-[var(--text-secondary)]">
+                  OCR: <span className="text-[var(--text-primary)]">{selectedObject.Text}</span>
+                </div>
+              )}
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onSetReviewStatus(objectKey(selectedObject), 'accepted')}
+                  className={cn(
+                    'px-2.5 py-1.5 rounded-md text-xs font-semibold',
+                    reviewStatus[objectKey(selectedObject)] === 'accepted'
+                      ? 'bg-[var(--success)] text-white'
+                      : 'bg-[var(--bg-primary)] border border-[var(--border-muted)] text-[var(--text-secondary)]',
+                    'hover:border-[var(--success)] hover:text-[var(--success)] transition-colors'
+                  )}
+                >
+                  Accept
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSetReviewStatus(objectKey(selectedObject), 'rejected')}
+                  className={cn(
+                    'px-2.5 py-1.5 rounded-md text-xs font-semibold',
+                    reviewStatus[objectKey(selectedObject)] === 'rejected'
+                      ? 'bg-[var(--danger)] text-white'
+                      : 'bg-[var(--bg-primary)] border border-[var(--border-muted)] text-[var(--text-secondary)]',
+                    'hover:border-[var(--danger)] hover:text-[var(--danger)] transition-colors'
+                  )}
+                >
+                  Reject
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onStartEdit(selectedObject)}
+                  className="px-2.5 py-1.5 rounded-md text-xs font-semibold border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+                >
+                  Edit
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="mt-2 space-y-2 text-xs">
+                <label className="block">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Label</span>
+                  <input
+                    value={editDraft?.Object ?? ''}
+                    onChange={(event) => onChangeEdit('Object', event.target.value)}
+                    className="mt-1 w-full rounded-md border border-[var(--border-muted)] bg-[var(--bg-primary)] px-2 py-1"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">OCR text</span>
+                  <input
+                    value={editDraft?.Text ?? ''}
+                    onChange={(event) => onChangeEdit('Text', event.target.value)}
+                    className="mt-1 w-full rounded-md border border-[var(--border-muted)] bg-[var(--bg-primary)] px-2 py-1"
+                  />
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['Left', 'Top', 'Width', 'Height'] as const).map((field) => (
+                    <label key={field} className="block">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                        {field}
+                      </span>
+                      <input
+                        value={editDraft ? String(editDraft[field]) : ''}
+                        onChange={(event) => onChangeEdit(field, event.target.value)}
+                        className="mt-1 w-full rounded-md border border-[var(--border-muted)] bg-[var(--bg-primary)] px-2 py-1"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onSaveEdit}
+                  className="px-2.5 py-1.5 rounded-md text-xs font-semibold bg-[var(--accent)] text-white"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={onCancelEdit}
+                  className="px-2.5 py-1.5 rounded-md text-xs font-semibold border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--danger)] hover:text-[var(--danger)] transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="absolute bottom-5 left-1/2 -translate-x-1/2">
         <ZoomControls
           zoomPercent={zoomPercent}
-          onZoomIn={() => {
-            const container = containerRef.current
-            if (!container) return
-            const centerX = container.clientWidth / 2
-            const centerY = container.clientHeight / 2
-            const nextScale = clampScale(scale * 1.1)
-            const scaleRatio = nextScale / scale
-            const nextOffset = {
-              x: centerX - (centerX - offset.x) * scaleRatio,
-              y: centerY - (centerY - offset.y) * scaleRatio,
-            }
-            setScale(nextScale)
-            setOffset(clampOffset(nextOffset, nextScale))
-          }}
-          onZoomOut={() => {
-            const container = containerRef.current
-            if (!container) return
-            const centerX = container.clientWidth / 2
-            const centerY = container.clientHeight / 2
-            const nextScale = clampScale(scale / 1.1)
-            const scaleRatio = nextScale / scale
-            const nextOffset = {
-              x: centerX - (centerX - offset.x) * scaleRatio,
-              y: centerY - (centerY - offset.y) * scaleRatio,
-            }
-            setScale(nextScale)
-            setOffset(clampOffset(nextOffset, nextScale))
-          }}
+          onZoomIn={zoomIn}
+          onZoomOut={zoomOut}
           onReset={resetZoom}
           onFit={fitToScreen}
         />
@@ -449,4 +685,4 @@ export function CanvasView({ imageUrl, objects, selectedObjectKey, fitKey }: Can
       </div>
     </div>
   )
-}
+})

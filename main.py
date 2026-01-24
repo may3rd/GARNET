@@ -1,10 +1,10 @@
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-from fastapi import FastAPI, Request, Form, UploadFile, File, HTTPException
+from fastapi import FastAPI, Request, Form, UploadFile, File, HTTPException, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse
 
 from sahi import AutoDetectionModel, DetectionModel
 from sahi.predict import get_sliced_prediction
@@ -23,6 +23,7 @@ import os
 import datetime
 import pandas as pd
 import logging
+import uuid
 
 from garnet import utils
 import garnet.Settings as Settings
@@ -47,6 +48,9 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+# In-memory store for detection results.
+RESULTS_STORE: dict[str, dict] = {}
 
 
 def load_class_names_from_yaml(yaml_path: str) -> list[str]:
@@ -127,6 +131,13 @@ def extract_item_list(items: list, key: str = "item") -> list[str]:
                 result.append(value)
         elif isinstance(entry, str):
             result.append(entry)
+    return result
+
+
+def get_result_or_404(result_id: str) -> dict:
+    result = RESULTS_STORE.get(result_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Result not found")
     return result
 
 
@@ -445,11 +456,68 @@ async def api_detect(
     for i in range(len(sorted_data)):
         sorted_data[i]["Index"] = i + 1
 
-    return JSONResponse({
+    result_id = uuid.uuid4().hex
+    result_payload = {
+        "id": result_id,
         "objects": sorted_data,
         "image_url": "/static/images/prediction_results.png",
         "count": len(sorted_data),
-    })
+    }
+    RESULTS_STORE[result_id] = result_payload
+    return JSONResponse(result_payload)
+
+
+@app.get("/api/results/{result_id}")
+async def api_get_result(result_id: str):
+    """Fetch a previously detected result by ID."""
+    return get_result_or_404(result_id)
+
+
+@app.patch("/api/results/{result_id}/objects/{obj_id}")
+async def api_patch_object(result_id: str, obj_id: int, payload: dict = Body(...)):
+    """Update a detected object by Index within a stored result."""
+    result = get_result_or_404(result_id)
+    objects = result.get("objects", [])
+    allowed_fields = {
+        "Object",
+        "CategoryID",
+        "ObjectID",
+        "Left",
+        "Top",
+        "Width",
+        "Height",
+        "Score",
+        "Text",
+    }
+
+    target = None
+    for obj in objects:
+        if obj.get("Index") == obj_id:
+            target = obj
+            break
+
+    if not target:
+        raise HTTPException(status_code=404, detail="Object not found")
+
+    updates = {k: v for k, v in payload.items() if k in allowed_fields}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+
+    target.update(updates)
+    return target
+
+
+@app.delete("/api/results/{result_id}/objects/{obj_id}")
+async def api_delete_object(result_id: str, obj_id: int):
+    """Delete a detected object by Index within a stored result."""
+    result = get_result_or_404(result_id)
+    objects = result.get("objects", [])
+    updated_objects = [obj for obj in objects if obj.get("Index") != obj_id]
+    if len(updated_objects) == len(objects):
+        raise HTTPException(status_code=404, detail="Object not found")
+    result["objects"] = updated_objects
+    result["count"] = len(updated_objects)
+    return {"status": "deleted"}
 
 # ============================================
 # Original HTML Endpoints

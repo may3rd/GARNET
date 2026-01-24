@@ -24,9 +24,11 @@ export type AppActions = {
   setOptions: (options: Partial<DetectionOptions>) => void
   setView: (view: AppView) => void
   runDetection: () => Promise<void>
+  cancelDetection: () => void
   toggleTheme: () => void
   setReviewStatus: (key: string, status: 'accepted' | 'rejected' | null) => void
   setSelectedObjectKey: (key: string | null) => void
+  updateObject: (updated: DetectionResult['objects'][number]) => void
 }
 
 const defaultOptions: DetectionOptions = {
@@ -51,6 +53,7 @@ if (initialDarkMode && typeof document !== 'undefined') {
 }
 
 let progressTimer: number | null = null
+let activeAbortController: AbortController | null = null
 
 export const useAppStore = create<AppState & AppActions>((set, get) => ({
   currentView: 'empty',
@@ -102,6 +105,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     if (progressTimer) {
       window.clearInterval(progressTimer)
     }
+    if (activeAbortController) {
+      activeAbortController.abort()
+    }
+    activeAbortController = new AbortController()
 
     set({
       isProcessing: true,
@@ -112,17 +119,17 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
     let percent = 8
     progressTimer = window.setInterval(() => {
-      percent = Math.min(percent + 5, 92)
+      percent = Math.min(percent + 4, 92)
       const step = percent < 40
         ? 'Running detection...'
         : percent < 75
           ? 'Extracting objects...'
           : 'Finalizing results...'
       set({ progress: { step, percent } })
-    }, 800)
+    }, 500)
 
     try {
-      const result = await runDetection(imageFile, options)
+      const result = await runDetection(imageFile, options, activeAbortController.signal)
       set({
         result,
         resultRunId: Date.now(),
@@ -133,6 +140,15 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         progress: { step: 'Complete', percent: 100 },
       })
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        set({
+          isProcessing: false,
+          currentView: 'preview',
+          error: 'Detection canceled',
+          progress: null,
+        })
+        return
+      }
       set({
         isProcessing: false,
         currentView: 'preview',
@@ -144,6 +160,13 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         window.clearInterval(progressTimer)
         progressTimer = null
       }
+      activeAbortController = null
+    }
+  },
+
+  cancelDetection: () => {
+    if (activeAbortController) {
+      activeAbortController.abort()
     }
   },
 
@@ -173,5 +196,20 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   setSelectedObjectKey: (key) => {
     set({ selectedObjectKey: key })
+  },
+
+  updateObject: (updated) => {
+    set((state) => {
+      if (!state.result) return state
+      const nextObjects = state.result.objects.map((obj) =>
+        obj.Index === updated.Index ? { ...obj, ...updated } : obj
+      )
+      return {
+        result: {
+          ...state.result,
+          objects: nextObjects,
+        },
+      }
+    })
   },
 }))

@@ -14,6 +14,7 @@ export type DetectedObject = {
 }
 
 export type DetectionResult = {
+  id: string
   objects: DetectedObject[]
   image_url: string
   count: number

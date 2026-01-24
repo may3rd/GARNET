@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { FileImage, Sparkles, Upload } from 'lucide-react'
 import { useAppStore } from '@/stores/appStore'
 import { cn } from '@/lib/utils'
@@ -7,12 +7,19 @@ export function UploadZone() {
   const inputRef = useRef<HTMLInputElement>(null)
   const setImageFile = useAppStore((state) => state.setImageFile)
   const setImageMeta = useAppStore((state) => state.setImageMeta)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   const handleFile = useCallback((file: File) => {
     const validTypes = ['image/jpeg', 'image/png', 'image/webp']
-    if (!validTypes.includes(file.type)) {
+    if (file.type === 'application/pdf') {
+      setUploadError('PDF uploads are disabled until page-count validation is available.')
       return
     }
+    if (!validTypes.includes(file.type)) {
+      setUploadError('Unsupported file type. Upload a JPG, PNG, or WEBP image.')
+      return
+    }
+    setUploadError(null)
 
     const img = new Image()
     img.onload = () => {
@@ -60,7 +67,7 @@ export function UploadZone() {
         <input
           ref={inputRef}
           type="file"
-          accept=".jpg,.jpeg,.png,.webp"
+          accept=".jpg,.jpeg,.png,.webp,.pdf"
           onChange={handleChange}
           className="hidden"
         />
@@ -73,9 +80,16 @@ export function UploadZone() {
             <div className="text-sm text-[var(--text-secondary)] mt-1">or click to browse</div>
           </div>
           <div className="text-xs text-[var(--text-secondary)]">Supports: JPG, PNG, WEBP</div>
+          <div className="text-[11px] text-[var(--text-secondary)]">PDF uploads are temporarily disabled.</div>
         </div>
         <Upload className="absolute right-6 bottom-6 h-5 w-5 text-[var(--text-secondary)]" />
       </div>
+
+      {uploadError && (
+        <div className="mt-4 text-xs text-[var(--danger)] bg-[var(--bg-secondary)] border border-[var(--border-muted)] px-3 py-2 rounded-lg">
+          {uploadError}
+        </div>
+      )}
 
       <div className="flex items-center gap-3 text-xs text-[var(--text-secondary)] mt-6">
         <span className="h-px w-14 bg-[var(--border-muted)]" />

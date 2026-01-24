@@ -1,7 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStore } from '@/stores/appStore'
-import { CanvasView } from '@/components/CanvasView'
+import { CanvasView, type CanvasViewHandle } from '@/components/CanvasView'
 import { ObjectSidebar } from '@/components/ObjectSidebar'
+import { objectKey } from '@/lib/objectKey'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
+import { useInlineEdit } from '@/hooks/useInlineEdit'
+import { updateResultObject } from '@/lib/api'
 
 export function ResultsView() {
   const result = useAppStore((state) => state.result)
@@ -10,8 +14,12 @@ export function ResultsView() {
   const setReviewStatus = useAppStore((state) => state.setReviewStatus)
   const selectedObjectKey = useAppStore((state) => state.selectedObjectKey)
   const setSelectedObjectKey = useAppStore((state) => state.setSelectedObjectKey)
+  const updateObject = useAppStore((state) => state.updateObject)
   const [hiddenClasses, setHiddenClasses] = useState<Set<string>>(new Set())
   const [confidenceFilter, setConfidenceFilter] = useState(0)
+  const canvasRef = useRef<CanvasViewHandle>(null)
+  const edit = useInlineEdit()
+  const [editError, setEditError] = useState<string | null>(null)
 
   if (!result) {
     return (
@@ -21,12 +29,22 @@ export function ResultsView() {
     )
   }
 
-  const handleExport = () => {
-    const blob = new Blob([JSON.stringify(result.objects, null, 2)], { type: 'application/json' })
+  const handleExport = (filter: 'all' | 'accepted' | 'rejected' | 'visible') => {
+    const exportObjects = (() => {
+      if (filter === 'visible') return visibleObjects
+      if (filter === 'accepted') {
+        return result.objects.filter((obj) => reviewStatus[objectKey(obj)] === 'accepted')
+      }
+      if (filter === 'rejected') {
+        return result.objects.filter((obj) => reviewStatus[objectKey(obj)] === 'rejected')
+      }
+      return result.objects
+    })()
+    const blob = new Blob([JSON.stringify(exportObjects, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'garnet-results.json'
+    link.download = `garnet-results-${filter}.json`
     link.click()
     URL.revokeObjectURL(url)
   }
@@ -53,16 +71,98 @@ export function ResultsView() {
     })
   }
 
+  const selectedObject = useMemo(() => {
+    if (!selectedObjectKey) return null
+    return result.objects.find((obj) => objectKey(obj) === selectedObjectKey) || null
+  }, [result.objects, selectedObjectKey])
+
+  useEffect(() => {
+    if (selectedObject && canvasRef.current) {
+      canvasRef.current.centerOnObject(selectedObject)
+    }
+  }, [selectedObject])
+
+  useEffect(() => {
+    if (!selectedObjectKey) {
+      edit.cancelEditing()
+    }
+  }, [selectedObjectKey])
+
+  useKeyboardShortcuts({
+    objects: visibleObjects,
+    selectedObjectKey,
+    onSelectObject: setSelectedObjectKey,
+    onAccept: (key) => setReviewStatus(key, 'accepted'),
+    onReject: (key) => setReviewStatus(key, 'rejected'),
+    onFit: () => canvasRef.current?.fitToScreen(),
+    onReset: () => canvasRef.current?.resetZoom(),
+    onZoomIn: () => canvasRef.current?.zoomIn(),
+    onZoomOut: () => canvasRef.current?.zoomOut(),
+  })
+
+  const handleSaveEdit = async () => {
+    if (!selectedObject || !edit.draft) return
+    setEditError(null)
+    const payload = {
+      Object: edit.draft.Object,
+      Text: edit.draft.Text,
+      Left: Number(edit.draft.Left),
+      Top: Number(edit.draft.Top),
+      Width: Number(edit.draft.Width),
+      Height: Number(edit.draft.Height),
+    }
+    try {
+      const updated = await updateResultObject(result.id, selectedObject.Index, payload)
+      updateObject(updated)
+      edit.cancelEditing()
+    } catch (error) {
+      setEditError(error instanceof Error ? error.message : 'Unable to save edits')
+    }
+  }
+
   return (
     <div className="flex h-full">
       <div className="flex-1 relative">
         <CanvasView
+          ref={canvasRef}
           key={resultRunId}
           imageUrl={result.image_url}
           objects={visibleObjects}
           selectedObjectKey={selectedObjectKey}
+          selectedObject={selectedObject}
+          reviewStatus={reviewStatus}
+          onSelectObject={setSelectedObjectKey}
+          onSetReviewStatus={setReviewStatus}
+          isEditing={edit.isEditing}
+          editDraft={edit.draft}
+          onStartEdit={(obj) => {
+            setEditError(null)
+            edit.startEditing(obj)
+          }}
+          onCancelEdit={() => {
+            setEditError(null)
+            edit.cancelEditing()
+          }}
+          onChangeEdit={(field, value) => {
+            if (!edit.draft) return
+            if (field === 'Object' || field === 'Text') {
+              edit.setDraft({ ...edit.draft, [field]: value })
+              return
+            }
+            const parsed = Number(value)
+            edit.setDraft({
+              ...edit.draft,
+              [field]: Number.isFinite(parsed) ? parsed : edit.draft[field],
+            })
+          }}
+          onSaveEdit={handleSaveEdit}
           fitKey={String(resultRunId)}
         />
+        {editError && (
+          <div className="absolute bottom-6 left-6 max-w-sm text-xs text-[var(--danger)] bg-[var(--bg-secondary)] border border-[var(--border-muted)] px-3 py-2 rounded-lg">
+            {editError}
+          </div>
+        )}
       </div>
       <div className="w-[320px] shrink-0">
         <ObjectSidebar

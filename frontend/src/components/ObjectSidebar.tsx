@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, ChevronRight, Download, Eye, EyeOff, Search, X } from 'lucide-react'
 import type { DetectedObject } from '@/types'
 import { cn } from '@/lib/utils'
 import { getCategoryColor } from '@/lib/categoryColors'
 import { objectKey } from '@/lib/objectKey'
+
+type ExportFilter = 'all' | 'accepted' | 'rejected' | 'visible'
 
 type ObjectSidebarProps = {
   objects: DetectedObject[]
@@ -16,7 +18,7 @@ type ObjectSidebarProps = {
   onSetReviewStatus: (key: string, status: 'accepted' | 'rejected' | null) => void
   selectedObjectKey: string | null
   onSelectObject: (key: string) => void
-  onExport: () => void
+  onExport: (filter: ExportFilter) => void
 }
 
 function classKeyFor(obj: DetectedObject) {
@@ -38,6 +40,9 @@ export function ObjectSidebar({
 }: ObjectSidebarProps) {
   const [query, setQuery] = useState('')
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  const [exportOpen, setExportOpen] = useState(false)
+  const [statsOpen, setStatsOpen] = useState(true)
+  const exportRef = useRef<HTMLDivElement>(null)
 
   const filtered = useMemo(() => {
     if (!query) return objects
@@ -85,6 +90,29 @@ export function ObjectSidebar({
     return map
   }, [filteredVisible])
 
+  const stats = useMemo(() => {
+    const accepted = objects.filter((obj) => reviewStatus[objectKey(obj)] === 'accepted').length
+    const rejected = objects.filter((obj) => reviewStatus[objectKey(obj)] === 'rejected').length
+    const pending = objects.length - accepted - rejected
+    const avgConfidence = objects.length
+      ? Math.round(objects.reduce((sum, obj) => sum + obj.Score, 0) / objects.length * 100)
+      : 0
+    return { accepted, rejected, pending, avgConfidence }
+  }, [objects, reviewStatus])
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!exportRef.current) return
+      if (!exportRef.current.contains(event.target as Node)) {
+        setExportOpen(false)
+      }
+    }
+    if (exportOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [exportOpen])
+
   const toggleGroup = (groupName: string) => {
     setExpandedGroups((prev) => {
       const next = new Set(prev)
@@ -105,17 +133,42 @@ export function ObjectSidebar({
             <div className="text-sm font-semibold">Objects</div>
             <div className="text-xs text-[var(--text-secondary)]">{objects.length} detected</div>
           </div>
-          <button
-            onClick={onExport}
-            className={cn(
-              'inline-flex items-center gap-2 px-3 py-2 rounded-lg',
-              'bg-[var(--accent)] text-white text-xs font-semibold',
-              'hover:bg-[var(--accent-strong)] transition-colors'
+          <div className="relative" ref={exportRef}>
+            <button
+              onClick={() => setExportOpen((prev) => !prev)}
+              className={cn(
+                'inline-flex items-center gap-2 px-3 py-2 rounded-lg',
+                'bg-[var(--accent)] text-white text-xs font-semibold',
+                'hover:bg-[var(--accent-strong)] transition-colors'
+              )}
+            >
+              <Download className="h-4 w-4" />
+              Export
+              <ChevronDown className="h-4 w-4" />
+            </button>
+            {exportOpen && (
+              <div className="absolute right-0 mt-2 w-44 rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] shadow-lg z-20">
+                {([
+                  { id: 'all', label: 'All objects' },
+                  { id: 'visible', label: 'Visible only' },
+                  { id: 'accepted', label: 'Accepted only' },
+                  { id: 'rejected', label: 'Rejected only' },
+                ] as const).map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      setExportOpen(false)
+                      onExport(item.id)
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--bg-secondary)] transition-colors"
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
             )}
-          >
-            <Download className="h-4 w-4" />
-            Export JSON
-          </button>
+          </div>
         </div>
 
         <label className="relative block">
@@ -147,6 +200,40 @@ export function ObjectSidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto">
+        <div className="border-b border-[var(--border-muted)]">
+          <button
+            type="button"
+            onClick={() => setStatsOpen((prev) => !prev)}
+            className="w-full px-5 py-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]"
+          >
+            Statistics
+            <ChevronDown className={cn('h-4 w-4 transition-transform', statsOpen ? 'rotate-180' : '')} />
+          </button>
+          {statsOpen && (
+            <div className="px-5 pb-4 text-xs text-[var(--text-secondary)] space-y-2">
+              <div className="flex items-center justify-between">
+                <span>Total</span>
+                <span className="font-semibold text-[var(--text-primary)]">{objects.length}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Accepted</span>
+                <span className="font-semibold text-[var(--success)]">{stats.accepted}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Rejected</span>
+                <span className="font-semibold text-[var(--danger)]">{stats.rejected}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Pending</span>
+                <span className="font-semibold text-[var(--text-primary)]">{stats.pending}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Avg confidence</span>
+                <span className="font-semibold text-[var(--text-primary)]">{stats.avgConfidence}%</span>
+              </div>
+            </div>
+          )}
+        </div>
         {filtered.length === 0 && (
           <div className="p-5 text-sm text-[var(--text-secondary)]">No objects match your search.</div>
         )}
