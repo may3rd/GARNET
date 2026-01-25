@@ -26,6 +26,7 @@ type CanvasViewProps = {
   onStartEdit: (obj: DetectedObject) => void
   onCancelEdit: () => void
   onChangeEdit: (field: keyof NonNullable<CanvasViewProps['editDraft']>, value: string) => void
+  onReplaceEditDraft: (draft: NonNullable<CanvasViewProps['editDraft']>) => void
   onSaveEdit: () => void
   fitKey?: string
 }
@@ -57,6 +58,7 @@ export const CanvasView = forwardRef(function CanvasView(
     onStartEdit,
     onCancelEdit,
     onChangeEdit,
+    onReplaceEditDraft,
     onSaveEdit,
     fitKey,
   }: CanvasViewProps,
@@ -66,7 +68,7 @@ export const CanvasView = forwardRef(function CanvasView(
   const imageRef = useRef<HTMLImageElement>(null)
   const minimapRef = useRef<HTMLCanvasElement>(null)
   const minimapMetaRef = useRef({ scale: 1, offsetX: 0, offsetY: 0, width: 0, height: 0 })
-  const [imageSize, setImageSize] = useState({ width: 1, height: 1 })
+  const [imageSize, setImageSize] = useState({ width: 0, height: 0 })
   const [scale, setScale] = useState(1)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
@@ -81,6 +83,14 @@ export const CanvasView = forwardRef(function CanvasView(
   const lastFitKeyRef = useRef<string | undefined>(undefined)
   const dragMovedRef = useRef(false)
   const pointerStartRef = useRef({ x: 0, y: 0 })
+  const resizePointerIdRef = useRef<number | null>(null)
+  const [resizeState, setResizeState] = useState<{
+    handle: 'n' | 's' | 'e' | 'w' | 'nw' | 'ne' | 'sw' | 'se' | 'move'
+    startX: number
+    startY: number
+    start: NonNullable<CanvasViewProps['editDraft']>
+  } | null>(null)
+  const [editCursor, setEditCursor] = useState<string>('move')
 
   useEffect(() => {
     setHasAutoFit(false)
@@ -138,10 +148,13 @@ export const CanvasView = forwardRef(function CanvasView(
 
   useEffect(() => {
     if (!fitKey || fitKey === lastFitKeyRef.current) return
+    if (imageSize.width === 0 || imageSize.height === 0) return
+
     lastFitKeyRef.current = fitKey
     requestAnimationFrame(() => {
-      fitToScreen(imageSize)
-      setHasAutoFit(true)
+      if (fitToScreen(imageSize)) {
+        setHasAutoFit(true)
+      }
     })
   }, [fitKey, imageSize])
 
@@ -194,6 +207,117 @@ export const CanvasView = forwardRef(function CanvasView(
       setCardSize({ width: rect.width, height: rect.height })
     }
   }, [selectedObjectKey, selectedObject])
+
+  const getImagePoint = (clientX: number, clientY: number) => {
+    const container = containerRef.current
+    if (!container) return null
+    const rect = container.getBoundingClientRect()
+    return {
+      x: (clientX - rect.left - offset.x) / scale,
+      y: (clientY - rect.top - offset.y) / scale,
+    }
+  }
+
+  const applyResize = (
+    start: NonNullable<CanvasViewProps['editDraft']>,
+    handle: 'n' | 's' | 'e' | 'w' | 'nw' | 'ne' | 'sw' | 'se' | 'move',
+    dx: number,
+    dy: number
+  ) => {
+    const MIN_SIZE = 4
+    let left = start.Left
+    let top = start.Top
+    let width = start.Width
+    let height = start.Height
+
+    const applyWest = () => {
+      const nextWidth = Math.max(MIN_SIZE, width - dx)
+      left += width - nextWidth
+      width = nextWidth
+    }
+    const applyEast = () => {
+      width = Math.max(MIN_SIZE, width + dx)
+    }
+    const applyNorth = () => {
+      const nextHeight = Math.max(MIN_SIZE, height - dy)
+      top += height - nextHeight
+      height = nextHeight
+    }
+    const applySouth = () => {
+      height = Math.max(MIN_SIZE, height + dy)
+    }
+
+    switch (handle) {
+      case 'move':
+        left += dx
+        top += dy
+        break
+      case 'n':
+        applyNorth()
+        break
+      case 's':
+        applySouth()
+        break
+      case 'w':
+        applyWest()
+        break
+      case 'e':
+        applyEast()
+        break
+      case 'nw':
+        applyNorth()
+        applyWest()
+        break
+      case 'ne':
+        applyNorth()
+        applyEast()
+        break
+      case 'sw':
+        applySouth()
+        applyWest()
+        break
+      case 'se':
+        applySouth()
+        applyEast()
+        break
+      default:
+        break
+    }
+
+    return { ...start, Left: left, Top: top, Width: width, Height: height }
+  }
+
+  useEffect(() => {
+    if (!resizeState) return
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (resizePointerIdRef.current !== null && event.pointerId !== resizePointerIdRef.current) {
+        return
+      }
+      const point = getImagePoint(event.clientX, event.clientY)
+      if (!point) return
+      const dx = point.x - resizeState.startX
+      const dy = point.y - resizeState.startY
+      const nextDraft = applyResize(resizeState.start, resizeState.handle, dx, dy)
+      onReplaceEditDraft(nextDraft)
+    }
+
+    const handlePointerUp = (event: PointerEvent) => {
+      if (resizePointerIdRef.current !== null && event.pointerId !== resizePointerIdRef.current) {
+        return
+      }
+      resizePointerIdRef.current = null
+      setResizeState(null)
+      document.body.style.cursor = ''
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+    }
+  }, [resizeState, scale, offset, onReplaceEditDraft])
 
   const fitToScreen = (size = imageSize) => {
     const container = containerRef.current
@@ -281,6 +405,7 @@ export const CanvasView = forwardRef(function CanvasView(
 
   const handlePointerDown = (event: React.PointerEvent) => {
     if (event.button !== 0) return
+    if (resizeState) return
     event.preventDefault()
     event.currentTarget.setPointerCapture(event.pointerId)
     setActivePointerId(event.pointerId)
@@ -291,6 +416,7 @@ export const CanvasView = forwardRef(function CanvasView(
   }
 
   const handlePointerMove = (event: React.PointerEvent) => {
+    if (resizeState) return
     if (!isDragging || (activePointerId !== null && event.pointerId !== activePointerId)) return
     if (!dragMovedRef.current) {
       const deltaX = Math.abs(event.clientX - pointerStartRef.current.x)
@@ -307,6 +433,7 @@ export const CanvasView = forwardRef(function CanvasView(
   }
 
   const handlePointerUp = (event: React.PointerEvent) => {
+    if (resizeState) return
     if (activePointerId !== null) {
       event.currentTarget.releasePointerCapture(activePointerId)
     }
@@ -318,6 +445,7 @@ export const CanvasView = forwardRef(function CanvasView(
   }
 
   const handlePointerLeave = (event: React.PointerEvent) => {
+    if (resizeState) return
     if (!isDragging) return
     if (activePointerId !== null) {
       event.currentTarget.releasePointerCapture(activePointerId)
@@ -505,39 +633,43 @@ export const CanvasView = forwardRef(function CanvasView(
               : status === 'rejected'
                 ? 0.15
                 : 0.5
+            const adjusted = isEditing && editDraft && selectedObjectKey === key
+              ? { ...obj, ...editDraft }
+              : obj
             return (
               <div
                 key={key}
                 className={cn(
-                  'absolute border-2 pointer-events-auto',
+                  'absolute border-2',
+                  isEditing ? 'pointer-events-none' : 'pointer-events-auto',
                   'transition-shadow',
                   selectedObjectKey === key && 'ring-2 ring-white/80',
                   status === 'accepted' && 'shadow-[0_0_0_1px_rgba(22,163,74,0.6)]'
                 )}
                 style={{
-                  left: obj.Left,
-                  top: obj.Top,
-                  width: obj.Width,
-                  height: obj.Height,
-                  borderColor: getCategoryColor(obj.Object),
+                  left: adjusted.Left,
+                  top: adjusted.Top,
+                  width: adjusted.Width,
+                  height: adjusted.Height,
+                  borderColor: getCategoryColor(adjusted.Object),
                   opacity,
                   borderWidth: selectedObjectKey === key ? 3 : 2,
                   backgroundColor: selectedObjectKey === key
-                    ? 'rgba(59, 130, 246, 0.01)'
+                    ? 'rgba(59, 130, 246, 0.08)'
                     : status === 'rejected'
                       ? 'rgba(239, 68, 68, 0.06)'
                       : status === 'accepted'
-                        ? 'rgba(34, 197, 94, 0.1)'
-                        : 'rgba(59, 130, 246, 0.6)',
+                        ? 'rgba(34, 197, 94, 0.0)'
+                        : 'rgba(59, 130, 246, 0.5)',
                   boxShadow: selectedObjectKey === key
                     ? '0 0 0 3px rgba(59, 130, 246, 0.8), 0 0 12px rgba(59, 130, 246, 0.6)'
                     : undefined,
                   borderStyle: status === 'rejected' ? 'dashed' : 'solid',
                 }}
-                title={`${obj.Object} (${Math.round(obj.Score * 100)}%)`}
-                onPointerDown={(event) => event.stopPropagation()}
-                onPointerUp={(event) => event.stopPropagation()}
-                onClick={(event) => {
+                title={`${adjusted.Object} (${Math.round(obj.Score * 100)}%)`}
+                onPointerDown={isEditing ? undefined : (event) => event.stopPropagation()}
+                onPointerUp={isEditing ? undefined : (event) => event.stopPropagation()}
+                onClick={isEditing ? undefined : (event) => {
                   event.stopPropagation()
                   onSelectObject(key)
                 }}
@@ -545,12 +677,100 @@ export const CanvasView = forwardRef(function CanvasView(
             )
           })}
         </div>
+        {isEditing && editDraft && selectedObjectKey && (
+          <div
+            className="absolute z-30"
+            style={{
+              left: offset.x + editDraft.Left * scale,
+              top: offset.y + editDraft.Top * scale,
+              width: editDraft.Width * scale,
+              height: editDraft.Height * scale,
+            }}
+          >
+            <div
+              className="absolute inset-0 border-2 border-blue-500/90 bg-blue-500/10"
+              style={{ cursor: editCursor }}
+              onPointerDown={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                const point = getImagePoint(event.clientX, event.clientY)
+                if (!point) return
+                resizePointerIdRef.current = event.pointerId
+                setResizeState({
+                  handle: 'move',
+                  startX: point.x,
+                  startY: point.y,
+                  start: editDraft,
+                })
+                document.body.style.cursor = 'grabbing'
+              }}
+              onMouseMove={(event) => {
+                const rect = event.currentTarget.getBoundingClientRect()
+                const x = event.clientX - rect.left
+                const y = event.clientY - rect.top
+                const width = rect.width
+                const height = rect.height
+                const threshold = 30
+                let cursor = 'move'
+                if (x < threshold && y < threshold) cursor = 'nw-resize'
+                else if (x > width - threshold && y < threshold) cursor = 'ne-resize'
+                else if (x < threshold && y > height - threshold) cursor = 'sw-resize'
+                else if (x > width - threshold && y > height - threshold) cursor = 'se-resize'
+                else if (x < threshold) cursor = 'w-resize'
+                else if (x > width - threshold) cursor = 'e-resize'
+                else if (y < threshold) cursor = 'n-resize'
+                else if (y > height - threshold) cursor = 's-resize'
+                setEditCursor(cursor)
+              }}
+              onMouseLeave={() => setEditCursor('move')}
+            />
+            {([
+              { key: 'nw', left: -5, top: -5, cursorClass: 'cursor-nwse-resize' },
+              { key: 'n', left: '50%', top: -5, cursorClass: 'cursor-ns-resize', transform: 'translateX(-50%)' },
+              { key: 'ne', right: -5, top: -5, cursorClass: 'cursor-nesw-resize' },
+              { key: 'w', left: -5, top: '50%', cursorClass: 'cursor-ew-resize', transform: 'translateY(-50%)' },
+              { key: 'e', right: -5, top: '50%', cursorClass: 'cursor-ew-resize', transform: 'translateY(-50%)' },
+              { key: 'sw', left: -5, bottom: -5, cursorClass: 'cursor-nesw-resize' },
+              { key: 's', left: '50%', bottom: -5, cursorClass: 'cursor-ns-resize', transform: 'translateX(-50%)' },
+              { key: 'se', right: -5, bottom: -5, cursorClass: 'cursor-nwse-resize' },
+            ] as const).map((handle) => (
+              <div
+                key={handle.key}
+                className={cn(
+                  'absolute h-2.5 w-2.5 rounded-sm border border-blue-600 bg-white z-[60]',
+                  handle.cursorClass
+                )}
+                style={{
+                  ...('left' in handle ? { left: handle.left } : {}),
+                  ...('top' in handle ? { top: handle.top } : {}),
+                  ...('right' in handle ? { right: handle.right } : {}),
+                  ...('bottom' in handle ? { bottom: handle.bottom } : {}),
+                  ...('transform' in handle ? { transform: handle.transform } : {}),
+                }}
+                onPointerDown={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  const point = getImagePoint(event.clientX, event.clientY)
+                  if (!point) return
+                  resizePointerIdRef.current = event.pointerId
+                  setResizeState({
+                    handle: handle.key,
+                    startX: point.x,
+                    startY: point.y,
+                    start: editDraft,
+                  })
+                  document.body.style.cursor = handle.cursorClass.replace('cursor-', '')
+                }}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {selectedObject && selectionCardStyle && (
         <div
           ref={cardRef}
-          className="absolute z-20 w-60 rounded-xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-3 shadow-lg"
+          className="absolute z-50 w-60 rounded-xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-3 shadow-lg"
           style={selectionCardStyle}
         >
           <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
@@ -570,26 +790,30 @@ export const CanvasView = forwardRef(function CanvasView(
               <div className="mt-3 flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => onSetReviewStatus(objectKey(selectedObject), 'accepted')}
+                  onClick={() => {
+                    onSetReviewStatus(objectKey(selectedObject), 'accepted')
+                    onSelectObject(null)
+                  }}
                   className={cn(
-                    'px-2.5 py-1.5 rounded-md text-xs font-semibold',
+                    'px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all',
                     reviewStatus[objectKey(selectedObject)] === 'accepted'
-                      ? 'bg-[var(--success)] text-white'
-                      : 'bg-[var(--bg-primary)] border border-[var(--border-muted)] text-[var(--text-secondary)]',
-                    'hover:border-[var(--success)] hover:text-[var(--success)] transition-colors'
+                      ? 'bg-[var(--success)] text-white hover:brightness-95'
+                      : 'bg-[var(--bg-primary)] border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--success)] hover:text-[var(--success)] hover:bg-[var(--success)]/5'
                   )}
                 >
                   Accept
                 </button>
                 <button
                   type="button"
-                  onClick={() => onSetReviewStatus(objectKey(selectedObject), 'rejected')}
+                  onClick={() => {
+                    onSetReviewStatus(objectKey(selectedObject), 'rejected')
+                    onSelectObject(null)
+                  }}
                   className={cn(
-                    'px-2.5 py-1.5 rounded-md text-xs font-semibold',
+                    'px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all',
                     reviewStatus[objectKey(selectedObject)] === 'rejected'
-                      ? 'bg-[var(--danger)] text-white'
-                      : 'bg-[var(--bg-primary)] border border-[var(--border-muted)] text-[var(--text-secondary)]',
-                    'hover:border-[var(--danger)] hover:text-[var(--danger)] transition-colors'
+                      ? 'bg-[var(--danger)] text-white hover:brightness-95'
+                      : 'bg-[var(--bg-primary)] border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--danger)] hover:text-[var(--danger)] hover:bg-[var(--danger)]/5'
                   )}
                 >
                   Reject

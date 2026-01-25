@@ -131,7 +131,9 @@ export function ObjectSidebar({
         <div className="flex items-center justify-between mb-4">
           <div>
             <div className="text-sm font-semibold">Objects</div>
-            <div className="text-xs text-[var(--text-secondary)]">{objects.length} detected</div>
+            <div className="text-xs text-[var(--text-secondary)]">
+              {objects.length} detected ({stats.accepted + stats.rejected} reviewed)
+            </div>
           </div>
           <div className="relative" ref={exportRef}>
             <button
@@ -240,6 +242,11 @@ export function ObjectSidebar({
         {grouped.map(([groupKey, groupMeta]) => {
           const groupItems = visibleByClass.get(groupKey) || []
           const isHidden = hiddenClasses.has(groupKey)
+          const reviewedCount = groupMeta.items.filter((obj) => {
+            const status = reviewStatus[objectKey(obj)]
+            return status === 'accepted' || status === 'rejected'
+          }).length
+
           return (
           <div key={groupKey} className="border-b border-[var(--border-muted)]">
             <div className={cn(
@@ -259,7 +266,7 @@ export function ObjectSidebar({
                 {groupMeta.label}
               </button>
               <span className="flex items-center gap-3 text-[var(--text-secondary)]">
-                <span>{groupMeta.items.length}</span>
+                <span>{reviewedCount}/{groupMeta.items.length}</span>
                 <button
                   type="button"
                   onClick={() => onToggleClass(groupKey)}
@@ -316,11 +323,10 @@ export function ObjectSidebar({
                         type="button"
                         onClick={() => onSetReviewStatus(objectKey(obj), 'accepted')}
                         className={cn(
-                          'px-2.5 py-1.5 rounded-md text-xs font-semibold',
+                          'px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all',
                           reviewStatus[objectKey(obj)] === 'accepted'
-                            ? 'bg-[var(--success)] text-white'
-                            : 'bg-[var(--bg-primary)] border border-[var(--border-muted)] text-[var(--text-secondary)]',
-                          'hover:border-[var(--success)] hover:text-[var(--success)] transition-colors'
+                            ? 'bg-[var(--success)] text-white hover:brightness-95'
+                            : 'bg-[var(--bg-primary)] border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--success)] hover:text-[var(--success)] hover:bg-[var(--success)]/5'
                         )}
                       >
                         <span className="inline-flex items-center gap-1">
@@ -332,11 +338,10 @@ export function ObjectSidebar({
                         type="button"
                         onClick={() => onSetReviewStatus(objectKey(obj), 'rejected')}
                         className={cn(
-                          'px-2.5 py-1.5 rounded-md text-xs font-semibold',
+                          'px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all',
                           reviewStatus[objectKey(obj)] === 'rejected'
-                            ? 'bg-[var(--danger)] text-white'
-                            : 'bg-[var(--bg-primary)] border border-[var(--border-muted)] text-[var(--text-secondary)]',
-                          'hover:border-[var(--danger)] hover:text-[var(--danger)] transition-colors'
+                            ? 'bg-[var(--danger)] text-white hover:brightness-95'
+                            : 'bg-[var(--bg-primary)] border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--danger)] hover:text-[var(--danger)] hover:bg-[var(--danger)]/5'
                         )}
                       >
                         <span className="inline-flex items-center gap-1">

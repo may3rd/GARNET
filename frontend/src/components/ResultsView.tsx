@@ -77,12 +77,6 @@ export function ResultsView() {
   }, [result.objects, selectedObjectKey])
 
   useEffect(() => {
-    if (selectedObject && canvasRef.current) {
-      canvasRef.current.centerOnObject(selectedObject)
-    }
-  }, [selectedObject])
-
-  useEffect(() => {
     if (!selectedObjectKey) {
       edit.cancelEditing()
     }
@@ -117,6 +111,14 @@ export function ResultsView() {
       edit.cancelEditing()
     } catch (error) {
       setEditError(error instanceof Error ? error.message : 'Unable to save edits')
+    }
+  }
+
+  const handleSidebarSelect = (key: string) => {
+    setSelectedObjectKey(key)
+    const obj = result.objects.find((o) => objectKey(o) === key)
+    if (obj && canvasRef.current) {
+      canvasRef.current.centerOnObject(obj)
     }
   }
 
@@ -155,6 +157,7 @@ export function ResultsView() {
               [field]: Number.isFinite(parsed) ? parsed : edit.draft[field],
             })
           }}
+          onReplaceEditDraft={(next) => edit.setDraft(next)}
           onSaveEdit={handleSaveEdit}
           fitKey={String(resultRunId)}
         />
@@ -175,7 +178,7 @@ export function ResultsView() {
           reviewStatus={reviewStatus}
           onSetReviewStatus={setReviewStatus}
           selectedObjectKey={selectedObjectKey}
-          onSelectObject={setSelectedObjectKey}
+          onSelectObject={handleSidebarSelect}
           onExport={handleExport}
         />
       </div>
