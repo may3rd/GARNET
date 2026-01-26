@@ -4,6 +4,7 @@ import type { DetectedObject } from '@/types'
 import { cn } from '@/lib/utils'
 import { getCategoryColor } from '@/lib/categoryColors'
 import { objectKey } from '@/lib/objectKey'
+import type { ExportFormat } from '@/lib/exportFormats'
 
 type ExportFilter = 'all' | 'accepted' | 'rejected' | 'visible'
 
@@ -31,7 +32,7 @@ type ObjectSidebarProps = {
   onCancelCreate: () => void
   onUpdateCreateDraft: (field: 'Object' | 'Left' | 'Top' | 'Width' | 'Height' | 'Text', value: string) => void
   onSaveCreate: () => void
-  onExport: (filter: ExportFilter) => void
+  onExport: (format: ExportFormat, filter: ExportFilter) => void
 }
 
 function classKeyFor(obj: DetectedObject) {
@@ -177,28 +178,40 @@ export function ObjectSidebar({
                 Export
                 <ChevronDown className="h-4 w-4" />
               </button>
-              {exportOpen && (
-                <div className="absolute right-0 mt-2 w-44 rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] shadow-lg z-20">
-                  {([
-                    { id: 'all', label: 'All objects' },
-                    { id: 'visible', label: 'Visible only' },
-                    { id: 'accepted', label: 'Accepted only' },
-                    { id: 'rejected', label: 'Rejected only' },
-                  ] as const).map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        setExportOpen(false)
-                        onExport(item.id)
-                      }}
-                      className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--bg-secondary)] transition-colors"
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+            {exportOpen && (
+              <div className="absolute right-0 mt-2 w-[280px] rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] shadow-lg z-20 p-2">
+                {([
+                  { id: 'json', label: 'JSON' },
+                  { id: 'yolo', label: 'YOLO' },
+                  { id: 'coco', label: 'COCO' },
+                  { id: 'labelme', label: 'LabelMe' },
+                ] as const).map((format) => (
+                  <div key={format.id} className="mb-2 last:mb-0">
+                    <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                      {format.label}
+                    </div>
+                    {([
+                      { id: 'all', label: 'All objects' },
+                      { id: 'visible', label: 'Visible only' },
+                      { id: 'accepted', label: 'Accepted only' },
+                      { id: 'rejected', label: 'Rejected only' },
+                    ] as const).map((item) => (
+                      <button
+                        key={`${format.id}-${item.id}`}
+                        type="button"
+                        onClick={() => {
+                          setExportOpen(false)
+                          onExport(format.id, item.id)
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs rounded-md hover:bg-[var(--bg-secondary)] transition-colors"
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
             </div>
           </div>
         </div>

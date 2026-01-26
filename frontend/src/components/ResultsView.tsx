@@ -6,6 +6,7 @@ import { objectKey } from '@/lib/objectKey'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useInlineEdit, type EditDraft } from '@/hooks/useInlineEdit'
 import { createResultObject, updateResultObject } from '@/lib/api'
+import { exportCoco, exportLabelMe, exportYolo, type ExportFormat } from '@/lib/exportFormats'
 
 export function ResultsView() {
   const result = useAppStore((state) => state.result)
@@ -33,7 +34,7 @@ export function ResultsView() {
     )
   }
 
-  const handleExport = (filter: 'all' | 'accepted' | 'rejected' | 'visible') => {
+  const handleExport = (format: ExportFormat, filter: 'all' | 'accepted' | 'rejected' | 'visible') => {
     const exportObjects = (() => {
       if (filter === 'visible') return visibleObjects
       if (filter === 'accepted') {
@@ -44,13 +45,48 @@ export function ResultsView() {
       }
       return result.objects
     })()
-    const blob = new Blob([JSON.stringify(exportObjects, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `garnet-results-${filter}.json`
-    link.click()
-    URL.revokeObjectURL(url)
+    const imageFileName = result.image_url.split('/').pop() || 'image.png'
+    const baseName = imageFileName.replace(/\.[^.]+$/, '')
+
+    const download = (blob: Blob, filename: string) => {
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      link.click()
+      URL.revokeObjectURL(url)
+    }
+
+    if (format === 'json') {
+      download(
+        new Blob([JSON.stringify(exportObjects, null, 2)], { type: 'application/json' }),
+        `garnet-results-${filter}.json`
+      )
+      return
+    }
+
+    if (!result.image_width || !result.image_height) {
+      download(
+        new Blob([JSON.stringify({ error: 'Missing image size for export' }, null, 2)], { type: 'application/json' }),
+        `garnet-export-error.json`
+      )
+      return
+    }
+
+    if (format === 'yolo') {
+      const txt = exportYolo(exportObjects, result.image_width, result.image_height)
+      download(new Blob([txt], { type: 'text/plain' }), `${baseName}.txt`)
+      return
+    }
+
+    if (format === 'coco') {
+      const coco = exportCoco(exportObjects, result.image_width, result.image_height, imageFileName)
+      download(new Blob([JSON.stringify(coco, null, 2)], { type: 'application/json' }), `${baseName}.coco.json`)
+      return
+    }
+
+    const labelme = exportLabelMe(exportObjects, result.image_width, result.image_height, imageFileName)
+    download(new Blob([JSON.stringify(labelme, null, 2)], { type: 'application/json' }), `${baseName}.labelme.json`)
   }
 
   const normalizeKey = (value: string) => value.toLowerCase().replace(/_/g, ' ').trim()

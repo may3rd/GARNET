@@ -1,0 +1,129 @@
+{
+    "schema_version": "graph_v1",
+    "description": "Graph annotation schema for P&ID digitization with patch-based processing (SAHI tiling compatible). One file can represent either a full plan or a patch.",
+    "coordinate_system": {
+        "image_origin": "top_left",
+        "x_axis": "right",
+        "y_axis": "down",
+        "units": "pixels",
+        "bbox_format": "xywh",
+        "bbox_xywh_definition": {
+            "x": "left",
+            "y": "top",
+            "w": "width",
+            "h": "height"
+        }
+    },
+    "document": {
+        "doc_id": "string",
+        "source": {
+            "file_name": "string",
+            "file_type": "pdf|png|jpg|tif|other",
+            "page_index": "integer >= 0",
+            "render_dpi": "integer >= 72",
+            "notes": "string"
+        },
+        "image": {
+            "width": "integer > 0",
+            "height": "integer > 0"
+        }
+    },
+    "tiling": {
+        "is_patch": "boolean",
+        "tile_engine": "sahi|other",
+        "tile": {
+            "tile_id": "string",
+            "tile_row": "integer >= 0",
+            "tile_col": "integer >= 0",
+            "tile_width": "integer > 0",
+            "tile_height": "integer > 0",
+            "overlap_x": "integer >= 0",
+            "overlap_y": "integer >= 0",
+            "offset_x": "integer >= 0",
+            "offset_y": "integer >= 0"
+        },
+        "global_image": {
+            "width": "integer > 0",
+            "height": "integer > 0"
+        }
+    },
+    "classes": {
+        "node_types": ["equipment_general", "tank_vessel", "pump_compressor", "valve", "instrumentation", "inlet_outlet", "arrow", "crossing", "ankle", "border"],
+        "edge_types": ["solid", "non_solid"]
+    },
+    "nodes": [
+        {
+            "id": "string (unique within file)",
+            "type": "one of classes.node_types",
+            "bbox": {
+                "x": "number",
+                "y": "number",
+                "w": "number",
+                "h": "number"
+            },
+            "confidence": "number 0..1 (1.0 for ground truth)",
+            "text": {
+                "raw": "string",
+                "normalized": "string",
+                "confidence": "number 0..1"
+            },
+            "role": {
+                "is_symbol": "boolean",
+                "is_topology": "boolean"
+            },
+            "provenance": {
+                "annotated_by": "string",
+                "annotated_at": "ISO-8601 datetime string",
+                "source": "manual|auto|imported",
+                "notes": "string"
+            },
+            "geometry": {
+                "center": { "x": "number", "y": "number" }
+            },
+            "patch_link": {
+                "global_bbox_xywh": { "x": "number", "y": "number", "w": "number", "h": "number" },
+                "tile_id": "string"
+            },
+            "tags": {
+                "pid_tag": "string",
+                "line_tag": "string",
+                "service": "string"
+            }
+        }
+    ],
+    "edges": [
+        {
+            "id": "string (unique within file)",
+            "src": "node.id",
+            "dst": "node.id",
+            "type": "one of classes.edge_types",
+            "confidence": "number 0..1 (1.0 for ground truth)",
+            "directed": "boolean",
+            "provenance": {
+                "annotated_by": "string",
+                "annotated_at": "ISO-8601 datetime string",
+                "source": "manual|auto|imported",
+                "notes": "string"
+            }
+        }
+    ],
+    "constraints": {
+        "node_id_unique": true,
+        "edge_id_unique": true,
+        "edge_endpoints_exist": true,
+        "self_loops_disallowed": true,
+        "border_nodes_allowed_only_when_is_patch_true": true,
+        "edge_type_required": true,
+        "bbox_w_h_positive": true
+    },
+    "recommended_defaults": {
+        "edges": {
+            "directed": false,
+            "type_when_unknown": "solid"
+        },
+        "nodes": {
+            "confidence_for_ground_truth": 1.0,
+            "text_confidence_default": 0.0
+        }
+    }
+}

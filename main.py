@@ -462,6 +462,8 @@ async def api_detect(
         "id": result_id,
         "objects": sorted_data,
         "image_url": f"/static/images/{image_filename}",
+        "image_width": int(original_image.shape[1]),
+        "image_height": int(original_image.shape[0]),
         "count": len(sorted_data),
     }
     RESULTS_STORE[result_id] = result_payload
