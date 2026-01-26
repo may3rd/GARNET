@@ -404,8 +404,10 @@ async def api_detect(
         verbose=0,
     )
 
-    # Save the original image for canvas display
-    cv2.imwrite('static/images/prediction_results.png', original_image)
+    result_id = uuid.uuid4().hex
+    image_filename = f"prediction_results_{result_id}.png"
+    image_path = os.path.join("static", "images", image_filename)
+    cv2.imwrite(image_path, original_image)
 
     # Process results
     table_data = []
@@ -456,11 +458,10 @@ async def api_detect(
     for i in range(len(sorted_data)):
         sorted_data[i]["Index"] = i + 1
 
-    result_id = uuid.uuid4().hex
     result_payload = {
         "id": result_id,
         "objects": sorted_data,
-        "image_url": "/static/images/prediction_results.png",
+        "image_url": f"/static/images/{image_filename}",
         "count": len(sorted_data),
     }
     RESULTS_STORE[result_id] = result_payload
@@ -505,6 +506,57 @@ async def api_patch_object(result_id: str, obj_id: int, payload: dict = Body(...
 
     target.update(updates)
     return target
+
+
+@app.post("/api/results/{result_id}/objects")
+async def api_create_object(result_id: str, payload: dict = Body(...)):
+    """Create a new detected object inside a stored result."""
+    result = get_result_or_404(result_id)
+    objects = result.get("objects", [])
+    required_fields = {"Object", "Left", "Top", "Width", "Height"}
+    if not required_fields.issubset(payload.keys()):
+        raise HTTPException(status_code=400, detail="Missing required fields for new object")
+
+    object_name = str(payload.get("Object", "")).strip()
+    if not object_name:
+        raise HTTPException(status_code=400, detail="Object name is required")
+
+    category_id = payload.get("CategoryID")
+    if category_id is None:
+        matched = next((obj for obj in objects if obj.get("Object") == object_name), None)
+        category_id = matched.get("CategoryID") if matched else 0
+
+    try:
+        left = float(payload.get("Left"))
+        top = float(payload.get("Top"))
+        width = float(payload.get("Width"))
+        height = float(payload.get("Height"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid geometry for new object")
+
+    if width <= 0 or height <= 0:
+        raise HTTPException(status_code=400, detail="Width and height must be positive")
+
+    object_id = payload.get("ObjectID")
+    if object_id is None:
+        object_id = sum(1 for obj in objects if obj.get("CategoryID") == category_id) + 1
+
+    next_index = max((obj.get("Index", 0) for obj in objects), default=0) + 1
+    new_obj = {
+        "Index": next_index,
+        "Object": object_name,
+        "CategoryID": int(category_id),
+        "ObjectID": int(object_id),
+        "Left": int(math.floor(left)),
+        "Top": int(math.floor(top)),
+        "Width": int(math.ceil(width)),
+        "Height": int(math.ceil(height)),
+        "Score": float(payload.get("Score", 1.0)),
+        "Text": str(payload.get("Text") or object_name),
+    }
+    objects.append(new_obj)
+    result["count"] = len(objects)
+    return new_obj
 
 
 @app.delete("/api/results/{result_id}/objects/{obj_id}")

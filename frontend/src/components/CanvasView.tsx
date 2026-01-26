@@ -23,6 +23,16 @@ type CanvasViewProps = {
     Height: number
     Text: string
   } | null
+  isCreating: boolean
+  createDraft: {
+    Object: string
+    Left: number
+    Top: number
+    Width: number
+    Height: number
+    Text: string
+  } | null
+  onCreateDraftChange: (draft: NonNullable<CanvasViewProps['createDraft']> | null) => void
   onStartEdit: (obj: DetectedObject) => void
   onCancelEdit: () => void
   onChangeEdit: (field: keyof NonNullable<CanvasViewProps['editDraft']>, value: string) => void
@@ -55,6 +65,9 @@ export const CanvasView = forwardRef(function CanvasView(
     onSetReviewStatus,
     isEditing,
     editDraft,
+    isCreating,
+    createDraft,
+    onCreateDraftChange,
     onStartEdit,
     onCancelEdit,
     onChangeEdit,
@@ -84,13 +97,15 @@ export const CanvasView = forwardRef(function CanvasView(
   const dragMovedRef = useRef(false)
   const pointerStartRef = useRef({ x: 0, y: 0 })
   const resizePointerIdRef = useRef<number | null>(null)
+  const createStartRef = useRef<{ x: number; y: number } | null>(null)
+  const createPointerIdRef = useRef<number | null>(null)
   const [resizeState, setResizeState] = useState<{
     handle: 'n' | 's' | 'e' | 'w' | 'nw' | 'ne' | 'sw' | 'se' | 'move'
     startX: number
     startY: number
     start: NonNullable<CanvasViewProps['editDraft']>
   } | null>(null)
-  const [editCursor, setEditCursor] = useState<string>('move')
+  const [editCursor, setEditCursor] = useState<string>('grab')
 
   useEffect(() => {
     setHasAutoFit(false)
@@ -215,6 +230,22 @@ export const CanvasView = forwardRef(function CanvasView(
     return {
       x: (clientX - rect.left - offset.x) / scale,
       y: (clientY - rect.top - offset.y) / scale,
+    }
+  }
+
+  const buildCreateDraft = (start: { x: number; y: number }, current: { x: number; y: number }) => {
+    const MIN_SIZE = 4
+    const left = Math.min(start.x, current.x)
+    const top = Math.min(start.y, current.y)
+    const width = Math.max(MIN_SIZE, Math.abs(current.x - start.x))
+    const height = Math.max(MIN_SIZE, Math.abs(current.y - start.y))
+    return {
+      Object: createDraft?.Object || 'custom',
+      Text: createDraft?.Text || '',
+      Left: left,
+      Top: top,
+      Width: width,
+      Height: height,
     }
   }
 
@@ -392,7 +423,7 @@ export const CanvasView = forwardRef(function CanvasView(
     setOffset(clampOffset(nextOffset, clamped))
   }
 
-  const handleWheel = (event: React.WheelEvent) => {
+  const handleWheel = (event: WheelEvent) => {
     event.preventDefault()
     const container = containerRef.current
     if (!container) return
@@ -403,9 +434,30 @@ export const CanvasView = forwardRef(function CanvasView(
     zoomAt(scale * zoomDirection, cursorX, cursorY)
   }
 
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    const wheelListener = (event: WheelEvent) => handleWheel(event)
+    container.addEventListener('wheel', wheelListener, { passive: false })
+    return () => {
+      container.removeEventListener('wheel', wheelListener)
+    }
+  }, [scale, offset, resizeState])
+
   const handlePointerDown = (event: React.PointerEvent) => {
     if (event.button !== 0) return
     if (resizeState) return
+    if (isCreating) {
+      event.preventDefault()
+      event.stopPropagation()
+      const point = getImagePoint(event.clientX, event.clientY)
+      if (!point) return
+      createPointerIdRef.current = event.pointerId
+      createStartRef.current = point
+      event.currentTarget.setPointerCapture(event.pointerId)
+      onCreateDraftChange(buildCreateDraft(point, point))
+      return
+    }
     event.preventDefault()
     event.currentTarget.setPointerCapture(event.pointerId)
     setActivePointerId(event.pointerId)
@@ -417,6 +469,15 @@ export const CanvasView = forwardRef(function CanvasView(
 
   const handlePointerMove = (event: React.PointerEvent) => {
     if (resizeState) return
+    if (isCreating && createStartRef.current) {
+      if (createPointerIdRef.current !== null && event.pointerId !== createPointerIdRef.current) {
+        return
+      }
+      const point = getImagePoint(event.clientX, event.clientY)
+      if (!point) return
+      onCreateDraftChange(buildCreateDraft(createStartRef.current, point))
+      return
+    }
     if (!isDragging || (activePointerId !== null && event.pointerId !== activePointerId)) return
     if (!dragMovedRef.current) {
       const deltaX = Math.abs(event.clientX - pointerStartRef.current.x)
@@ -434,6 +495,14 @@ export const CanvasView = forwardRef(function CanvasView(
 
   const handlePointerUp = (event: React.PointerEvent) => {
     if (resizeState) return
+    if (isCreating) {
+      if (createPointerIdRef.current !== null) {
+        event.currentTarget.releasePointerCapture(createPointerIdRef.current)
+      }
+      createPointerIdRef.current = null
+      createStartRef.current = null
+      return
+    }
     if (activePointerId !== null) {
       event.currentTarget.releasePointerCapture(activePointerId)
     }
@@ -446,6 +515,14 @@ export const CanvasView = forwardRef(function CanvasView(
 
   const handlePointerLeave = (event: React.PointerEvent) => {
     if (resizeState) return
+    if (isCreating) {
+      if (createPointerIdRef.current !== null) {
+        event.currentTarget.releasePointerCapture(createPointerIdRef.current)
+      }
+      createPointerIdRef.current = null
+      createStartRef.current = null
+      return
+    }
     if (!isDragging) return
     if (activePointerId !== null) {
       event.currentTarget.releasePointerCapture(activePointerId)
@@ -590,10 +667,9 @@ export const CanvasView = forwardRef(function CanvasView(
         ref={containerRef}
         className={cn(
           'absolute inset-0 overflow-hidden',
-          isDragging ? 'cursor-grabbing' : 'cursor-grab'
+          isCreating ? 'cursor-crosshair' : isDragging ? 'cursor-grabbing' : 'cursor-grab'
         )}
         style={{ touchAction: 'none' }}
-        onWheel={handleWheel}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -641,7 +717,7 @@ export const CanvasView = forwardRef(function CanvasView(
                 key={key}
                 className={cn(
                   'absolute border-2',
-                  isEditing ? 'pointer-events-none' : 'pointer-events-auto',
+                  isEditing || isCreating ? 'pointer-events-none' : 'pointer-events-auto',
                   'transition-shadow',
                   selectedObjectKey === key && 'ring-2 ring-white/80',
                   status === 'accepted' && 'shadow-[0_0_0_1px_rgba(22,163,74,0.6)]'
@@ -676,6 +752,17 @@ export const CanvasView = forwardRef(function CanvasView(
               />
             )
           })}
+          {isCreating && createDraft && (
+            <div
+              className="absolute border-2 border-dashed border-blue-500/80 bg-blue-500/10 pointer-events-none"
+              style={{
+                left: createDraft.Left,
+                top: createDraft.Top,
+                width: createDraft.Width,
+                height: createDraft.Height,
+              }}
+            />
+          )}
         </div>
         {isEditing && editDraft && selectedObjectKey && (
           <div
@@ -711,7 +798,7 @@ export const CanvasView = forwardRef(function CanvasView(
                 const width = rect.width
                 const height = rect.height
                 const threshold = 30
-                let cursor = 'move'
+                let cursor = 'grab'
                 if (x < threshold && y < threshold) cursor = 'nw-resize'
                 else if (x > width - threshold && y < threshold) cursor = 'ne-resize'
                 else if (x < threshold && y > height - threshold) cursor = 'sw-resize'
@@ -722,7 +809,7 @@ export const CanvasView = forwardRef(function CanvasView(
                 else if (y > height - threshold) cursor = 's-resize'
                 setEditCursor(cursor)
               }}
-              onMouseLeave={() => setEditCursor('move')}
+              onMouseLeave={() => setEditCursor('grab')}
             />
             {([
               { key: 'nw', left: -5, top: -5, cursorClass: 'cursor-nwse-resize' },
@@ -792,7 +879,6 @@ export const CanvasView = forwardRef(function CanvasView(
                   type="button"
                   onClick={() => {
                     onSetReviewStatus(objectKey(selectedObject), 'accepted')
-                    onSelectObject(null)
                   }}
                   className={cn(
                     'px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all',
@@ -807,7 +893,6 @@ export const CanvasView = forwardRef(function CanvasView(
                   type="button"
                   onClick={() => {
                     onSetReviewStatus(objectKey(selectedObject), 'rejected')
-                    onSelectObject(null)
                   }}
                   className={cn(
                     'px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all',

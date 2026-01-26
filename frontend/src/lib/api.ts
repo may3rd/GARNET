@@ -114,3 +114,14 @@ export async function updateResultObject(
     body: JSON.stringify(payload),
   })
 }
+
+export async function createResultObject(
+  resultId: string,
+  payload: Pick<DetectedObject, 'Object' | 'Left' | 'Top' | 'Width' | 'Height' | 'Text'> & Partial<Pick<DetectedObject, 'CategoryID' | 'ObjectID' | 'Score'>>
+): Promise<DetectedObject> {
+  return requestJson(`/api/results/${resultId}/objects`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}

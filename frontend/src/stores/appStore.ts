@@ -28,6 +28,7 @@ export type AppActions = {
   toggleTheme: () => void
   setReviewStatus: (key: string, status: 'accepted' | 'rejected' | null) => void
   setSelectedObjectKey: (key: string | null) => void
+  addObject: (obj: DetectionResult['objects'][number]) => void
   updateObject: (updated: DetectionResult['objects'][number]) => void
 }
 
@@ -196,6 +197,20 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   setSelectedObjectKey: (key) => {
     set({ selectedObjectKey: key })
+  },
+
+  addObject: (obj) => {
+    set((state) => {
+      if (!state.result) return state
+      const nextObjects = [...state.result.objects, obj]
+      return {
+        result: {
+          ...state.result,
+          objects: nextObjects,
+          count: nextObjects.length,
+        },
+      }
+    })
   },
 
   updateObject: (updated) => {

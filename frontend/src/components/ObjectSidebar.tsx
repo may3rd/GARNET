@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, ChevronDown, ChevronRight, Download, Eye, EyeOff, Search, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, Download, Eye, EyeOff, Plus, Save, Search, X } from 'lucide-react'
 import type { DetectedObject } from '@/types'
 import { cn } from '@/lib/utils'
 import { getCategoryColor } from '@/lib/categoryColors'
@@ -18,6 +18,19 @@ type ObjectSidebarProps = {
   onSetReviewStatus: (key: string, status: 'accepted' | 'rejected' | null) => void
   selectedObjectKey: string | null
   onSelectObject: (key: string) => void
+  isCreating: boolean
+  createDraft: {
+    Object: string
+    Left: number
+    Top: number
+    Width: number
+    Height: number
+    Text: string
+  } | null
+  onStartCreate: () => void
+  onCancelCreate: () => void
+  onUpdateCreateDraft: (field: 'Object' | 'Left' | 'Top' | 'Width' | 'Height' | 'Text', value: string) => void
+  onSaveCreate: () => void
   onExport: (filter: ExportFilter) => void
 }
 
@@ -36,6 +49,12 @@ export function ObjectSidebar({
   onSetReviewStatus,
   selectedObjectKey,
   onSelectObject,
+  isCreating,
+  createDraft,
+  onStartCreate,
+  onCancelCreate,
+  onUpdateCreateDraft,
+  onSaveCreate,
   onExport,
 }: ObjectSidebarProps) {
   const [query, setQuery] = useState('')
@@ -125,51 +144,62 @@ export function ObjectSidebar({
     })
   }
 
+  const createReady = createDraft && createDraft.Width > 2 && createDraft.Height > 2
+
   return (
     <aside className="h-full w-full border-l border-[var(--border-muted)] bg-[var(--bg-secondary)] flex flex-col">
       <div className="p-5 border-b border-[var(--border-muted)]">
         <div className="flex items-center justify-between mb-4">
-          <div>
-            <div className="text-sm font-semibold">Objects</div>
-            <div className="text-xs text-[var(--text-secondary)]">
-              {objects.length} detected ({stats.accepted + stats.rejected} reviewed)
-            </div>
-          </div>
-          <div className="relative" ref={exportRef}>
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setExportOpen((prev) => !prev)}
+              onClick={isCreating ? onCancelCreate : onStartCreate}
               className={cn(
                 'inline-flex items-center gap-2 px-3 py-2 rounded-lg',
-                'bg-[var(--accent)] text-white text-xs font-semibold',
-                'hover:bg-[var(--accent-strong)] transition-colors'
+                isCreating
+                  ? 'bg-[var(--bg-primary)] text-[var(--text-secondary)] border border-[var(--border-muted)]'
+                  : 'bg-[var(--accent)] text-white',
+                'text-xs font-semibold hover:brightness-95 transition-colors'
               )}
             >
-              <Download className="h-4 w-4" />
-              Export
-              <ChevronDown className="h-4 w-4" />
+              {isCreating ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              {isCreating ? 'Cancel' : 'Add Box'}
             </button>
-            {exportOpen && (
-              <div className="absolute right-0 mt-2 w-44 rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] shadow-lg z-20">
-                {([
-                  { id: 'all', label: 'All objects' },
-                  { id: 'visible', label: 'Visible only' },
-                  { id: 'accepted', label: 'Accepted only' },
-                  { id: 'rejected', label: 'Rejected only' },
-                ] as const).map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      setExportOpen(false)
-                      onExport(item.id)
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--bg-secondary)] transition-colors"
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className="relative" ref={exportRef}>
+              <button
+                onClick={() => setExportOpen((prev) => !prev)}
+                className={cn(
+                  'inline-flex items-center gap-2 px-3 py-2 rounded-lg',
+                  'bg-[var(--accent)] text-white text-xs font-semibold',
+                  'hover:bg-[var(--accent-strong)] transition-colors'
+                )}
+              >
+                <Download className="h-4 w-4" />
+                Export
+                <ChevronDown className="h-4 w-4" />
+              </button>
+              {exportOpen && (
+                <div className="absolute right-0 mt-2 w-44 rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] shadow-lg z-20">
+                  {([
+                    { id: 'all', label: 'All objects' },
+                    { id: 'visible', label: 'Visible only' },
+                    { id: 'accepted', label: 'Accepted only' },
+                    { id: 'rejected', label: 'Rejected only' },
+                  ] as const).map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setExportOpen(false)
+                        onExport(item.id)
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--bg-secondary)] transition-colors"
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -199,6 +229,94 @@ export function ObjectSidebar({
             className="mt-3 w-full"
           />
         </label>
+        {isCreating && (
+          <div className="mt-4 p-3 rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)]">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+              New Box
+            </div>
+            <div className="text-[11px] text-[var(--text-secondary)] mt-1">
+              Click and drag on the canvas to draw a box.
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+              <input
+                value={createDraft?.Object ?? ''}
+                onChange={(event) => onUpdateCreateDraft('Object', event.target.value)}
+                placeholder="Class"
+                className={cn(
+                  'col-span-2 rounded-md border border-[var(--border-muted)]',
+                  'bg-[var(--bg-secondary)] px-2 py-1.5'
+                )}
+              />
+              <input
+                value={createDraft?.Text ?? ''}
+                onChange={(event) => onUpdateCreateDraft('Text', event.target.value)}
+                placeholder="Label"
+                className={cn(
+                  'col-span-2 rounded-md border border-[var(--border-muted)]',
+                  'bg-[var(--bg-secondary)] px-2 py-1.5'
+                )}
+              />
+              <input
+                value={createDraft?.Left ?? ''}
+                onChange={(event) => onUpdateCreateDraft('Left', event.target.value)}
+                placeholder="Left"
+                className={cn(
+                  'rounded-md border border-[var(--border-muted)]',
+                  'bg-[var(--bg-secondary)] px-2 py-1.5'
+                )}
+              />
+              <input
+                value={createDraft?.Top ?? ''}
+                onChange={(event) => onUpdateCreateDraft('Top', event.target.value)}
+                placeholder="Top"
+                className={cn(
+                  'rounded-md border border-[var(--border-muted)]',
+                  'bg-[var(--bg-secondary)] px-2 py-1.5'
+                )}
+              />
+              <input
+                value={createDraft?.Width ?? ''}
+                onChange={(event) => onUpdateCreateDraft('Width', event.target.value)}
+                placeholder="Width"
+                className={cn(
+                  'rounded-md border border-[var(--border-muted)]',
+                  'bg-[var(--bg-secondary)] px-2 py-1.5'
+                )}
+              />
+              <input
+                value={createDraft?.Height ?? ''}
+                onChange={(event) => onUpdateCreateDraft('Height', event.target.value)}
+                placeholder="Height"
+                className={cn(
+                  'rounded-md border border-[var(--border-muted)]',
+                  'bg-[var(--bg-secondary)] px-2 py-1.5'
+                )}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={onSaveCreate}
+              disabled={!createReady}
+              className={cn(
+                'mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold',
+                createReady
+                  ? 'bg-[var(--accent)] text-white'
+                  : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] cursor-not-allowed'
+              )}
+            >
+              <Save className="h-4 w-4" />
+              Save New Box
+            </button>
+            <button
+              type="button"
+              onClick={onCancelCreate}
+              className="mt-2 w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+            >
+              <X className="h-4 w-4" />
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto">

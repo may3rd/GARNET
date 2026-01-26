@@ -4,8 +4,8 @@ import { CanvasView, type CanvasViewHandle } from '@/components/CanvasView'
 import { ObjectSidebar } from '@/components/ObjectSidebar'
 import { objectKey } from '@/lib/objectKey'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
-import { useInlineEdit } from '@/hooks/useInlineEdit'
-import { updateResultObject } from '@/lib/api'
+import { useInlineEdit, type EditDraft } from '@/hooks/useInlineEdit'
+import { createResultObject, updateResultObject } from '@/lib/api'
 
 export function ResultsView() {
   const result = useAppStore((state) => state.result)
@@ -15,11 +15,15 @@ export function ResultsView() {
   const selectedObjectKey = useAppStore((state) => state.selectedObjectKey)
   const setSelectedObjectKey = useAppStore((state) => state.setSelectedObjectKey)
   const updateObject = useAppStore((state) => state.updateObject)
+  const addObject = useAppStore((state) => state.addObject)
   const [hiddenClasses, setHiddenClasses] = useState<Set<string>>(new Set())
   const [confidenceFilter, setConfidenceFilter] = useState(0)
   const canvasRef = useRef<CanvasViewHandle>(null)
   const edit = useInlineEdit()
   const [editError, setEditError] = useState<string | null>(null)
+  const [isCreating, setIsCreating] = useState(false)
+  const [createDraft, setCreateDraft] = useState<EditDraft | null>(null)
+  const [createError, setCreateError] = useState<string | null>(null)
 
   if (!result) {
     return (
@@ -82,12 +86,39 @@ export function ResultsView() {
     }
   }, [selectedObjectKey])
 
+  useEffect(() => {
+    if (!isCreating) {
+      setCreateDraft(null)
+      setCreateError(null)
+    }
+  }, [isCreating])
+
+  const selectAndCenter = (key: string | null) => {
+    setSelectedObjectKey(key)
+    if (!key || !canvasRef.current) return
+    const obj = result.objects.find((o) => objectKey(o) === key)
+    if (obj) {
+      canvasRef.current.centerOnObject(obj)
+    }
+  }
+
+  const setReviewStatusAndAdvance = (key: string, status: 'accepted' | 'rejected' | null) => {
+    setReviewStatus(key, status)
+    if (!status) return
+    if (isCreating || edit.isEditing) return
+
+    const orderedKeys = visibleObjects.map((obj) => objectKey(obj))
+    const currentIndex = orderedKeys.indexOf(key)
+    const nextKey = currentIndex >= 0 ? (orderedKeys[currentIndex + 1] ?? null) : null
+    selectAndCenter(nextKey)
+  }
+
   useKeyboardShortcuts({
     objects: visibleObjects,
     selectedObjectKey,
     onSelectObject: setSelectedObjectKey,
-    onAccept: (key) => setReviewStatus(key, 'accepted'),
-    onReject: (key) => setReviewStatus(key, 'rejected'),
+    onAccept: (key) => setReviewStatusAndAdvance(key, 'accepted'),
+    onReject: (key) => setReviewStatusAndAdvance(key, 'rejected'),
     onFit: () => canvasRef.current?.fitToScreen(),
     onReset: () => canvasRef.current?.resetZoom(),
     onZoomIn: () => canvasRef.current?.zoomIn(),
@@ -114,12 +145,30 @@ export function ResultsView() {
     }
   }
 
-  const handleSidebarSelect = (key: string) => {
-    setSelectedObjectKey(key)
-    const obj = result.objects.find((o) => objectKey(o) === key)
-    if (obj && canvasRef.current) {
-      canvasRef.current.centerOnObject(obj)
+  const handleCreateSave = async () => {
+    if (!createDraft) return
+    setCreateError(null)
+    const payload = {
+      Object: createDraft.Object,
+      Text: createDraft.Text,
+      Left: Number(createDraft.Left),
+      Top: Number(createDraft.Top),
+      Width: Number(createDraft.Width),
+      Height: Number(createDraft.Height),
     }
+    try {
+      const created = await createResultObject(result.id, payload)
+      addObject(created)
+      setSelectedObjectKey(objectKey(created))
+      setIsCreating(false)
+      setCreateDraft(null)
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : 'Unable to add new object')
+    }
+  }
+
+  const handleSidebarSelect = (key: string) => {
+    selectAndCenter(key)
   }
 
   return (
@@ -133,8 +182,11 @@ export function ResultsView() {
           selectedObjectKey={selectedObjectKey}
           selectedObject={selectedObject}
           reviewStatus={reviewStatus}
-          onSelectObject={setSelectedObjectKey}
-          onSetReviewStatus={setReviewStatus}
+          onSelectObject={(key) => {
+            if (isCreating) return
+            setSelectedObjectKey(key)
+          }}
+          onSetReviewStatus={setReviewStatusAndAdvance}
           isEditing={edit.isEditing}
           editDraft={edit.draft}
           onStartEdit={(obj) => {
@@ -159,11 +211,19 @@ export function ResultsView() {
           }}
           onReplaceEditDraft={(next) => edit.setDraft(next)}
           onSaveEdit={handleSaveEdit}
+          isCreating={isCreating}
+          createDraft={createDraft}
+          onCreateDraftChange={setCreateDraft}
           fitKey={String(resultRunId)}
         />
         {editError && (
           <div className="absolute bottom-6 left-6 max-w-sm text-xs text-[var(--danger)] bg-[var(--bg-secondary)] border border-[var(--border-muted)] px-3 py-2 rounded-lg">
             {editError}
+          </div>
+        )}
+        {createError && (
+          <div className="absolute bottom-6 right-6 max-w-sm text-xs text-[var(--danger)] bg-[var(--bg-secondary)] border border-[var(--border-muted)] px-3 py-2 rounded-lg">
+            {createError}
           </div>
         )}
       </div>
@@ -176,9 +236,40 @@ export function ResultsView() {
           onToggleClass={toggleClass}
           onConfidenceChange={setConfidenceFilter}
           reviewStatus={reviewStatus}
-          onSetReviewStatus={setReviewStatus}
+          onSetReviewStatus={setReviewStatusAndAdvance}
           selectedObjectKey={selectedObjectKey}
           onSelectObject={handleSidebarSelect}
+          isCreating={isCreating}
+          createDraft={createDraft}
+          onStartCreate={() => {
+            setCreateError(null)
+            setIsCreating(true)
+            setCreateDraft((draft) => draft ?? {
+              Object: selectedObject?.Object ?? 'custom',
+              Left: 0,
+              Top: 0,
+              Width: 0,
+              Height: 0,
+              Text: '',
+            })
+            setSelectedObjectKey(null)
+            edit.cancelEditing()
+          }}
+          onCancelCreate={() => {
+            setIsCreating(false)
+            setCreateDraft(null)
+          }}
+          onUpdateCreateDraft={(field, value) => {
+            setCreateDraft((draft) => {
+              if (!draft) return draft
+              if (field === 'Object' || field === 'Text') {
+                return { ...draft, [field]: value }
+              }
+              const parsed = Number(value)
+              return { ...draft, [field]: Number.isFinite(parsed) ? parsed : draft[field] }
+            })
+          }}
+          onSaveCreate={handleCreateSave}
           onExport={handleExport}
         />
       </div>
