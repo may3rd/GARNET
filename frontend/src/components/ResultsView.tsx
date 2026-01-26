@@ -5,8 +5,8 @@ import { ObjectSidebar } from '@/components/ObjectSidebar'
 import { objectKey } from '@/lib/objectKey'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useInlineEdit, type EditDraft } from '@/hooks/useInlineEdit'
-import { createResultObject, updateResultObject } from '@/lib/api'
-import { exportCoco, exportLabelMe, exportYolo, type ExportFormat } from '@/lib/exportFormats'
+import { createResultObject, deleteResultObject, updateResultObject } from '@/lib/api'
+import { buildYoloClasses, exportCoco, exportLabelMe, exportYolo, type ExportFormat } from '@/lib/exportFormats'
 
 export function ResultsView() {
   const result = useAppStore((state) => state.result)
@@ -17,6 +17,7 @@ export function ResultsView() {
   const setSelectedObjectKey = useAppStore((state) => state.setSelectedObjectKey)
   const updateObject = useAppStore((state) => state.updateObject)
   const addObject = useAppStore((state) => state.addObject)
+  const removeObject = useAppStore((state) => state.removeObject)
   const [hiddenClasses, setHiddenClasses] = useState<Set<string>>(new Set())
   const [confidenceFilter, setConfidenceFilter] = useState(0)
   const canvasRef = useRef<CanvasViewHandle>(null)
@@ -74,8 +75,10 @@ export function ResultsView() {
     }
 
     if (format === 'yolo') {
-      const txt = exportYolo(exportObjects, result.image_width, result.image_height)
+      const { classNames, classIdMap } = buildYoloClasses(exportObjects)
+      const txt = exportYolo(exportObjects, result.image_width, result.image_height, classIdMap)
       download(new Blob([txt], { type: 'text/plain' }), `${baseName}.txt`)
+      download(new Blob([classNames.join('\n') + '\n'], { type: 'text/plain' }), `${baseName}.classes.txt`)
       return
     }
 
@@ -149,17 +152,47 @@ export function ResultsView() {
     selectAndCenter(nextKey)
   }
 
+  const persistReviewStatus = async (key: string, status: 'accepted' | 'rejected' | null) => {
+    const obj = result.objects.find((o) => objectKey(o) === key)
+    if (!obj) return
+    try {
+      const updated = await updateResultObject(result.id, obj.Index, { ReviewStatus: status })
+      updateObject(updated)
+    } catch (error) {
+      // Keep UX responsive; surface error only if needed later.
+      console.warn('Failed to persist review status', error)
+    }
+  }
+
+  const setReviewStatusAndAdvancePersisted = (key: string, status: 'accepted' | 'rejected' | null) => {
+    setReviewStatusAndAdvance(key, status)
+    void persistReviewStatus(key, status)
+  }
+
   useKeyboardShortcuts({
     objects: visibleObjects,
     selectedObjectKey,
     onSelectObject: setSelectedObjectKey,
-    onAccept: (key) => setReviewStatusAndAdvance(key, 'accepted'),
-    onReject: (key) => setReviewStatusAndAdvance(key, 'rejected'),
+    onAccept: (key) => setReviewStatusAndAdvancePersisted(key, 'accepted'),
+    onReject: (key) => setReviewStatusAndAdvancePersisted(key, 'rejected'),
     onFit: () => canvasRef.current?.fitToScreen(),
     onReset: () => canvasRef.current?.resetZoom(),
     onZoomIn: () => canvasRef.current?.zoomIn(),
     onZoomOut: () => canvasRef.current?.zoomOut(),
   })
+
+  const handleDeleteSelected = async () => {
+    if (!selectedObject) return
+    setEditError(null)
+    setCreateError(null)
+    try {
+      await deleteResultObject(result.id, selectedObject.Index)
+      removeObject(selectedObject.Index)
+      selectAndCenter(null)
+    } catch (error) {
+      setEditError(error instanceof Error ? error.message : 'Unable to delete object')
+    }
+  }
 
   const handleSaveEdit = async () => {
     if (!selectedObject || !edit.draft) return
@@ -222,7 +255,7 @@ export function ResultsView() {
             if (isCreating) return
             setSelectedObjectKey(key)
           }}
-          onSetReviewStatus={setReviewStatusAndAdvance}
+          onSetReviewStatus={setReviewStatusAndAdvancePersisted}
           isEditing={edit.isEditing}
           editDraft={edit.draft}
           onStartEdit={(obj) => {
@@ -247,6 +280,7 @@ export function ResultsView() {
           }}
           onReplaceEditDraft={(next) => edit.setDraft(next)}
           onSaveEdit={handleSaveEdit}
+          onDeleteSelected={handleDeleteSelected}
           isCreating={isCreating}
           createDraft={createDraft}
           onCreateDraftChange={setCreateDraft}
@@ -272,7 +306,7 @@ export function ResultsView() {
           onToggleClass={toggleClass}
           onConfidenceChange={setConfidenceFilter}
           reviewStatus={reviewStatus}
-          onSetReviewStatus={setReviewStatusAndAdvance}
+          onSetReviewStatus={setReviewStatusAndAdvancePersisted}
           selectedObjectKey={selectedObjectKey}
           onSelectObject={handleSidebarSelect}
           isCreating={isCreating}

@@ -58,11 +58,14 @@ export function ObjectSidebar({
   onSaveCreate,
   onExport,
 }: ObjectSidebarProps) {
+  const [queryInput, setQueryInput] = useState('')
   const [query, setQuery] = useState('')
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  const [showAllGroups, setShowAllGroups] = useState<Set<string>>(new Set())
   const [exportOpen, setExportOpen] = useState(false)
   const [statsOpen, setStatsOpen] = useState(true)
   const exportRef = useRef<HTMLDivElement>(null)
+  const queryDebounceRef = useRef<number | null>(null)
 
   const filtered = useMemo(() => {
     if (!query) return objects
@@ -133,6 +136,21 @@ export function ObjectSidebar({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [exportOpen])
 
+  useEffect(() => {
+    if (queryDebounceRef.current) {
+      window.clearTimeout(queryDebounceRef.current)
+    }
+    queryDebounceRef.current = window.setTimeout(() => {
+      setQuery(queryInput)
+    }, 150)
+    return () => {
+      if (queryDebounceRef.current) {
+        window.clearTimeout(queryDebounceRef.current)
+        queryDebounceRef.current = null
+      }
+    }
+  }, [queryInput])
+
   const toggleGroup = (groupName: string) => {
     setExpandedGroups((prev) => {
       const next = new Set(prev)
@@ -146,6 +164,7 @@ export function ObjectSidebar({
   }
 
   const createReady = createDraft && createDraft.Width > 2 && createDraft.Height > 2
+  const MAX_GROUP_ITEMS = 200
 
   return (
     <aside className="h-full w-full border-l border-[var(--border-muted)] bg-[var(--bg-secondary)] flex flex-col">
@@ -221,8 +240,8 @@ export function ObjectSidebar({
             <Search className="h-4 w-4" />
           </span>
           <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            value={queryInput}
+            onChange={(event) => setQueryInput(event.target.value)}
             placeholder="Search objects"
             className={cn(
               'w-full rounded-lg border border-[var(--border-muted)]',
@@ -377,6 +396,9 @@ export function ObjectSidebar({
             const status = reviewStatus[objectKey(obj)]
             return status === 'accepted' || status === 'rejected'
           }).length
+          const isExpanded = expandedGroups.has(groupKey)
+          const showAll = showAllGroups.has(groupKey)
+          const displayItems = showAll ? groupItems : groupItems.slice(0, MAX_GROUP_ITEMS)
 
           return (
           <div key={groupKey} className="border-b border-[var(--border-muted)]">
@@ -389,7 +411,7 @@ export function ObjectSidebar({
                 onClick={() => toggleGroup(groupKey)}
                 className="flex items-center gap-2 hover:text-[var(--accent)] transition-colors"
               >
-                {expandedGroups.has(groupKey) ? (
+                {isExpanded ? (
                   <ChevronDown className="h-4 w-4 text-[var(--text-secondary)]" />
                 ) : (
                   <ChevronRight className="h-4 w-4 text-[var(--text-secondary)]" />
@@ -412,9 +434,9 @@ export function ObjectSidebar({
                 </button>
               </span>
             </div>
-            {expandedGroups.has(groupKey) && !isHidden && (
+            {isExpanded && !isHidden && (
               <ul className="divide-y divide-[var(--border-muted)]">
-                {groupItems.map((obj) => (
+                {displayItems.map((obj) => (
                   <li key={`${obj.CategoryID}-${obj.ObjectID}-${obj.Index}`} className="p-4">
                     <button
                       type="button"
@@ -492,6 +514,17 @@ export function ObjectSidebar({
                     </div>
                   </li>
                 ))}
+                {!showAll && groupItems.length > MAX_GROUP_ITEMS && (
+                  <li className="p-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowAllGroups((prev) => new Set(prev).add(groupKey))}
+                      className="w-full rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] px-3 py-2 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--bg-secondary)] transition-colors"
+                    >
+                      Show all {groupItems.length} items
+                    </button>
+                  </li>
+                )}
               </ul>
             )}
           </div>

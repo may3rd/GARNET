@@ -11,6 +11,7 @@ export type DetectedObject = {
   Height: number
   Score: number
   Text: string
+  ReviewStatus?: 'accepted' | 'rejected' | null
 }
 
 export type DetectionResult = {

@@ -30,6 +30,7 @@ export type AppActions = {
   setSelectedObjectKey: (key: string | null) => void
   addObject: (obj: DetectionResult['objects'][number]) => void
   updateObject: (updated: DetectionResult['objects'][number]) => void
+  removeObject: (index: number) => void
 }
 
 const defaultOptions: DetectionOptions = {
@@ -131,10 +132,17 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
     try {
       const result = await runDetection(imageFile, options, activeAbortController.signal)
+      const reviewFromPayload: Record<string, 'accepted' | 'rejected'> = {}
+      result.objects.forEach((obj) => {
+        const status = obj.ReviewStatus
+        if (status === 'accepted' || status === 'rejected') {
+          reviewFromPayload[`${obj.CategoryID}-${obj.ObjectID}-${obj.Index}`] = status
+        }
+      })
       set({
         result,
         resultRunId: Date.now(),
-        reviewStatus: {},
+        reviewStatus: reviewFromPayload,
         selectedObjectKey: null,
         isProcessing: false,
         currentView: 'results',
@@ -203,12 +211,19 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     set((state) => {
       if (!state.result) return state
       const nextObjects = [...state.result.objects, obj]
+      const nextReview = { ...state.reviewStatus }
+      const status = obj.ReviewStatus
+      const key = `${obj.CategoryID}-${obj.ObjectID}-${obj.Index}`
+      if (status === 'accepted' || status === 'rejected') {
+        nextReview[key] = status
+      }
       return {
         result: {
           ...state.result,
           objects: nextObjects,
           count: nextObjects.length,
         },
+        reviewStatus: nextReview,
       }
     })
   },
@@ -219,11 +234,40 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       const nextObjects = state.result.objects.map((obj) =>
         obj.Index === updated.Index ? { ...obj, ...updated } : obj
       )
+      const nextReview = { ...state.reviewStatus }
+      const status = updated.ReviewStatus
+      const key = `${updated.CategoryID}-${updated.ObjectID}-${updated.Index}`
+      if (status === 'accepted' || status === 'rejected') {
+        nextReview[key] = status
+      } else {
+        delete nextReview[key]
+      }
       return {
         result: {
           ...state.result,
           objects: nextObjects,
         },
+        reviewStatus: nextReview,
+      }
+    })
+  },
+
+  removeObject: (index) => {
+    set((state) => {
+      if (!state.result) return state
+      const target = state.result.objects.find((obj) => obj.Index === index)
+      const nextObjects = state.result.objects.filter((obj) => obj.Index !== index)
+      const nextReview = { ...state.reviewStatus }
+      if (target) {
+        delete nextReview[`${target.CategoryID}-${target.ObjectID}-${target.Index}`]
+      }
+      return {
+        result: {
+          ...state.result,
+          objects: nextObjects,
+          count: nextObjects.length,
+        },
+        reviewStatus: nextReview,
       }
     })
   },

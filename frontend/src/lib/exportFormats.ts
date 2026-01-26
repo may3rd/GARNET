@@ -2,10 +2,31 @@ import type { DetectedObject } from '@/types'
 
 export type ExportFormat = 'json' | 'yolo' | 'coco' | 'labelme'
 
-export function exportYolo(objects: DetectedObject[], imageWidth: number, imageHeight: number): string {
+export function buildYoloClasses(objects: DetectedObject[]): { classNames: string[]; classIdMap: Map<number, number> } {
+  const map = new Map<number, string>()
+  for (const obj of objects) {
+    if (!map.has(obj.CategoryID)) {
+      map.set(obj.CategoryID, obj.Object)
+    }
+  }
+  const sorted = Array.from(map.entries()).sort((a, b) => a[0] - b[0])
+  const classIdMap = new Map<number, number>()
+  const classNames = sorted.map(([categoryId, name], index) => {
+    classIdMap.set(categoryId, index)
+    return name
+  })
+  return { classNames, classIdMap }
+}
+
+export function exportYolo(
+  objects: DetectedObject[],
+  imageWidth: number,
+  imageHeight: number,
+  classIdMap: Map<number, number>,
+): string {
   const lines: string[] = []
   for (const obj of objects) {
-    const classId = Number.isFinite(obj.CategoryID) ? obj.CategoryID : 0
+    const classId = classIdMap.get(obj.CategoryID) ?? 0
     const xCenter = (obj.Left + obj.Width / 2) / imageWidth
     const yCenter = (obj.Top + obj.Height / 2) / imageHeight
     const w = obj.Width / imageWidth
@@ -93,4 +114,3 @@ export function exportLabelMe(
     imageWidth,
   }
 }
-

@@ -5,6 +5,7 @@ import { getCategoryColor } from '@/lib/categoryColors'
 import { objectKey } from '@/lib/objectKey'
 import { ZoomControls } from '@/components/ZoomControls'
 import { cn } from '@/lib/utils'
+import { Trash2 } from 'lucide-react'
 
 type CanvasViewProps = {
   imageUrl: string
@@ -38,6 +39,7 @@ type CanvasViewProps = {
   onChangeEdit: (field: keyof NonNullable<CanvasViewProps['editDraft']>, value: string) => void
   onReplaceEditDraft: (draft: NonNullable<CanvasViewProps['editDraft']>) => void
   onSaveEdit: () => void
+  onDeleteSelected: () => void
   fitKey?: string
 }
 
@@ -73,6 +75,7 @@ export const CanvasView = forwardRef(function CanvasView(
     onChangeEdit,
     onReplaceEditDraft,
     onSaveEdit,
+    onDeleteSelected,
     fitKey,
   }: CanvasViewProps,
   ref: ForwardedRef<CanvasViewHandle>
@@ -874,14 +877,14 @@ export const CanvasView = forwardRef(function CanvasView(
                   OCR: <span className="text-[var(--text-primary)]">{selectedObject.Text}</span>
                 </div>
               )}
-              <div className="mt-3 flex items-center gap-2">
+              <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => {
                     onSetReviewStatus(objectKey(selectedObject), 'accepted')
                   }}
                   className={cn(
-                    'px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all',
+                    'w-full px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all',
                     reviewStatus[objectKey(selectedObject)] === 'accepted'
                       ? 'bg-[var(--success)] text-white hover:brightness-95'
                       : 'bg-[var(--bg-primary)] border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--success)] hover:text-[var(--success)] hover:bg-[var(--success)]/5'
@@ -895,7 +898,7 @@ export const CanvasView = forwardRef(function CanvasView(
                     onSetReviewStatus(objectKey(selectedObject), 'rejected')
                   }}
                   className={cn(
-                    'px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all',
+                    'w-full px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all',
                     reviewStatus[objectKey(selectedObject)] === 'rejected'
                       ? 'bg-[var(--danger)] text-white hover:brightness-95'
                       : 'bg-[var(--bg-primary)] border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--danger)] hover:text-[var(--danger)] hover:bg-[var(--danger)]/5'
@@ -906,9 +909,20 @@ export const CanvasView = forwardRef(function CanvasView(
                 <button
                   type="button"
                   onClick={() => onStartEdit(selectedObject)}
-                  className="px-2.5 py-1.5 rounded-md text-xs font-semibold border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+                  className="w-full px-2.5 py-1.5 rounded-md text-xs font-semibold border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
                 >
                   Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={onDeleteSelected}
+                  className="w-full px-2.5 py-1.5 rounded-md text-xs font-semibold border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--danger)] hover:text-[var(--danger)] transition-colors"
+                  title="Delete object"
+                >
+                  <span className="inline-flex items-center gap-1">
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
+                  </span>
                 </button>
               </div>
             </>

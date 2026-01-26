@@ -491,6 +491,7 @@ async def api_patch_object(result_id: str, obj_id: int, payload: dict = Body(...
         "Height",
         "Score",
         "Text",
+        "ReviewStatus",
     }
 
     target = None
@@ -555,6 +556,7 @@ async def api_create_object(result_id: str, payload: dict = Body(...)):
         "Height": int(math.ceil(height)),
         "Score": float(payload.get("Score", 1.0)),
         "Text": str(payload.get("Text") or object_name),
+        "ReviewStatus": payload.get("ReviewStatus"),
     }
     objects.append(new_obj)
     result["count"] = len(objects)

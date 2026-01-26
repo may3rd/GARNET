@@ -106,12 +106,18 @@ export async function getConfigFiles(): Promise<string[]> {
 export async function updateResultObject(
   resultId: string,
   objectId: number,
-  payload: Partial<Pick<DetectedObject, 'Object' | 'Left' | 'Top' | 'Width' | 'Height' | 'Text'>>
+  payload: Partial<Pick<DetectedObject, 'Object' | 'Left' | 'Top' | 'Width' | 'Height' | 'Text' | 'ReviewStatus'>>
 ): Promise<DetectedObject> {
   return requestJson(`/api/results/${resultId}/objects/${objectId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
+  })
+}
+
+export async function deleteResultObject(resultId: string, objectId: number): Promise<{ status: string }> {
+  return requestJson(`/api/results/${resultId}/objects/${objectId}`, {
+    method: 'DELETE',
   })
 }
 
