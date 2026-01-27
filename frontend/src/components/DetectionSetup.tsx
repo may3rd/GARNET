@@ -121,6 +121,36 @@ export function DetectionSetup() {
           />
         </div>
 
+        <div className="space-y-2">
+          <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
+            Overlay ratio: {options.overlapRatio.toFixed(2)}
+          </div>
+          <Slider
+            value={[options.overlapRatio]}
+            onValueChange={([value]) => setOptions({ overlapRatio: value })}
+            min={0}
+            max={0.5}
+            step={0.01}
+            className="mt-2"
+            disabled={isLocked}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
+            Image size: {options.imageSize}px
+          </div>
+          <Slider
+            value={[options.imageSize]}
+            onValueChange={([value]) => setOptions({ imageSize: value })}
+            min={128}
+            max={1280}
+            step={32}
+            className="mt-2"
+            disabled={isLocked}
+          />
+        </div>
+
         <div className="flex items-center gap-2">
           <Checkbox
             id="textOCR"

@@ -363,6 +363,7 @@ async def api_detect(
     config_file: str = Form("datasets/yaml/data.yaml"),
     conf_th: float = Form(0.8),
     image_size: int = Form(640),
+    overlap_ratio: float = Form(0.2),
     text_OCR: bool = Form(False),
 ):
     """
@@ -392,7 +393,6 @@ async def api_detect(
     logger.log(logging.INFO, f"API detect: image shape: {image.shape}")
 
     # Calculate overlap and normalize image_size to a multiple of 32 (YOLO stride).
-    overlap_ratio = 0.2
     image_size = (int(math.ceil((image_size + 1) / 32)) - 1) * 32
     logger.log(logging.INFO, f"API detect: adjusted image_size: {image_size}")
 

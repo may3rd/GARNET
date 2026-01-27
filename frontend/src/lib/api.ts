@@ -6,6 +6,7 @@ export type DetectionOptions = {
   configFile: string
   confTh: number
   imageSize: number
+  overlapRatio: number
   textOCR: boolean
 }
 
@@ -15,6 +16,7 @@ const defaultOptions: DetectionOptions = {
   configFile: 'datasets/yaml/data.yaml',
   confTh: 0.8,
   imageSize: 640,
+  overlapRatio: 0.2,
   textOCR: false,
 }
 
@@ -31,6 +33,7 @@ export async function runDetection(
   formData.append('config_file', payload.configFile)
   formData.append('conf_th', String(payload.confTh))
   formData.append('image_size', String(payload.imageSize))
+  formData.append('overlap_ratio', String(payload.overlapRatio))
   formData.append('text_OCR', String(payload.textOCR))
 
   const response = await fetch('/api/detect', {

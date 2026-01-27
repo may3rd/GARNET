@@ -65,6 +65,7 @@ const defaultOptions: DetectionOptions = {
   configFile: 'datasets/yaml/data.yaml',
   confTh: 0.8,
   imageSize: 640,
+  overlapRatio: 0.2,
   textOCR: false,
 }
 
