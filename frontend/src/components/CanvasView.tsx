@@ -905,8 +905,9 @@ export const CanvasView = forwardRef(function CanvasView(
                   onClick={onNavigatePrevious}
                   title="Previous (←)"
                   aria-label="Previous object"
+                  className="h-11 w-11"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-5 w-5" />
                 </Button>
                 <span className="text-xs text-[var(--text-secondary)]">Navigate</span>
                 <Button
@@ -915,8 +916,9 @@ export const CanvasView = forwardRef(function CanvasView(
                   onClick={onNavigateNext}
                   title="Next (→)"
                   aria-label="Next object"
+                  className="h-11 w-11"
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-5 w-5" />
                 </Button>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
