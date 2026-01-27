@@ -59,6 +59,10 @@ const MIN_ZOOM = 0.2
 const MAX_ZOOM = 4
 const MINI_MAX_WIDTH = 180
 const MINI_MAX_HEIGHT = 120
+const RESIZE_HANDLE_THRESHOLD = 30
+const MIN_OBJECT_SIZE = 4
+const DRAG_DETECTION_THRESHOLD = 3
+const AUTO_FIT_MAX_ATTEMPTS = 10
 
 export const CanvasView = forwardRef(function CanvasView(
   {
@@ -166,7 +170,7 @@ export const CanvasView = forwardRef(function CanvasView(
         setHasAutoFit(true)
         return
       }
-      if (autoFitAttemptsRef.current < 10) {
+      if (autoFitAttemptsRef.current < AUTO_FIT_MAX_ATTEMPTS) {
         requestAnimationFrame(tryAutoFit)
       }
     }
@@ -246,11 +250,10 @@ export const CanvasView = forwardRef(function CanvasView(
   }
 
   const buildCreateDraft = (start: { x: number; y: number }, current: { x: number; y: number }) => {
-    const MIN_SIZE = 4
     const left = Math.min(start.x, current.x)
     const top = Math.min(start.y, current.y)
-    const width = Math.max(MIN_SIZE, Math.abs(current.x - start.x))
-    const height = Math.max(MIN_SIZE, Math.abs(current.y - start.y))
+    const width = Math.max(MIN_OBJECT_SIZE, Math.abs(current.x - start.x))
+    const height = Math.max(MIN_OBJECT_SIZE, Math.abs(current.y - start.y))
     return {
       Object: createDraft?.Object || 'custom',
       Text: createDraft?.Text || '',
@@ -267,27 +270,26 @@ export const CanvasView = forwardRef(function CanvasView(
     dx: number,
     dy: number
   ) => {
-    const MIN_SIZE = 4
     let left = start.Left
     let top = start.Top
     let width = start.Width
     let height = start.Height
 
     const applyWest = () => {
-      const nextWidth = Math.max(MIN_SIZE, width - dx)
+      const nextWidth = Math.max(MIN_OBJECT_SIZE, width - dx)
       left += width - nextWidth
       width = nextWidth
     }
     const applyEast = () => {
-      width = Math.max(MIN_SIZE, width + dx)
+      width = Math.max(MIN_OBJECT_SIZE, width + dx)
     }
     const applyNorth = () => {
-      const nextHeight = Math.max(MIN_SIZE, height - dy)
+      const nextHeight = Math.max(MIN_OBJECT_SIZE, height - dy)
       top += height - nextHeight
       height = nextHeight
     }
     const applySouth = () => {
-      height = Math.max(MIN_SIZE, height + dy)
+      height = Math.max(MIN_OBJECT_SIZE, height + dy)
     }
 
     switch (handle) {
@@ -494,7 +496,7 @@ export const CanvasView = forwardRef(function CanvasView(
     if (!dragMovedRef.current) {
       const deltaX = Math.abs(event.clientX - pointerStartRef.current.x)
       const deltaY = Math.abs(event.clientY - pointerStartRef.current.y)
-      if (deltaX > 3 || deltaY > 3) {
+      if (deltaX > DRAG_DETECTION_THRESHOLD || deltaY > DRAG_DETECTION_THRESHOLD) {
         dragMovedRef.current = true
       }
     }
@@ -817,7 +819,7 @@ export const CanvasView = forwardRef(function CanvasView(
                 const y = event.clientY - rect.top
                 const width = rect.width
                 const height = rect.height
-                const threshold = 30
+                const threshold = RESIZE_HANDLE_THRESHOLD
                 let cursor = 'grab'
                 if (x < threshold && y < threshold) cursor = 'nw-resize'
                 else if (x > width - threshold && y < threshold) cursor = 'ne-resize'

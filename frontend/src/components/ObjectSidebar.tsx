@@ -196,8 +196,9 @@ export function ObjectSidebar({
     }, 50)
   }, [selectedObjectKey, objects])
 
-  const createReady = createDraft && createDraft.Width > 2 && createDraft.Height > 2
   const MAX_GROUP_ITEMS = 200
+  const MIN_BOX_SIZE = 2
+  const createReady = createDraft && createDraft.Width > MIN_BOX_SIZE && createDraft.Height > MIN_BOX_SIZE
 
   return (
     <aside className="h-full w-full border-l border-[var(--border-muted)] bg-[var(--bg-secondary)] flex flex-col">
