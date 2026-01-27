@@ -167,19 +167,39 @@ export function ResultsView() {
     }
   }
 
-  const setReviewStatusAndAdvance = (key: string, status: 'accepted' | 'rejected' | null) => {
+  const setReviewStatusWithHistory = (key: string, status: 'accepted' | 'rejected' | null) => {
     // Record previous status for undo
     const prevStatus = reviewStatus[key] || null
     pushHistory({ type: 'review', key, prev: prevStatus, next: status })
-
     setReviewStatus(key, status)
-    if (!status) return
-    if (isCreating || edit.isEditing) return
+  }
 
+  const navigatePrevious = () => {
+    if (!selectedObjectKey) {
+      if (visibleObjects.length > 0) {
+        selectAndCenter(objectKey(visibleObjects[visibleObjects.length - 1]))
+      }
+      return
+    }
     const orderedKeys = visibleObjects.map((obj) => objectKey(obj))
-    const currentIndex = orderedKeys.indexOf(key)
-    const nextKey = currentIndex >= 0 ? (orderedKeys[currentIndex + 1] ?? null) : null
-    selectAndCenter(nextKey)
+    const currentIndex = orderedKeys.indexOf(selectedObjectKey)
+    if (currentIndex > 0) {
+      selectAndCenter(orderedKeys[currentIndex - 1])
+    }
+  }
+
+  const navigateNext = () => {
+    if (!selectedObjectKey) {
+      if (visibleObjects.length > 0) {
+        selectAndCenter(objectKey(visibleObjects[0]))
+      }
+      return
+    }
+    const orderedKeys = visibleObjects.map((obj) => objectKey(obj))
+    const currentIndex = orderedKeys.indexOf(selectedObjectKey)
+    if (currentIndex < orderedKeys.length - 1) {
+      selectAndCenter(orderedKeys[currentIndex + 1])
+    }
   }
 
   const persistReviewStatus = async (key: string, status: 'accepted' | 'rejected' | null) => {
@@ -194,8 +214,8 @@ export function ResultsView() {
     }
   }
 
-  const setReviewStatusAndAdvancePersisted = (key: string, status: 'accepted' | 'rejected' | null) => {
-    setReviewStatusAndAdvance(key, status)
+  const setReviewStatusPersisted = (key: string, status: 'accepted' | 'rejected' | null) => {
+    setReviewStatusWithHistory(key, status)
     void persistReviewStatus(key, status)
   }
 
@@ -203,8 +223,8 @@ export function ResultsView() {
     objects: visibleObjects,
     selectedObjectKey,
     onSelectObject: setSelectedObjectKey,
-    onAccept: (key) => setReviewStatusAndAdvancePersisted(key, 'accepted'),
-    onReject: (key) => setReviewStatusAndAdvancePersisted(key, 'rejected'),
+    onAccept: (key) => setReviewStatusPersisted(key, 'accepted'),
+    onReject: (key) => setReviewStatusPersisted(key, 'rejected'),
     onFit: () => canvasRef.current?.fitToScreen(),
     onReset: () => canvasRef.current?.resetZoom(),
     onZoomIn: () => canvasRef.current?.zoomIn(),
@@ -291,7 +311,7 @@ export function ResultsView() {
             if (isCreating) return
             setSelectedObjectKey(key)
           }}
-          onSetReviewStatus={setReviewStatusAndAdvancePersisted}
+          onSetReviewStatus={setReviewStatusPersisted}
           isEditing={edit.isEditing}
           editDraft={edit.draft}
           onStartEdit={(obj) => {
@@ -317,6 +337,8 @@ export function ResultsView() {
           onReplaceEditDraft={(next) => edit.setDraft(next)}
           onSaveEdit={handleSaveEdit}
           onDeleteSelected={handleDeleteSelected}
+          onNavigatePrevious={navigatePrevious}
+          onNavigateNext={navigateNext}
           isCreating={isCreating}
           createDraft={createDraft}
           onCreateDraftChange={setCreateDraft}

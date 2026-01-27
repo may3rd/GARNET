@@ -5,7 +5,7 @@ import { getCategoryColor } from '@/lib/categoryColors'
 import { objectKey } from '@/lib/objectKey'
 import { ZoomControls } from '@/components/ZoomControls'
 import { cn } from '@/lib/utils'
-import { Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
 
 type CanvasViewProps = {
   imageUrl: string
@@ -40,6 +40,8 @@ type CanvasViewProps = {
   onReplaceEditDraft: (draft: NonNullable<CanvasViewProps['editDraft']>) => void
   onSaveEdit: () => void
   onDeleteSelected: () => void
+  onNavigatePrevious: () => void
+  onNavigateNext: () => void
   fitKey?: string
 }
 
@@ -76,6 +78,8 @@ export const CanvasView = forwardRef(function CanvasView(
     onReplaceEditDraft,
     onSaveEdit,
     onDeleteSelected,
+    onNavigatePrevious,
+    onNavigateNext,
     fitKey,
   }: CanvasViewProps,
   ref: ForwardedRef<CanvasViewHandle>
@@ -877,6 +881,25 @@ export const CanvasView = forwardRef(function CanvasView(
                   OCR: <span className="text-[var(--text-primary)]">{selectedObject.Text}</span>
                 </div>
               )}
+              <div className="mt-3 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={onNavigatePrevious}
+                  className="h-8 w-8 flex items-center justify-center rounded-md border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+                  title="Previous (←)"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="text-xs text-[var(--text-secondary)]">Navigate</span>
+                <button
+                  type="button"
+                  onClick={onNavigateNext}
+                  className="h-8 w-8 flex items-center justify-center rounded-md border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+                  title="Next (→)"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
                   type="button"
