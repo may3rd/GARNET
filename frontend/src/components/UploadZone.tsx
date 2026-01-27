@@ -9,6 +9,7 @@ export function UploadZone() {
   const setImageFile = useAppStore((state) => state.setImageFile)
   const setImageMeta = useAppStore((state) => state.setImageMeta)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
 
   const handleFile = useCallback((file: File) => {
     const validTypes = ['image/jpeg', 'image/png', 'image/webp']
@@ -34,9 +35,20 @@ export function UploadZone() {
 
   const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault()
+    setIsDragging(false)
     const file = event.dataTransfer.files[0]
     if (file) handleFile(file)
   }, [handleFile])
+
+  const handleDragEnter = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setIsDragging(true)
+  }, [])
+
+  const handleDragLeave = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setIsDragging(false)
+  }, [])
 
   const handleChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -56,6 +68,8 @@ export function UploadZone() {
         onClick={() => inputRef.current?.click()}
         onDrop={handleDrop}
         onDragOver={(event) => event.preventDefault()}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault()
@@ -67,10 +81,11 @@ export function UploadZone() {
         aria-label="Upload P&ID image"
         className={cn(
           'w-full max-w-3xl min-h-[320px]',
-          'border-2 border-dashed border-[var(--border-muted)]',
+          'border-2 border-dashed',
+          isDragging ? 'border-[var(--accent)] bg-[var(--accent)]/5' : 'border-[var(--border-muted)]',
           'rounded-2xl bg-[var(--bg-secondary)]',
           'flex items-center justify-center relative',
-          'cursor-pointer transition-colors',
+          'cursor-pointer transition-all',
           'hover:border-[var(--accent)]',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2'
         )}
