@@ -8,9 +8,10 @@ import { objectKey } from '@/lib/objectKey'
 export function Header() {
   const currentView = useAppStore((state) => state.currentView)
   const imageFile = useAppStore((state) => state.imageFile)
+  const batch = useAppStore((state) => state.batch)
   const toggleTheme = useAppStore((state) => state.toggleTheme)
   const darkMode = useAppStore((state) => state.darkMode)
-  const setImageFile = useAppStore((state) => state.setImageFile)
+  const goBack = useAppStore((state) => state.goBack)
   const result = useAppStore((state) => state.result)
   const reviewStatus = useAppStore((state) => state.reviewStatus)
   const confidenceFilter = useAppStore((state) => state.confidenceFilter)
@@ -26,6 +27,8 @@ export function Header() {
   }, [result, confidenceFilter])
 
   const reviewedCount = visibleObjects.filter((obj) => reviewStatus[objectKey(obj)]).length
+  const activeBatchItem = batch.items.find((item) => item.id === batch.activeItemId)
+  const displayName = imageFile?.name ?? activeBatchItem?.fileName ?? null
 
   return (
     <header className="flex items-center justify-between h-14 px-4 md:px-6 border-b border-[var(--border-muted)] bg-[var(--bg-secondary)]">
@@ -34,7 +37,7 @@ export function Header() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setImageFile(null)}
+            onClick={goBack}
             aria-label="Back"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -49,9 +52,9 @@ export function Header() {
             <div className="text-[11px] text-[var(--text-secondary)]">P&amp;ID Detection</div>
           </div>
         </div>
-        {imageFile && (
+        {displayName && (
           <div className="hidden md:block text-xs text-[var(--text-secondary)] ml-4">
-            {imageFile.name}
+            {displayName}
           </div>
         )}
       </div>

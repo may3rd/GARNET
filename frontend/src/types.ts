@@ -1,4 +1,4 @@
-export type AppView = 'empty' | 'preview' | 'processing' | 'results'
+export type AppView = 'empty' | 'preview' | 'processing' | 'results' | 'batch'
 
 export type DetectedObject = {
   Index: number
@@ -21,4 +21,15 @@ export type DetectionResult = {
   image_width: number
   image_height: number
   count: number
+}
+
+export type BatchItemStatus = 'queued' | 'running' | 'done' | 'failed' | 'canceled'
+
+export type BatchItem = {
+  id: string
+  file: File
+  fileName: string
+  status: BatchItemStatus
+  result?: DetectionResult
+  error?: string
 }

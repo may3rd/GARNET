@@ -26,6 +26,7 @@ export function ResultsView() {
   const redoAction = useAppStore((state) => state.redoAction)
   const confidenceFilter = useAppStore((state) => state.confidenceFilter)
   const setConfidenceFilter = useAppStore((state) => state.setConfidenceFilter)
+  const batch = useAppStore((state) => state.batch)
   const pushHistory = useHistoryStore((state) => state.pushAction)
   const [hiddenClasses, setHiddenClasses] = useState<Set<string>>(new Set())
   const canvasRef = useRef<CanvasViewHandle>(null)
@@ -35,6 +36,7 @@ export function ResultsView() {
   const [createDraft, setCreateDraft] = useState<EditDraft | null>(null)
   const [createError, setCreateError] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [localImageUrl, setLocalImageUrl] = useState<string | null>(null)
 
   if (!result) {
     return (
@@ -154,6 +156,27 @@ export function ResultsView() {
       edit.cancelEditing()
     }
   }, [selectedObjectKey])
+
+  useEffect(() => {
+    const activeItem = batch.activeItemId
+      ? batch.items.find((item) => item.id === batch.activeItemId)
+      : null
+    if (!activeItem?.file) {
+      setLocalImageUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev)
+        return null
+      })
+      return
+    }
+    const url = URL.createObjectURL(activeItem.file)
+    setLocalImageUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return url
+    })
+    return () => {
+      URL.revokeObjectURL(url)
+    }
+  }, [batch.activeItemId, batch.items])
 
   useEffect(() => {
     if (!isCreating) {
@@ -306,7 +329,7 @@ export function ResultsView() {
         <CanvasView
           ref={canvasRef}
           key={resultRunId}
-          imageUrl={result.image_url}
+          imageUrl={localImageUrl ?? result.image_url}
           objects={visibleObjects}
           selectedObjectKey={selectedObjectKey}
           selectedObject={selectedObject}

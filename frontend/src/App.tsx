@@ -3,6 +3,7 @@ import { UploadZone } from '@/components/UploadZone'
 import { DetectionSetup } from '@/components/DetectionSetup'
 import { ProcessingView } from '@/components/ProcessingView'
 import { ResultsView } from '@/components/ResultsView'
+import { BatchResultsView } from '@/components/BatchResultsView'
 import { useAppStore } from '@/stores/appStore'
 import { cn } from '@/lib/utils'
 
@@ -53,6 +54,15 @@ export default function App() {
         )}
 
         {currentView === 'processing' && <ProcessingView />}
+
+        {currentView === 'batch' && (
+          <div className="flex h-full">
+            <BatchResultsView />
+            <div className="w-[320px] border-l border-[var(--border-muted)] bg-[var(--bg-secondary)] overflow-y-auto">
+              <DetectionSetup />
+            </div>
+          </div>
+        )}
 
         {currentView === 'results' && <ResultsView />}
       </main>

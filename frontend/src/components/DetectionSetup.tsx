@@ -11,6 +11,8 @@ export function DetectionSetup() {
   const options = useAppStore((state) => state.options)
   const setOptions = useAppStore((state) => state.setOptions)
   const runDetection = useAppStore((state) => state.runDetection)
+  const runBatchDetection = useAppStore((state) => state.runBatchDetection)
+  const batch = useAppStore((state) => state.batch)
   const error = useAppStore((state) => state.error)
   const [models, setModels] = useState<string[]>([])
   const [weights, setWeights] = useState<string[]>([])
@@ -35,12 +37,24 @@ export function DetectionSetup() {
     }
   }, [])
 
+  const isBatchMode = batch.items.length > 0
+  const isLocked = batch.locked
+  const hasRunnableBatchItems = batch.items.some((item) => item.status === 'queued' || item.status === 'failed')
+  const runAction = isBatchMode ? runBatchDetection : runDetection
+  const runLabel = isBatchMode ? `Run Batch (${batch.items.length})` : 'Run Detection'
+
   return (
     <div className="p-6 flex flex-col gap-6">
       <div className="flex items-center gap-2 text-sm font-semibold">
         <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
         Detection Setup
       </div>
+
+      {isBatchMode && (
+        <div className="text-xs text-[var(--text-secondary)] bg-[var(--bg-primary)] border border-[var(--border-muted)] p-3 rounded-lg">
+          Batch mode is active. The selected model, weight, and settings apply to all images in the batch.
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-8 text-[var(--text-secondary)]">
@@ -54,7 +68,7 @@ export function DetectionSetup() {
           <Select
             value={options.selectedModel}
             onValueChange={(value) => setOptions({ selectedModel: value })}
-            disabled={isLoading}
+            disabled={isLoading || isLocked}
           >
             <SelectTrigger className="mt-2">
               <SelectValue placeholder="Select model" />
@@ -74,6 +88,7 @@ export function DetectionSetup() {
           <Select
             value={options.weightFile || '_default'}
             onValueChange={(value) => setOptions({ weightFile: value === '_default' ? '' : value })}
+            disabled={isLocked}
           >
             <SelectTrigger className="mt-2">
               <SelectValue placeholder="Select weight file" />
@@ -102,6 +117,7 @@ export function DetectionSetup() {
             max={0.95}
             step={0.01}
             className="mt-2"
+            disabled={isLocked}
           />
         </div>
 
@@ -110,6 +126,7 @@ export function DetectionSetup() {
             id="textOCR"
             checked={options.textOCR}
             onCheckedChange={(checked) => setOptions({ textOCR: checked as boolean })}
+            disabled={isLocked}
           />
           <label htmlFor="textOCR" className="text-sm text-[var(--text-secondary)] cursor-pointer">
             Extract text with OCR
@@ -122,9 +139,14 @@ export function DetectionSetup() {
           </div>
         )}
 
-        <Button onClick={runDetection} variant="cta" className="mt-auto" disabled={isLoading}>
+        <Button
+          onClick={runAction}
+          variant="cta"
+          className="mt-auto"
+          disabled={isLoading || isLocked || (isBatchMode && !hasRunnableBatchItems)}
+        >
           <Play className="h-4 w-4" />
-          Run Detection
+          {runLabel}
         </Button>
       </div>
       )}

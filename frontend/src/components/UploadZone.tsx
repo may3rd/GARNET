@@ -8,20 +8,26 @@ export function UploadZone() {
   const inputRef = useRef<HTMLInputElement>(null)
   const setImageFile = useAppStore((state) => state.setImageFile)
   const setImageMeta = useAppStore((state) => state.setImageMeta)
+  const setBatchFiles = useAppStore((state) => state.setBatchFiles)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
-  const handleFile = useCallback((file: File) => {
+  const validateFile = useCallback((file: File) => {
     const validTypes = ['image/jpeg', 'image/png', 'image/webp']
     if (file.type === 'application/pdf') {
       setUploadError('PDF uploads are disabled until page-count validation is available.')
-      return
+      return false
     }
     if (!validTypes.includes(file.type)) {
       setUploadError('Unsupported file type. Upload a JPG, PNG, or WEBP image.')
-      return
+      return false
     }
     setUploadError(null)
+    return true
+  }, [setUploadError])
+
+  const handleFile = useCallback((file: File) => {
+    if (!validateFile(file)) return
 
     const img = new Image()
     img.onload = () => {
@@ -31,14 +37,26 @@ export function UploadZone() {
     img.src = URL.createObjectURL(file)
 
     setImageFile(file)
-  }, [setImageFile, setImageMeta])
+  }, [setImageFile, setImageMeta, validateFile])
+
+  const handleFiles = useCallback((files: FileList | File[]) => {
+    const fileArray = Array.from(files)
+    const validFiles = fileArray.filter((file) => validateFile(file))
+    if (validFiles.length === 0) return
+    if (validFiles.length === 1) {
+      handleFile(validFiles[0])
+      return
+    }
+    setBatchFiles(validFiles)
+  }, [handleFile, setBatchFiles, validateFile])
 
   const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault()
     setIsDragging(false)
-    const file = event.dataTransfer.files[0]
-    if (file) handleFile(file)
-  }, [handleFile])
+    if (event.dataTransfer.files.length > 0) {
+      handleFiles(event.dataTransfer.files)
+    }
+  }, [handleFiles])
 
   const handleDragEnter = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault()
@@ -51,9 +69,11 @@ export function UploadZone() {
   }, [])
 
   const handleChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) handleFile(file)
-  }, [handleFile])
+    const files = event.target.files
+    if (files && files.length > 0) {
+      handleFiles(files)
+    }
+  }, [handleFiles])
 
   const handleSample = useCallback(async () => {
     const response = await fetch('/static/images/prediction_results.png')
@@ -94,6 +114,7 @@ export function UploadZone() {
           ref={inputRef}
           type="file"
           accept=".jpg,.jpeg,.png,.webp,.pdf"
+          multiple
           onChange={handleChange}
           className="hidden"
         />
@@ -102,10 +123,10 @@ export function UploadZone() {
             <FileImage className="h-7 w-7 text-[var(--accent)]" />
           </div>
           <div>
-            <div className="text-lg font-semibold">Drop P&amp;ID image here</div>
+            <div className="text-lg font-semibold">Drop P&amp;ID image(s) here</div>
             <div className="text-sm text-[var(--text-secondary)] mt-1">or click to browse</div>
           </div>
-          <div className="text-xs text-[var(--text-secondary)]">Supports: JPG, PNG, WEBP</div>
+          <div className="text-xs text-[var(--text-secondary)]">Supports: JPG, PNG, WEBP (single or batch)</div>
           <div className="text-[11px] text-[var(--text-secondary)]">PDF uploads are temporarily disabled.</div>
         </div>
         <Upload className="absolute right-6 bottom-6 h-5 w-5 text-[var(--text-secondary)]" />

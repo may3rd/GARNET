@@ -90,6 +90,41 @@ RESULTS_STORE: dict[str, dict] = {}
 # Create Settings object
 settings = Settings.Settings()
 
+# Cache detection models across requests (useful for batch processing).
+MODEL_CACHE: dict[tuple, DetectionModel] = {}
+
+
+def get_cached_detection_model(
+    selected_model: str,
+    weight_file: str,
+    conf_th: float,
+    image_size: int,
+) -> DetectionModel:
+    cache_key = (selected_model, weight_file, conf_th, image_size)
+    cached = MODEL_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    from_pretrained_kwargs: dict = {
+        "model_type": selected_model,
+        "model_path": weight_file,
+        "confidence_threshold": conf_th,
+    }
+
+    sig = inspect.signature(AutoDetectionModel.from_pretrained)
+    if "image_size" in sig.parameters:
+        from_pretrained_kwargs["image_size"] = image_size
+
+    if selected_model == "ultralytics":
+        if "task" in sig.parameters:
+            from_pretrained_kwargs["task"] = "detect"
+        elif "model_kwargs" in sig.parameters:
+            from_pretrained_kwargs["model_kwargs"] = {"task": "detect"}
+
+    detection_model = AutoDetectionModel.from_pretrained(**from_pretrained_kwargs)
+    MODEL_CACHE[cache_key] = detection_model
+    return detection_model
+
 
 def load_class_names_from_yaml(yaml_path: str) -> list[str]:
     """Load class names from YOLO-style YAML file."""
@@ -362,25 +397,12 @@ async def api_detect(
     logger.log(logging.INFO, f"API detect: adjusted image_size: {image_size}")
 
     # Set up the model (Ultralytics + SAHI)
-    from_pretrained_kwargs: dict = {
-        "model_type": selected_model,
-        "model_path": weight_file,
-        "confidence_threshold": conf_th,
-    }
-
-    # Pass optional args only when supported by the installed SAHI version.
-    sig = inspect.signature(AutoDetectionModel.from_pretrained)
-    if "image_size" in sig.parameters:
-        from_pretrained_kwargs["image_size"] = image_size
-
-    # Ultralytics YOLO warns when task cannot be inferred; set it explicitly if SAHI supports it.
-    if selected_model == "ultralytics":
-        if "task" in sig.parameters:
-            from_pretrained_kwargs["task"] = "detect"
-        elif "model_kwargs" in sig.parameters:
-            from_pretrained_kwargs["model_kwargs"] = {"task": "detect"}
-
-    detection_model = AutoDetectionModel.from_pretrained(**from_pretrained_kwargs)
+    detection_model = get_cached_detection_model(
+        selected_model=selected_model,
+        weight_file=weight_file,
+        conf_th=conf_th,
+        image_size=image_size,
+    )
 
     result = get_sliced_prediction(
         processed_image,

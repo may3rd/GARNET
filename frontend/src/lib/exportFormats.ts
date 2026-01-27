@@ -2,6 +2,13 @@ import type { DetectedObject } from '@/types'
 
 export type ExportFormat = 'json' | 'yolo' | 'coco' | 'labelme' | 'pdf'
 
+type CocoBatchImage = {
+  fileName: string
+  width: number
+  height: number
+  objects: DetectedObject[]
+}
+
 export function buildYoloClasses(objects: DetectedObject[]): { classNames: string[]; classIdMap: Map<number, number> } {
   const map = new Map<number, string>()
   for (const obj of objects) {
@@ -81,6 +88,53 @@ export function exportCoco(
         height: imageHeight,
       },
     ],
+    annotations,
+    categories,
+  }
+}
+
+export function exportCocoBatch(images: CocoBatchImage[]) {
+  const categoriesMap = new Map<number, string>()
+  images.forEach((image) => {
+    image.objects.forEach((obj) => {
+      if (!categoriesMap.has(obj.CategoryID)) {
+        categoriesMap.set(obj.CategoryID, obj.Object)
+      }
+    })
+  })
+
+  const categories = Array.from(categoriesMap.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([id, name]) => ({ id, name, supercategory: 'object' }))
+
+  let annotationId = 1
+  const cocoImages = images.map((image, index) => ({
+    id: index + 1,
+    file_name: image.fileName,
+    width: image.width,
+    height: image.height,
+  }))
+
+  const annotations = images.flatMap((image, index) =>
+    image.objects.map((obj) => ({
+      id: annotationId++,
+      image_id: index + 1,
+      category_id: obj.CategoryID,
+      bbox: [obj.Left, obj.Top, obj.Width, obj.Height],
+      area: obj.Width * obj.Height,
+      iscrowd: 0,
+      score: obj.Score,
+      text: obj.Text,
+    }))
+  )
+
+  return {
+    info: {
+      description: 'GARNET batch export',
+      version: '1.0',
+      year: new Date().getFullYear(),
+    },
+    images: cocoImages,
     annotations,
     categories,
   }
