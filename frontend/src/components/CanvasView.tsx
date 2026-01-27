@@ -904,6 +904,7 @@ export const CanvasView = forwardRef(function CanvasView(
                   size="icon"
                   onClick={onNavigatePrevious}
                   title="Previous (←)"
+                  aria-label="Previous object"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
@@ -913,6 +914,7 @@ export const CanvasView = forwardRef(function CanvasView(
                   size="icon"
                   onClick={onNavigateNext}
                   title="Next (→)"
+                  aria-label="Next object"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
