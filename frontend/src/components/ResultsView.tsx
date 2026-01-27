@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStore } from '@/stores/appStore'
+import { useHistoryStore } from '@/stores/historyStore'
 import { CanvasView, type CanvasViewHandle } from '@/components/CanvasView'
 import { ObjectSidebar } from '@/components/ObjectSidebar'
 import { objectKey } from '@/lib/objectKey'
@@ -7,6 +8,7 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useInlineEdit, type EditDraft } from '@/hooks/useInlineEdit'
 import { createResultObject, deleteResultObject, updateResultObject } from '@/lib/api'
 import { buildYoloClasses, exportCoco, exportLabelMe, exportYolo, type ExportFormat } from '@/lib/exportFormats'
+import { generatePdfReport, getImageAsDataUrl } from '@/lib/pdfExport'
 
 export function ResultsView() {
   const result = useAppStore((state) => state.result)
@@ -18,6 +20,9 @@ export function ResultsView() {
   const updateObject = useAppStore((state) => state.updateObject)
   const addObject = useAppStore((state) => state.addObject)
   const removeObject = useAppStore((state) => state.removeObject)
+  const undoAction = useAppStore((state) => state.undoAction)
+  const redoAction = useAppStore((state) => state.redoAction)
+  const pushHistory = useHistoryStore((state) => state.pushAction)
   const [hiddenClasses, setHiddenClasses] = useState<Set<string>>(new Set())
   const [confidenceFilter, setConfidenceFilter] = useState(0)
   const canvasRef = useRef<CanvasViewHandle>(null)
@@ -88,6 +93,27 @@ export function ResultsView() {
       return
     }
 
+    if (format === 'pdf') {
+      // PDF export is async
+      ; (async () => {
+        try {
+          const imageDataUrl = await getImageAsDataUrl(result.image_url)
+          const blob = await generatePdfReport(result, reviewStatus, imageDataUrl)
+          download(blob, `${baseName}-report.pdf`)
+        } catch (error) {
+          console.error('PDF export failed:', error)
+          // Fallback: try without image
+          try {
+            const blob = await generatePdfReport(result, reviewStatus, '')
+            download(blob, `${baseName}-report.pdf`)
+          } catch (fallbackError) {
+            console.error('PDF export fallback failed:', fallbackError)
+          }
+        }
+      })()
+      return
+    }
+
     const labelme = exportLabelMe(exportObjects, result.image_width, result.image_height, imageFileName)
     download(new Blob([JSON.stringify(labelme, null, 2)], { type: 'application/json' }), `${baseName}.labelme.json`)
   }
@@ -142,6 +168,10 @@ export function ResultsView() {
   }
 
   const setReviewStatusAndAdvance = (key: string, status: 'accepted' | 'rejected' | null) => {
+    // Record previous status for undo
+    const prevStatus = reviewStatus[key] || null
+    pushHistory({ type: 'review', key, prev: prevStatus, next: status })
+
     setReviewStatus(key, status)
     if (!status) return
     if (isCreating || edit.isEditing) return
@@ -179,6 +209,8 @@ export function ResultsView() {
     onReset: () => canvasRef.current?.resetZoom(),
     onZoomIn: () => canvasRef.current?.zoomIn(),
     onZoomOut: () => canvasRef.current?.zoomOut(),
+    onUndo: undoAction,
+    onRedo: redoAction,
   })
 
   const handleDeleteSelected = async () => {
@@ -186,7 +218,9 @@ export function ResultsView() {
     setEditError(null)
     setCreateError(null)
     try {
+      const index = result.objects.indexOf(selectedObject)
       await deleteResultObject(result.id, selectedObject.Index)
+      pushHistory({ type: 'delete', object: selectedObject, index })
       removeObject(selectedObject.Index)
       selectAndCenter(null)
     } catch (error) {
@@ -207,6 +241,7 @@ export function ResultsView() {
     }
     try {
       const updated = await updateResultObject(result.id, selectedObject.Index, payload)
+      pushHistory({ type: 'update', prev: selectedObject, next: updated })
       updateObject(updated)
       edit.cancelEditing()
     } catch (error) {
@@ -227,6 +262,7 @@ export function ResultsView() {
     }
     try {
       const created = await createResultObject(result.id, payload)
+      pushHistory({ type: 'create', object: created })
       addObject(created)
       setSelectedObjectKey(objectKey(created))
       setIsCreating(false)

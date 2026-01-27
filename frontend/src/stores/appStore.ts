@@ -1,6 +1,8 @@
 import { create } from 'zustand'
-import type { AppView, DetectionResult } from '@/types'
+import type { AppView, DetectedObject, DetectionResult } from '@/types'
 import { runDetection, type DetectionOptions } from '@/lib/api'
+import { useHistoryStore, type HistoryAction } from '@/stores/historyStore'
+import { objectKey } from '@/lib/objectKey'
 
 export type AppState = {
   currentView: AppView
@@ -31,6 +33,9 @@ export type AppActions = {
   addObject: (obj: DetectionResult['objects'][number]) => void
   updateObject: (updated: DetectionResult['objects'][number]) => void
   removeObject: (index: number) => void
+  undoAction: () => void
+  redoAction: () => void
+  restoreObject: (obj: DetectedObject, atIndex?: number) => void
 }
 
 const defaultOptions: DetectionOptions = {
@@ -270,5 +275,127 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         reviewStatus: nextReview,
       }
     })
+  },
+
+  restoreObject: (obj, atIndex) => {
+    set((state) => {
+      if (!state.result) return state
+      const nextObjects = [...state.result.objects]
+      if (atIndex !== undefined && atIndex >= 0 && atIndex <= nextObjects.length) {
+        nextObjects.splice(atIndex, 0, obj)
+      } else {
+        nextObjects.push(obj)
+      }
+      const nextReview = { ...state.reviewStatus }
+      const status = obj.ReviewStatus
+      const key = objectKey(obj)
+      if (status === 'accepted' || status === 'rejected') {
+        nextReview[key] = status
+      }
+      return {
+        result: {
+          ...state.result,
+          objects: nextObjects,
+          count: nextObjects.length,
+        },
+        reviewStatus: nextReview,
+      }
+    })
+  },
+
+  undoAction: () => {
+    const action = useHistoryStore.getState().undo()
+    if (!action) return
+
+    const state = get()
+    if (!state.result) return
+
+    switch (action.type) {
+      case 'review': {
+        // Reverse: set to prev status
+        const nextReview = { ...state.reviewStatus }
+        if (!action.prev) {
+          delete nextReview[action.key]
+        } else {
+          nextReview[action.key] = action.prev
+        }
+        set({ reviewStatus: nextReview })
+        break
+      }
+      case 'update': {
+        // Reverse: restore prev object
+        const nextObjects = state.result.objects.map((obj) =>
+          obj.Index === action.prev.Index ? action.prev : obj
+        )
+        set({ result: { ...state.result, objects: nextObjects } })
+        break
+      }
+      case 'delete': {
+        // Reverse: restore deleted object
+        get().restoreObject(action.object, action.index)
+        break
+      }
+      case 'create': {
+        // Reverse: remove created object
+        const nextObjects = state.result.objects.filter(
+          (obj) => obj.Index !== action.object.Index
+        )
+        const nextReview = { ...state.reviewStatus }
+        delete nextReview[objectKey(action.object)]
+        set({
+          result: { ...state.result, objects: nextObjects, count: nextObjects.length },
+          reviewStatus: nextReview,
+        })
+        break
+      }
+    }
+  },
+
+  redoAction: () => {
+    const action = useHistoryStore.getState().redo()
+    if (!action) return
+
+    const state = get()
+    if (!state.result) return
+
+    switch (action.type) {
+      case 'review': {
+        // Redo: set to next status
+        const nextReview = { ...state.reviewStatus }
+        if (!action.next) {
+          delete nextReview[action.key]
+        } else {
+          nextReview[action.key] = action.next
+        }
+        set({ reviewStatus: nextReview })
+        break
+      }
+      case 'update': {
+        // Redo: apply next object
+        const nextObjects = state.result.objects.map((obj) =>
+          obj.Index === action.next.Index ? action.next : obj
+        )
+        set({ result: { ...state.result, objects: nextObjects } })
+        break
+      }
+      case 'delete': {
+        // Redo: remove object again
+        const nextObjects = state.result.objects.filter(
+          (obj) => obj.Index !== action.object.Index
+        )
+        const nextReview = { ...state.reviewStatus }
+        delete nextReview[objectKey(action.object)]
+        set({
+          result: { ...state.result, objects: nextObjects, count: nextObjects.length },
+          reviewStatus: nextReview,
+        })
+        break
+      }
+      case 'create': {
+        // Redo: add object back
+        get().restoreObject(action.object)
+        break
+      }
+    }
   },
 }))

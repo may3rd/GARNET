@@ -1,6 +1,7 @@
-import { ArrowLeft, Moon, Sun } from 'lucide-react'
+import { ArrowLeft, Moon, Redo2, Sun, Undo2 } from 'lucide-react'
 import { useAppStore } from '@/stores/appStore'
-import { cn } from '@/lib/utils'
+import { useHistoryStore } from '@/stores/historyStore'
+import { Button } from '@/components/ui/button'
 import { objectKey } from '@/lib/objectKey'
 
 export function Header() {
@@ -11,31 +12,26 @@ export function Header() {
   const setImageFile = useAppStore((state) => state.setImageFile)
   const result = useAppStore((state) => state.result)
   const reviewStatus = useAppStore((state) => state.reviewStatus)
+  const undoAction = useAppStore((state) => state.undoAction)
+  const redoAction = useAppStore((state) => state.redoAction)
+  const canUndo = useHistoryStore((state) => state.canUndo())
+  const canRedo = useHistoryStore((state) => state.canRedo())
   const reviewedCount = result
     ? result.objects.filter((obj) => reviewStatus[objectKey(obj)]).length
     : 0
 
   return (
-    <header className={cn(
-      'flex items-center justify-between',
-      'h-14 px-4 md:px-6',
-      'border-b border-[var(--border-muted)]',
-      'bg-[var(--bg-secondary)]'
-    )}>
+    <header className="flex items-center justify-between h-14 px-4 md:px-6 border-b border-[var(--border-muted)] bg-[var(--bg-secondary)]">
       <div className="flex items-center gap-3">
         {currentView !== 'empty' && (
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setImageFile(null)}
-            className={cn(
-              'h-9 w-9 rounded-lg',
-              'flex items-center justify-center',
-              'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
-              'hover:bg-[var(--bg-primary)] transition-colors'
-            )}
             aria-label="Back"
           >
             <ArrowLeft className="h-5 w-5" />
-          </button>
+          </Button>
         )}
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-lg bg-[var(--accent)] text-white font-semibold flex items-center justify-center">
@@ -60,19 +56,40 @@ export function Header() {
         </div>
       )}
 
-      <div className="flex items-center gap-2">
-        <button
+      <div className="flex items-center gap-1">
+        {currentView === 'results' && (
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={undoAction}
+              disabled={!canUndo}
+              aria-label="Undo (Ctrl+Z)"
+              title="Undo (Ctrl+Z)"
+            >
+              <Undo2 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={redoAction}
+              disabled={!canRedo}
+              aria-label="Redo (Ctrl+Shift+Z)"
+              title="Redo (Ctrl+Shift+Z)"
+            >
+              <Redo2 className="h-4 w-4" />
+            </Button>
+            <div className="w-px h-6 bg-[var(--border-muted)] mx-1" />
+          </>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={toggleTheme}
-          className={cn(
-            'h-9 w-9 rounded-lg',
-            'flex items-center justify-center',
-            'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
-            'hover:bg-[var(--bg-primary)] transition-colors'
-          )}
           aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
         >
           {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-        </button>
+        </Button>
       </div>
     </header>
   )

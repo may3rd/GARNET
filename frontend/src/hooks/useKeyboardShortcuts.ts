@@ -18,6 +18,8 @@ type ShortcutHandlers = {
   onReset: () => void
   onZoomIn: () => void
   onZoomOut: () => void
+  onUndo: () => void
+  onRedo: () => void
 }
 
 export function useKeyboardShortcuts({
@@ -30,10 +32,26 @@ export function useKeyboardShortcuts({
   onReset,
   onZoomIn,
   onZoomOut,
+  onUndo,
+  onRedo,
 }: ShortcutHandlers) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || isEditableTarget(event.target)) return
+
+      // Undo: Ctrl+Z (or Cmd+Z on Mac)
+      if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
+        event.preventDefault()
+        onUndo()
+        return
+      }
+
+      // Redo: Ctrl+Shift+Z or Ctrl+Y (or Cmd equivalents on Mac)
+      if ((event.ctrlKey || event.metaKey) && (event.key === 'y' || (event.key === 'z' && event.shiftKey))) {
+        event.preventDefault()
+        onRedo()
+        return
+      }
 
       if (event.key === 'Tab') {
         event.preventDefault()
@@ -98,5 +116,7 @@ export function useKeyboardShortcuts({
     onReset,
     onZoomIn,
     onZoomOut,
+    onUndo,
+    onRedo,
   ])
 }
