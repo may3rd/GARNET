@@ -364,7 +364,7 @@ export function ResultsView() {
           onToggleClass={toggleClass}
           onConfidenceChange={setConfidenceFilter}
           reviewStatus={reviewStatus}
-          onSetReviewStatus={setReviewStatusAndAdvancePersisted}
+          onSetReviewStatus={setReviewStatusPersisted}
           selectedObjectKey={selectedObjectKey}
           onSelectObject={handleSidebarSelect}
           isCreating={isCreating}
