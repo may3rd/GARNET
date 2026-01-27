@@ -181,3 +181,4 @@ DeepLSD/
 datesets/
 
 frontend/node_modules
+static/images/*.png
