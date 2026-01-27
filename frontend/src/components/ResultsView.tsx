@@ -9,6 +9,8 @@ import { useInlineEdit, type EditDraft } from '@/hooks/useInlineEdit'
 import { createResultObject, deleteResultObject, updateResultObject } from '@/lib/api'
 import { buildYoloClasses, exportCoco, exportLabelMe, exportYolo, type ExportFormat } from '@/lib/exportFormats'
 import { generatePdfReport, getImageAsDataUrl } from '@/lib/pdfExport'
+import { GripVertical } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export function ResultsView() {
   const result = useAppStore((state) => state.result)
@@ -31,6 +33,7 @@ export function ResultsView() {
   const [isCreating, setIsCreating] = useState(false)
   const [createDraft, setCreateDraft] = useState<EditDraft | null>(null)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   if (!result) {
     return (
@@ -355,7 +358,24 @@ export function ResultsView() {
           </div>
         )}
       </div>
-      <div className="w-[320px] shrink-0">
+      {/* Sidebar toggle handle */}
+      <button
+        type="button"
+        onClick={() => setSidebarOpen((prev) => !prev)}
+        className={cn(
+          'w-3 shrink-0 flex items-center justify-center',
+          'bg-[var(--bg-secondary)] border-l-2 border-[var(--border-muted)]',
+          'hover:bg-[var(--bg-primary)] hover:border-[var(--accent)] transition-colors cursor-pointer'
+        )}
+        title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+      >
+        <GripVertical className="h-4 w-4 text-[var(--text-secondary)]" />
+      </button>
+      {/* Sidebar */}
+      <div className={cn(
+        'shrink-0 transition-all duration-200 ease-out overflow-hidden',
+        sidebarOpen ? 'w-[320px]' : 'w-0'
+      )}>
         <ObjectSidebar
           objects={result.objects}
           visibleObjects={visibleObjects}
