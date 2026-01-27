@@ -56,13 +56,23 @@ export function UploadZone() {
         onClick={() => inputRef.current?.click()}
         onDrop={handleDrop}
         onDragOver={(event) => event.preventDefault()}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            inputRef.current?.click()
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-label="Upload P&ID image"
         className={cn(
           'w-full max-w-3xl min-h-[320px]',
           'border-2 border-dashed border-[var(--border-muted)]',
           'rounded-2xl bg-[var(--bg-secondary)]',
           'flex items-center justify-center relative',
           'cursor-pointer transition-colors',
-          'hover:border-[var(--accent)]'
+          'hover:border-[var(--accent)]',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2'
         )}
       >
         <input
