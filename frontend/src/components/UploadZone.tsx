@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { FileImage, Sparkles, Upload } from 'lucide-react'
 import { useAppStore } from '@/stores/appStore'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 export function UploadZone() {
@@ -97,18 +98,10 @@ export function UploadZone() {
         <span className="h-px w-14 bg-[var(--border-muted)]" />
       </div>
 
-      <button
-        onClick={handleSample}
-        className={cn(
-          'mt-5 px-5 py-2.5 rounded-lg',
-          'bg-[var(--accent)] text-white',
-          'hover:bg-[var(--accent-strong)] transition-colors',
-          'inline-flex items-center gap-2'
-        )}
-      >
+      <Button onClick={handleSample} variant="default" className="mt-5">
         <Sparkles className="h-4 w-4" />
         Try with Sample P&amp;ID
-      </button>
+      </Button>
     </div>
   )
 }

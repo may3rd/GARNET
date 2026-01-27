@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { Play, SlidersHorizontal } from 'lucide-react'
 import { useAppStore } from '@/stores/appStore'
 import { getConfigFiles, getModels, getWeightFiles } from '@/lib/api'
-import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Slider } from '@/components/ui/slider'
 
 export function DetectionSetup() {
   const options = useAppStore((state) => state.options)
@@ -48,64 +50,77 @@ export function DetectionSetup() {
       <div className="space-y-4">
         <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
           Model
-          <select
+          <Select
             value={options.selectedModel}
-            onChange={(event) => setOptions({ selectedModel: event.target.value })}
-            className={cn(
-              'mt-2 w-full rounded-lg border border-[var(--border-muted)]',
-              'bg-[var(--bg-primary)] px-3 py-2 text-sm'
-            )}
+            onValueChange={(value) => setOptions({ selectedModel: value })}
           >
-            {(models.length ? models : [options.selectedModel]).map((model) => (
-              <option key={model} value={model}>{model}</option>
-            ))}
-          </select>
+            <SelectTrigger className="mt-2">
+              <SelectValue placeholder="Select model" />
+            </SelectTrigger>
+            <SelectContent>
+              {(models.length ? models : [options.selectedModel]).map((model) => (
+                <SelectItem key={model} value={model}>
+                  {model}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </label>
 
         <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
           Weight file
-          <select
-            value={options.weightFile}
-            onChange={(event) => setOptions({ weightFile: event.target.value })}
-            className={cn(
-              'mt-2 w-full rounded-lg border border-[var(--border-muted)]',
-              'bg-[var(--bg-primary)] px-3 py-2 text-sm'
-            )}
+          <Select
+            value={options.weightFile || '_default'}
+            onValueChange={(value) => setOptions({ weightFile: value === '_default' ? '' : value })}
           >
-            {(weights.length ? weights : [options.weightFile]).map((weight) => (
-              <option key={weight || 'default'} value={weight}>{weight || 'Default'}</option>
-            ))}
-          </select>
+            <SelectTrigger className="mt-2">
+              <SelectValue placeholder="Select weight file" />
+            </SelectTrigger>
+            <SelectContent>
+              {weights.length === 0 && (
+                <SelectItem value="_default">Default</SelectItem>
+              )}
+              {weights.map((weight) => (
+                <SelectItem key={weight} value={weight}>
+                  {weight || 'Default'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </label>
 
         <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
           Config file
-          <select
+          <Select
             value={options.configFile}
-            onChange={(event) => setOptions({ configFile: event.target.value })}
-            className={cn(
-              'mt-2 w-full rounded-lg border border-[var(--border-muted)]',
-              'bg-[var(--bg-primary)] px-3 py-2 text-sm'
-            )}
+            onValueChange={(value) => setOptions({ configFile: value })}
           >
-            {(configs.length ? configs : [options.configFile]).map((config) => (
-              <option key={config} value={config}>{config}</option>
-            ))}
-          </select>
+            <SelectTrigger className="mt-2">
+              <SelectValue placeholder="Select config file" />
+            </SelectTrigger>
+            <SelectContent>
+              {(configs.length ? configs : [options.configFile]).map((config) => (
+                <SelectItem key={config} value={config}>
+                  {config}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </label>
 
-        <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
-          Confidence: {Math.round(options.confTh * 100)}%
-          <input
-            type="range"
+        <div className="space-y-2">
+          <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
+            Confidence: {Math.round(options.confTh * 100)}%
+          </div>
+          <Slider
+            value={[options.confTh]}
+            onValueChange={([value]) => setOptions({ confTh: value })}
             min={0.2}
             max={0.95}
             step={0.01}
-            value={options.confTh}
-            onChange={(event) => setOptions({ confTh: Number(event.target.value) })}
-            className="mt-2 w-full"
+            className="mt-2"
           />
-        </label>
+        </div>
 
         <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
           <input
@@ -124,19 +139,10 @@ export function DetectionSetup() {
         </div>
       )}
 
-      <button
-        onClick={runDetection}
-        className={cn(
-          'mt-auto px-4 py-3 rounded-lg',
-          'bg-[var(--accent-cta)] text-white font-semibold',
-          'hover:brightness-95 transition'
-        )}
-      >
-        <span className="inline-flex items-center gap-2">
-          <Play className="h-4 w-4" />
-          Run Detection
-        </span>
-      </button>
+      <Button onClick={runDetection} variant="cta" className="mt-auto">
+        <Play className="h-4 w-4" />
+        Run Detection
+      </Button>
     </div>
   )
 }
