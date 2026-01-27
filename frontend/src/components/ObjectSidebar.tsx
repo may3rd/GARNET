@@ -126,6 +126,8 @@ export function ObjectSidebar({
     return { accepted, rejected, pending, avgConfidence, total: visibleObjects.length }
   }, [visibleObjects, reviewStatus])
 
+  const exportButtonRef = useRef<HTMLButtonElement>(null)
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (!exportRef.current) return
@@ -136,6 +138,8 @@ export function ObjectSidebar({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setExportOpen(false)
+        // Return focus to the button when closing
+        exportButtonRef.current?.focus()
       }
     }
     if (exportOpen) {
@@ -216,6 +220,7 @@ export function ObjectSidebar({
             </button>
             <div className="relative" ref={exportRef}>
               <button
+                ref={exportButtonRef}
                 onClick={() => setExportOpen((prev) => !prev)}
                 className={cn(
                   'inline-flex items-center gap-2 px-3 py-2 rounded-lg',
