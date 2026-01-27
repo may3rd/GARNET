@@ -5,6 +5,7 @@ import { getConfigFiles, getModels, getWeightFiles } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
+import { Checkbox } from '@/components/ui/checkbox'
 
 export function DetectionSetup() {
   const options = useAppStore((state) => state.options)
@@ -134,15 +135,16 @@ export function DetectionSetup() {
           />
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-          <input
-            type="checkbox"
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="textOCR"
             checked={options.textOCR}
-            onChange={(event) => setOptions({ textOCR: event.target.checked })}
-            className="h-4 w-4"
+            onCheckedChange={(checked) => setOptions({ textOCR: checked as boolean })}
           />
-          Extract text with OCR
-        </label>
+          <label htmlFor="textOCR" className="text-sm text-[var(--text-secondary)] cursor-pointer">
+            Extract text with OCR
+          </label>
+        </div>
 
         {error && (
           <div className="text-xs text-[var(--danger)] bg-[var(--bg-primary)] border border-[var(--border-muted)] p-3 rounded-lg">
