@@ -14,6 +14,7 @@ export type AppState = {
   resultRunId: number
   reviewStatus: Record<string, 'accepted' | 'rejected'>
   selectedObjectKey: string | null
+  confidenceFilter: number
   isProcessing: boolean
   progress: { step: string; percent: number } | null
   error: string | null
@@ -30,6 +31,7 @@ export type AppActions = {
   toggleTheme: () => void
   setReviewStatus: (key: string, status: 'accepted' | 'rejected' | null) => void
   setSelectedObjectKey: (key: string | null) => void
+  setConfidenceFilter: (value: number) => void
   addObject: (obj: DetectionResult['objects'][number]) => void
   updateObject: (updated: DetectionResult['objects'][number]) => void
   removeObject: (index: number) => void
@@ -72,10 +74,13 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   resultRunId: 0,
   reviewStatus: {},
   selectedObjectKey: null,
+  confidenceFilter: defaultOptions.confTh,
   isProcessing: false,
   progress: null,
   error: null,
   darkMode: initialDarkMode,
+
+  setConfidenceFilter: (value) => set({ confidenceFilter: value }),
 
   setImageFile: (file) => {
     const previous = get().imageUrl

@@ -1,4 +1,5 @@
 import { ArrowLeft, Moon, Redo2, Sun, Undo2 } from 'lucide-react'
+import { useMemo } from 'react'
 import { useAppStore } from '@/stores/appStore'
 import { useHistoryStore } from '@/stores/historyStore'
 import { Button } from '@/components/ui/button'
@@ -12,13 +13,19 @@ export function Header() {
   const setImageFile = useAppStore((state) => state.setImageFile)
   const result = useAppStore((state) => state.result)
   const reviewStatus = useAppStore((state) => state.reviewStatus)
+  const confidenceFilter = useAppStore((state) => state.confidenceFilter)
   const undoAction = useAppStore((state) => state.undoAction)
   const redoAction = useAppStore((state) => state.redoAction)
   const canUndo = useHistoryStore((state) => state.canUndo())
   const canRedo = useHistoryStore((state) => state.canRedo())
-  const reviewedCount = result
-    ? result.objects.filter((obj) => reviewStatus[objectKey(obj)]).length
-    : 0
+
+  // Filter objects by confidence threshold (same as sidebar)
+  const visibleObjects = useMemo(() => {
+    if (!result) return []
+    return result.objects.filter((obj) => obj.Score >= confidenceFilter)
+  }, [result, confidenceFilter])
+
+  const reviewedCount = visibleObjects.filter((obj) => reviewStatus[objectKey(obj)]).length
 
   return (
     <header className="flex items-center justify-between h-14 px-4 md:px-6 border-b border-[var(--border-muted)] bg-[var(--bg-secondary)]">
@@ -51,8 +58,8 @@ export function Header() {
 
       {currentView === 'results' && result && (
         <div className="hidden md:flex items-center gap-4 text-sm">
-          <span className="text-[var(--text-primary)] font-semibold">{result.objects.length} objects</span>
-          <span className="text-[var(--text-secondary)]">Review: {reviewedCount}/{result.objects.length}</span>
+          <span className="text-[var(--text-primary)] font-semibold">{visibleObjects.length} objects</span>
+          <span className="text-[var(--text-secondary)]">Review: {reviewedCount}/{visibleObjects.length}</span>
         </div>
       )}
 
