@@ -6,6 +6,9 @@ import { objectKey } from '@/lib/objectKey'
 import { ZoomControls } from '@/components/ZoomControls'
 import { cn } from '@/lib/utils'
 import { CheckCircle2, ChevronLeft, ChevronRight, Trash2, XCircle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 
 type CanvasViewProps = {
   imageUrl: string
@@ -896,23 +899,23 @@ export const CanvasView = forwardRef(function CanvasView(
                 </div>
               )}
               <div className="mt-3 flex items-center justify-between">
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={onNavigatePrevious}
-                  className="h-8 w-8 flex items-center justify-center rounded-md border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
                   title="Previous (←)"
                 >
                   <ChevronLeft className="h-4 w-4" />
-                </button>
+                </Button>
                 <span className="text-xs text-[var(--text-secondary)]">Navigate</span>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={onNavigateNext}
-                  className="h-8 w-8 flex items-center justify-center rounded-md border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
                   title="Next (→)"
                 >
                   <ChevronRight className="h-4 w-4" />
-                </button>
+                </Button>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
@@ -943,24 +946,24 @@ export const CanvasView = forwardRef(function CanvasView(
                 >
                   Reject
                 </button>
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
                   onClick={() => onStartEdit(selectedObject)}
-                  className="w-full px-2.5 py-1.5 rounded-md text-xs font-semibold border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
                 >
                   Edit
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full hover:border-[var(--danger)] hover:text-[var(--danger)]"
                   onClick={onDeleteSelected}
-                  className="w-full px-2.5 py-1.5 rounded-md text-xs font-semibold border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--danger)] hover:text-[var(--danger)] transition-colors"
                   title="Delete object"
                 >
-                  <span className="inline-flex items-center gap-1">
-                    <Trash2 className="h-3.5 w-3.5" />
-                    Delete
-                  </span>
-                </button>
+                  <Trash2 className="h-3.5 w-3.5 mr-1" />
+                  Delete
+                </Button>
               </div>
             </>
           ) : (
@@ -968,18 +971,18 @@ export const CanvasView = forwardRef(function CanvasView(
               <div className="mt-2 space-y-2 text-xs">
                 <label className="block">
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Label</span>
-                  <input
+                  <Input
                     value={editDraft?.Object ?? ''}
                     onChange={(event) => onChangeEdit('Object', event.target.value)}
-                    className="mt-1 w-full rounded-md border border-[var(--border-muted)] bg-[var(--bg-primary)] px-2 py-1"
+                    className="mt-1 h-7 text-xs"
                   />
                 </label>
                 <label className="block">
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">OCR text</span>
-                  <input
+                  <Input
                     value={editDraft?.Text ?? ''}
                     onChange={(event) => onChangeEdit('Text', event.target.value)}
-                    className="mt-1 w-full rounded-md border border-[var(--border-muted)] bg-[var(--bg-primary)] px-2 py-1"
+                    className="mt-1 h-7 text-xs"
                   />
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -988,30 +991,27 @@ export const CanvasView = forwardRef(function CanvasView(
                       <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
                         {field}
                       </span>
-                      <input
+                      <Input
                         value={editDraft ? String(editDraft[field]) : ''}
                         onChange={(event) => onChangeEdit(field, event.target.value)}
-                        className="mt-1 w-full rounded-md border border-[var(--border-muted)] bg-[var(--bg-primary)] px-2 py-1"
+                        className="mt-1 h-7 text-xs"
                       />
                     </label>
                   ))}
                 </div>
               </div>
               <div className="mt-3 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={onSaveEdit}
-                  className="px-2.5 py-1.5 rounded-md text-xs font-semibold bg-[var(--accent)] text-white"
-                >
+                <Button size="sm" onClick={onSaveEdit}>
                   Save
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={onCancelEdit}
-                  className="px-2.5 py-1.5 rounded-md text-xs font-semibold border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--danger)] hover:text-[var(--danger)] transition-colors"
+                  className="hover:border-[var(--danger)] hover:text-[var(--danger)]"
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             </>
           )}

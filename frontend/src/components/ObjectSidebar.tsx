@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils'
 import { getCategoryColor } from '@/lib/categoryColors'
 import { objectKey } from '@/lib/objectKey'
 import type { ExportFormat } from '@/lib/exportFormats'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 type ExportFilter = 'all' | 'accepted' | 'rejected' | 'visible'
 
@@ -256,14 +258,11 @@ export function ObjectSidebar({
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]">
             <Search className="h-4 w-4" />
           </span>
-          <input
+          <Input
             value={queryInput}
             onChange={(event) => setQueryInput(event.target.value)}
             placeholder="Search objects"
-            className={cn(
-              'w-full rounded-lg border border-[var(--border-muted)]',
-              'bg-[var(--bg-primary)] px-9 py-2 text-sm'
-            )}
+            className="pl-9"
           />
         </label>
         <label className="block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-secondary)] mt-3">

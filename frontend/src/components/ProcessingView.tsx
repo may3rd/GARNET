@@ -1,6 +1,7 @@
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react'
 import { useAppStore } from '@/stores/appStore'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 export function ProcessingView() {
   const progress = useAppStore((state) => state.progress)
@@ -53,18 +54,14 @@ export function ProcessingView() {
           })}
         </div>
 
-        <button
+        <Button
+          variant="outline"
+          className="mt-6 w-full hover:border-[var(--danger)] hover:text-[var(--danger)]"
           onClick={cancelDetection}
-          className={cn(
-            'mt-6 w-full px-4 py-2 rounded-lg',
-            'border border-[var(--border-muted)] text-[var(--text-secondary)]',
-            'hover:border-[var(--danger)] hover:text-[var(--danger)] transition-colors',
-            'inline-flex items-center justify-center gap-2'
-          )}
         >
-          <XCircle className="h-4 w-4" />
+          <XCircle className="h-4 w-4 mr-2" />
           Cancel detection
-        </button>
+        </Button>
       </div>
     </div>
   )
