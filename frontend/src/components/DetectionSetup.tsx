@@ -102,24 +102,27 @@ export function DetectionSetup() {
           </Select>
         </label>
 
-        <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
-          Config file
-          <Select
-            value={options.configFile}
-            onValueChange={(value) => setOptions({ configFile: value })}
-          >
-            <SelectTrigger className="mt-2">
-              <SelectValue placeholder="Select config file" />
-            </SelectTrigger>
-            <SelectContent>
-              {(configs.length ? configs : [options.configFile]).map((config) => (
-                <SelectItem key={config} value={config}>
-                  {config}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
+        {/* Config file is only required for Azure Custom Vision model */}
+        {options.selectedModel === 'azure_custom_vision' && (
+          <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
+            Config file
+            <Select
+              value={options.configFile}
+              onValueChange={(value) => setOptions({ configFile: value })}
+            >
+              <SelectTrigger className="mt-2">
+                <SelectValue placeholder="Select config file" />
+              </SelectTrigger>
+              <SelectContent>
+                {(configs.length ? configs : [options.configFile]).map((config) => (
+                  <SelectItem key={config} value={config}>
+                    {config}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+        )}
 
         <div className="space-y-2">
           <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
