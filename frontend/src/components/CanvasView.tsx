@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ForwardedRef } from 'react'
 import type { DetectedObject } from '@/types'
 import { getCategoryColor } from '@/lib/categoryColors'
@@ -723,7 +723,7 @@ export const CanvasView = forwardRef(function CanvasView(
               }
             }}
           />
-          {objects.map((obj) => {
+          {useMemo(() => objects.map((obj) => {
             const key = objectKey(obj)
             const status = reviewStatus[key]
             const opacity = status === 'accepted'
@@ -773,7 +773,7 @@ export const CanvasView = forwardRef(function CanvasView(
                 }}
               />
             )
-          })}
+          }), [objects, reviewStatus, isEditing, editDraft, selectedObjectKey, isCreating, onSelectObject])}
           {isCreating && createDraft && (
             <div
               className="absolute border-2 border-dashed border-blue-500/80 bg-blue-500/10 pointer-events-none"
