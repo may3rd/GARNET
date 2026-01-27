@@ -5,7 +5,6 @@ import { cn } from '@/lib/utils'
 import { getCategoryColor } from '@/lib/categoryColors'
 import { objectKey } from '@/lib/objectKey'
 import type { ExportFormat } from '@/lib/exportFormats'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
 type ExportFilter = 'all' | 'accepted' | 'rejected' | 'visible'

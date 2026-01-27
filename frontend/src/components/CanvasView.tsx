@@ -5,10 +5,9 @@ import { getCategoryColor } from '@/lib/categoryColors'
 import { objectKey } from '@/lib/objectKey'
 import { ZoomControls } from '@/components/ZoomControls'
 import { cn } from '@/lib/utils'
-import { CheckCircle2, ChevronLeft, ChevronRight, Trash2, XCircle } from 'lucide-react'
+import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, Trash2, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 
 type CanvasViewProps = {
   imageUrl: string
@@ -100,6 +99,7 @@ export const CanvasView = forwardRef(function CanvasView(
   const [isMinimapDragging, setIsMinimapDragging] = useState(false)
   const [minimapPointerId, setMinimapPointerId] = useState<number | null>(null)
   const [hasAutoFit, setHasAutoFit] = useState(false)
+  const [isImageLoading, setIsImageLoading] = useState(true)
   const [cardSize, setCardSize] = useState({ width: 240, height: 150 })
   const cardRef = useRef<HTMLDivElement>(null)
   const autoFitAttemptsRef = useRef(0)
@@ -119,10 +119,12 @@ export const CanvasView = forwardRef(function CanvasView(
 
   useEffect(() => {
     setHasAutoFit(false)
+    setIsImageLoading(true)
     autoFitAttemptsRef.current = 0
     const img = imageRef.current
     if (!img) return
     const handleLoad = () => {
+      setIsImageLoading(false)
       const nextSize = { width: img.naturalWidth, height: img.naturalHeight }
       if (nextSize.width && nextSize.height) {
         setImageSize(nextSize)
@@ -673,6 +675,14 @@ export const CanvasView = forwardRef(function CanvasView(
 
   return (
     <div className="relative h-full w-full bg-[var(--bg-canvas)]">
+      {isImageLoading && (
+        <div className="absolute inset-0 flex items-center justify-center z-10">
+          <div className="flex flex-col items-center gap-3 text-[var(--text-secondary)]">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <span className="text-sm">Loading image...</span>
+          </div>
+        </div>
+      )}
       <div
         ref={containerRef}
         className={cn(
