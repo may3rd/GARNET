@@ -5,7 +5,7 @@ import { getCategoryColor } from '@/lib/categoryColors'
 import { objectKey } from '@/lib/objectKey'
 import { ZoomControls } from '@/components/ZoomControls'
 import { cn } from '@/lib/utils'
-import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
+import { CheckCircle2, ChevronLeft, ChevronRight, Trash2, XCircle } from 'lucide-react'
 
 type CanvasViewProps = {
   imageUrl: string
@@ -872,7 +872,21 @@ export const CanvasView = forwardRef(function CanvasView(
           </div>
           {!isEditing ? (
             <>
-              <div className="mt-1 text-sm font-semibold">{selectedObject.Object}</div>
+              <div className="mt-1 flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-semibold leading-tight">{selectedObject.Object}</span>
+                {reviewStatus[objectKey(selectedObject)] === 'accepted' && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[var(--success)]/10 text-[var(--success)] text-[10px] font-bold uppercase tracking-tight">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Accepted
+                  </span>
+                )}
+                {reviewStatus[objectKey(selectedObject)] === 'rejected' && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[var(--danger)]/10 text-[var(--danger)] text-[10px] font-bold uppercase tracking-tight">
+                    <XCircle className="h-3 w-3" />
+                    Rejected
+                  </span>
+                )}
+              </div>
               <div className="text-xs text-[var(--text-secondary)]">
                 Confidence {Math.round(selectedObject.Score * 100)}%
               </div>
