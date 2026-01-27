@@ -58,11 +58,13 @@ export function DetectionSetup() {
               <SelectValue placeholder="Select model" />
             </SelectTrigger>
             <SelectContent>
-              {(models.length ? models : [options.selectedModel]).map((model) => (
-                <SelectItem key={model} value={model}>
-                  {model}
-                </SelectItem>
-              ))}
+              {(models.length ? models : [options.selectedModel])
+                .filter((model) => model !== 'azure_custom_vision')
+                .map((model) => (
+                  <SelectItem key={model} value={model}>
+                    {model}
+                  </SelectItem>
+                ))}
             </SelectContent>
           </Select>
         </label>
