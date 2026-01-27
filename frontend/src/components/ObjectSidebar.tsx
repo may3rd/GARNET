@@ -375,7 +375,18 @@ export function ObjectSidebar({
             onClick={() => setStatsOpen((prev) => !prev)}
             className="w-full px-5 py-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]"
           >
-            Statistics
+            <div className="flex items-center gap-3">
+              <span>Statistics</span>
+              {!statsOpen && (
+                <div className="flex items-center gap-2 font-mono font-bold tracking-normal normal-case">
+                  <span className="text-[var(--success)]" title="Accepted">{stats.accepted}</span>
+                  <span className="text-[var(--border-muted)] opacity-50">/</span>
+                  <span className="text-[var(--danger)]" title="Rejected">{stats.rejected}</span>
+                  <span className="text-[var(--border-muted)] opacity-50">/</span>
+                  <span className="text-[var(--text-primary)]" title="Total">{objects.length}</span>
+                </div>
+              )}
+            </div>
             <ChevronDown className={cn('h-4 w-4 transition-transform', statsOpen ? 'rotate-180' : '')} />
           </button>
           {statsOpen && (
