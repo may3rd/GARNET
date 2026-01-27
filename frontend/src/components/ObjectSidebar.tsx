@@ -190,7 +190,7 @@ export function ObjectSidebar({
   return (
     <aside className="h-full w-full border-l border-[var(--border-muted)] bg-[var(--bg-secondary)] flex flex-col">
       <div className="p-5 border-b border-[var(--border-muted)]">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-end mb-4">
           <div className="flex items-center gap-2">
             <button
               onClick={isCreating ? onCancelCreate : onStartCreate}
@@ -219,7 +219,7 @@ export function ObjectSidebar({
                 <ChevronDown className="h-4 w-4" />
               </button>
               {exportOpen && (
-                <div className="absolute right-full top-0 mr-2 w-[280px] rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] shadow-lg z-20 p-2 max-h-[70vh] overflow-y-auto">
+                <div className="absolute right-0 top-full mt-2 w-[280px] rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] shadow-lg z-20 p-2 max-h-[70vh] overflow-y-auto">
                   {/* PDF Report - Full report with statistics */}
                   <div className="mb-2">
                     <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
