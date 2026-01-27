@@ -1,6 +1,6 @@
 import type { DetectedObject } from '@/types'
 
-export type ExportFormat = 'json' | 'yolo' | 'coco' | 'labelme'
+export type ExportFormat = 'json' | 'yolo' | 'coco' | 'labelme' | 'pdf'
 
 export function buildYoloClasses(objects: DetectedObject[]): { classNames: string[]; classIdMap: Map<number, number> } {
   const map = new Map<number, string>()
