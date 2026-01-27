@@ -106,7 +106,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   setImageMeta: (meta) => set({ imageMeta: meta }),
 
   setOptions: (options) =>
-    set((state) => ({ options: { ...state.options, ...options } })),
+    set((state) => ({ options: { ...state.options, ...options }, error: null })),
 
   setView: (view) => set({ currentView: view }),
 
