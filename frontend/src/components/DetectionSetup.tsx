@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Play, SlidersHorizontal, Loader2 } from 'lucide-react'
 import { useAppStore } from '@/stores/appStore'
-import { getConfigFiles, getModels, getWeightFiles } from '@/lib/api'
+import { getModels, getWeightFiles } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
@@ -14,27 +14,18 @@ export function DetectionSetup() {
   const error = useAppStore((state) => state.error)
   const [models, setModels] = useState<string[]>([])
   const [weights, setWeights] = useState<string[]>([])
-  const [configs, setConfigs] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     let active = true
     const load = async () => {
       setIsLoading(true)
-      const [modelList, weightList, configList] = await Promise.all([
-        getModels(),
-        getWeightFiles(),
-        getConfigFiles(),
-      ])
+      const [modelList, weightList] = await Promise.all([getModels(), getWeightFiles()])
       if (!active) return
       setModels(modelList)
       setWeights(weightList)
-      setConfigs(configList)
       if (!options.weightFile && weightList.length) {
         setOptions({ weightFile: weightList[0] })
-      }
-      if (!options.configFile && configList.length) {
-        setOptions({ configFile: configList[0] })
       }
       setIsLoading(false)
     }
@@ -69,13 +60,11 @@ export function DetectionSetup() {
               <SelectValue placeholder="Select model" />
             </SelectTrigger>
             <SelectContent>
-              {(models.length ? models : [options.selectedModel])
-                .filter((model) => model !== 'azure_custom_vision')
-                .map((model) => (
-                  <SelectItem key={model} value={model}>
-                    {model}
-                  </SelectItem>
-                ))}
+              {(models.length ? models : [options.selectedModel]).map((model) => (
+                <SelectItem key={model} value={model}>
+                  {model}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </label>
@@ -101,28 +90,6 @@ export function DetectionSetup() {
             </SelectContent>
           </Select>
         </label>
-
-        {/* Config file is only required for Azure Custom Vision model */}
-        {options.selectedModel === 'azure_custom_vision' && (
-          <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
-            Config file
-            <Select
-              value={options.configFile}
-              onValueChange={(value) => setOptions({ configFile: value })}
-            >
-              <SelectTrigger className="mt-2">
-                <SelectValue placeholder="Select config file" />
-              </SelectTrigger>
-              <SelectContent>
-                {(configs.length ? configs : [options.configFile]).map((config) => (
-                  <SelectItem key={config} value={config}>
-                    {config}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-        )}
 
         <div className="space-y-2">
           <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">

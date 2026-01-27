@@ -27,11 +27,20 @@ GARNET is an AI-powered tool designed to **automate symbol detection, classifica
 1. **Clone the Repository**:
 
     ```bash
-    git clone https://github.com/your-username/GARNET.git
+    git clone https://github.com/may3rd/GARNET.git
     cd GARNET
     ```
 
-2. **Install Dependencies**:
+2. **Install DeepLSD (required for line extraction)**:
+
+    ```bash
+    git clone --recurse-submodules https://github.com/cvg/DeepLSD.git
+    cd DeepLSD
+    bash quickstart_install.sh
+    cd ..
+    ```
+
+3. **Install Dependencies**:
     ```bash
     pip install -r requirements.txt
     ```
@@ -40,25 +49,28 @@ GARNET is an AI-powered tool designed to **automate symbol detection, classifica
 
 ## 🖥️ Usage
 
-### 1. **Web Application (Interactive Inference)**
+### 1. **React Frontend + API Backend (Recommended)**
 
-Run the web interface to upload P&IDs, select models, and view results in real time:
+This mode runs the **React UI** separately from the **API-only backend** (`api.py`).
+The frontend (Vite) proxies `/api` and `/static` to the backend.
 
-1. **Start the Web Server**:
+1. **Start the API backend (FastAPI)**:
 
     ```bash
-    uvicorn main:app --reload
+    uvicorn api:app --reload --port 8001
     ```
 
-    Access the app at `http://localhost:8000`.
+    Backend runs at `http://localhost:8001`.
 
-2. **Using the Web Interface**:
-    - **Upload a P&ID**: Select an image file (JPG/PNG).
-    - **Model Configuration**: Choose a model type (e.g., YOLOv5, YOLOv8) and upload custom weights (`.pt` file).
-    - **Run Inference**: Click "Submit" to detect symbols and display results.
-    - **Results**: View annotated images, symbol counts, and download reports (CSV/JSON).
+2. **Start the React frontend (Vite)**:
 
-![Web Interface Demo](assets/web_demo.png)
+    ```bash
+    cd frontend
+    bun install
+    bun run dev
+    ```
+
+    Frontend runs at `http://localhost:5173`.
 
 ---
 

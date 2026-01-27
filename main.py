@@ -28,11 +28,6 @@ import uuid
 from garnet import utils
 import garnet.Settings as Settings
 import yaml
-try:
-    from garnet.azure_inference import CustomVisionSAHIDetector, CustomVisionConfig
-except ModuleNotFoundError:
-    CustomVisionSAHIDetector = None
-    CustomVisionConfig = None
 
 # Configure logging
 log_file = os.path.join(os.path.dirname(
@@ -365,26 +360,11 @@ async def api_detect(
         logging.INFO, f"API detect: original image shape: {image.shape}, processed image shape: {processed_image.shape}")
 
     # Set up the model
-    if selected_model == "azure_custom_vision":
-        if CustomVisionConfig is None or CustomVisionSAHIDetector is None:
-            raise HTTPException(
-                status_code=400,
-                detail="Azure Custom Vision support is not installed. Remove the model selection or add garnet/azure_inference.py.",
-            )
-        class_names = load_class_names_from_yaml(config_file)
-        config = CustomVisionConfig(
-            model_path=weight_file,
-            class_names=class_names,
-            input_size=(image_size, image_size),
-            confidence_threshold=conf_th
-        )
-        detection_model = CustomVisionSAHIDetector(config)
-    else:
-        detection_model: DetectionModel = AutoDetectionModel.from_pretrained(
-            model_type=selected_model,
-            model_path=weight_file,
-            confidence_threshold=conf_th,
-        )
+    detection_model: DetectionModel = AutoDetectionModel.from_pretrained(
+        model_type=selected_model,
+        model_path=weight_file,
+        confidence_threshold=conf_th,
+    )
 
     # Calculate overlap and run detection
     overlap_ratio = 0.2
@@ -675,13 +655,6 @@ async def inferencing_image_and_text(
           "model with conf =", conf_th)
     print("weight_path is", weight_file)
 
-    if selected_model == "azure_custom_vision":
-        if CustomVisionConfig is None or CustomVisionSAHIDetector is None:
-            raise HTTPException(
-                status_code=400,
-                detail="Azure Custom Vision support is not installed. Remove the model selection or add garnet/azure_inference.py.",
-            )
-
     # Not required in SAHI v.0.11.32
     # # Set category_mapping for ONNX model, required by updated version of SAHI
     # logger.log(logging.INFO, f"Setting category mapping if the model is ONNX.")
@@ -712,27 +685,12 @@ async def inferencing_image_and_text(
     # Set up the model to be used for inferencing.
     logger.log(logging.INFO, f"Setting up the model to be used for inferencing.")
 
-    if selected_model == "azure_custom_vision":
-        logger.info("Initializing Custom Vision Detector")
-        class_names = load_class_names_from_yaml(config_file)
-        if not class_names:
-            logger.warning(
-                f"No class names found in {config_file}, or file not found. Inference might fail if model does not provide them.")
-
-        config = CustomVisionConfig(
-            model_path=weight_file,
-            class_names=class_names,
-            input_size=(image_size, image_size),
-            confidence_threshold=conf_th
-        )
-        detection_model = CustomVisionSAHIDetector(config)
-    else:
-        detection_model: DetectionModel = AutoDetectionModel.from_pretrained(
-            model_type=selected_model,
-            model_path=weight_file,
-            confidence_threshold=conf_th,
-            # device=device,
-        )
+    detection_model: DetectionModel = AutoDetectionModel.from_pretrained(
+        model_type=selected_model,
+        model_path=weight_file,
+        confidence_threshold=conf_th,
+        # device=device,
+    )
     # Calculate the overlap ratio
     logger.log(logging.INFO, f"Calculating the overlap ratio.")
     overlap_ratio = 0.2  # float(32 / image_size)

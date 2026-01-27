@@ -573,6 +573,13 @@ export const CanvasView = forwardRef(function CanvasView(
     zoomAt(scale / 1.1, container.clientWidth / 2, container.clientHeight / 2)
   }
 
+  const zoomToPercent = (percent: number) => {
+    const container = containerRef.current
+    if (!container) return
+    const nextScale = clampScale(percent / 100)
+    zoomAt(nextScale, container.clientWidth / 2, container.clientHeight / 2)
+  }
+
   useImperativeHandle(ref, () => ({
     zoomIn,
     zoomOut,
@@ -1041,6 +1048,7 @@ export const CanvasView = forwardRef(function CanvasView(
           onZoomOut={zoomOut}
           onReset={resetZoom}
           onFit={fitToScreen}
+          onZoomTo={zoomToPercent}
         />
       </div>
 
