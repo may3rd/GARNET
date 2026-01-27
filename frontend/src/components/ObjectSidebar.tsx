@@ -68,6 +68,7 @@ export function ObjectSidebar({
   const [statsOpen, setStatsOpen] = useState(true)
   const exportRef = useRef<HTMLDivElement>(null)
   const queryDebounceRef = useRef<number | null>(null)
+  const selectedItemRef = useRef<HTMLLIElement>(null)
 
   const filtered = useMemo(() => {
     if (!query) return objects
@@ -164,6 +165,24 @@ export function ObjectSidebar({
       return next
     })
   }
+
+  // Auto-expand group containing selected item and scroll to it
+  useEffect(() => {
+    if (!selectedObjectKey) return
+    // Find the group containing the selected object
+    const selectedObj = objects.find((obj) => objectKey(obj) === selectedObjectKey)
+    if (!selectedObj) return
+    const groupKey = classKeyFor(selectedObj) || 'unknown'
+    // Expand the group if not already expanded
+    setExpandedGroups((prev) => {
+      if (prev.has(groupKey)) return prev
+      return new Set(prev).add(groupKey)
+    })
+    // Scroll to selected item after a brief delay for DOM update
+    setTimeout(() => {
+      selectedItemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }, 50)
+  }, [selectedObjectKey, objects])
 
   const createReady = createDraft && createDraft.Width > 2 && createDraft.Height > 2
   const MAX_GROUP_ITEMS = 200
@@ -463,84 +482,91 @@ export function ObjectSidebar({
               </div>
               {isExpanded && !isHidden && (
                 <ul className="divide-y divide-[var(--border-muted)]">
-                  {displayItems.map((obj) => (
-                    <li key={`${obj.CategoryID}-${obj.ObjectID}-${obj.Index}`} className="p-4">
-                      <button
-                        type="button"
-                        onClick={() => onSelectObject(objectKey(obj))}
-                        className={cn(
-                          'w-full text-left rounded-lg p-2 -m-2 transition-colors',
-                          selectedObjectKey === objectKey(obj)
-                            ? 'bg-[var(--accent)]/10'
-                            : 'hover:bg-[var(--bg-secondary)]'
-                        )}
+                  {displayItems.map((obj) => {
+                    const isSelected = selectedObjectKey === objectKey(obj)
+                    return (
+                      <li
+                        key={`${obj.CategoryID}-${obj.ObjectID}-${obj.Index}`}
+                        ref={isSelected ? selectedItemRef : null}
+                        className="p-4"
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="h-2.5 w-2.5 rounded-sm"
-                              style={{ backgroundColor: getCategoryColor(obj.Object) }}
-                              aria-hidden="true"
-                            />
-                            <span className="text-sm font-semibold">{obj.Text}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {reviewStatus[objectKey(obj)] === 'accepted' && (
-                              <span className="text-[10px] font-semibold text-[var(--success)]">Accepted</span>
-                            )}
-                            {reviewStatus[objectKey(obj)] === 'rejected' && (
-                              <span className="text-[10px] font-semibold text-[var(--danger)]">Rejected</span>
-                            )}
-                            <span className="text-xs text-[var(--text-secondary)]">{Math.round(obj.Score * 100)}%</span>
-                          </div>
-                        </div>
-                        <div className="text-[11px] text-[var(--text-secondary)] mt-1">
-                          #{obj.ObjectID} · ({obj.Left}, {obj.Top}) {obj.Width}×{obj.Height}
-                        </div>
-                      </button>
-                      <div className="flex items-center gap-2 mt-3">
                         <button
                           type="button"
-                          onClick={() => onSetReviewStatus(objectKey(obj), 'accepted')}
+                          onClick={() => onSelectObject(objectKey(obj))}
                           className={cn(
-                            'px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all',
-                            reviewStatus[objectKey(obj)] === 'accepted'
-                              ? 'bg-[var(--success)] text-white hover:brightness-95'
-                              : 'bg-[var(--bg-primary)] border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--success)] hover:text-[var(--success)] hover:bg-[var(--success)]/5'
+                            'w-full text-left rounded-lg p-2 -m-2 transition-all',
+                            isSelected
+                              ? 'bg-[var(--accent)]/10 ring-2 ring-[var(--accent)] ring-offset-1 ring-offset-[var(--bg-secondary)]'
+                              : 'hover:bg-[var(--bg-primary)]'
                           )}
                         >
-                          <span className="inline-flex items-center gap-1">
-                            <Check className="h-3.5 w-3.5" />
-                            Accept
-                          </span>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="h-2.5 w-2.5 rounded-sm"
+                                style={{ backgroundColor: getCategoryColor(obj.Object) }}
+                                aria-hidden="true"
+                              />
+                              <span className="text-sm font-semibold">{obj.Text}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {reviewStatus[objectKey(obj)] === 'accepted' && (
+                                <span className="text-[10px] font-semibold text-[var(--success)]">Accepted</span>
+                              )}
+                              {reviewStatus[objectKey(obj)] === 'rejected' && (
+                                <span className="text-[10px] font-semibold text-[var(--danger)]">Rejected</span>
+                              )}
+                              <span className="text-xs text-[var(--text-secondary)]">{Math.round(obj.Score * 100)}%</span>
+                            </div>
+                          </div>
+                          <div className="text-[11px] text-[var(--text-secondary)] mt-1">
+                            #{obj.ObjectID} · ({obj.Left}, {obj.Top}) {obj.Width}×{obj.Height}
+                          </div>
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => onSetReviewStatus(objectKey(obj), 'rejected')}
-                          className={cn(
-                            'px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all',
-                            reviewStatus[objectKey(obj)] === 'rejected'
-                              ? 'bg-[var(--danger)] text-white hover:brightness-95'
-                              : 'bg-[var(--bg-primary)] border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--danger)] hover:text-[var(--danger)] hover:bg-[var(--danger)]/5'
-                          )}
-                        >
-                          <span className="inline-flex items-center gap-1">
-                            <X className="h-3.5 w-3.5" />
-                            Reject
-                          </span>
-                        </button>
-                        {reviewStatus[objectKey(obj)] && (
+                        <div className="flex items-center gap-2 mt-3">
                           <button
                             type="button"
-                            onClick={() => onSetReviewStatus(objectKey(obj), null)}
-                            className="px-2.5 py-1.5 rounded-md text-xs font-semibold border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+                            onClick={() => onSetReviewStatus(objectKey(obj), 'accepted')}
+                            className={cn(
+                              'px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all',
+                              reviewStatus[objectKey(obj)] === 'accepted'
+                                ? 'bg-[var(--success)] text-white hover:brightness-95'
+                                : 'bg-[var(--bg-primary)] border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--success)] hover:text-[var(--success)] hover:bg-[var(--success)]/5'
+                            )}
                           >
-                            Reset
+                            <span className="inline-flex items-center gap-1">
+                              <Check className="h-3.5 w-3.5" />
+                              Accept
+                            </span>
                           </button>
-                        )}
-                      </div>
-                    </li>
-                  ))}
+                          <button
+                            type="button"
+                            onClick={() => onSetReviewStatus(objectKey(obj), 'rejected')}
+                            className={cn(
+                              'px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all',
+                              reviewStatus[objectKey(obj)] === 'rejected'
+                                ? 'bg-[var(--danger)] text-white hover:brightness-95'
+                                : 'bg-[var(--bg-primary)] border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--danger)] hover:text-[var(--danger)] hover:bg-[var(--danger)]/5'
+                            )}
+                          >
+                            <span className="inline-flex items-center gap-1">
+                              <X className="h-3.5 w-3.5" />
+                              Reject
+                            </span>
+                          </button>
+                          {reviewStatus[objectKey(obj)] && (
+                            <button
+                              type="button"
+                              onClick={() => onSetReviewStatus(objectKey(obj), null)}
+                              className="px-2.5 py-1.5 rounded-md text-xs font-semibold border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+                            >
+                              Reset
+                            </button>
+                          )}
+                        </div>
+                      </li>
+                    )
+                  })}
                   {!showAll && groupItems.length > MAX_GROUP_ITEMS && (
                     <li className="p-4">
                       <button
