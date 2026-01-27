@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Play, SlidersHorizontal } from 'lucide-react'
+import { Play, SlidersHorizontal, Loader2 } from 'lucide-react'
 import { useAppStore } from '@/stores/appStore'
 import { getConfigFiles, getModels, getWeightFiles } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -14,10 +14,12 @@ export function DetectionSetup() {
   const [models, setModels] = useState<string[]>([])
   const [weights, setWeights] = useState<string[]>([])
   const [configs, setConfigs] = useState<string[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     let active = true
     const load = async () => {
+      setIsLoading(true)
       const [modelList, weightList, configList] = await Promise.all([
         getModels(),
         getWeightFiles(),
@@ -33,6 +35,7 @@ export function DetectionSetup() {
       if (!options.configFile && configList.length) {
         setOptions({ configFile: configList[0] })
       }
+      setIsLoading(false)
     }
     load()
     return () => {
@@ -47,12 +50,19 @@ export function DetectionSetup() {
         Detection Setup
       </div>
 
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8 text-[var(--text-secondary)]">
+          <Loader2 className="h-5 w-5 animate-spin mr-2" />
+          <span className="text-sm">Loading configuration...</span>
+        </div>
+      ) : (
       <div className="space-y-4">
         <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
           Model
           <Select
             value={options.selectedModel}
             onValueChange={(value) => setOptions({ selectedModel: value })}
+            disabled={isLoading}
           >
             <SelectTrigger className="mt-2">
               <SelectValue placeholder="Select model" />
@@ -133,18 +143,19 @@ export function DetectionSetup() {
           />
           Extract text with OCR
         </label>
+
+        {error && (
+          <div className="text-xs text-[var(--danger)] bg-[var(--bg-primary)] border border-[var(--border-muted)] p-3 rounded-lg">
+            {error}
+          </div>
+        )}
+
+        <Button onClick={runDetection} variant="cta" className="mt-auto" disabled={isLoading}>
+          <Play className="h-4 w-4" />
+          Run Detection
+        </Button>
       </div>
-
-      {error && (
-        <div className="text-xs text-[var(--danger)] bg-[var(--bg-primary)] border border-[var(--border-muted)] p-3 rounded-lg">
-          {error}
-        </div>
       )}
-
-      <Button onClick={runDetection} variant="cta" className="mt-auto">
-        <Play className="h-4 w-4" />
-        Run Detection
-      </Button>
     </div>
   )
 }
