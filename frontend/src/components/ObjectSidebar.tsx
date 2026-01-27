@@ -219,7 +219,7 @@ export function ObjectSidebar({
                 <ChevronDown className="h-4 w-4" />
               </button>
               {exportOpen && (
-                <div className="absolute right-0 mt-2 w-[280px] rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] shadow-lg z-20 p-2">
+                <div className="absolute left-0 mt-2 w-[280px] rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] shadow-lg z-20 p-2 max-h-[70vh] overflow-y-auto">
                   {/* PDF Report - Full report with statistics */}
                   <div className="mb-2">
                     <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
