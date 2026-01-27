@@ -117,14 +117,14 @@ export function ObjectSidebar({
   }, [filteredVisible])
 
   const stats = useMemo(() => {
-    const accepted = objects.filter((obj) => reviewStatus[objectKey(obj)] === 'accepted').length
-    const rejected = objects.filter((obj) => reviewStatus[objectKey(obj)] === 'rejected').length
-    const pending = objects.length - accepted - rejected
-    const avgConfidence = objects.length
-      ? Math.round(objects.reduce((sum, obj) => sum + obj.Score, 0) / objects.length * 100)
+    const accepted = visibleObjects.filter((obj) => reviewStatus[objectKey(obj)] === 'accepted').length
+    const rejected = visibleObjects.filter((obj) => reviewStatus[objectKey(obj)] === 'rejected').length
+    const pending = visibleObjects.length - accepted - rejected
+    const avgConfidence = visibleObjects.length
+      ? Math.round(visibleObjects.reduce((sum, obj) => sum + obj.Score, 0) / visibleObjects.length * 100)
       : 0
-    return { accepted, rejected, pending, avgConfidence }
-  }, [objects, reviewStatus])
+    return { accepted, rejected, pending, avgConfidence, total: visibleObjects.length }
+  }, [visibleObjects, reviewStatus])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -401,7 +401,7 @@ export function ObjectSidebar({
                   <span className="text-[var(--border-muted)] opacity-50">/</span>
                   <span className="text-[var(--danger)]" title="Rejected">{stats.rejected}</span>
                   <span className="text-[var(--border-muted)] opacity-50">/</span>
-                  <span className="text-[var(--text-primary)]" title="Total">{objects.length}</span>
+                  <span className="text-[var(--text-primary)]" title="Total">{stats.total}</span>
                 </div>
               )}
             </div>
@@ -411,7 +411,7 @@ export function ObjectSidebar({
             <div className="px-5 pb-4 text-xs text-[var(--text-secondary)] space-y-2">
               <div className="flex items-center justify-between">
                 <span>Total</span>
-                <span className="font-semibold text-[var(--text-primary)]">{objects.length}</span>
+                <span className="font-semibold text-[var(--text-primary)]">{stats.total}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span>Accepted</span>
