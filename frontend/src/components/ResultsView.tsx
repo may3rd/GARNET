@@ -182,7 +182,7 @@ export function ResultsView() {
     setCreateDraft(null)
     setEditError(null)
     setCreateError(null)
-  }, [batch.activeItemId, edit, setSelectedObjectKey])
+  }, [batch.activeItemId])
 
   useEffect(() => {
     if (!isCreating) {
