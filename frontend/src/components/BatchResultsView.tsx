@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { ChevronLeft, ChevronRight, Download, Eye, Pause, Play, Plus, RefreshCw, RotateCcw, Trash2, XCircle } from 'lucide-react'
+import type { BatchItemStatus } from '@/types'
 
 type FilterMode = 'all' | 'accepted' | 'rejected'
 
@@ -103,7 +104,7 @@ export function BatchResultsView() {
     download(new Blob([JSON.stringify(coco, null, 2)], { type: 'application/json' }), 'garnet-batch.coco.json')
   }
 
-  const statusBadge = (status: string) => {
+  const statusBadge = (status: BatchItemStatus) => {
     const base = 'text-xs px-2 py-0.5 rounded-full border'
     if (status === 'done') return cn(base, 'border-emerald-400/40 text-emerald-500 bg-emerald-400/10')
     if (status === 'running') return cn(base, 'border-blue-400/40 text-blue-500 bg-blue-400/10')
@@ -111,6 +112,27 @@ export function BatchResultsView() {
     if (status === 'canceled') return cn(base, 'border-amber-400/40 text-amber-500 bg-amber-400/10')
     return cn(base, 'border-[var(--border-muted)] text-[var(--text-secondary)]')
   }
+
+  const statusLabel = (status: BatchItemStatus) => {
+    if (status === 'queued') return 'Queued'
+    if (status === 'running') return 'Running'
+    if (status === 'done') return 'Done'
+    if (status === 'failed') return 'Failed'
+    if (status === 'canceled') return 'Canceled'
+    return status
+  }
+
+  const StatusBadge = ({ status }: { status: BatchItemStatus }) => (
+    <span className={cn(statusBadge(status), status === 'running' && 'inline-flex items-center gap-1')}>
+      {status === 'running' && (
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-40 animate-ping" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
+        </span>
+      )}
+      {statusLabel(status)}
+    </span>
+  )
 
   const reviewCounts = (result: NonNullable<typeof doneItems[number]['result']>) => {
     const accepted = result.objects.filter((obj) => obj.ReviewStatus === 'accepted').length
@@ -284,7 +306,7 @@ export function BatchResultsView() {
             const result = item.result
             const counts = result ? reviewCounts(result) : null
             return (
-              <div key={item.id} className="relative flex items-center justify-between px-6 py-3">
+              <div key={item.id} className="flex items-center justify-between px-6 py-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="text-xs text-[var(--text-secondary)] w-7 text-right">{index + 1}</div>
                   <div className="min-w-0">
@@ -309,7 +331,7 @@ export function BatchResultsView() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={statusBadge(item.status)}>{item.status}</span>
+                  <StatusBadge status={item.status} />
                   {!result && (
                     <Button
                       size="sm"
@@ -348,11 +370,6 @@ export function BatchResultsView() {
                     </Button>
                   )}
                 </div>
-                {item.status === 'running' && (
-                  <div className="absolute left-0 right-0 bottom-0 h-2 bg-blue-500/20">
-                    <div className="h-full w-1/3 bg-blue-500 animate-pulse" />
-                  </div>
-                )}
               </div>
             )
           })}
