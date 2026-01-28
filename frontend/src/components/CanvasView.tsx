@@ -113,6 +113,20 @@ export const CanvasView = forwardRef(function CanvasView(
   const resizePointerIdRef = useRef<number | null>(null)
   const createStartRef = useRef<{ x: number; y: number } | null>(null)
   const createPointerIdRef = useRef<number | null>(null)
+  const lastContainerSizeRef = useRef<{ width: number; height: number } | null>(null)
+  const resizeRafRef = useRef<number | null>(null)
+  const resizeTimeoutRef = useRef<number | null>(null)
+  const [isLayoutResizing, setIsLayoutResizing] = useState(false)
+  const scaleRef = useRef(scale)
+  const offsetRef = useRef(offset)
+  const imageSizeRef = useRef(imageSize)
+  const hasAutoFitRef = useRef(hasAutoFit)
+  const interactionRef = useRef({
+    isDragging: false,
+    isMinimapDragging: false,
+    isCreating: false,
+    isResizingEdit: false,
+  })
   const [resizeState, setResizeState] = useState<{
     handle: 'n' | 's' | 'e' | 'w' | 'nw' | 'ne' | 'sw' | 'se' | 'move'
     startX: number
@@ -120,6 +134,31 @@ export const CanvasView = forwardRef(function CanvasView(
     start: NonNullable<CanvasViewProps['editDraft']>
   } | null>(null)
   const [editCursor, setEditCursor] = useState<string>('grab')
+
+  useEffect(() => {
+    scaleRef.current = scale
+  }, [scale])
+
+  useEffect(() => {
+    offsetRef.current = offset
+  }, [offset])
+
+  useEffect(() => {
+    imageSizeRef.current = imageSize
+  }, [imageSize])
+
+  useEffect(() => {
+    hasAutoFitRef.current = hasAutoFit
+  }, [hasAutoFit])
+
+  useEffect(() => {
+    interactionRef.current = {
+      isDragging,
+      isMinimapDragging,
+      isCreating,
+      isResizingEdit: Boolean(resizeState),
+    }
+  }, [isDragging, isMinimapDragging, isCreating, resizeState])
 
   useEffect(() => {
     setHasAutoFit(false)
@@ -146,20 +185,6 @@ export const CanvasView = forwardRef(function CanvasView(
     img.addEventListener('load', handleLoad)
     return () => img.removeEventListener('load', handleLoad)
   }, [imageUrl])
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (!hasAutoFit) {
-        if (fitToScreen(imageSize)) {
-          setHasAutoFit(true)
-        }
-        return
-      }
-      setOffset(clampOffset({ ...offset }, scale))
-    }
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [imageSize, offset, scale, hasAutoFit])
 
   useEffect(() => {
     if (hasAutoFit) return
@@ -190,17 +215,74 @@ export const CanvasView = forwardRef(function CanvasView(
   }, [fitKey, imageSize])
 
   useEffect(() => {
-    if (hasAutoFit) return
     const container = containerRef.current
     if (!container) return
     const observer = new ResizeObserver(() => {
-      if (!hasAutoFit && fitToScreen(imageSize)) {
-        setHasAutoFit(true)
-      }
+      if (resizeRafRef.current !== null) return
+      resizeRafRef.current = window.requestAnimationFrame(() => {
+        resizeRafRef.current = null
+        const resolvedContainer = containerRef.current
+        if (!resolvedContainer) return
+
+        const width = resolvedContainer.clientWidth
+        const height = resolvedContainer.clientHeight
+        if (!width || !height) return
+
+        const prev = lastContainerSizeRef.current
+        lastContainerSizeRef.current = { width, height }
+        if (!prev) return
+
+        const { width: imageWidth, height: imageHeight } = imageSizeRef.current
+        if (!imageWidth || !imageHeight) return
+
+        if (!hasAutoFitRef.current) {
+          if (fitToScreen(imageSizeRef.current)) {
+            setHasAutoFit(true)
+          }
+          return
+        }
+
+        const interacting = interactionRef.current.isDragging
+          || interactionRef.current.isMinimapDragging
+          || interactionRef.current.isCreating
+          || interactionRef.current.isResizingEdit
+        if (interacting) {
+          setOffset(clampOffset({ ...offsetRef.current }, scaleRef.current))
+          return
+        }
+
+        const currentScale = scaleRef.current
+        const currentOffset = offsetRef.current
+
+        const centerImgX = (prev.width / 2 - currentOffset.x) / currentScale
+        const centerImgY = (prev.height / 2 - currentOffset.y) / currentScale
+        const nextOffset = {
+          x: width / 2 - centerImgX * currentScale,
+          y: height / 2 - centerImgY * currentScale,
+        }
+
+        setIsLayoutResizing(true)
+        if (resizeTimeoutRef.current) {
+          window.clearTimeout(resizeTimeoutRef.current)
+        }
+        resizeTimeoutRef.current = window.setTimeout(() => setIsLayoutResizing(false), 220)
+
+        setOffset(clampOffset(nextOffset, currentScale))
+      })
     })
     observer.observe(container)
-    return () => observer.disconnect()
-  }, [hasAutoFit, imageSize])
+    return () => {
+      observer.disconnect()
+      if (resizeRafRef.current !== null) {
+        window.cancelAnimationFrame(resizeRafRef.current)
+        resizeRafRef.current = null
+      }
+      if (resizeTimeoutRef.current) {
+        window.clearTimeout(resizeTimeoutRef.current)
+        resizeTimeoutRef.current = null
+      }
+    }
+  }, [])
 
   useEffect(() => {
     const canvas = minimapRef.current
@@ -405,8 +487,9 @@ export const CanvasView = forwardRef(function CanvasView(
   const clampOffset = (nextOffset: { x: number; y: number }, nextScale = scale) => {
     const container = containerRef.current
     if (!container) return nextOffset
-    const imageWidth = imageSize.width * nextScale
-    const imageHeight = imageSize.height * nextScale
+    const size = imageSizeRef.current
+    const imageWidth = size.width * nextScale
+    const imageHeight = size.height * nextScale
     const { clientWidth, clientHeight } = container
 
     if (imageWidth <= clientWidth) {
@@ -705,7 +788,10 @@ export const CanvasView = forwardRef(function CanvasView(
         onPointerLeave={handlePointerLeave}
       >
         <div
-          className="absolute top-0 left-0 origin-top-left"
+          className={cn(
+            'absolute top-0 left-0 origin-top-left',
+            isLayoutResizing && !isDragging && !isMinimapDragging && !isCreating && !resizeState && 'transition-transform duration-200 ease-out'
+          )}
           style={{
             transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
             width: imageSize.width,
