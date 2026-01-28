@@ -20,10 +20,38 @@ const defaultOptions: DetectionOptions = {
   textOCR: false,
 }
 
+// Default timeout values
+const DEFAULT_TIMEOUT = 300000 // 5 minutes for detection (can be slow for large images)
+const DEFAULT_REQUEST_TIMEOUT = 30000 // 30 seconds for regular API requests
+
+/**
+ * Creates an AbortSignal with timeout
+ */
+function createTimeoutSignal(timeoutMs: number): AbortSignal {
+  const controller = new AbortController()
+  setTimeout(() => controller.abort(), timeoutMs)
+  return controller.signal
+}
+
+/**
+ * Custom error class for API errors with timeout support
+ */
+export class APIError extends Error {
+  constructor(
+    message: string,
+    public status?: number,
+    public isTimeout = false
+  ) {
+    super(message)
+    this.name = 'APIError'
+  }
+}
+
 export async function runDetection(
   file: File,
   options: Partial<DetectionOptions> = {},
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  timeoutMs = DEFAULT_TIMEOUT
 ): Promise<DetectionResult> {
   const payload = { ...defaultOptions, ...options }
   const formData = new FormData()
@@ -36,37 +64,87 @@ export async function runDetection(
   formData.append('overlap_ratio', String(payload.overlapRatio))
   formData.append('text_OCR', String(payload.textOCR))
 
-  const response = await fetch('/api/detect', {
-    method: 'POST',
-    body: formData,
-    signal,
-  })
+  // Use provided signal or create a timeout signal
+  const requestSignal = signal ?? createTimeoutSignal(timeoutMs)
 
-  if (!response.ok) {
-    const message = await response.text()
-    throw new Error(message || 'Detection failed')
-  }
-
-  return response.json()
-}
-
-async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init)
-  if (!response.ok) {
-    const message = await response.text()
-    throw new Error(message || 'Request failed')
-  }
-  return response.json()
-}
-
-async function getJson<T>(url: string, fallback: T): Promise<T> {
   try {
-    const response = await fetch(url)
+    const response = await fetch('/api/detect', {
+      method: 'POST',
+      body: formData,
+      signal: requestSignal,
+    })
+
+    if (!response.ok) {
+      const message = await response.text()
+      throw new APIError(message || 'Detection failed', response.status)
+    }
+
+    return response.json()
+  } catch (error) {
+    if (error instanceof APIError) {
+      throw error
+    }
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw new APIError(
+          `Request timed out after ${timeoutMs / 1000} seconds. The detection may be taking too long for this image.`,
+          undefined,
+          true
+        )
+      }
+      throw new APIError(error.message)
+    }
+    throw new APIError('An unknown error occurred')
+  }
+}
+
+async function requestJson<T>(
+  url: string,
+  init?: RequestInit,
+  timeoutMs = DEFAULT_REQUEST_TIMEOUT
+): Promise<T> {
+  // Use provided signal or create a timeout signal
+  const requestSignal = init?.signal ?? createTimeoutSignal(timeoutMs)
+
+  try {
+    const response = await fetch(url, {
+      ...init,
+      signal: requestSignal,
+    })
+    if (!response.ok) {
+      const message = await response.text()
+      throw new APIError(message || 'Request failed', response.status)
+    }
+    return response.json()
+  } catch (error) {
+    if (error instanceof APIError) {
+      throw error
+    }
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw new APIError(
+          `Request timed out after ${timeoutMs / 1000} seconds`,
+          undefined,
+          true
+        )
+      }
+      throw new APIError(error.message)
+    }
+    throw new APIError('An unknown error occurred')
+  }
+}
+
+async function getJson<T>(url: string, fallback: T, timeoutMs = DEFAULT_REQUEST_TIMEOUT): Promise<T> {
+  try {
+    const response = await fetch(url, {
+      signal: createTimeoutSignal(timeoutMs),
+    })
     if (!response.ok) {
       return fallback
     }
     return response.json()
-  } catch {
+  } catch (error) {
+    // Return fallback on any error (including timeout)
     return fallback
   }
 }
@@ -89,48 +167,79 @@ function normalizeStringList(input: unknown, key?: string): string[] {
   return result
 }
 
-export async function getModels(): Promise<string[]> {
-  const data = await getJson<unknown>('/api/models', [])
+export async function getModels(timeoutMs = DEFAULT_REQUEST_TIMEOUT): Promise<string[]> {
+  const data = await getJson<unknown>('/api/models', [], timeoutMs)
   const models = normalizeStringList(data, 'value')
   return models.length ? models : ['ultralytics']
 }
 
-export async function getWeightFiles(): Promise<string[]> {
-  const data = await getJson<unknown>('/api/weight-files', [])
+export async function getWeightFiles(timeoutMs = DEFAULT_REQUEST_TIMEOUT): Promise<string[]> {
+  const data = await getJson<unknown>('/api/weight-files', [], timeoutMs)
   return normalizeStringList(data, 'item')
 }
 
-export async function getConfigFiles(): Promise<string[]> {
-  const data = await getJson<unknown>('/api/config-files', [])
+export async function getConfigFiles(timeoutMs = DEFAULT_REQUEST_TIMEOUT): Promise<string[]> {
+  const data = await getJson<unknown>('/api/config-files', [], timeoutMs)
   const configs = normalizeStringList(data, 'item')
   return configs.length ? configs : ['datasets/yaml/data.yaml']
+}
+
+/**
+ * Check API health status
+ */
+export async function checkHealth(timeoutMs = 10000): Promise<{
+  status: string
+  service: string
+  models_loaded: boolean
+  models_available: number
+}> {
+  return requestJson('/api/health', {}, timeoutMs)
 }
 
 export async function updateResultObject(
   resultId: string,
   objectId: number,
-  payload: Partial<Pick<DetectedObject, 'Object' | 'Left' | 'Top' | 'Width' | 'Height' | 'Text' | 'ReviewStatus'>>
+  payload: Partial<Pick<DetectedObject, 'Object' | 'Left' | 'Top' | 'Width' | 'Height' | 'Text' | 'ReviewStatus'>>,
+  timeoutMs = DEFAULT_REQUEST_TIMEOUT
 ): Promise<DetectedObject> {
-  return requestJson(`/api/results/${resultId}/objects/${objectId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
+  return requestJson(
+    `/api/results/${resultId}/objects/${objectId}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+    timeoutMs
+  )
 }
 
-export async function deleteResultObject(resultId: string, objectId: number): Promise<{ status: string }> {
-  return requestJson(`/api/results/${resultId}/objects/${objectId}`, {
-    method: 'DELETE',
-  })
+export async function deleteResultObject(
+  resultId: string,
+  objectId: number,
+  timeoutMs = DEFAULT_REQUEST_TIMEOUT
+): Promise<{ status: string }> {
+  return requestJson(
+    `/api/results/${resultId}/objects/${objectId}`,
+    {
+      method: 'DELETE',
+    },
+    timeoutMs
+  )
 }
 
 export async function createResultObject(
   resultId: string,
-  payload: Pick<DetectedObject, 'Object' | 'Left' | 'Top' | 'Width' | 'Height' | 'Text'> & Partial<Pick<DetectedObject, 'CategoryID' | 'ObjectID' | 'Score'>>
+  payload: Pick<DetectedObject, 'Object' | 'Left' | 'Top' | 'Width' | 'Height' | 'Text'> &
+    Partial<Pick<DetectedObject, 'CategoryID' | 'ObjectID' | 'Score'>>,
+  timeoutMs = DEFAULT_REQUEST_TIMEOUT
 ): Promise<DetectedObject> {
-  return requestJson(`/api/results/${resultId}/objects`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
+  return requestJson(
+    `/api/results/${resultId}/objects`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+    timeoutMs
+  )
 }

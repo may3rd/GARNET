@@ -100,14 +100,13 @@ export function ResultsView() {
           const imageDataUrl = await getImageAsDataUrl(result.image_url)
           const blob = await generatePdfReport(result, reviewStatus, imageDataUrl)
           download(blob, `${baseName}-report.pdf`)
-        } catch (error) {
-          console.error('PDF export failed:', error)
+        } catch {
           // Fallback: try without image
           try {
             const blob = await generatePdfReport(result, reviewStatus, '')
             download(blob, `${baseName}-report.pdf`)
-          } catch (fallbackError) {
-            console.error('PDF export fallback failed:', fallbackError)
+          } catch {
+            // Both attempts failed - silently continue as there's no user-facing recovery
           }
         }
       })()
@@ -243,9 +242,8 @@ export function ResultsView() {
     try {
       const updated = await updateResultObject(result.id, obj.Index, { ReviewStatus: status })
       updateObject(updated)
-    } catch (error) {
-      // Keep UX responsive; surface error only if needed later.
-      console.warn('Failed to persist review status', error)
+    } catch {
+      // Keep UX responsive; error is intentionally silent to avoid disrupting workflow
     }
   }
 

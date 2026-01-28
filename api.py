@@ -10,9 +10,10 @@ The React frontend should run separately on port 5173 (dev) or be built for prod
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-from fastapi import FastAPI, Form, UploadFile, File, HTTPException, Body
+from fastapi import FastAPI, Form, UploadFile, File, HTTPException, Body, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, validator
 
 from sahi import AutoDetectionModel, DetectionModel
 from sahi.predict import get_sliced_prediction
@@ -28,6 +29,8 @@ import math
 import glob
 import os
 import datetime
+import time
+import threading
 import pandas as pd
 import logging
 import uuid
@@ -37,10 +40,51 @@ from garnet import utils
 import garnet.Settings as Settings
 import yaml
 
-# Configure logging.
-# When running under `uvicorn`, its logging config can override/disable other loggers.
-# To ensure logs show in the terminal, write through `uvicorn.error` and attach our
-# file handler there. When not under uvicorn, fall back to a normal StreamHandler.
+# =============================================================================
+# Environment-based Configuration
+# =============================================================================
+
+class AppConfig:
+    """Application configuration from environment variables."""
+    # Environment
+    ENV = os.getenv("ENV", "development")
+    DEBUG = os.getenv("DEBUG", "true").lower() == "true"
+    
+    # Server
+    HOST = os.getenv("HOST", "localhost")
+    PORT = int(os.getenv("PORT", "8001"))
+    
+    # CORS
+    ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:4173")
+    
+    # File Upload Limits
+    MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "50"))
+    MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+    ALLOWED_IMAGE_EXTENSIONS = os.getenv("ALLOWED_IMAGE_EXTENSIONS", ".jpg,.jpeg,.png,.webp,.bmp,.tiff").split(",")
+    
+    # Cache Configuration
+    RESULTS_CACHE_MAX_SIZE = int(os.getenv("RESULTS_CACHE_MAX_SIZE", "100"))
+    RESULTS_CACHE_TTL = int(os.getenv("RESULTS_CACHE_TTL", "3600"))
+    
+    # Cleanup Configuration
+    PREDICTION_IMAGE_TTL_HOURS = int(os.getenv("PREDICTION_IMAGE_TTL_HOURS", "24"))
+    CLEANUP_INTERVAL_MINUTES = int(os.getenv("CLEANUP_INTERVAL_MINUTES", "60"))
+    
+    # Model Defaults
+    DEFAULT_CONF_THRESHOLD = float(os.getenv("DEFAULT_CONF_THRESHOLD", "0.8"))
+    DEFAULT_IMAGE_SIZE = int(os.getenv("DEFAULT_IMAGE_SIZE", "640"))
+    DEFAULT_OVERLAP_RATIO = float(os.getenv("DEFAULT_OVERLAP_RATIO", "0.2"))
+    
+    # Paths
+    PREDICTIONS_DIR = os.getenv("PREDICTIONS_DIR", "static/images/predictions")
+
+
+config = AppConfig()
+
+# =============================================================================
+# Logging Configuration
+# =============================================================================
+
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "garnet.log")
 
@@ -72,8 +116,6 @@ _ensure_logger_has_file_handler(logger)
 _ensure_logger_has_stream_handler(logger)
 
 # Filter a noisy Ultralytics warning by message substring.
-# We still attempt to pass `task='detect'` explicitly, but this keeps logs clean
-# across varying SAHI/Ultralytics versions.
 class _UltralyticsTaskGuessFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         try:
@@ -84,15 +126,134 @@ class _UltralyticsTaskGuessFilter(logging.Filter):
 
 logging.getLogger("ultralytics").addFilter(_UltralyticsTaskGuessFilter())
 
+# =============================================================================
+# Pydantic Models for Input Validation
+# =============================================================================
+
+class DetectRequest(BaseModel):
+    """Validated detection request parameters."""
+    selected_model: str = Field(default="ultralytics", description="Model type to use")
+    weight_file: str = Field(default="", description="Path to model weights")
+    config_file: str = Field(default="datasets/yaml/data.yaml", description="Path to config YAML")
+    conf_th: float = Field(default=0.8, ge=0.0, le=1.0, description="Confidence threshold")
+    image_size: int = Field(default=640, ge=320, le=2048, description="Image size for inference")
+    overlap_ratio: float = Field(default=0.2, ge=0.0, le=0.95, description="Slice overlap ratio")
+    text_ocr: bool = Field(default=False, description="Enable OCR for text extraction")
+
+    @validator('weight_file')
+    def validate_weight_file(cls, v):
+        if v and not os.path.exists(v):
+            # Allow empty string (will use default)
+            if v.strip():
+                raise ValueError(f"Weight file not found: {v}")
+        return v
+
+    @validator('config_file')
+    def validate_config_file(cls, v):
+        if v and not os.path.exists(v):
+            raise ValueError(f"Config file not found: {v}")
+        return v
+
+
+class CreateObjectRequest(BaseModel):
+    """Validated request for creating a new object."""
+    Object: str = Field(..., min_length=1, max_length=100, description="Object category name")
+    Left: float = Field(..., ge=0, description="Left coordinate")
+    Top: float = Field(..., ge=0, description="Top coordinate")
+    Width: float = Field(..., gt=0, le=10000, description="Width (must be positive)")
+    Height: float = Field(..., gt=0, le=10000, description="Height (must be positive)")
+    Text: str = Field(default="", max_length=500, description="Associated text")
+    CategoryID: int | None = Field(default=None, ge=0, description="Category ID (optional)")
+    ObjectID: int | None = Field(default=None, ge=1, description="Object ID (optional)")
+    Score: float = Field(default=1.0, ge=0.0, le=1.0, description="Confidence score")
+
+
+class UpdateObjectRequest(BaseModel):
+    """Validated request for updating an object."""
+    Object: str | None = Field(default=None, min_length=1, max_length=100)
+    Left: float | None = Field(default=None, ge=0)
+    Top: float | None = Field(default=None, ge=0)
+    Width: float | None = Field(default=None, gt=0, le=10000)
+    Height: float | None = Field(default=None, gt=0, le=10000)
+    Text: str | None = Field(default=None, max_length=500)
+    Score: float | None = Field(default=None, ge=0.0, le=1.0)
+    ReviewStatus: str | None = Field(default=None, max_length=50)
+
+
+class HealthResponse(BaseModel):
+    """Health check response."""
+    status: str
+    service: str
+    timestamp: str
+    version: str
+    environment: str
+    models_loaded: bool
+    models_available: int
+    memory_usage_mb: float
+
+
+# =============================================================================
+# Global State
+# =============================================================================
+
 # In-memory store for detection results
 RESULTS_STORE: dict[str, dict] = {}
 
 # Create Settings object
 settings = Settings.Settings()
 
-# Cache detection models across requests (useful for batch processing).
+# Cache detection models across requests
 MODEL_CACHE: dict[tuple, DetectionModel] = {}
 
+# Model loading status for health check
+MODELS_LOADED = False
+MODEL_LOAD_ERROR = None
+
+# Ensure predictions directory exists
+os.makedirs(config.PREDICTIONS_DIR, exist_ok=True)
+
+# =============================================================================
+# Cleanup Job for Old Prediction Images
+# =============================================================================
+
+def cleanup_old_predictions():
+    """Remove prediction images older than configured TTL."""
+    try:
+        cutoff_time = time.time() - (config.PREDICTION_IMAGE_TTL_HOURS * 3600)
+        cleaned_count = 0
+        
+        for filename in os.listdir(config.PREDICTIONS_DIR):
+            filepath = os.path.join(config.PREDICTIONS_DIR, filename)
+            if os.path.isfile(filepath):
+                file_mtime = os.path.getmtime(filepath)
+                if file_mtime < cutoff_time:
+                    try:
+                        os.remove(filepath)
+                        cleaned_count += 1
+                    except OSError as e:
+                        logger.warning(f"Failed to remove old prediction {filepath}: {e}")
+        
+        if cleaned_count > 0:
+            logger.info(f"Cleaned up {cleaned_count} old prediction images")
+    except Exception as e:
+        logger.error(f"Error during prediction cleanup: {e}")
+
+
+def start_cleanup_scheduler():
+    """Start background thread for periodic cleanup."""
+    def cleanup_loop():
+        while True:
+            cleanup_old_predictions()
+            time.sleep(config.CLEANUP_INTERVAL_MINUTES * 60)
+    
+    cleanup_thread = threading.Thread(target=cleanup_loop, daemon=True)
+    cleanup_thread.start()
+    logger.info(f"Started cleanup scheduler (interval: {config.CLEANUP_INTERVAL_MINUTES} minutes)")
+
+
+# =============================================================================
+# Model and Utility Functions
+# =============================================================================
 
 def get_cached_detection_model(
     selected_model: str,
@@ -147,7 +308,17 @@ def is_mps_available():
     return torch.backends.mps.is_available()
 
 
-def list_weight_files(weight_paths: list = None) -> list:
+def get_memory_usage_mb() -> float:
+    """Get current memory usage in MB."""
+    try:
+        import psutil
+        process = psutil.Process(os.getpid())
+        return process.memory_info().rss / 1024 / 1024
+    except ImportError:
+        return 0.0
+
+
+def list_weight_files(weight_paths: list | None = None) -> list:
     """Return the list of model in the `weight_paths` paths."""
     if weight_paths is None:
         weight_paths = [os.path.join(settings.MODEL_PATH, "*.onnx"),
@@ -209,14 +380,6 @@ def pick_default_weight_file(model_type: str) -> str | None:
             if item.endswith(".pt"):
                 return item
     return weight_files[0]
-
-
-logger.log(logging.INFO, f"* *********************************** *")
-logger.log(logging.INFO, f"* Preloading weight files and configs *")
-logger.log(logging.INFO, f"* *********************************** *")
-
-MODEL_LIST = list_weight_files()
-CONFIG_FILE_LIST = list_config_files()
 
 
 def extract_text_from_image(image: np.ndarray, objects: list[dict]) -> list[list[str]]:
@@ -282,6 +445,43 @@ def extract_text_from_image(image: np.ndarray, objects: list[dict]) -> list[list
         return []
 
 
+def validate_image_file(file: UploadFile) -> None:
+    """Validate uploaded image file."""
+    # Check file extension
+    filename = file.filename or ""
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in config.ALLOWED_IMAGE_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file extension. Allowed: {', '.join(config.ALLOWED_IMAGE_EXTENSIONS)}"
+        )
+
+
+# =============================================================================
+# Application Initialization
+# =============================================================================
+
+logger.log(logging.INFO, f"* *********************************** *")
+logger.log(logging.INFO, f"* Preloading weight files and configs *")
+logger.log(logging.INFO, f"* *********************************** *")
+
+MODEL_LIST = list_weight_files()
+CONFIG_FILE_LIST = list_config_files()
+
+# Preload at least one model to verify it works
+try:
+    default_weight = pick_default_weight_file("ultralytics")
+    if default_weight:
+        logger.info(f"Preloading default model: {default_weight}")
+        _ = get_cached_detection_model("ultralytics", default_weight, 0.8, 640)
+        MODELS_LOADED = True
+        logger.info("Model preloaded successfully")
+    else:
+        logger.warning("No weight files found for preloading")
+except Exception as e:
+    MODEL_LOAD_ERROR = str(e)
+    logger.error(f"Failed to preload model: {e}")
+
 # Initialize FastAPI app
 app = FastAPI(
     title="GARNET API",
@@ -292,15 +492,23 @@ app = FastAPI(
 # Mount static files for serving images
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Add CORS middleware for React frontend
+# CORS configuration from environment
+origins = [o.strip() for o in config.ALLOWED_ORIGINS.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins in development
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["Content-Type"],
 )
 
+# Start cleanup scheduler
+start_cleanup_scheduler()
+
+# =============================================================================
+# API Endpoints
+# =============================================================================
 
 @app.get("/")
 async def root():
@@ -309,14 +517,24 @@ async def root():
         "message": "GARNET API Service",
         "version": "1.0.0",
         "docs": "/docs",
-        "health": "/api/health"
+        "health": "/api/health",
+        "environment": config.ENV
     }
 
 
-@app.get("/api/health")
+@app.get("/api/health", response_model=HealthResponse)
 async def api_health():
-    """Health check endpoint."""
-    return {"status": "healthy", "service": "garnet-api"}
+    """Health check endpoint with model loading verification."""
+    return HealthResponse(
+        status="healthy" if MODELS_LOADED else "degraded",
+        service="garnet-api",
+        timestamp=datetime.datetime.utcnow().isoformat(),
+        version="1.0.0",
+        environment=config.ENV,
+        models_loaded=MODELS_LOADED,
+        models_available=len(MODEL_CACHE),
+        memory_usage_mb=round(get_memory_usage_mb(), 2)
+    )
 
 
 @app.get("/api/model-types")
@@ -372,45 +590,76 @@ async def api_detect(
     """
     logger.log(logging.INFO, f"API detect: model={selected_model}, weight={weight_file}")
 
-    if not weight_file:
-        weight_file = pick_default_weight_file(selected_model) or ""
-        logger.log(logging.INFO, f"API detect: using default weight file: {weight_file}")
-    if not weight_file:
+    # Validate image file
+    validate_image_file(file_input)
+
+    # Read and validate file size
+    input_image_str = await file_input.read()
+    file_size = len(input_image_str)
+    
+    if file_size > config.MAX_FILE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File too large. Maximum size: {config.MAX_FILE_SIZE_MB}MB"
+        )
+    
+    await file_input.close()
+
+    # Validate form parameters using Pydantic
+    try:
+        params = DetectRequest(
+            selected_model=selected_model,
+            weight_file=weight_file,
+            config_file=config_file,
+            conf_th=conf_th,
+            image_size=image_size,
+            overlap_ratio=overlap_ratio,
+            text_ocr=text_OCR
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    if not params.weight_file:
+        params.weight_file = pick_default_weight_file(params.selected_model) or ""
+        logger.log(logging.INFO, f"API detect: using default weight file: {params.weight_file}")
+    if not params.weight_file:
         raise HTTPException(
             status_code=400,
             detail="No weight file available. Add a model under yolo_weights or select a weight file.",
         )
 
-    # Read input image file
-    input_filename = file_input.filename
-    input_image_str = file_input.file.read()
-    file_input.file.close()
-
+    # Decode image
     input_image_array = np.frombuffer(input_image_str, np.uint8)
     image = cv2.imdecode(input_image_array, cv2.IMREAD_COLOR)
+    if image is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid image file. Could not decode image."
+        )
+    
     original_image = np.copy(image)
     processed_image = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2RGB)
     logger.log(logging.INFO, f"API detect: image shape: {image.shape}")
 
     # Calculate overlap and normalize image_size to a multiple of 32 (YOLO stride).
-    image_size = (int(math.ceil((image_size + 1) / 32)) - 1) * 32
-    logger.log(logging.INFO, f"API detect: adjusted image_size: {image_size}")
+    adjusted_image_size = (int(math.ceil((params.image_size + 1) / 32)) - 1) * 32
+    logger.log(logging.INFO, f"API detect: adjusted image_size: {adjusted_image_size}")
 
     # Set up the model (Ultralytics + SAHI)
     detection_model = get_cached_detection_model(
-        selected_model=selected_model,
-        weight_file=weight_file,
-        conf_th=conf_th,
-        image_size=image_size,
+        selected_model=params.selected_model,
+        weight_file=params.weight_file,
+        conf_th=params.conf_th,
+        image_size=adjusted_image_size,
     )
 
     result = get_sliced_prediction(
         processed_image,
         detection_model,
-        slice_height=image_size,
-        slice_width=image_size,
-        overlap_height_ratio=overlap_ratio,
-        overlap_width_ratio=overlap_ratio,
+        slice_height=adjusted_image_size,
+        slice_width=adjusted_image_size,
+        overlap_height_ratio=params.overlap_ratio,
+        overlap_width_ratio=params.overlap_ratio,
         postprocess_type="NMM",
         postprocess_match_metric="IOU",
         postprocess_match_threshold=0.2,
@@ -419,13 +668,14 @@ async def api_detect(
 
     result_id = uuid.uuid4().hex
     image_filename = f"prediction_results_{result_id}.png"
-    image_path = os.path.join("static", "images", image_filename)
+    image_path = os.path.join(config.PREDICTIONS_DIR, image_filename)
     cv2.imwrite(image_path, original_image)
 
     # Process results
     table_data = []
     symbol_with_text = []
-    category_object_count = [0 for _ in range(len(list(detection_model.category_mapping.values())))]
+    category_mapping = getattr(detection_model, 'category_mapping', {}) or {}
+    category_object_count = [0 for _ in range(len(list(category_mapping.values())))]
 
     for index, prediction in enumerate(result.object_prediction_list):
         bbox = prediction.bbox
@@ -454,7 +704,7 @@ async def api_detect(
             symbol_with_text.append(table_data[-1])
 
     # OCR if enabled
-    if text_OCR and len(symbol_with_text) > 0:
+    if params.text_ocr and len(symbol_with_text) > 0:
         text_list = extract_text_from_image(image, symbol_with_text)
         if len(text_list) > 0:
             for i in range(len(text_list)):
@@ -470,7 +720,7 @@ async def api_detect(
     result_payload = {
         "id": result_id,
         "objects": sorted_data,
-        "image_url": f"/static/images/{image_filename}",
+        "image_url": f"/static/images/predictions/{image_filename}",
         "image_width": int(original_image.shape[1]),
         "image_height": int(original_image.shape[0]),
         "count": len(sorted_data),
@@ -486,7 +736,7 @@ async def api_get_result(result_id: str):
 
 
 @app.patch("/api/results/{result_id}/objects/{obj_id}")
-async def api_patch_object(result_id: str, obj_id: int, payload: dict = Body(...)):
+async def api_patch_object(result_id: str, obj_id: int, payload: UpdateObjectRequest):
     """Update a detected object by Index within a stored result."""
     result = get_result_or_404(result_id)
     objects = result.get("objects", [])
@@ -504,7 +754,8 @@ async def api_patch_object(result_id: str, obj_id: int, payload: dict = Body(...
     if not target:
         raise HTTPException(status_code=404, detail="Object not found")
 
-    updates = {k: v for k, v in payload.items() if k in allowed_fields}
+    # Convert Pydantic model to dict, excluding None values
+    updates = payload.dict(exclude_none=True)
     if not updates:
         raise HTTPException(status_code=400, detail="No valid fields to update")
 
@@ -513,51 +764,35 @@ async def api_patch_object(result_id: str, obj_id: int, payload: dict = Body(...
 
 
 @app.post("/api/results/{result_id}/objects")
-async def api_create_object(result_id: str, payload: dict = Body(...)):
+async def api_create_object(result_id: str, payload: CreateObjectRequest):
     """Create a new detected object inside a stored result."""
     result = get_result_or_404(result_id)
     objects = result.get("objects", [])
-    required_fields = {"Object", "Left", "Top", "Width", "Height"}
-    if not required_fields.issubset(payload.keys()):
-        raise HTTPException(status_code=400, detail="Missing required fields for new object")
-
-    object_name = str(payload.get("Object", "")).strip()
-    if not object_name:
-        raise HTTPException(status_code=400, detail="Object name is required")
-
-    category_id = payload.get("CategoryID")
+    
+    # Get existing object to determine CategoryID if not provided
+    category_id = payload.CategoryID
     if category_id is None:
-        matched = next((obj for obj in objects if obj.get("Object") == object_name), None)
+        matched = next((obj for obj in objects if obj.get("Object") == payload.Object), None)
         category_id = matched.get("CategoryID") if matched else 0
 
-    try:
-        left = float(payload.get("Left"))
-        top = float(payload.get("Top"))
-        width = float(payload.get("Width"))
-        height = float(payload.get("Height"))
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=400, detail="Invalid geometry for new object")
-
-    if width <= 0 or height <= 0:
-        raise HTTPException(status_code=400, detail="Width and height must be positive")
-
-    object_id = payload.get("ObjectID")
+    # Get ObjectID if not provided
+    object_id = payload.ObjectID
     if object_id is None:
         object_id = sum(1 for obj in objects if obj.get("CategoryID") == category_id) + 1
 
     next_index = max((obj.get("Index", 0) for obj in objects), default=0) + 1
     new_obj = {
         "Index": next_index,
-        "Object": object_name,
+        "Object": payload.Object,
         "CategoryID": int(category_id),
         "ObjectID": int(object_id),
-        "Left": int(math.floor(left)),
-        "Top": int(math.floor(top)),
-        "Width": int(math.ceil(width)),
-        "Height": int(math.ceil(height)),
-        "Score": float(payload.get("Score", 1.0)),
-        "Text": str(payload.get("Text") or object_name),
-        "ReviewStatus": payload.get("ReviewStatus"),
+        "Left": int(math.floor(payload.Left)),
+        "Top": int(math.floor(payload.Top)),
+        "Width": int(math.ceil(payload.Width)),
+        "Height": int(math.ceil(payload.Height)),
+        "Score": float(payload.Score),
+        "Text": payload.Text if payload.Text else payload.Object,
+        "ReviewStatus": None,
     }
     objects.append(new_obj)
     result["count"] = len(objects)
@@ -580,5 +815,6 @@ async def api_delete_object(result_id: str, obj_id: int):
 if __name__ == "__main__":
     logger.log(logging.INFO, f"* *********************************** *")
     logger.log(logging.INFO, f"*     Starting GARNET API Service     *")
+    logger.log(logging.INFO, f"*     Environment: {config.ENV:21} *")
     logger.log(logging.INFO, f"* *********************************** *")
-    uvicorn.run("api:app", reload=True, port=8001)
+    uvicorn.run("api:app", reload=config.DEBUG, port=config.PORT, host=config.HOST)

@@ -181,4 +181,5 @@ DeepLSD/
 datesets/
 
 frontend/node_modules
-static/images/*.png
+static/images/prediction*.png
+static/images/predictions/

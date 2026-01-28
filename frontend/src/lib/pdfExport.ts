@@ -60,8 +60,8 @@ export async function generatePdfReport(
 
             doc.addImage(imageDataUrl, 'PNG', margin, y, imgWidth, imgHeight)
             y += imgHeight + 10
-        } catch (error) {
-            console.warn('Failed to add image to PDF:', error)
+        } catch {
+            // Image failed to load but PDF can still be generated without it
             y += 5
         }
     }
