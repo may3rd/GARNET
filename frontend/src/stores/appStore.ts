@@ -45,6 +45,8 @@ export type AppActions = {
   cancelBatch: () => void
   toggleBatchPause: () => void
   openBatchResult: (id: string) => void
+  openNextBatchResult: () => void
+  openPrevBatchResult: () => void
   retryBatchFailed: () => Promise<void>
   goBack: () => void
   toggleTheme: () => void
@@ -528,6 +530,53 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       selectedObjectKey: null,
       currentView: 'results',
       batch: { ...batch, activeItemId: id },
+    })
+  },
+
+  openNextBatchResult: () => {
+    const { batch } = get()
+    if (!batch.activeItemId) return
+    const currentIndex = batch.items.findIndex((item) => item.id === batch.activeItemId)
+    if (currentIndex === -1) return
+    const nextDone = batch.items.slice(currentIndex + 1).find((item) => item.status === 'done' && item.result)
+    const fallback = batch.items[currentIndex + 1]
+    const target = nextDone ?? fallback
+    if (!target) return
+    if (target.result) {
+      get().openBatchResult(target.id)
+      return
+    }
+    set({
+      result: null,
+      resultRunId: Date.now(),
+      reviewStatus: {},
+      selectedObjectKey: null,
+      currentView: 'results',
+      batch: { ...batch, activeItemId: target.id },
+    })
+  },
+
+  openPrevBatchResult: () => {
+    const { batch } = get()
+    if (!batch.activeItemId) return
+    const currentIndex = batch.items.findIndex((item) => item.id === batch.activeItemId)
+    if (currentIndex === -1) return
+    const prevDone = [...batch.items.slice(0, currentIndex)].reverse()
+      .find((item) => item.status === 'done' && item.result)
+    const fallback = batch.items[currentIndex - 1]
+    const target = prevDone ?? fallback
+    if (!target) return
+    if (target.result) {
+      get().openBatchResult(target.id)
+      return
+    }
+    set({
+      result: null,
+      resultRunId: Date.now(),
+      reviewStatus: {},
+      selectedObjectKey: null,
+      currentView: 'results',
+      batch: { ...batch, activeItemId: target.id },
     })
   },
 

@@ -37,16 +37,10 @@ export function ResultsView() {
   const [createError, setCreateError] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [localImageUrl, setLocalImageUrl] = useState<string | null>(null)
-
-  if (!result) {
-    return (
-      <div className="flex items-center justify-center h-full text-sm text-[var(--text-secondary)]">
-        No results to display.
-      </div>
-    )
-  }
+  const hasResult = Boolean(result)
 
   const handleExport = (format: ExportFormat, filter: 'all' | 'accepted' | 'rejected' | 'visible') => {
+    if (!result) return
     const exportObjects = (() => {
       if (filter === 'visible') return visibleObjects
       if (filter === 'accepted') {
@@ -127,12 +121,13 @@ export function ResultsView() {
   const normalizeKey = (value: string) => value.toLowerCase().replace(/_/g, ' ').trim()
 
   const visibleObjects = useMemo(() => {
+    if (!result) return []
     return result.objects.filter((obj) => {
       const key = normalizeKey(obj.Object)
       if (hiddenClasses.has(key)) return false
       return obj.Score >= confidenceFilter
     })
-  }, [result.objects, hiddenClasses, confidenceFilter])
+  }, [result, hiddenClasses, confidenceFilter])
 
   const toggleClass = (classKey: string) => {
     setHiddenClasses((prev) => {
@@ -147,9 +142,9 @@ export function ResultsView() {
   }
 
   const selectedObject = useMemo(() => {
-    if (!selectedObjectKey) return null
+    if (!result || !selectedObjectKey) return null
     return result.objects.find((obj) => objectKey(obj) === selectedObjectKey) || null
-  }, [result.objects, selectedObjectKey])
+  }, [result, selectedObjectKey])
 
   useEffect(() => {
     if (!selectedObjectKey) {
@@ -179,6 +174,17 @@ export function ResultsView() {
   }, [batch.activeItemId, batch.items])
 
   useEffect(() => {
+    if (!batch.activeItemId) return
+    setHiddenClasses(new Set())
+    setSelectedObjectKey(null)
+    edit.cancelEditing()
+    setIsCreating(false)
+    setCreateDraft(null)
+    setEditError(null)
+    setCreateError(null)
+  }, [batch.activeItemId, edit, setSelectedObjectKey])
+
+  useEffect(() => {
     if (!isCreating) {
       setCreateDraft(null)
       setCreateError(null)
@@ -186,6 +192,7 @@ export function ResultsView() {
   }, [isCreating])
 
   const selectAndCenter = (key: string | null) => {
+    if (!result) return
     setSelectedObjectKey(key)
     if (!key || !canvasRef.current) return
     const obj = result.objects.find((o) => objectKey(o) === key)
@@ -230,6 +237,7 @@ export function ResultsView() {
   }
 
   const persistReviewStatus = async (key: string, status: 'accepted' | 'rejected' | null) => {
+    if (!result) return
     const obj = result.objects.find((o) => objectKey(o) === key)
     if (!obj) return
     try {
@@ -321,6 +329,35 @@ export function ResultsView() {
 
   const handleSidebarSelect = (key: string) => {
     selectAndCenter(key)
+  }
+
+  if (!hasResult && batch.activeItemId) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4 text-sm text-[var(--text-secondary)]">
+        {localImageUrl ? (
+          <div className="max-w-[85%] max-h-[85%] relative">
+            <img
+              src={localImageUrl}
+              alt="Batch preview"
+              className="rounded-xl border border-[var(--border-muted)] max-h-[70vh]"
+            />
+            <div className="absolute bottom-3 right-3 text-[11px] px-2 py-1 rounded-lg bg-black/60 text-white">
+              Waiting for results...
+            </div>
+          </div>
+        ) : (
+          <div>Waiting for results...</div>
+        )}
+      </div>
+    )
+  }
+
+  if (!hasResult) {
+    return (
+      <div className="flex items-center justify-center h-full text-sm text-[var(--text-secondary)]">
+        No results to display.
+      </div>
+    )
   }
 
   return (

@@ -1,4 +1,4 @@
-import { ArrowLeft, Moon, Redo2, Sun, Undo2 } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, Moon, Redo2, Sun, Undo2 } from 'lucide-react'
 import { useMemo } from 'react'
 import { useAppStore } from '@/stores/appStore'
 import { useHistoryStore } from '@/stores/historyStore'
@@ -17,6 +17,8 @@ export function Header() {
   const confidenceFilter = useAppStore((state) => state.confidenceFilter)
   const undoAction = useAppStore((state) => state.undoAction)
   const redoAction = useAppStore((state) => state.redoAction)
+  const openNextBatchResult = useAppStore((state) => state.openNextBatchResult)
+  const openPrevBatchResult = useAppStore((state) => state.openPrevBatchResult)
   const canUndo = useHistoryStore((state) => state.canUndo())
   const canRedo = useHistoryStore((state) => state.canRedo())
 
@@ -29,6 +31,20 @@ export function Header() {
   const reviewedCount = visibleObjects.filter((obj) => reviewStatus[objectKey(obj)]).length
   const activeBatchItem = batch.items.find((item) => item.id === batch.activeItemId)
   const displayName = imageFile?.name ?? activeBatchItem?.fileName ?? null
+  const activeIndex = batch.activeItemId
+    ? batch.items.findIndex((item) => item.id === batch.activeItemId)
+    : -1
+  const prevDone = activeIndex > 0
+    ? [...batch.items.slice(0, activeIndex)].reverse().find((item) => item.status === 'done' && item.result)
+    : undefined
+  const prevFallback = activeIndex > 0 ? batch.items[activeIndex - 1] : undefined
+  const prevTarget = prevDone ?? prevFallback
+  const nextDone = activeIndex >= 0
+    ? batch.items.slice(activeIndex + 1).find((item) => item.status === 'done' && item.result)
+    : undefined
+  const nextFallback = activeIndex >= 0 ? batch.items[activeIndex + 1] : undefined
+  const nextTarget = nextDone ?? nextFallback
+  const showBatchNav = currentView === 'results' && batch.items.length > 0 && activeIndex !== -1
 
   return (
     <header className="flex items-center justify-between h-14 px-4 md:px-6 border-b border-[var(--border-muted)] bg-[var(--bg-secondary)]">
@@ -69,6 +85,31 @@ export function Header() {
       <div className="flex items-center gap-1">
         {currentView === 'results' && (
           <>
+            {showBatchNav && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={openPrevBatchResult}
+                  disabled={!prevTarget}
+                  aria-label="Previous batch item"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Prev
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={openNextBatchResult}
+                  disabled={!nextTarget}
+                  aria-label="Next batch item"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <div className="w-px h-6 bg-[var(--border-muted)] mx-1" />
+              </>
+            )}
             <Button
               variant="ghost"
               size="icon"
