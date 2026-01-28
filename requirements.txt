@@ -3,6 +3,8 @@ opencv-python
 albumentations
 python-multipart
 fastapi
+pydantic
+python-dotenv
 pandas
 torch
 torchvision
