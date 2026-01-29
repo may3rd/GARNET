@@ -43,7 +43,7 @@ export function ZoomControls({ zoomPercent, onZoomIn, onZoomOut, onReset, onFit,
   }
 
   return (
-    <div className="group flex items-center gap-2 bg-[var(--bg-secondary)]/80 backdrop-blur border border-[var(--border-muted)] rounded-xl px-2 py-1.5 scale-90 opacity-60 hover:scale-100 hover:opacity-100 hover:px-3 hover:py-2 transition-all duration-200 ease-out motion-reduce:transition-none motion-reduce:hover:scale-90 motion-reduce:hover:px-2 motion-reduce:hover:py-1.5">
+    <div className="group flex items-center gap-2 bg-[var(--bg-primary)]/95 backdrop-blur-md border border-[var(--border-muted)] rounded-xl px-2 py-1.5 scale-90 opacity-90 hover:scale-100 hover:opacity-100 hover:px-3 hover:py-2 shadow-lg shadow-black/40 hover:shadow-xl hover:shadow-black/50 transition-all duration-200 ease-out motion-reduce:transition-none motion-reduce:hover:scale-90 motion-reduce:hover:px-2 motion-reduce:hover:py-1.5">
       <Button variant="ghost" size="icon" className="h-7 w-7 group-hover:h-9 group-hover:w-9 transition-all duration-200" onClick={onZoomOut} aria-label="Zoom out">
         <Minus className="h-3.5 w-3.5 group-hover:h-4 group-hover:w-4 transition-all duration-200" />
       </Button>
@@ -66,7 +66,7 @@ export function ZoomControls({ zoomPercent, onZoomIn, onZoomOut, onReset, onFit,
               }
             }}
             inputMode="numeric"
-            className="h-6 px-2 text-[10px] group-hover:text-xs text-center"
+            className="h-6 px-2 text-[10px] group-hover:text-xs text-center font-semibold"
             aria-label="Zoom percent"
           />
         </div>
@@ -74,7 +74,7 @@ export function ZoomControls({ zoomPercent, onZoomIn, onZoomOut, onReset, onFit,
         <button
           type="button"
           onClick={() => setIsEditing(true)}
-          className="text-[10px] group-hover:text-xs font-semibold w-10 group-hover:w-12 text-center transition-all duration-200 cursor-pointer"
+          className="text-[10px] group-hover:text-xs font-bold w-10 group-hover:w-12 text-center cursor-pointer text-[var(--text-primary)] hover:text-[var(--accent)] transition-all duration-200"
           aria-label="Set zoom percent"
         >
           {zoomPercent}%

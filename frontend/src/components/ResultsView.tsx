@@ -267,7 +267,7 @@ export function ResultsView() {
   })
 
   const handleDeleteSelected = async () => {
-    if (!selectedObject) return
+    if (!result || !selectedObject) return
     setEditError(null)
     setCreateError(null)
     try {
@@ -282,7 +282,7 @@ export function ResultsView() {
   }
 
   const handleSaveEdit = async () => {
-    if (!selectedObject || !edit.draft) return
+    if (!result || !selectedObject || !edit.draft) return
     setEditError(null)
     const payload = {
       Object: edit.draft.Object,
@@ -303,7 +303,7 @@ export function ResultsView() {
   }
 
   const handleCreateSave = async () => {
-    if (!createDraft) return
+    if (!result || !createDraft) return
     setCreateError(null)
     const payload = {
       Object: createDraft.Object,
@@ -364,7 +364,7 @@ export function ResultsView() {
         <CanvasView
           ref={canvasRef}
           key={resultRunId}
-          imageUrl={localImageUrl ?? result.image_url}
+          imageUrl={localImageUrl ?? result!.image_url}
           objects={visibleObjects}
           selectedObjectKey={selectedObjectKey}
           selectedObject={selectedObject}
@@ -436,7 +436,7 @@ export function ResultsView() {
         sidebarOpen ? 'w-[320px]' : 'w-0'
       )}>
         <ObjectSidebar
-          objects={result.objects}
+          objects={result!.objects}
           visibleObjects={visibleObjects}
           hiddenClasses={hiddenClasses}
           confidenceFilter={confidenceFilter}

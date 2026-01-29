@@ -59,7 +59,7 @@ const MIN_ZOOM = 0.2
 const MAX_ZOOM = 4
 const MINI_MAX_WIDTH = 180
 const MINI_MAX_HEIGHT = 120
-const RESIZE_HANDLE_THRESHOLD = 30
+const RESIZE_HANDLE_THRESHOLD = 12
 const MIN_OBJECT_SIZE = 4
 const DRAG_DETECTION_THRESHOLD = 3
 const AUTO_FIT_MAX_ATTEMPTS = 10
@@ -166,12 +166,18 @@ export const CanvasView = forwardRef(function CanvasView(
     autoFitAttemptsRef.current = 0
     const img = imageRef.current
     if (!img) return
+
+    // Track if component is still mounted
+    let isMounted = true
+
     const handleLoad = () => {
+      if (!isMounted) return
       setIsImageLoading(false)
       const nextSize = { width: img.naturalWidth, height: img.naturalHeight }
       if (nextSize.width && nextSize.height) {
         setImageSize(nextSize)
         requestAnimationFrame(() => {
+          if (!isMounted) return
           if (fitToScreen(nextSize)) {
             setHasAutoFit(true)
           }
@@ -180,16 +186,20 @@ export const CanvasView = forwardRef(function CanvasView(
     }
     if (img.complete && img.naturalWidth) {
       handleLoad()
-      return
+      return () => { isMounted = false }
     }
     img.addEventListener('load', handleLoad)
-    return () => img.removeEventListener('load', handleLoad)
+    return () => {
+      isMounted = false
+      img.removeEventListener('load', handleLoad)
+    }
   }, [imageUrl])
 
   useEffect(() => {
     if (hasAutoFit) return
+    let isMounted = true
     const tryAutoFit = () => {
-      if (hasAutoFit) return
+      if (!isMounted || hasAutoFit) return
       autoFitAttemptsRef.current += 1
       if (fitToScreen(imageSize)) {
         setHasAutoFit(true)
@@ -200,6 +210,7 @@ export const CanvasView = forwardRef(function CanvasView(
       }
     }
     requestAnimationFrame(tryAutoFit)
+    return () => { isMounted = false }
   }, [hasAutoFit, imageSize])
 
   useEffect(() => {
@@ -207,11 +218,14 @@ export const CanvasView = forwardRef(function CanvasView(
     if (imageSize.width === 0 || imageSize.height === 0) return
 
     lastFitKeyRef.current = fitKey
+    let isMounted = true
     requestAnimationFrame(() => {
+      if (!isMounted) return
       if (fitToScreen(imageSize)) {
         setHasAutoFit(true)
       }
     })
+    return () => { isMounted = false }
   }, [fitKey, imageSize])
 
   useEffect(() => {
@@ -765,6 +779,59 @@ export const CanvasView = forwardRef(function CanvasView(
     return { left: clampedX, top: clampedY }
   })()
 
+  // Move useMemo to top level - fixes React hooks rule violation
+  const objectElements = useMemo(() => objects.map((obj) => {
+    const key = objectKey(obj)
+    const status = reviewStatus[key]
+    const opacity = status === 'accepted'
+      ? 1
+      : status === 'rejected'
+        ? 0.15
+        : 0.5
+    const adjusted = isEditing && editDraft && selectedObjectKey === key
+      ? { ...obj, ...editDraft }
+      : obj
+    return (
+      <div
+        key={key}
+        className={cn(
+          'absolute border-2 cursor-pointer',
+          isEditing || isCreating ? 'pointer-events-none' : 'pointer-events-auto',
+          'transition-shadow',
+          selectedObjectKey === key && 'ring-2 ring-white/80',
+          status === 'accepted' && 'shadow-[0_0_0_1px_rgba(22,163,74,0.6)]'
+        )}
+        style={{
+          left: adjusted.Left,
+          top: adjusted.Top,
+          width: adjusted.Width,
+          height: adjusted.Height,
+          borderColor: getCategoryColor(adjusted.Object),
+          opacity,
+          borderWidth: selectedObjectKey === key ? 3 : 2,
+          backgroundColor: selectedObjectKey === key
+            ? 'rgba(59, 130, 246, 0.08)'
+            : status === 'rejected'
+              ? 'rgba(239, 68, 68, 0.06)'
+              : status === 'accepted'
+                ? 'rgba(34, 197, 94, 0.0)'
+                : 'rgba(59, 130, 246, 0.5)',
+          boxShadow: selectedObjectKey === key
+            ? '0 0 0 3px rgba(59, 130, 246, 0.8), 0 0 12px rgba(59, 130, 246, 0.6)'
+            : undefined,
+          borderStyle: status === 'rejected' ? 'dashed' : 'solid',
+        }}
+        title={`${adjusted.Object} (${Math.round(obj.Score * 100)}%)`}
+        onPointerDown={isEditing ? undefined : (event) => event.stopPropagation()}
+        onPointerUp={isEditing ? undefined : (event) => event.stopPropagation()}
+        onClick={isEditing ? undefined : (event) => {
+          event.stopPropagation()
+          onSelectObject(key)
+        }}
+      />
+    )
+  }), [objects, reviewStatus, isEditing, editDraft, selectedObjectKey, isCreating, onSelectObject])
+
   return (
     <div className="relative h-full w-full bg-[var(--bg-canvas)]">
       {isImageLoading && (
@@ -816,57 +883,7 @@ export const CanvasView = forwardRef(function CanvasView(
               }
             }}
           />
-          {useMemo(() => objects.map((obj) => {
-            const key = objectKey(obj)
-            const status = reviewStatus[key]
-            const opacity = status === 'accepted'
-              ? 1
-              : status === 'rejected'
-                ? 0.15
-                : 0.5
-            const adjusted = isEditing && editDraft && selectedObjectKey === key
-              ? { ...obj, ...editDraft }
-              : obj
-            return (
-              <div
-                key={key}
-                className={cn(
-                  'absolute border-2',
-                  isEditing || isCreating ? 'pointer-events-none' : 'pointer-events-auto',
-                  'transition-shadow',
-                  selectedObjectKey === key && 'ring-2 ring-white/80',
-                  status === 'accepted' && 'shadow-[0_0_0_1px_rgba(22,163,74,0.6)]'
-                )}
-                style={{
-                  left: adjusted.Left,
-                  top: adjusted.Top,
-                  width: adjusted.Width,
-                  height: adjusted.Height,
-                  borderColor: getCategoryColor(adjusted.Object),
-                  opacity,
-                  borderWidth: selectedObjectKey === key ? 3 : 2,
-                  backgroundColor: selectedObjectKey === key
-                    ? 'rgba(59, 130, 246, 0.08)'
-                    : status === 'rejected'
-                      ? 'rgba(239, 68, 68, 0.06)'
-                      : status === 'accepted'
-                        ? 'rgba(34, 197, 94, 0.0)'
-                        : 'rgba(59, 130, 246, 0.5)',
-                  boxShadow: selectedObjectKey === key
-                    ? '0 0 0 3px rgba(59, 130, 246, 0.8), 0 0 12px rgba(59, 130, 246, 0.6)'
-                    : undefined,
-                  borderStyle: status === 'rejected' ? 'dashed' : 'solid',
-                }}
-                title={`${adjusted.Object} (${Math.round(obj.Score * 100)}%)`}
-                onPointerDown={isEditing ? undefined : (event) => event.stopPropagation()}
-                onPointerUp={isEditing ? undefined : (event) => event.stopPropagation()}
-                onClick={isEditing ? undefined : (event) => {
-                  event.stopPropagation()
-                  onSelectObject(key)
-                }}
-              />
-            )
-          }), [objects, reviewStatus, isEditing, editDraft, selectedObjectKey, isCreating, onSelectObject])}
+          {objectElements}
           {isCreating && createDraft && (
             <div
               className="absolute border-2 border-dashed border-blue-500/80 bg-blue-500/10 pointer-events-none"

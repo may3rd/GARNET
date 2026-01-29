@@ -30,11 +30,15 @@ export function UploadZone() {
     if (!validateFile(file)) return
 
     const img = new Image()
+    const objectUrl = URL.createObjectURL(file)
     img.onload = () => {
       setImageMeta({ width: img.width, height: img.height })
-      URL.revokeObjectURL(img.src)
+      URL.revokeObjectURL(objectUrl)
     }
-    img.src = URL.createObjectURL(file)
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+    }
+    img.src = objectUrl
 
     setImageFile(file)
   }, [setImageFile, setImageMeta, validateFile])

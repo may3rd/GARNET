@@ -191,9 +191,10 @@ export function ObjectSidebar({
       return new Set(prev).add(groupKey)
     })
     // Scroll to selected item after a brief delay for DOM update
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       selectedItemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     }, 50)
+    return () => clearTimeout(timeoutId)
   }, [selectedObjectKey, objects])
 
   const MAX_GROUP_ITEMS = 200

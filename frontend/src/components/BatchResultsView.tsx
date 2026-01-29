@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { ChevronLeft, ChevronRight, Download, Eye, Pause, Play, Plus, RefreshCw, RotateCcw, Trash2, XCircle } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
 import type { BatchItemStatus } from '@/types'
 
 type FilterMode = 'all' | 'accepted' | 'rejected'
@@ -25,6 +26,7 @@ export function BatchResultsView() {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [previewItemId, setPreviewItemId] = useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set())
 
   const previewCandidates = useMemo(
     () => batch.items.filter((item) => item.status !== 'done'),
@@ -80,11 +82,13 @@ export function BatchResultsView() {
 
   const handleExportYolo = () => {
     if (!doneItems.length) return
-    const allObjects = doneItems.flatMap((item) => filterObjects(item.result!.objects))
+    // Filter items with results to avoid non-null assertions
+    const itemsWithResults = doneItems.filter((item): item is typeof item & { result: NonNullable<typeof item['result']> } => !!item.result)
+    const allObjects = itemsWithResults.flatMap((item) => filterObjects(item.result.objects))
     const { classNames, classIdMap } = buildYoloClasses(allObjects)
     download(new Blob([classNames.join('\n') + '\n'], { type: 'text/plain' }), 'batch.classes.txt')
-    doneItems.forEach((item) => {
-      const result = item.result!
+    itemsWithResults.forEach((item) => {
+      const result = item.result
       const objects = filterObjects(result.objects)
       const txt = exportYolo(objects, result.image_width, result.image_height, classIdMap)
       const baseName = item.fileName.replace(/\.[^.]+$/, '')
@@ -94,11 +98,13 @@ export function BatchResultsView() {
 
   const handleExportCoco = () => {
     if (!doneItems.length) return
-    const images = doneItems.map((item) => ({
+    // Filter items with results to avoid non-null assertions
+    const itemsWithResults = doneItems.filter((item): item is typeof item & { result: NonNullable<typeof item['result']> } => !!item.result)
+    const images = itemsWithResults.map((item) => ({
       fileName: item.fileName,
-      width: item.result!.image_width,
-      height: item.result!.image_height,
-      objects: filterObjects(item.result!.objects),
+      width: item.result.image_width,
+      height: item.result.image_height,
+      objects: filterObjects(item.result.objects),
     }))
     const coco = exportCocoBatch(images)
     download(new Blob([JSON.stringify(coco, null, 2)], { type: 'application/json' }), 'garnet-batch.coco.json')
@@ -170,6 +176,28 @@ export function BatchResultsView() {
     removeBatchItem(previewItemId)
     setPreviewItemId(null)
   }
+
+  const toggleItemSelection = (itemId: string) => {
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(itemId)) {
+        next.delete(itemId)
+      } else {
+        next.add(itemId)
+      }
+      return next
+    })
+  }
+
+  const handleBatchDelete = () => {
+    if (selectedItemIds.size === 0) return
+    selectedItemIds.forEach((id) => {
+      removeBatchItem(id)
+    })
+    setSelectedItemIds(new Set())
+  }
+
+  const selectedCount = selectedItemIds.size
 
   return (
     <div className="flex-1 flex flex-col h-full">
@@ -297,6 +325,17 @@ export function BatchResultsView() {
               Retry failed
             </Button>
           )}
+          {selectedCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBatchDelete}
+              className="border-[var(--danger)] text-[var(--danger)] hover:bg-[var(--danger)]/10"
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Delete {selectedCount} selected
+            </Button>
+          )}
         </div>
       </div>
 
@@ -305,9 +344,23 @@ export function BatchResultsView() {
           {batch.items.map((item, index) => {
             const result = item.result
             const counts = result ? reviewCounts(result) : null
+            const isSelected = selectedItemIds.has(item.id)
             return (
-              <div key={item.id} className="flex items-center justify-between px-6 py-3">
+              <div
+                key={item.id}
+                className={cn(
+                  'flex items-center justify-between px-6 py-3 cursor-pointer transition-colors',
+                  isSelected && 'bg-[var(--accent)]/5'
+                )}
+                onClick={() => toggleItemSelection(item.id)}
+              >
                 <div className="flex items-center gap-3 min-w-0">
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => toggleItemSelection(item.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label={`Select ${item.fileName}`}
+                  />
                   <div className="text-xs text-[var(--text-secondary)] w-7 text-right">{index + 1}</div>
                   <div className="min-w-0">
                     <div className="text-sm font-medium truncate">{item.fileName}</div>
@@ -330,7 +383,7 @@ export function BatchResultsView() {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
                   <StatusBadge status={item.status} />
                   {!result && (
                     <Button
