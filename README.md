@@ -8,7 +8,9 @@ _Precision in Every Connection_
 [![NetworkX](https://img.shields.io/badge/NetworkX-📊-blue)](https://networkx.org/)
 [![EasyOCR](https://img.shields.io/badge/EasyOCR-🔤-yellow)](https://github.com/JaidedAI/EasyOCR)
 [![FastAPI](https://img.shields.io/badge/FastAPI-⚡-teal)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-18-61DAFB)](https://react.dev/)
+[![React](https://img.shields.io/badge/React-18.3-61DAFB)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-6.0-646CFF)](https://vitejs.dev/)
 
 GARNET is an AI-powered tool designed to **automate symbol detection, classification, and connectivity analysis** in Piping and Instrumentation Diagrams (P&IDs). Built for engineers and maintenance teams, it combines state-of-the-art object detection (YOLOv11/YOLOv8) with graph-based analytics to transform P&ID workflows.
 
@@ -16,13 +18,31 @@ GARNET is an AI-powered tool designed to **automate symbol detection, classifica
 
 ## 🚀 Features
 
+### Frontend Features
+
+- **Interactive Canvas**: Pan, zoom, and navigate through large P&ID images with minimap support
+- **Object Detection Visualization**: Color-coded bounding boxes with confidence scores
+- **Object Editing**: Create, update, and delete detected objects directly on the canvas
+- **Review Workflow**: Accept/reject objects with visual status indicators
+- **Batch Processing**: Process multiple images with queue management, pause/resume, and progress tracking
+- **Undo/Redo**: Full history support for all editing operations
+- **Keyboard Shortcuts**: Efficient navigation and editing with keyboard shortcuts
+- **Export Formats**: Export to JSON, YOLO, COCO, LabelMe, or PDF
+- **Dark Mode**: Toggle between light and dark themes
+- **Confidence Filtering**: Filter objects by confidence threshold
+- **Class Visibility**: Toggle visibility of specific object classes
+
+### Backend Features
+
 - **Symbol Detection**: Identify valves (gate, globe, check), pumps, tanks, and more using YOLOv11/YOLOv8.
+- **SAHI Integration**: Slicing Aided Hyper Inference for accurate detection on large images.
 - **Automated Counting**: Generate counts for each symbol type in a P&ID.
-- **Graph-Based Analysis**: Model P&IDs as networks to analyze connectivity, critical paths, and system dependencies.
 - **Text Recognition (OCR)**: Extract text annotations from symbols using EasyOCR with support for vertical text.
-- **Export Results**: Export detection results and connectivity graphs to CSV, PDF, Excel, or JSON.
-- **Interactive Review UI**: Modern React-based interface for reviewing, editing, and validating detections.
-- **Batch Processing**: Process multiple P&ID images in a single run with progress tracking.
+- **Model Caching**: Cache loaded models for faster subsequent detections.
+- **Results Caching**: In-memory cache with TTL for detection results.
+- **Automatic Cleanup**: Periodic cleanup of old prediction images and expired cache entries.
+- **Health Monitoring**: Health check endpoint with model loading status and memory usage.
+- **Environment Configuration**: Configurable via environment variables for development and production.
 
 ---
 
@@ -111,51 +131,99 @@ frontend/
 
 ```
 GARNET/
-├── api.py                   # Main FastAPI application entry point
-├── main.py                  # Legacy Flask application (optional)
+├── api.py                   # Pure API backend (recommended) - FastAPI with JSON endpoints
+├── main.py                  # Legacy application with HTML templates (optional)
 ├── requirements.txt         # Python dependencies
 ├── .env                     # Environment configuration
 ├── garnet/
 │   ├── object_and_text_detect.py  # Core detection logic
 │   ├── text_ocr.py          # OCR text extraction
 │   ├── connectivity_graph.py # Graph analysis utilities
-│   ├── pid_extractor.py     # End-to-end pipeline
-│   ├── Settings.py          # Application settings
-│   └── utils/               # Utility functions
+│   ├── pid_extractor.py     # End-to-end P&ID pipeline with staged execution
+│   ├── dexpi_exporter.py   # DEXPI XML export functionality
+│   ├── Settings.py          # Application settings (paths, model types, symbol configs)
+│   ├── predict_images.py    # Batch inference script
+│   ├── predict_fiftyone.py # FiftyOne integration for visualization
+│   └── utils/
+│       ├── deeplsd_utils.py # DeepLSD line detection utilities
+│       └── utils.py         # General utility functions
 ├── datasets/
-│   └── yaml/                # Dataset configuration files
+│   └── yaml/                # Dataset configuration files (data.yaml, balanced.yaml, iso.yaml, etc.)
 └── static/
     └── images/predictions/  # Generated prediction images
 ```
 
+### API Endpoints
+
+| Method | Endpoint                                    | Description                                     |
+| ------ | ------------------------------------------- | ----------------------------------------------- |
+| GET    | `/`                                         | API root with service info                      |
+| GET    | `/api/health`                               | Health check with model status and memory usage |
+| GET    | `/api/model-types`                          | Get available model types                       |
+| GET    | `/api/models`                               | Get model type values                           |
+| GET    | `/api/weight-files`                         | Get available model weight files                |
+| GET    | `/api/config-files`                         | Get available dataset config files              |
+| POST   | `/api/detect`                               | Run object detection on uploaded image          |
+| GET    | `/api/results/{result_id}`                  | Fetch a previously detected result              |
+| PATCH  | `/api/results/{result_id}/objects/{obj_id}` | Update a detected object                        |
+| POST   | `/api/results/{result_id}/objects`          | Create a new object                             |
+| DELETE | `/api/results/{result_id}/objects/{obj_id}` | Delete a detected object                        |
+
 ### Data Flow
 
 ```
-1. Upload P&ID Image
-        │
-        ▼
-2. Frontend → POST /api/detect
-   (with detection parameters)
-        │
-        ▼
-3. Backend: SAHI Slicing
-   ├─ Slice large image into tiles
+1. Upload P&ID Image (Frontend)
+   ├─ Drag & drop or file selection
+   └─ Preview image with metadata
+         │
+         ▼
+2. Configure Detection Parameters (Frontend)
+   ├─ Select model type (ultralytics)
+   ├─ Choose weight file
+   ├─ Set confidence threshold (0.0 - 1.0)
+   ├─ Configure image size (320 - 2048)
+   ├─ Set overlap ratio (0.0 - 0.95)
+   └─ Enable/disable OCR
+         │
+         ▼
+3. Frontend → POST /api/detect
+   ├─ FormData with image and parameters
+   └─ AbortController for cancellation
+         │
+         ▼
+4. Backend: Validation & Processing
+   ├─ Validate file extension and size
+   ├─ Load cached model or create new one
+   ├─ Decode image with OpenCV
+   └─ Store result in memory cache
+         │
+         ▼
+5. Backend: SAHI Slicing
+   ├─ Slice large image into tiles (configurable size)
    ├─ Run YOLO inference on each tile
-   └─ Merge overlapping detections (NMM)
-        │
-        ▼
-4. Backend: OCR (optional)
-   └─ Extract text from symbol regions
-        │
-        ▼
-5. Backend: Response
-   └─ JSON with detections + image URL
-        │
-        ▼
-6. Frontend: ResultsView
-   ├─ Interactive canvas with annotations
+   └─ Merge overlapping detections (NMM postprocessing)
+         │
+         ▼
+6. Backend: OCR (optional)
+   ├─ Extract text from symbol regions
+   ├─ Rotate vertical text objects
+   ├─ Apply image preprocessing
+   └─ Use EasyOCR with wordbeamsearch decoder
+         │
+         ▼
+7. Backend: Response
+   ├─ JSON with detections + image URL
+   ├─ Store in RESULTS_STORE with TTL
+   └─ Return result_id for future operations
+         │
+         ▼
+8. Frontend: ResultsView
+   ├─ Interactive canvas with pan/zoom/minimap
+   ├─ Color-coded bounding boxes by category
    ├─ Object list with editing capabilities
-   └─ Export options (CSV, PDF, JSON)
+   ├─ Accept/reject workflow with status indicators
+   ├─ Undo/redo support for all operations
+   └─ Export options (JSON, YOLO, COCO, LabelMe, PDF)
 ```
 
 ---
@@ -262,7 +330,7 @@ HOST=localhost
 PORT=8001
 
 # CORS - Comma-separated list of allowed origins
-CORS_ORIGINS=http://localhost:5173,http://localhost:8001
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:4173
 
 # File Upload Limits
 MAX_FILE_SIZE_MB=50
@@ -278,6 +346,10 @@ RESULTS_CACHE_MAX_SIZE=100
 RESULTS_CACHE_TTL=3600
 MODEL_CACHE_MAX_SIZE=10
 
+# Cleanup Configuration
+PREDICTION_IMAGE_TTL_HOURS=24
+CLEANUP_INTERVAL_MINUTES=60
+
 # OCR Configuration
 OCR_CACHE_ENABLED=true
 OCR_LANGUAGES=en
@@ -286,6 +358,9 @@ OCR_GPU=true
 # Logging
 LOG_LEVEL=INFO
 LOG_FILE=garnet.log
+
+# Paths
+PREDICTIONS_DIR=static/images/predictions
 ```
 
 **Frontend Configuration (`frontend/.env.local`):**
@@ -316,6 +391,20 @@ The Detection Setup panel in the frontend provides the following options:
 | **Image Size**           | Input size for model inference           | `640`                     | `320 - 2048`  |
 | **Overlap Ratio**        | SAHI slice overlap for large images      | `0.2`                     | `0.0 - 0.95`  |
 | **Text OCR**             | Enable text extraction from symbols      | `false`                   | `true/false`  |
+
+**Frontend Features:**
+
+| Feature                | Description                                                              |
+| ---------------------- | ------------------------------------------------------------------------ |
+| **Minimap**            | Navigate large images with a minimap showing viewport position           |
+| **Zoom Controls**      | Zoom in/out, reset to 100%, fit to screen                                |
+| **Keyboard Shortcuts** | Arrow keys for navigation, A/R for accept/reject, Ctrl+Z/Y for undo/redo |
+| **Object Editing**     | Click to select, drag to move, resize handles to adjust bounding box     |
+| **Create Object**      | Draw new bounding boxes on canvas to add custom objects                  |
+| **Delete Object**      | Remove objects with confirmation                                         |
+| **Review Status**      | Mark objects as accepted (green) or rejected (red/dashed)                |
+| **Export**             | Download results in JSON, YOLO, COCO, LabelMe, or PDF format             |
+| **Batch Mode**         | Queue multiple images, pause/resume processing, navigate between results |
 
 #### Production Deployment
 
@@ -367,12 +456,12 @@ VITE_SOURCEMAP=false
 
 ### 2. Batch Inference Script
 
-Run inference on multiple P&IDs in a folder using `predict_images.py`:
+Run inference on multiple P&IDs in a folder using `garnet/predict_images.py`:
 
 **Command-Line Arguments:**
 
 ```bash
-python predict_images.py \
+python garnet/predict_images.py \
     --image_path path/to/pids_folder \
     --model_type yolov8 \
     --model_path path/to/model_weights.pt \
@@ -384,10 +473,10 @@ python predict_images.py \
 - Annotated images (saved in output_path).
 - CSV file with symbol counts (`output_path/symbol_counts.csv`).
 
-Example code snippet:
+**Example code snippet:**
 
 ```python
-from garnet.inference import predict_images
+from garnet.predict_images import predict_images
 
 predict_images(
     image_path="path/to/pids_folder",
@@ -401,69 +490,127 @@ predict_images(
 
 ### 3. Pipeline: End-to-End P&ID Digitization and Connectivity Analysis
 
-Based on our reference methodology, the following pipeline will be implemented:
+A staged, runnable pipeline with CLI is available in `garnet/pid_extractor.py`. This pipeline performs comprehensive P&ID analysis with the following stages:
 
-1. **Preprocessing**
-    - Load and normalize the P&ID image.
-    - Optional: Denoising, binarization, and removal of scanning artifacts.
+**Usage:**
 
-2. **Object Detection**
-    - Detect P&ID symbols using YOLOv11/YOLOv8.
-    - Classes include valves, pumps, tanks, instruments, and custom symbols.
-    - Export detections as bounding boxes (YOLO or COCO format).
+```bash
+python garnet/pid_extractor.py \
+    --image path/to/pid_image.png \
+    --coco path/to/coco_annotations.json \
+    --ocr path/to/ocr_results.json \
+    --arrow-coco path/to/coco_arrows.json \
+    --out output/ \
+    --stop-after 7
+```
 
-3. **Text Recognition**
-    - Use EasyOCR or PaddleOCR for text extraction (supports horizontal and vertical text).
-    - Merge OCR results from multiple rotations.
-    - Output text annotations (JSON).
+**Pipeline Stages:**
 
-4. **Line Extraction**
-    - Remove detected symbols and text areas from the image to isolate pipelines.
-    - Apply morphological operations to extract lines (handles 90° turns and intersections).
-    - Merge fragmented line segments.
+1. **Stage 1: Ingest**
+    - Load P&ID image (BGR format)
+    - Load COCO annotations (symbols, categories)
+    - Load OCR results (text annotations)
+    - Optional: Load arrow COCO annotations
+    - Output: Summary JSON with counts
 
-5. **Line-Symbol Connection**
-    - Detect intersection points between line segments and symbol bounding boxes.
-    - Assign connectivity relationships between symbols and lines.
+2. **Stage 2: Preprocess**
+    - Convert to grayscale
+    - Optional de-skew using Hough line detection
+    - Adaptive thresholding for binarization
+    - Morphological cleanup (horizontal/vertical closing)
+    - Connected component filtering to remove noise
+    - Output: Gray image, binary image, deskewed image
 
-6. **Graph Construction**
-    - Convert connected symbols and pipelines into a NetworkX graph.
-    - Nodes = symbols (with attributes like tag, type).
-    - Edges = pipelines (with attributes like length, type).
+3. **Stage 3: Symbols/Text**
+    - Import detections from COCO with confidence filtering
+    - Shrink bounding boxes for text classes
+    - Refine bounding boxes using binary mask
+    - Associate nearest text to symbols
+    - Adjust center for reducer symbols
+    - Output: Overlay image with symbols and text
 
-7. **Graph Analysis**
-    - Perform connectivity analysis: critical paths, loops, flow direction inference.
-    - Detect isolated components or redundant loops.
+4. **Stage 4: Linework (Skeleton)**
+    - Mask symbol and text regions
+    - Skeletonize binary image
+    - Output: Skeleton image, masked binary
 
-8. **DEXPI Export**
-    - Convert the annotated P&ID into DEXPI-compliant XML.
-    - Include geometry, symbol metadata, and connectivity.
+5. **Stage 5: Graph Construction**
+    - DeepLSD line detection integration
+    - Process arrow symbols with port detection
+    - Process other symbols (valves, reducers, connections)
+    - Detect line crossings on bbox borders
+    - Validate ports with raycasting
+    - Output: Ports overlay, graph nodes/edges
 
-9. **Visualization and Reporting**
-    - Overlay detected objects, text, and pipelines on the original P&ID.
-    - Export results as PNG/PDF/JSON.
-    - Provide interactive graph visualization (future feature).
+6. **Stage 6: Line Graph**
+    - Build connectivity graph using ConnectivityEngine
+    - Merge nearby nodes
+    - Snap to skeleton endpoints
+    - Create pipeline edges
+    - Output: Final graph overlay, GraphML export
 
-**Note:** This pipeline is designed to be modular, so each step can be run independently or as part of the full digitization workflow.
+7. **Stage 7: Export**
+    - Export to GraphML format
+    - Export to CSV/JSON
+    - DEXPI XML export (via dexpi_exporter.py)
+    - Output: Export files in output directory
 
-_Reference:_ Adapted from "End-to-End Digitization of Image Format Piping and Instrumentation Diagrams" (2024).
+**Configurable Parameters (PipelineConfig):**
 
-Note: A staged, runnable pipeline with CLI is available in `garnet/pid_extractor.py`. See `garnet/README_pid_pipeline.md` for usage, stages, tuning knobs, and output artifacts.
+- Image processing: DPI, Canny thresholds, binarization settings
+- Detection: Confidence thresholds per class
+- Text association: Multiplier for bbox diagonal
+- Graph: Connection radius, port counts, angle separation
+- Valve linking: Directional strategy, edge offset, raycast step
+- Template matching: For valve orientation detection
+- Cleanup: Bridge max distance, angle tolerance
+
+**Note:** This pipeline is designed to be modular, so each step can be run independently or as part of the full digitization workflow. Use `--stop-after N` to run only specific stages.
 
 ---
 
 ### 4. Model Training (Optional)
 
-To train custom YOLO models for P&ID symbols:
+To train custom YOLO models for P&ID symbols using Ultralytics:
 
 ```bash
 yolo train \
-    data=data.yaml \
+    data=datasets/yaml/data.yaml \
     model=yolov8n.pt \
     epochs=100 \
     imgsz=640 \
     batch=16
 ```
+
+**Available dataset configurations:**
+
+- `datasets/yaml/data.yaml` - Default dataset configuration
+- `datasets/yaml/balanced.yaml` - Balanced class distribution
+- `datasets/yaml/iso.yaml` - ISO standard symbols
+- `datasets/yaml/pttep.yaml` - PTEP-specific symbols
+
+**Training tips:**
+
+- Use balanced datasets for better model performance
+- Adjust `imgsz` based on your P&ID image resolution
+- Increase epochs for better convergence (100-300 typical)
+- Use data augmentation for improved generalization
+
+## ⌨️ Keyboard Shortcuts
+
+The frontend supports the following keyboard shortcuts for efficient navigation and editing:
+
+| Shortcut                        | Action                           |
+| ------------------------------- | -------------------------------- |
+| `←` / `→`                       | Navigate to previous/next object |
+| `A`                             | Accept selected object           |
+| `R`                             | Reject selected object           |
+| `Ctrl + Z`                      | Undo last action                 |
+| `Ctrl + Y` / `Ctrl + Shift + Z` | Redo last action                 |
+| `F`                             | Fit image to screen              |
+| `0`                             | Reset zoom to 100%               |
+| `+` / `-`                       | Zoom in/out                      |
+| `Esc`                           | Deselect object / Cancel editing |
 
 ## 📂 Dataset
 
@@ -479,6 +626,19 @@ dataset/
 │   └── labels/
 └── data.yaml     # Dataset config (class names, paths)
 ```
+
+**Available dataset configurations:**
+
+- `datasets/yaml/data.yaml` - Default dataset configuration
+- `datasets/yaml/balanced.yaml` - Balanced class distribution
+- `datasets/yaml/iso.yaml` - ISO standard symbols
+- `datasets/yaml/pttep.yaml` - PTEP-specific symbols
+
+**Class definitions:**
+
+- `datasets/classes.txt` - List of all class names
+- `datasets/predefined_classes.txt` - Predefined class mappings
+- `datasets/settings_labels.json` - Label settings configuration
 
 Example `data.yaml`:
 
