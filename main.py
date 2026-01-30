@@ -1,3 +1,5 @@
+# Not used, but kept for reference
+
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
@@ -340,7 +342,8 @@ async def api_detect(
 
     if not weight_file:
         weight_file = pick_default_weight_file(selected_model) or ""
-        logger.log(logging.INFO, f"API detect: using default weight file: {weight_file}")
+        logger.log(
+            logging.INFO, f"API detect: using default weight file: {weight_file}")
     if not weight_file:
         raise HTTPException(
             status_code=400,
@@ -485,7 +488,8 @@ async def api_patch_object(result_id: str, obj_id: int, payload: dict = Body(...
 
     updates = {k: v for k, v in payload.items() if k in allowed_fields}
     if not updates:
-        raise HTTPException(status_code=400, detail="No valid fields to update")
+        raise HTTPException(
+            status_code=400, detail="No valid fields to update")
 
     target.update(updates)
     return target
@@ -498,7 +502,8 @@ async def api_create_object(result_id: str, payload: dict = Body(...)):
     objects = result.get("objects", [])
     required_fields = {"Object", "Left", "Top", "Width", "Height"}
     if not required_fields.issubset(payload.keys()):
-        raise HTTPException(status_code=400, detail="Missing required fields for new object")
+        raise HTTPException(
+            status_code=400, detail="Missing required fields for new object")
 
     object_name = str(payload.get("Object", "")).strip()
     if not object_name:
@@ -506,7 +511,8 @@ async def api_create_object(result_id: str, payload: dict = Body(...)):
 
     category_id = payload.get("CategoryID")
     if category_id is None:
-        matched = next((obj for obj in objects if obj.get("Object") == object_name), None)
+        matched = next((obj for obj in objects if obj.get(
+            "Object") == object_name), None)
         category_id = matched.get("CategoryID") if matched else 0
 
     try:
@@ -515,14 +521,17 @@ async def api_create_object(result_id: str, payload: dict = Body(...)):
         width = float(payload.get("Width"))
         height = float(payload.get("Height"))
     except (TypeError, ValueError):
-        raise HTTPException(status_code=400, detail="Invalid geometry for new object")
+        raise HTTPException(
+            status_code=400, detail="Invalid geometry for new object")
 
     if width <= 0 or height <= 0:
-        raise HTTPException(status_code=400, detail="Width and height must be positive")
+        raise HTTPException(
+            status_code=400, detail="Width and height must be positive")
 
     object_id = payload.get("ObjectID")
     if object_id is None:
-        object_id = sum(1 for obj in objects if obj.get("CategoryID") == category_id) + 1
+        object_id = sum(1 for obj in objects if obj.get(
+            "CategoryID") == category_id) + 1
 
     next_index = max((obj.get("Index", 0) for obj in objects), default=0) + 1
     new_obj = {
