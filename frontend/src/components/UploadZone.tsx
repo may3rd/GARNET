@@ -3,6 +3,8 @@ import { FileImage, Sparkles, Upload } from 'lucide-react'
 import { useAppStore } from '@/stores/appStore'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { extractPdfPages } from '@/lib/api'
+import { PdfPageSelector } from '@/components/PdfPageSelector'
 
 export function UploadZone() {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -12,14 +14,16 @@ export function UploadZone() {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
+  // PDF extraction state
+  const [pdfPages, setPdfPages] = useState<string[]>([])
+  const [pdfFileName, setPdfFileName] = useState('')
+  const [pdfModalOpen, setPdfModalOpen] = useState(false)
+  const [pdfLoading, setPdfLoading] = useState(false)
+
   const validateFile = useCallback((file: File) => {
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp']
-    if (file.type === 'application/pdf') {
-      setUploadError('PDF uploads are disabled until page-count validation is available.')
-      return false
-    }
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
     if (!validTypes.includes(file.type)) {
-      setUploadError('Unsupported file type. Upload a JPG, PNG, or WEBP image.')
+      setUploadError('Unsupported file type. Upload a JPG, PNG, WEBP, or PDF.')
       return false
     }
     setUploadError(null)
@@ -43,8 +47,72 @@ export function UploadZone() {
     setImageFile(file)
   }, [setImageFile, setImageMeta, validateFile])
 
+  const handlePdf = useCallback(async (file: File) => {
+    setPdfFileName(file.name)
+    setPdfModalOpen(true)
+    setPdfLoading(true)
+    setPdfPages([])
+    setUploadError(null)
+
+    try {
+      const result = await extractPdfPages(file)
+      setPdfPages(result.pages)
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : 'Failed to extract PDF pages')
+      setPdfModalOpen(false)
+    } finally {
+      setPdfLoading(false)
+    }
+  }, [])
+
+  const handlePdfConfirm = useCallback((selectedIndices: number[]) => {
+    if (selectedIndices.length === 0) {
+      setPdfModalOpen(false)
+      return
+    }
+
+    // Convert selected base64 pages to File objects
+    const files: File[] = selectedIndices.map((index) => {
+      const b64 = pdfPages[index]
+      const binary = atob(b64)
+      const bytes = new Uint8Array(binary.length)
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i)
+      }
+      const blob = new Blob([bytes], { type: 'image/png' })
+      const baseName = pdfFileName.replace(/\.pdf$/i, '')
+      return new File([blob], `${baseName}_page${index + 1}.png`, { type: 'image/png' })
+    })
+
+    setPdfModalOpen(false)
+    setPdfPages([])
+
+    if (files.length === 1) {
+      handleFile(files[0])
+    } else {
+      setBatchFiles(files)
+    }
+  }, [pdfPages, pdfFileName, handleFile, setBatchFiles])
+
+  const handlePdfCancel = useCallback(() => {
+    setPdfModalOpen(false)
+    setPdfPages([])
+  }, [])
+
   const handleFiles = useCallback((files: FileList | File[]) => {
     const fileArray = Array.from(files)
+
+    // Handle PDF separately
+    const pdfFile = fileArray.find((file) => file.type === 'application/pdf')
+    if (pdfFile) {
+      if (fileArray.length > 1) {
+        setUploadError('Please upload PDFs one at a time.')
+        return
+      }
+      handlePdf(pdfFile)
+      return
+    }
+
     const validFiles = fileArray.filter((file) => validateFile(file))
     if (validFiles.length === 0) return
     if (validFiles.length === 1) {
@@ -52,7 +120,7 @@ export function UploadZone() {
       return
     }
     setBatchFiles(validFiles)
-  }, [handleFile, setBatchFiles, validateFile])
+  }, [handleFile, handlePdf, setBatchFiles, validateFile])
 
   const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault()
@@ -88,6 +156,15 @@ export function UploadZone() {
 
   return (
     <div className="flex flex-col items-center justify-center h-full px-6 py-10">
+      <PdfPageSelector
+        open={pdfModalOpen}
+        pages={pdfPages}
+        fileName={pdfFileName}
+        isLoading={pdfLoading}
+        onConfirm={handlePdfConfirm}
+        onCancel={handlePdfCancel}
+      />
+
       <div
         onClick={() => inputRef.current?.click()}
         onDrop={handleDrop}
@@ -130,8 +207,7 @@ export function UploadZone() {
             <div className="text-lg font-semibold">Drop P&amp;ID image(s) here</div>
             <div className="text-sm text-[var(--text-secondary)] mt-1">or click to browse</div>
           </div>
-          <div className="text-xs text-[var(--text-secondary)]">Supports: JPG, PNG, WEBP (single or batch)</div>
-          <div className="text-[11px] text-[var(--text-secondary)]">PDF uploads are temporarily disabled.</div>
+          <div className="text-xs text-[var(--text-secondary)]">Supports: JPG, PNG, WEBP, PDF</div>
         </div>
         <Upload className="absolute right-6 bottom-6 h-5 w-5 text-[var(--text-secondary)]" />
       </div>

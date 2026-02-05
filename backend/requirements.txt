@@ -39,4 +39,4 @@ jupyter
 seaborn
 pytlsd
 paddlepaddle
-paddleocr
+paddleocrpdf2image

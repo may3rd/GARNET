@@ -243,3 +243,33 @@ export async function createResultObject(
     timeoutMs
   )
 }
+
+export type PdfExtractResult = {
+  count: number
+  pages: string[] // base64-encoded PNG images
+}
+
+/**
+ * Extract pages from a PDF file as base64-encoded PNG images.
+ * The backend converts each page at 150 DPI with a max of 50 pages.
+ */
+export async function extractPdfPages(
+  file: File,
+  timeoutMs = 120000 // 2 minutes for potentially large PDFs
+): Promise<PdfExtractResult> {
+  const formData = new FormData()
+  formData.append('file_input', file)
+
+  const response = await fetch('/api/pdf-extract', {
+    method: 'POST',
+    body: formData,
+    signal: createTimeoutSignal(timeoutMs),
+  })
+
+  if (!response.ok) {
+    const message = await response.text()
+    throw new APIError(message || 'PDF extraction failed', response.status)
+  }
+
+  return response.json()
+}

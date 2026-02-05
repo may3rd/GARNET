@@ -283,6 +283,57 @@ async def api_health():
     return {"status": "healthy"}
 
 
+@app.post("/api/pdf-extract")
+async def api_pdf_extract(
+    file_input: UploadFile = File(...),
+):
+    """
+    Extract pages from a PDF as base64-encoded PNG images.
+    Returns JSON with page count and list of base64 image strings.
+    """
+    import base64
+    from io import BytesIO
+
+    try:
+        from pdf2image import convert_from_bytes
+    except ImportError:
+        raise HTTPException(
+            status_code=500,
+            detail="pdf2image is not installed. Run: pip install pdf2image",
+        )
+
+    MAX_PAGES = 50
+    DPI = 300
+
+    logger.info(f"PDF extract: received file {file_input.filename}")
+
+    if not file_input.filename or not file_input.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="File must be a PDF")
+
+    try:
+        pdf_bytes = await file_input.read()
+        images = convert_from_bytes(pdf_bytes, dpi=DPI)
+    except Exception as e:
+        logger.error(f"PDF extraction failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to read PDF: {str(e)}")
+
+    if len(images) > MAX_PAGES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"PDF has {len(images)} pages, maximum allowed is {MAX_PAGES}",
+        )
+
+    pages: list[str] = []
+    for i, img in enumerate(images):
+        buffer = BytesIO()
+        img.save(buffer, format="PNG")
+        buffer.seek(0)
+        b64 = base64.b64encode(buffer.read()).decode("utf-8")
+        pages.append(b64)
+        logger.info(f"PDF extract: converted page {i + 1}/{len(images)}")
+
+    return {"count": len(pages), "pages": pages}
+
 @app.get("/api/model-types")
 async def api_model_types():
     """Get available model types."""
