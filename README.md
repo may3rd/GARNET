@@ -47,7 +47,7 @@ GARNET follows a modern client-server architecture with a clear separation betwe
 │  │  └────────────────────────┘  │          │  │  OpenCV (Image Proc)  │  │ │
 │  │                              │          │  └───────────────────────┘  │ │
 │  │  Port: 5173 (dev) / 80/443   │          │  Port: 8001                 │ │
-│  │  frontend/                   │          │  api.py                     │ │
+│  frontend/                   │          │  backend/main.py            │ │
 │  └──────────────────────────────┘          └─────────────────────────────┘ │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -110,21 +110,15 @@ frontend/
 #### Backend Structure
 
 ```
-GARNET/
-├── api.py                   # Main FastAPI application entry point
-├── main.py                  # Legacy Flask application (optional)
+backend/
+├── main.py                  # Main FastAPI application entry point
+├── api.py                   # Alternative API service (optimized)
 ├── requirements.txt         # Python dependencies
 ├── .env                     # Environment configuration
-├── garnet/
-│   ├── object_and_text_detect.py  # Core detection logic
-│   ├── text_ocr.py          # OCR text extraction
-│   ├── connectivity_graph.py # Graph analysis utilities
-│   ├── pid_extractor.py     # End-to-end pipeline
-│   ├── Settings.py          # Application settings
-│   └── utils/               # Utility functions
-├── datasets/
-│   └── yaml/                # Dataset configuration files
-└── static/
+├── garnet/                  # Core logic package
+├── datasets/                # Dataset configuration files
+├── yolo_weights/            # Model weights
+└── static/                  # Static assets
     └── images/predictions/  # Generated prediction images
 ```
 
@@ -188,7 +182,9 @@ cd ..
 ### 3. Install Python Dependencies
 
 ```bash
+cd backend
 pip install -r requirements.txt
+cd ..
 ```
 
 ### 4. Install Frontend Dependencies
@@ -228,7 +224,8 @@ This is the primary mode for interactive P&ID analysis. The React frontend provi
 cp .env.example .env
 
 # Start FastAPI server
-uvicorn api:app --reload --port 8001
+cd backend
+uvicorn main:app --reload --port 8001
 ```
 
 Backend runs at `http://localhost:8001` with auto-reload enabled for development.
@@ -337,7 +334,8 @@ This creates an optimized build in the `frontend/dist/` directory.
 
     ```bash
     # Backend production start
-    gunicorn api:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8001
+    cd backend
+    gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8001
     ```
 
 2. **Combined Serving**

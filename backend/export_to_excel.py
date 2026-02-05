@@ -225,7 +225,7 @@ def run_prediction_and_export_excel(
                     text_threshold=0.7,
                     allowlist=allowlist,
                 )
-                text = " ".join(ocr_result) if ocr_result else ""
+                text = " ".join(str(item) for item in ocr_result) if ocr_result else ""
             else:
                 text = ""
 
