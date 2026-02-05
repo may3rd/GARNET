@@ -396,7 +396,7 @@ export function BatchResultsView() {
                     </Button>
                   )}
                   {item.status === 'done' && (
-                    <Button size="sm" variant="ghost" onClick={() => openBatchResult(item.id)}>
+                    <Button size="sm" onClick={() => openBatchResult(item.id)}>
                       Open
                     </Button>
                   )}

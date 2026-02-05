@@ -151,18 +151,20 @@ export function ResultsView() {
     }
   }, [selectedObjectKey])
 
+  const activeFile = useMemo(() => {
+    if (!batch.activeItemId) return null
+    return batch.items.find((item) => item.id === batch.activeItemId)?.file || null
+  }, [batch.activeItemId, batch.items])
+
   useEffect(() => {
-    const activeItem = batch.activeItemId
-      ? batch.items.find((item) => item.id === batch.activeItemId)
-      : null
-    if (!activeItem?.file) {
+    if (!activeFile) {
       setLocalImageUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev)
         return null
       })
       return
     }
-    const url = URL.createObjectURL(activeItem.file)
+    const url = URL.createObjectURL(activeFile)
     setLocalImageUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev)
       return url
@@ -170,7 +172,7 @@ export function ResultsView() {
     return () => {
       URL.revokeObjectURL(url)
     }
-  }, [batch.activeItemId, batch.items])
+  }, [activeFile])
 
   useEffect(() => {
     if (!batch.activeItemId) return
