@@ -148,10 +148,14 @@ export function UploadZone() {
   }, [handleFiles])
 
   const handleSample = useCallback(async () => {
-    const response = await fetch('/static/images/prediction_results.png')
-    if (!response.ok) return
-    const blob = await response.blob()
-    handleFile(new File([blob], 'sample_pid.png', { type: blob.type }))
+    const samplePaths = ['/sample.png']
+    for (const path of samplePaths) {
+      const response = await fetch(path)
+      if (!response.ok) continue
+      const blob = await response.blob()
+      handleFile(new File([blob], 'sample_pid.png', { type: 'image/png' }))
+      return
+    }
   }, [handleFile])
 
   return (

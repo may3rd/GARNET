@@ -162,6 +162,8 @@ cython_debug/
 .qodo/
 */.DS_Store
 .DS_Store
+.ruff_cache/
+.claude/
 
 # Backend ignores
 backend/__pycache__/

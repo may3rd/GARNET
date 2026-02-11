@@ -25,6 +25,7 @@ import datetime
 import pandas as pd
 import logging
 import uuid
+import inspect
 
 from garnet import utils
 import garnet.Settings as Settings
@@ -47,6 +48,16 @@ logger = logging.getLogger(__name__)
 
 # In-memory store for detection results.
 RESULTS_STORE: dict[str, dict] = {}
+
+BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+RUNS_DIR = os.path.join(BACKEND_DIR, "runs")
+DETECT_DIR = os.path.join(RUNS_DIR, "detect")
+ULTRALYTICS_RUNS_DIR = os.path.join(BACKEND_DIR, ".ultralytics_runs")
+os.makedirs(DETECT_DIR, exist_ok=True)
+os.makedirs(ULTRALYTICS_RUNS_DIR, exist_ok=True)
+
+MODEL_LIST: list[dict] | None = None
+CONFIG_FILE_LIST: list[dict] | None = None
 
 
 def load_class_names_from_yaml(yaml_path: str) -> list[str]:
@@ -87,7 +98,7 @@ def list_weight_files(weight_paths: list = [os.path.join(settings.MODEL_PATH, "*
     """
     Return the list of model in the `weight_paths` paths.
     """
-    logger.log(logging.INFO, f"Load weight files from {weight_paths}")
+    # logger.log(logging.INFO, f"Load weight files from {weight_paths}")
     weight_files = []
 
     for path in weight_paths:
@@ -95,7 +106,7 @@ def list_weight_files(weight_paths: list = [os.path.join(settings.MODEL_PATH, "*
         file_list.sort()
         for item in file_list:
             weight_files.append({"item": item})
-            logger.log(logging.INFO, f"Found weight file: {item}")
+            # logger.log(logging.INFO, f"Found weight file: {item}")
 
     logger.log(logging.INFO, f"Found {len(weight_files)} weight files.")
     return weight_files
@@ -112,7 +123,7 @@ def list_config_files() -> list:
 
     for item in file_list:
         config_files.append({"item": item})
-        logger.log(logging.INFO, f"Found config file: {item}")
+        # logger.log(logging.INFO, f"Found config file: {item}")
 
     logger.log(logging.INFO, f"Found {len(config_files)} config files.")
     return config_files
@@ -138,7 +149,8 @@ def get_result_or_404(result_id: str) -> dict:
 
 
 def pick_default_weight_file(model_type: str) -> str | None:
-    weight_files = extract_item_list(MODEL_LIST)
+    model_list, _ = ensure_model_and_config_loaded()
+    weight_files = extract_item_list(model_list)
     if not weight_files:
         return None
     if model_type == "ultralytics":
@@ -148,12 +160,31 @@ def pick_default_weight_file(model_type: str) -> str | None:
     return weight_files[0]
 
 
-logger.log(logging.INFO, f"* *********************************** *")
-logger.log(logging.INFO, f"* Preloading weight files and configs *")
-logger.log(logging.INFO, f"* *********************************** *")
+def ensure_model_and_config_loaded() -> tuple[list[dict], list[dict]]:
+    global MODEL_LIST, CONFIG_FILE_LIST
+    if MODEL_LIST is None or CONFIG_FILE_LIST is None:
+        logger.log(logging.INFO, f"Preloading weight files and configs")
+        MODEL_LIST = list_weight_files()
+        CONFIG_FILE_LIST = list_config_files()
+    return MODEL_LIST, CONFIG_FILE_LIST  # type: ignore[return-value]
 
-MODEL_LIST = list_weight_files()
-CONFIG_FILE_LIST = list_config_files()
+
+def configure_ultralytics_runs_dir() -> None:
+    try:
+        from ultralytics import settings as ultralytics_settings
+
+        if ultralytics_settings.get("runs_dir") != ULTRALYTICS_RUNS_DIR:
+            ultralytics_settings.update({"runs_dir": ULTRALYTICS_RUNS_DIR})
+            logger.log(
+                logging.INFO,
+                f"Set Ultralytics runs_dir to {ULTRALYTICS_RUNS_DIR}",
+            )
+    except Exception as exc:
+        logger.warning(f"Failed to configure Ultralytics runs_dir: {exc}")
+
+
+configure_ultralytics_runs_dir()
+
 
 
 def extract_text_from_image(
@@ -261,7 +292,7 @@ def extract_text_from_image(
 
 
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/runs", StaticFiles(directory=RUNS_DIR), name="runs")
 
 # Add CORS middleware for React frontend
 app.add_middleware(
@@ -354,7 +385,8 @@ async def api_models():
 async def api_weight_files():
     """Get available weight files."""
     try:
-        return extract_item_list(MODEL_LIST)
+        model_list, _ = ensure_model_and_config_loaded()
+        return extract_item_list(model_list)
     except Exception as exc:
         logger.error(f"Error loading weight files: {exc}")
         return []
@@ -364,7 +396,8 @@ async def api_weight_files():
 async def api_config_files():
     """Get available config files."""
     try:
-        return extract_item_list(CONFIG_FILE_LIST)
+        _, config_file_list = ensure_model_and_config_loaded()
+        return extract_item_list(config_file_list)
     except Exception as exc:
         logger.error(f"Error loading config files: {exc}")
         return ["datasets/yaml/data.yaml"]
@@ -412,10 +445,30 @@ async def api_detect(
         logging.INFO, f"API detect: original image shape: {image.shape}, processed image shape: {processed_image.shape}")
 
     # Set up the model
+    from_pretrained_kwargs: dict = {
+        "model_type": selected_model,
+        "model_path": weight_file,
+        "confidence_threshold": conf_th,
+    }
+    sig = inspect.signature(AutoDetectionModel.from_pretrained)
+    if selected_model == "ultralytics":
+        predict_kwargs = {
+            "save": False,
+            "save_txt": False,
+            "save_conf": False,
+            "save_crop": False,
+            "show": False,
+            "verbose": False,
+        }
+        if "task" in sig.parameters:
+            from_pretrained_kwargs["task"] = "detect"
+        if "model_kwargs" in sig.parameters:
+            from_pretrained_kwargs["model_kwargs"] = {
+                "task": "detect",
+                **predict_kwargs,
+            }
     detection_model: DetectionModel = AutoDetectionModel.from_pretrained(
-        model_type=selected_model,
-        model_path=weight_file,
-        confidence_threshold=conf_th,
+        **from_pretrained_kwargs
     )
 
     # Calculate overlap and run detection
@@ -434,11 +487,12 @@ async def api_detect(
         postprocess_match_metric="IOU",
         postprocess_match_threshold=0.2,
         verbose=0,
+        exclude_classes_by_name=["line number", "instrument tag", "instrument dcs", "instrument logic", "trip function"],
     )
 
     result_id = uuid.uuid4().hex
     image_filename = f"prediction_results_{result_id}.png"
-    image_path = os.path.join("static", "images", image_filename)
+    image_path = os.path.join(DETECT_DIR, image_filename)
     cv2.imwrite(image_path, original_image)
 
     # Process results
@@ -447,6 +501,8 @@ async def api_detect(
     category_object_count = [0 for _ in range(
         len(list(detection_model.category_mapping.values())))]  # type: ignore
 
+    logger.log(logging.INFO, f"API detect: number of predictions: {len(result.object_prediction_list)}")
+    
     for index, prediction in enumerate(result.object_prediction_list):
         bbox = prediction.bbox
         x_min, y_min, x_max, y_max = bbox.minx, bbox.miny, bbox.maxx, bbox.maxy
@@ -454,8 +510,8 @@ async def api_detect(
         height = y_max - y_min
         object_category = prediction.category.name
         object_category_id = prediction.category.id
-        logger.log(
-            logging.INFO, f"API detect: prediction {index}: raw bbox minx={x_min}, miny={y_min}, maxx={x_max}, maxy={y_max}, width={width}, height={height}")
+        # logger.log(
+        #     logging.INFO, f"API detect: prediction {index}: raw bbox minx={int(x_min)}, miny={int(y_min)}, maxx={int(x_max)}, maxy={int(y_max)}, width={int(width)}, height={int(height)}")
 
         table_data.append({
             "Index": index + 1,
@@ -493,7 +549,7 @@ async def api_detect(
     result_payload = {
         "id": result_id,
         "objects": sorted_data,
-        "image_url": f"/static/images/{image_filename}",
+        "image_url": f"/runs/detect/{image_filename}",
         "image_width": int(original_image.shape[1]),
         "image_height": int(original_image.shape[0]),
         "count": len(sorted_data),
@@ -565,10 +621,10 @@ async def api_create_object(result_id: str, payload: dict = Body(...)):
         category_id = matched.get("CategoryID") if matched else 0
 
     try:
-        left = float(payload.get("Left"))
-        top = float(payload.get("Top"))
-        width = float(payload.get("Width"))
-        height = float(payload.get("Height"))
+        left = float(payload.get("Left", 0))
+        top = float(payload.get("Top", 0))
+        width = float(payload.get("Width", 0))
+        height = float(payload.get("Height", 0))
     except (TypeError, ValueError):
         raise HTTPException(
             status_code=400, detail="Invalid geometry for new object")
