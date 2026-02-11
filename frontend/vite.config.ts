@@ -26,7 +26,7 @@ export default defineConfig(({ mode }) => {
           target: apiTarget,
           changeOrigin: true,
         },
-        '/static': {
+        '/runs': {
           target: apiTarget,
           changeOrigin: true,
         },

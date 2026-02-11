@@ -37,6 +37,11 @@ import garnet.Settings as Settings
 # Environment-based Configuration
 # =============================================================================
 
+BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+RUNS_DIR = os.path.join(BACKEND_DIR, "runs")
+DETECT_DIR = os.path.join(RUNS_DIR, "detect")
+ULTRALYTICS_RUNS_DIR = os.path.join(BACKEND_DIR, ".ultralytics_runs")
+
 
 class AppConfig:
     """Application configuration from environment variables."""
@@ -75,10 +80,11 @@ class AppConfig:
     DEFAULT_OVERLAP_RATIO = float(os.getenv("DEFAULT_OVERLAP_RATIO", "0.2"))
 
     # Paths
-    PREDICTIONS_DIR = os.getenv("PREDICTIONS_DIR", "static/images/predictions")
+    PREDICTIONS_DIR = os.getenv("PREDICTIONS_DIR", DETECT_DIR)
 
 
 config = AppConfig()
+os.makedirs(ULTRALYTICS_RUNS_DIR, exist_ok=True)
 
 # =============================================================================
 # Logging Configuration
@@ -116,6 +122,20 @@ _ensure_logger_has_file_handler(logger)
 _ensure_logger_has_stream_handler(logger)
 
 
+def configure_ultralytics_runs_dir() -> None:
+    try:
+        from ultralytics import settings as ultralytics_settings
+
+        if ultralytics_settings.get("runs_dir") != ULTRALYTICS_RUNS_DIR:
+            ultralytics_settings.update({"runs_dir": ULTRALYTICS_RUNS_DIR})
+            logger.info(f"Set Ultralytics runs_dir to {ULTRALYTICS_RUNS_DIR}")
+    except Exception as exc:
+        logger.warning(f"Failed to configure Ultralytics runs_dir: {exc}")
+
+
+configure_ultralytics_runs_dir()
+
+
 # Filter a noisy Ultralytics warning by message substring.
 class _UltralyticsTaskGuessFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
@@ -144,8 +164,15 @@ class DetectRequest(BaseModel):
         default=0.8, ge=0.0, le=1.0, description="Confidence threshold"
     )
     image_size: int = Field(
-        default=640, ge=320, le=2048, description="Image size for inference"
+        default=640, ge=320, le=2048, description="Image size for inference (must be multiple of 32)"
     )
+
+    @field_validator("image_size")
+    @classmethod
+    def validate_image_size(cls, v: int) -> int:
+        if v % 32 != 0:
+            raise ValueError(f"image_size must be a multiple of 32, got {v}")
+        return v
     overlap_ratio: float = Field(
         default=0.2, ge=0.0, le=0.95, description="Slice overlap ratio"
     )
@@ -154,16 +181,26 @@ class DetectRequest(BaseModel):
     @field_validator("weight_file")
     @classmethod
     def validate_weight_file(cls, v: str) -> str:
-        if v and not os.path.exists(v):
-            # Allow empty string (will use default)
-            if v.strip():
-                raise ValueError(f"Weight file not found: {v}")
+        if not v or not v.strip():
+            return v
+        resolved = os.path.realpath(v)
+        allowed_dir = os.path.realpath(Settings.Settings().MODEL_PATH)
+        if not resolved.startswith(allowed_dir + os.sep) and resolved != allowed_dir:
+            raise ValueError(f"Weight file must be inside {allowed_dir}")
+        if not os.path.exists(resolved):
+            raise ValueError(f"Weight file not found: {v}")
         return v
 
     @field_validator("config_file")
     @classmethod
     def validate_config_file(cls, v: str) -> str:
-        if v and not os.path.exists(v):
+        if not v or not v.strip():
+            return v
+        resolved = os.path.realpath(v)
+        allowed_dir = os.path.realpath("datasets/yaml")
+        if not resolved.startswith(allowed_dir + os.sep) and resolved != allowed_dir:
+            raise ValueError(f"Config file must be inside {allowed_dir}")
+        if not os.path.exists(resolved):
             raise ValueError(f"Config file not found: {v}")
         return v
 
@@ -227,6 +264,8 @@ settings = Settings.Settings()
 
 # Cache detection models across requests
 MODEL_CACHE: dict[tuple, DetectionModel] = {}
+MODEL_CACHE_LOCK = threading.Lock()
+MODEL_CACHE_MAX_SIZE = int(os.getenv("MODEL_CACHE_MAX_SIZE", "10"))
 
 # Model loading status for health check
 MODELS_LOADED = False
@@ -318,9 +357,11 @@ def get_cached_detection_model(
     image_size: int,
 ) -> DetectionModel:
     cache_key = (selected_model, weight_file, conf_th, image_size)
-    cached = MODEL_CACHE.get(cache_key)
-    if cached is not None:
-        return cached
+
+    with MODEL_CACHE_LOCK:
+        cached = MODEL_CACHE.get(cache_key)
+        if cached is not None:
+            return cached
 
     from_pretrained_kwargs: dict = {
         "model_type": selected_model,
@@ -333,13 +374,31 @@ def get_cached_detection_model(
         from_pretrained_kwargs["image_size"] = image_size
 
     if selected_model == "ultralytics":
+        predict_kwargs = {
+            "save": False,
+            "save_txt": False,
+            "save_conf": False,
+            "save_crop": False,
+            "show": False,
+            "verbose": False,
+        }
         if "task" in sig.parameters:
             from_pretrained_kwargs["task"] = "detect"
-        elif "model_kwargs" in sig.parameters:
-            from_pretrained_kwargs["model_kwargs"] = {"task": "detect"}
+        if "model_kwargs" in sig.parameters:
+            from_pretrained_kwargs["model_kwargs"] = {
+                "task": "detect",
+                **predict_kwargs,
+            }
 
     detection_model = AutoDetectionModel.from_pretrained(**from_pretrained_kwargs)
-    MODEL_CACHE[cache_key] = detection_model
+
+    with MODEL_CACHE_LOCK:
+        if MODEL_CACHE_MAX_SIZE > 0 and len(MODEL_CACHE) >= MODEL_CACHE_MAX_SIZE:
+            oldest_key = next(iter(MODEL_CACHE))
+            del MODEL_CACHE[oldest_key]
+            logger.info(f"Evicted model from cache (max size {MODEL_CACHE_MAX_SIZE})")
+        MODEL_CACHE[cache_key] = detection_model
+
     return detection_model
 
 
@@ -538,8 +597,8 @@ app = FastAPI(
     title="GARNET API", description="P&ID Object Detection API Service", version="1.0.0"
 )
 
-# Mount static files for serving images
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# Mount run artifacts for serving images
+app.mount("/runs", StaticFiles(directory=RUNS_DIR), name="runs")
 
 # CORS configuration from environment
 origins = [o.strip() for o in config.ALLOWED_ORIGINS.split(",") if o.strip()]
@@ -777,7 +836,7 @@ async def api_detect(
     result_payload = {
         "id": result_id,
         "objects": sorted_data,
-        "image_url": f"/static/images/predictions/{image_filename}",
+        "image_url": f"/runs/detect/{image_filename}",
         "image_width": int(original_image.shape[1]),
         "image_height": int(original_image.shape[0]),
         "count": len(sorted_data),

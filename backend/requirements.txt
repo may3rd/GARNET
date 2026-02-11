@@ -40,3 +40,5 @@ seaborn
 pytlsd
 paddlepaddle
 paddleocr
+pdf2image
+psutil

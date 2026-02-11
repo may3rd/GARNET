@@ -155,31 +155,37 @@ cython_debug/
 
 # Custom
 .idea/
-output/
-yolo_weights/
-*/.DS_Store
-.DS_Store
 .vscode/
 *.zip
-runs/
-PTTEP/
-sahi_slice/data/*
-sahi_slice/sliced/*
+*.pt
 .conda/
 .qodo/
-predictions/*
-datasets/iso*
-temp/
-test/*
-*.pt
-# *.png
-# *.json
-# garnet/setpoint*
-output/
-out/
-DeepLSD/
-datesets/
+*/.DS_Store
+.DS_Store
+.ruff_cache/
+.claude/
 
+# Backend ignores
+backend/__pycache__/
+backend/*.bak
+backend/*.log
+backend/output/
+backend/out/
+backend/temp/
+backend/test/
+backend/predictions/
+backend/runs/
+backend/yolo_weights/
+backend/sahi_slice/data/
+backend/sahi_slice/sliced/
+backend/static/images/prediction*.png
+backend/static/images/predictions/
+backend/datasets/iso*
+
+# Frontend ignores
 frontend/node_modules
-static/images/prediction*.png
-static/images/predictions/
+frontend/dist
+
+# External
+DeepLSD/
+PTTEP/

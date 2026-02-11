@@ -31,6 +31,7 @@ export function exportYolo(
   imageHeight: number,
   classIdMap: Map<number, number>,
 ): string {
+  if (imageWidth <= 0 || imageHeight <= 0) return ''
   const lines: string[] = []
   for (const obj of objects) {
     const classId = classIdMap.get(obj.CategoryID) ?? 0
