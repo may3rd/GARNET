@@ -7,6 +7,7 @@ This is the API-only backend service. Run with:
 The React frontend should run separately on port 5173 (dev) or be built for production.
 """
 
+import base64
 import datetime
 import glob
 import inspect
@@ -16,6 +17,7 @@ import os
 import threading
 import time
 import uuid
+from io import BytesIO
 
 import cv2
 import numpy as np
@@ -26,6 +28,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pdf2image import convert_from_bytes
 from pydantic import BaseModel, Field, field_validator
 from sahi import AutoDetectionModel, DetectionModel
 from sahi.predict import get_sliced_prediction
@@ -62,6 +65,8 @@ class AppConfig:
     # File Upload Limits
     MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "50"))
     MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+    MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "50"))
+    PDF_DPI = int(os.getenv("PDF_DPI", "300"))
     ALLOWED_IMAGE_EXTENSIONS = os.getenv(
         "ALLOWED_IMAGE_EXTENSIONS", ".jpg,.jpeg,.png,.webp,.bmp,.tiff"
     ).split(",")
@@ -681,6 +686,44 @@ async def api_config_files():
     except Exception as exc:
         logger.error(f"Error loading config files: {exc}")
         return ["datasets/yaml/data.yaml"]
+
+
+@app.post("/api/pdf-extract")
+async def api_pdf_extract(file_input: UploadFile = File(...)):
+    """Extract PDF pages and return base64-encoded PNG images."""
+    if not file_input.filename or not file_input.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="File must be a PDF")
+
+    pdf_bytes = await file_input.read()
+    await file_input.close()
+    if not pdf_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded PDF is empty")
+
+    if len(pdf_bytes) > config.MAX_FILE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File too large. Maximum size: {config.MAX_FILE_SIZE_MB}MB",
+        )
+
+    try:
+        images = convert_from_bytes(pdf_bytes, dpi=config.PDF_DPI)
+    except Exception as exc:
+        logger.error(f"PDF extraction failed: {exc}")
+        raise HTTPException(status_code=400, detail=f"Failed to read PDF: {exc}") from exc
+
+    if len(images) > config.MAX_PDF_PAGES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"PDF has {len(images)} pages, maximum allowed is {config.MAX_PDF_PAGES}",
+        )
+
+    pages: list[str] = []
+    for image in images:
+        buffer = BytesIO()
+        image.save(buffer, format="PNG")
+        pages.append(base64.b64encode(buffer.getvalue()).decode("utf-8"))
+
+    return {"count": len(pages), "pages": pages}
 
 
 @app.post("/api/detect")

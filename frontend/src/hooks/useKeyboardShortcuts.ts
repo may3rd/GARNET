@@ -53,18 +53,24 @@ export function useKeyboardShortcuts({
         return
       }
 
-      if (event.key === 'Tab') {
-        event.preventDefault()
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
         if (!objects.length) return
+        event.preventDefault()
         const currentIndex = selectedObjectKey
           ? objects.findIndex((obj) => objectKey(obj) === selectedObjectKey)
           : -1
-        const direction = event.shiftKey ? -1 : 1
+        const direction = event.key === 'ArrowLeft' ? -1 : 1
         const nextIndex = currentIndex === -1
-          ? 0
+          ? (direction === -1 ? objects.length - 1 : 0)
           : (currentIndex + direction + objects.length) % objects.length
         const nextKey = objectKey(objects[nextIndex])
         onSelectObject(nextKey)
+        return
+      }
+
+      if (event.key === 'Escape' && selectedObjectKey) {
+        event.preventDefault()
+        onSelectObject(null)
         return
       }
 

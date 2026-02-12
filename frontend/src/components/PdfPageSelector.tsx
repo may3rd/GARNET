@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -23,6 +23,11 @@ export function PdfPageSelector({
     onCancel,
 }: PdfPageSelectorProps) {
     const [selected, setSelected] = useState<Set<number>>(() => new Set(pages.map((_, i) => i)))
+
+    useEffect(() => {
+        if (!open) return
+        setSelected(new Set(pages.map((_, i) => i)))
+    }, [open, pages])
 
     const togglePage = (index: number) => {
         setSelected((prev) => {
@@ -78,7 +83,7 @@ export function PdfPageSelector({
                             </span>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto grid grid-cols-4 gap-3 p-1">
+                        <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 p-1">
                             {pages.map((b64, index) => (
                                 <button
                                     key={index}

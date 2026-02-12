@@ -45,9 +45,9 @@ export default function App() {
         {currentView === 'empty' && <UploadZone />}
 
         {currentView === 'preview' && (
-          <div className="flex h-full">
+          <div className="flex h-full flex-col lg:flex-row">
             <PreviewPane />
-            <div className="w-[320px] border-l border-[var(--border-muted)] bg-[var(--bg-secondary)] overflow-y-auto">
+            <div className="w-full lg:w-[320px] border-t lg:border-t-0 lg:border-l border-[var(--border-muted)] bg-[var(--bg-secondary)] overflow-y-auto max-h-[45vh] lg:max-h-none">
               <DetectionSetup />
             </div>
           </div>
@@ -56,9 +56,9 @@ export default function App() {
         {currentView === 'processing' && <ProcessingView />}
 
         {currentView === 'batch' && (
-          <div className="flex h-full">
+          <div className="flex h-full flex-col lg:flex-row">
             <BatchResultsView />
-            <div className="w-[320px] border-l border-[var(--border-muted)] bg-[var(--bg-secondary)] overflow-y-auto">
+            <div className="w-full lg:w-[320px] border-t lg:border-t-0 lg:border-l border-[var(--border-muted)] bg-[var(--bg-secondary)] overflow-y-auto max-h-[45vh] lg:max-h-none">
               <DetectionSetup />
             </div>
           </div>

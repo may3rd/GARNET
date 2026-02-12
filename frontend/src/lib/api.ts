@@ -24,13 +24,62 @@ const defaultOptions: DetectionOptions = {
 const DEFAULT_TIMEOUT = 300000 // 5 minutes for detection (can be slow for large images)
 const DEFAULT_REQUEST_TIMEOUT = 30000 // 30 seconds for regular API requests
 
-/**
- * Creates an AbortSignal with timeout
- */
 function createTimeoutSignal(timeoutMs: number): AbortSignal {
   const controller = new AbortController()
   setTimeout(() => controller.abort(), timeoutMs)
   return controller.signal
+}
+
+type RequestSignalBundle = {
+  signal: AbortSignal
+  cleanup: () => void
+  isCanceled: () => boolean
+}
+
+function createRequestSignal(parentSignal: AbortSignal | undefined, timeoutMs: number): RequestSignalBundle {
+  let canceled = false
+  const timeoutController = new AbortController()
+  const timeoutId = window.setTimeout(() => {
+    timeoutController.abort()
+  }, timeoutMs)
+
+  if (!parentSignal) {
+    return {
+      signal: timeoutController.signal,
+      cleanup: () => window.clearTimeout(timeoutId),
+      isCanceled: () => false,
+    }
+  }
+
+  const combinedController = new AbortController()
+
+  const abortFromParent = () => {
+    if (combinedController.signal.aborted) return
+    canceled = true
+    combinedController.abort()
+  }
+
+  const abortFromTimeout = () => {
+    if (combinedController.signal.aborted) return
+    combinedController.abort()
+  }
+
+  parentSignal.addEventListener('abort', abortFromParent, { once: true })
+  timeoutController.signal.addEventListener('abort', abortFromTimeout, { once: true })
+
+  if (parentSignal.aborted) {
+    abortFromParent()
+  }
+
+  return {
+    signal: combinedController.signal,
+    cleanup: () => {
+      window.clearTimeout(timeoutId)
+      parentSignal.removeEventListener('abort', abortFromParent)
+      timeoutController.signal.removeEventListener('abort', abortFromTimeout)
+    },
+    isCanceled: () => canceled,
+  }
 }
 
 /**
@@ -40,7 +89,8 @@ export class APIError extends Error {
   constructor(
     message: string,
     public status?: number,
-    public isTimeout = false
+    public isTimeout = false,
+    public isCanceled = false
   ) {
     super(message)
     this.name = 'APIError'
@@ -64,14 +114,13 @@ export async function runDetection(
   formData.append('overlap_ratio', String(payload.overlapRatio))
   formData.append('text_OCR', String(payload.textOCR))
 
-  // Use provided signal or create a timeout signal
-  const requestSignal = signal ?? createTimeoutSignal(timeoutMs)
+  const requestSignal = createRequestSignal(signal, timeoutMs)
 
   try {
     const response = await fetch('/api/detect', {
       method: 'POST',
       body: formData,
-      signal: requestSignal,
+      signal: requestSignal.signal,
     })
 
     if (!response.ok) {
@@ -86,6 +135,9 @@ export async function runDetection(
     }
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
+        if (requestSignal.isCanceled()) {
+          throw new APIError('Detection canceled', undefined, false, true)
+        }
         throw new APIError(
           `Request timed out after ${timeoutMs / 1000} seconds. The detection may be taking too long for this image.`,
           undefined,
@@ -95,6 +147,8 @@ export async function runDetection(
       throw new APIError(error.message)
     }
     throw new APIError('An unknown error occurred')
+  } finally {
+    requestSignal.cleanup()
   }
 }
 
@@ -103,13 +157,12 @@ async function requestJson<T>(
   init?: RequestInit,
   timeoutMs = DEFAULT_REQUEST_TIMEOUT
 ): Promise<T> {
-  // Use provided signal or create a timeout signal
-  const requestSignal = init?.signal ?? createTimeoutSignal(timeoutMs)
+  const requestSignal = createRequestSignal(init?.signal, timeoutMs)
 
   try {
     const response = await fetch(url, {
       ...init,
-      signal: requestSignal,
+      signal: requestSignal.signal,
     })
     if (!response.ok) {
       const message = await response.text()
@@ -122,6 +175,9 @@ async function requestJson<T>(
     }
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
+        if (requestSignal.isCanceled()) {
+          throw new APIError('Request canceled', undefined, false, true)
+        }
         throw new APIError(
           `Request timed out after ${timeoutMs / 1000} seconds`,
           undefined,
@@ -131,6 +187,8 @@ async function requestJson<T>(
       throw new APIError(error.message)
     }
     throw new APIError('An unknown error occurred')
+  } finally {
+    requestSignal.cleanup()
   }
 }
 
@@ -251,7 +309,7 @@ export type PdfExtractResult = {
 
 /**
  * Extract pages from a PDF file as base64-encoded PNG images.
- * The backend converts each page at 150 DPI with a max of 50 pages.
+ * Conversion settings (DPI/page limit) are enforced by backend configuration.
  */
 export async function extractPdfPages(
   file: File,

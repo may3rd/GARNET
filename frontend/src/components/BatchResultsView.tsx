@@ -262,7 +262,7 @@ export function BatchResultsView() {
           )}
         </DialogContent>
       </Dialog>
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-muted)]">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between px-4 lg:px-6 py-4 border-b border-[var(--border-muted)]">
         <div>
           <div className="text-sm font-semibold">Batch Processing</div>
           <div className="text-xs text-[var(--text-secondary)]">
@@ -271,7 +271,7 @@ export function BatchResultsView() {
             {failedCount > 0 ? ` · ${failedCount} failed` : ''}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <input
             ref={fileInputRef}
             className="hidden"

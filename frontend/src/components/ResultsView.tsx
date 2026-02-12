@@ -35,8 +35,11 @@ export function ResultsView() {
   const [isCreating, setIsCreating] = useState(false)
   const [createDraft, setCreateDraft] = useState<EditDraft | null>(null)
   const [createError, setCreateError] = useState<string | null>(null)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => (typeof window !== 'undefined' ? window.innerWidth >= 1024 : true)
+  )
   const [localImageUrl, setLocalImageUrl] = useState<string | null>(null)
+  const [syncNotice, setSyncNotice] = useState<string | null>(null)
   const hasResult = Boolean(result)
 
   const handleExport = (format: ExportFormat, filter: 'all' | 'accepted' | 'rejected' | 'visible') => {
@@ -106,7 +109,7 @@ export function ResultsView() {
             const blob = await generatePdfReport(result, reviewStatus, '')
             download(blob, `${baseName}-report.pdf`)
           } catch {
-            // Both attempts failed - silently continue as there's no user-facing recovery
+            setSyncNotice('Unable to generate PDF report right now. Please try again.')
           }
         }
       })()
@@ -192,6 +195,12 @@ export function ResultsView() {
     }
   }, [isCreating])
 
+  useEffect(() => {
+    if (!syncNotice) return
+    const timeoutId = window.setTimeout(() => setSyncNotice(null), 4000)
+    return () => window.clearTimeout(timeoutId)
+  }, [syncNotice])
+
   const selectAndCenter = (key: string | null) => {
     if (!result) return
     setSelectedObjectKey(key)
@@ -245,7 +254,7 @@ export function ResultsView() {
       const updated = await updateResultObject(result.id, obj.Index, { ReviewStatus: status })
       updateObject(updated)
     } catch {
-      // Keep UX responsive; error is intentionally silent to avoid disrupting workflow
+      setSyncNotice('Saved locally, but failed to sync review status to backend.')
     }
   }
 
@@ -257,7 +266,7 @@ export function ResultsView() {
   useKeyboardShortcuts({
     objects: visibleObjects,
     selectedObjectKey,
-    onSelectObject: setSelectedObjectKey,
+    onSelectObject: selectAndCenter,
     onAccept: (key) => setReviewStatusPersisted(key, 'accepted'),
     onReject: (key) => setReviewStatusPersisted(key, 'rejected'),
     onFit: () => canvasRef.current?.fitToScreen(),
@@ -361,7 +370,7 @@ export function ResultsView() {
   }
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full relative">
       <div className="flex-1 relative">
         <CanvasView
           ref={canvasRef}
@@ -418,14 +427,19 @@ export function ResultsView() {
             {createError}
           </div>
         )}
+        {syncNotice && (
+          <div className="absolute top-4 left-4 z-20 max-w-sm text-xs text-[var(--danger)] bg-[var(--bg-secondary)] border border-[var(--border-muted)] px-3 py-2 rounded-lg">
+            {syncNotice}
+          </div>
+        )}
       </div>
       {/* Sidebar toggle handle */}
       <button
         type="button"
         onClick={() => setSidebarOpen((prev) => !prev)}
         className={cn(
-          'w-3 shrink-0 flex items-center justify-center',
-          'bg-[var(--bg-secondary)] border-l-2 border-[var(--border-muted)]',
+          'absolute right-0 top-0 z-40 h-full w-7 md:static md:w-3 shrink-0 flex items-center justify-center',
+          'bg-[var(--bg-secondary)] border-l-2 border-[var(--border-muted)] shadow-sm md:shadow-none',
           'hover:bg-[var(--bg-primary)] hover:border-[var(--accent)] transition-colors cursor-pointer'
         )}
         title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
@@ -434,8 +448,8 @@ export function ResultsView() {
       </button>
       {/* Sidebar */}
       <div className={cn(
-        'shrink-0 transition-all duration-200 ease-out overflow-hidden',
-        sidebarOpen ? 'w-[320px]' : 'w-0'
+        'absolute right-0 top-0 z-30 h-full md:relative md:z-auto shrink-0 transition-all duration-200 ease-out overflow-hidden',
+        sidebarOpen ? 'w-[85vw] max-w-[320px] md:w-[320px]' : 'w-0'
       )}>
         <ObjectSidebar
           objects={result!.objects}

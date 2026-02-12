@@ -67,7 +67,7 @@ GARNET follows a modern client-server architecture with a clear separation betwe
 │  │  └────────────────────────┘  │          │  │  OpenCV (Image Proc)  │  │ │
 │  │                              │          │  └───────────────────────┘  │ │
 │  │  Port: 5173 (dev) / 80/443   │          │  Port: 8001                 │ │
-│  frontend/                   │          │  backend/main.py            │ │
+│  frontend/                   │          │  backend/api.py             │ │
 │  └──────────────────────────────┘          └─────────────────────────────┘ │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -131,8 +131,8 @@ frontend/
 
 ```
 backend/
-├── main.py                  # Main FastAPI application entry point
-├── api.py                   # Alternative API service (optimized)
+├── api.py                   # Canonical FastAPI application entry point
+├── main.py                  # Compatibility shim that re-exports api:app
 ├── requirements.txt         # Python dependencies
 ├── .env                     # Environment configuration
 ├── garnet/                  # Core logic package
@@ -152,6 +152,7 @@ backend/
 | GET    | `/api/models`                               | Get model type values                           |
 | GET    | `/api/weight-files`                         | Get available model weight files                |
 | GET    | `/api/config-files`                         | Get available dataset config files              |
+| POST   | `/api/pdf-extract`                          | Extract PDF pages to PNG images                 |
 | POST   | `/api/detect`                               | Run object detection on uploaded image          |
 | GET    | `/api/results/{result_id}`                  | Fetch a previously detected result              |
 | PATCH  | `/api/results/{result_id}/objects/{obj_id}` | Update a detected object                        |
@@ -288,7 +289,7 @@ cp .env.example .env
 
 # Start FastAPI server
 cd backend
-uvicorn main:app --reload --port 8001
+uvicorn api:app --reload --port 8001
 ```
 
 Backend runs at `http://localhost:8001` with auto-reload enabled for development.
@@ -419,7 +420,7 @@ This creates an optimized build in the `frontend/dist/` directory.
     ```bash
     # Backend production start
     cd backend
-    gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8001
+    gunicorn api:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8001
     ```
 
 2. **Combined Serving**
@@ -596,8 +597,8 @@ The frontend supports the following keyboard shortcuts for efficient navigation 
 | Shortcut                        | Action                           |
 | ------------------------------- | -------------------------------- |
 | `←` / `→`                       | Navigate to previous/next object |
-| `A`                             | Accept selected object           |
-| `R`                             | Reject selected object           |
+| `Enter`                         | Accept selected object           |
+| `Delete` / `Backspace`          | Reject selected object           |
 | `Ctrl + Z`                      | Undo last action                 |
 | `Ctrl + Y` / `Ctrl + Shift + Z` | Redo last action                 |
 | `F`                             | Fit image to screen              |

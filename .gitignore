@@ -181,6 +181,8 @@ backend/sahi_slice/sliced/
 backend/static/images/prediction*.png
 backend/static/images/predictions/
 backend/datasets/iso*
+backend/.ultralytics_runs/
+backend/datasets/
 
 # Frontend ignores
 frontend/node_modules

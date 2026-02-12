@@ -75,7 +75,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 <h2 className="text-lg font-semibold text-[var(--text-primary)]">
                   Something went wrong
                 </h2>
-                <p className="text-sm text-[var(--text-muted)]">
+                <p className="text-sm text-[var(--text-secondary)]">
                   An unexpected error occurred
                 </p>
               </div>
@@ -92,7 +92,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 <summary className="text-sm text-[var(--text-secondary)] cursor-pointer hover:text-[var(--text-primary)]">
                   Stack trace
                 </summary>
-                <pre className="mt-2 text-xs text-[var(--text-muted)] bg-[var(--bg-primary)] rounded-lg p-3 overflow-auto max-h-40">
+                <pre className="mt-2 text-xs text-[var(--text-secondary)] bg-[var(--bg-primary)] rounded-lg p-3 overflow-auto max-h-40">
                   {this.state.errorInfo.componentStack}
                 </pre>
               </details>

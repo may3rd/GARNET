@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { AppView, BatchItem, DetectedObject, DetectionResult } from '@/types'
-import { runDetection, type DetectionOptions } from '@/lib/api'
+import { APIError, runDetection, type DetectionOptions } from '@/lib/api'
 import { useHistoryStore, type HistoryAction } from '@/stores/historyStore'
 import { objectKey } from '@/lib/objectKey'
 
@@ -331,7 +331,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         batch: { ...get().batch, activeItemId: null },
       })
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
+      if (error instanceof APIError && error.isCanceled) {
         set({
           isProcessing: false,
           currentView: 'preview',
@@ -430,11 +430,11 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
               entry.id === item.id
                 ? { ...entry, status: 'done', result, error: undefined }
                 : entry
-            ),
-          },
-        }))
+              ),
+            },
+          }))
       } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') {
+        if (error instanceof APIError && error.isCanceled) {
           set((state) => ({
             batch: {
               ...state.batch,
