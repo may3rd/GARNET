@@ -334,6 +334,12 @@ DEFAULT_CONF_THRESHOLD=0.8
 DEFAULT_IMAGE_SIZE=640
 DEFAULT_OVERLAP_RATIO=0.2
 
+# Gemini / OpenRouter (required when using model=gemini)
+OPENROUTER_API_KEY=
+OPENROUTER_MODEL=google/gemini-3-flash-preview
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_TEMPERATURE=0.7
+
 # Cache Configuration
 RESULTS_CACHE_MAX_SIZE=100
 RESULTS_CACHE_TTL=3600
@@ -377,8 +383,8 @@ The Detection Setup panel in the frontend provides the following options:
 
 | Parameter                | Description                              | Default                   | Range         |
 | ------------------------ | ---------------------------------------- | ------------------------- | ------------- |
-| **Model**                | Detection model type                     | `ultralytics`             | `ultralytics` |
-| **Weight File**          | Path to model weights (`.pt` or `.onnx`) | Auto-selected             | -             |
+| **Model**                | Detection model type                     | `ultralytics`             | `ultralytics`, `gemini` |
+| **Weight File**          | Path to model weights (`.pt` or `.onnx`) | Auto-selected             | Ultralytics only |
 | **Config File**          | YAML dataset configuration               | `datasets/yaml/data.yaml` | -             |
 | **Confidence Threshold** | Minimum detection confidence             | `0.8`                     | `0.0 - 1.0`   |
 | **Image Size**           | Input size for model inference           | `640`                     | `320 - 2048`  |
@@ -391,7 +397,7 @@ The Detection Setup panel in the frontend provides the following options:
 | ---------------------- | ------------------------------------------------------------------------ |
 | **Minimap**            | Navigate large images with a minimap showing viewport position           |
 | **Zoom Controls**      | Zoom in/out, reset to 100%, fit to screen                                |
-| **Keyboard Shortcuts** | Arrow keys for navigation, A/R for accept/reject, Ctrl+Z/Y for undo/redo |
+| **Keyboard Shortcuts** | Arrow keys for navigation, Enter/Delete for accept/reject, Ctrl+Z/Y for undo/redo |
 | **Object Editing**     | Click to select, drag to move, resize handles to adjust bounding box     |
 | **Create Object**      | Draw new bounding boxes on canvas to add custom objects                  |
 | **Delete Object**      | Remove objects with confirmation                                         |

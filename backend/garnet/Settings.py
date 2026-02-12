@@ -11,6 +11,7 @@ class Settings:
     MODEL_PATH = "yolo_weights"
     MODEL_TYPES = [
         {"name": 'ultralytics', "value": 'ultralytics'},
+        {"name": 'gemini', "value": 'gemini'},
         ]
     SYMBOL_WITH_TEXT = [
         "page connection",

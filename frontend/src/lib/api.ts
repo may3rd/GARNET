@@ -228,7 +228,7 @@ function normalizeStringList(input: unknown, key?: string): string[] {
 export async function getModels(timeoutMs = DEFAULT_REQUEST_TIMEOUT): Promise<string[]> {
   const data = await getJson<unknown>('/api/models', [], timeoutMs)
   const models = normalizeStringList(data, 'value')
-  return models.length ? models : ['ultralytics']
+  return models.length ? models : ['ultralytics', 'gemini']
 }
 
 export async function getWeightFiles(timeoutMs = DEFAULT_REQUEST_TIMEOUT): Promise<string[]> {

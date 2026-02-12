@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
@@ -169,6 +170,107 @@ class GeminiSahiDetector(DetectionModel):
         except Exception as save_err:
             print(f"Failed to save debug inference artifacts: {save_err}")
 
+    @staticmethod
+    def _extract_json_candidate(raw: str) -> str:
+        text = raw.strip()
+        if text.startswith("```"):
+            lines = text.splitlines()
+            if lines and lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].startswith("```"):
+                lines = lines[:-1]
+            text = "\n".join(lines).strip()
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            return text[start : end + 1]
+        return text
+
+    @staticmethod
+    def _repair_trailing_commas(text: str) -> str:
+        return re.sub(r",(\s*[}\]])", r"\1", text)
+
+    @staticmethod
+    def _repair_unescaped_quotes_for_field(text: str, field_name: str) -> str:
+        token = f'"{field_name}"'
+        i = 0
+        out_parts: list[str] = []
+
+        while i < len(text):
+            key_idx = text.find(token, i)
+            if key_idx == -1:
+                out_parts.append(text[i:])
+                break
+
+            out_parts.append(text[i : key_idx + len(token)])
+            i = key_idx + len(token)
+
+            while i < len(text) and text[i] != '"':
+                out_parts.append(text[i])
+                i += 1
+
+            if i >= len(text):
+                break
+
+            out_parts.append('"')
+            i += 1
+            escaped = False
+
+            while i < len(text):
+                ch = text[i]
+                if escaped:
+                    out_parts.append(ch)
+                    escaped = False
+                    i += 1
+                    continue
+                if ch == "\\":
+                    out_parts.append(ch)
+                    escaped = True
+                    i += 1
+                    continue
+                if ch == '"':
+                    j = i + 1
+                    while j < len(text) and text[j].isspace():
+                        j += 1
+                    if j < len(text) and text[j] in {",", "}", "]"}:
+                        out_parts.append('"')
+                        i += 1
+                        break
+                    out_parts.append('\\"')
+                    i += 1
+                    continue
+                out_parts.append(ch)
+                i += 1
+
+        return "".join(out_parts)
+
+    def _parse_model_json(self, content: str) -> dict[str, Any]:
+        base = self._extract_json_candidate(content)
+        attempts: list[str] = [
+            base,
+            self._repair_trailing_commas(base),
+        ]
+
+        repaired_text = self._repair_unescaped_quotes_for_field(base, "text_content")
+        attempts.append(repaired_text)
+        attempts.append(self._repair_trailing_commas(repaired_text))
+
+        seen: set[str] = set()
+        last_error: Exception | None = None
+        for candidate in attempts:
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            try:
+                return json.loads(candidate)
+            except Exception as exc:
+                last_error = exc
+                continue
+
+        if last_error is None:
+            raise GeminiSahiInferenceError("Unable to parse model JSON output")
+        raise GeminiSahiInferenceError(str(last_error)) from last_error
+
     def perform_inference(self, image: np.ndarray):
         """
         Takes a slice (numpy array), sends to Gemini, and stores results in
@@ -306,7 +408,7 @@ Generate the JSON response. **Return the JSON output exactly as specified.**
                 if self.raise_on_error:
                     raise GeminiSahiInferenceError(msg)
                 return
-            output = json.loads(content)
+            output = self._parse_model_json(content)
             self._last_model_output = output
 
             raw_annotations = output.get("annotations", [])

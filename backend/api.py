@@ -24,6 +24,7 @@ import numpy as np
 
 import easyocr
 import uvicorn
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -41,9 +42,14 @@ import garnet.Settings as Settings
 # =============================================================================
 
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(BACKEND_DIR)
 RUNS_DIR = os.path.join(BACKEND_DIR, "runs")
 DETECT_DIR = os.path.join(RUNS_DIR, "detect")
 ULTRALYTICS_RUNS_DIR = os.path.join(BACKEND_DIR, ".ultralytics_runs")
+
+# Load environment from repository root first, then backend-local fallback.
+load_dotenv(os.path.join(ROOT_DIR, ".env"), override=False)
+load_dotenv(os.path.join(BACKEND_DIR, ".env"), override=False)
 
 
 class AppConfig:
@@ -76,13 +82,25 @@ class AppConfig:
     RESULTS_CACHE_TTL = int(os.getenv("RESULTS_CACHE_TTL", "3600"))
 
     # Cleanup Configuration
-    PREDICTION_IMAGE_TTL_HOURS = int(os.getenv("PREDICTION_IMAGE_TTL_HOURS", "24"))
+    PREDICTION_IMAGE_TTL_HOURS = int(
+        os.getenv("PREDICTION_IMAGE_TTL_HOURS", "24"))
     CLEANUP_INTERVAL_MINUTES = int(os.getenv("CLEANUP_INTERVAL_MINUTES", "60"))
 
     # Model Defaults
     DEFAULT_CONF_THRESHOLD = float(os.getenv("DEFAULT_CONF_THRESHOLD", "0.8"))
     DEFAULT_IMAGE_SIZE = int(os.getenv("DEFAULT_IMAGE_SIZE", "640"))
     DEFAULT_OVERLAP_RATIO = float(os.getenv("DEFAULT_OVERLAP_RATIO", "0.2"))
+    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
+    OPENROUTER_MODEL = (
+        os.getenv("OPENROUTER_MODEL", "google/gemini-3-flash-preview").strip()
+        or "google/gemini-3-flash-preview"
+    )
+    OPENROUTER_BASE_URL = (
+        os.getenv("OPENROUTER_BASE_URL",
+                  "https://openrouter.ai/api/v1").strip()
+        or "https://openrouter.ai/api/v1"
+    )
+    OPENROUTER_TEMPERATURE = float(os.getenv("OPENROUTER_TEMPERATURE", "0.7"))
 
     # Paths
     PREDICTIONS_DIR = os.getenv("PREDICTIONS_DIR", DETECT_DIR)
@@ -96,7 +114,8 @@ os.makedirs(ULTRALYTICS_RUNS_DIR, exist_ok=True)
 # =============================================================================
 
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "garnet.log")
+log_file = os.path.join(os.path.dirname(
+    os.path.abspath(__file__)), "garnet.log")
 
 
 def _ensure_logger_has_file_handler(target: logging.Logger) -> None:
@@ -160,7 +179,8 @@ logging.getLogger("ultralytics").addFilter(_UltralyticsTaskGuessFilter())
 class DetectRequest(BaseModel):
     """Validated detection request parameters."""
 
-    selected_model: str = Field(default="ultralytics", description="Model type to use")
+    selected_model: str = Field(
+        default="ultralytics", description="Model type to use")
     weight_file: str = Field(default="", description="Path to model weights")
     config_file: str = Field(
         default="datasets/yaml/data.yaml", description="Path to config YAML"
@@ -181,7 +201,20 @@ class DetectRequest(BaseModel):
     overlap_ratio: float = Field(
         default=0.2, ge=0.0, le=0.95, description="Slice overlap ratio"
     )
-    text_ocr: bool = Field(default=False, description="Enable OCR for text extraction")
+    text_ocr: bool = Field(
+        default=False, description="Enable OCR for text extraction")
+
+    @field_validator("selected_model")
+    @classmethod
+    def validate_selected_model(cls, v: str) -> str:
+        allowed = {
+            str(item.get("value"))
+            for item in Settings.Settings().MODEL_TYPES
+            if isinstance(item, dict) and item.get("value")
+        }
+        if v not in allowed:
+            raise ValueError(f"Unsupported model type: {v}")
+        return v
 
     @field_validator("weight_file")
     @classmethod
@@ -218,14 +251,19 @@ class CreateObjectRequest(BaseModel):
     )
     Left: float = Field(..., ge=0, description="Left coordinate")
     Top: float = Field(..., ge=0, description="Top coordinate")
-    Width: float = Field(..., gt=0, le=10000, description="Width (must be positive)")
-    Height: float = Field(..., gt=0, le=10000, description="Height (must be positive)")
-    Text: str = Field(default="", max_length=500, description="Associated text")
+    Width: float = Field(..., gt=0, le=10000,
+                         description="Width (must be positive)")
+    Height: float = Field(..., gt=0, le=10000,
+                          description="Height (must be positive)")
+    Text: str = Field(default="", max_length=500,
+                      description="Associated text")
     CategoryID: int | None = Field(
         default=None, ge=0, description="Category ID (optional)"
     )
-    ObjectID: int | None = Field(default=None, ge=1, description="Object ID (optional)")
-    Score: float = Field(default=1.0, ge=0.0, le=1.0, description="Confidence score")
+    ObjectID: int | None = Field(
+        default=None, ge=1, description="Object ID (optional)")
+    Score: float = Field(default=1.0, ge=0.0, le=1.0,
+                         description="Confidence score")
 
 
 class UpdateObjectRequest(BaseModel):
@@ -327,7 +365,8 @@ def cleanup_results_cache() -> None:
                 RESULTS_STORE.pop(rid, None)
 
         if max_size > 0 and len(RESULTS_STORE) > max_size:
-            oldest_first = sorted(RESULTS_CREATED_AT.items(), key=lambda kv: kv[1])
+            oldest_first = sorted(
+                RESULTS_CREATED_AT.items(), key=lambda kv: kv[1])
             to_remove = len(RESULTS_STORE) - max_size
             for rid, _created in oldest_first[:to_remove]:
                 RESULTS_CREATED_AT.pop(rid, None)
@@ -368,40 +407,72 @@ def get_cached_detection_model(
         if cached is not None:
             return cached
 
-    from_pretrained_kwargs: dict = {
-        "model_type": selected_model,
-        "model_path": weight_file,
-        "confidence_threshold": conf_th,
-    }
+    if selected_model == "gemini":
+        if not config.OPENROUTER_API_KEY:
+            raise RuntimeError(
+                "OPENROUTER_API_KEY is required for gemini detector")
+        try:
+            from gemini_detector import GeminiSahiConfig, GeminiSahiDetector
+        except Exception as exc:
+            try:
+                from backend.gemini_detector import GeminiSahiConfig, GeminiSahiDetector
+            except Exception as inner_exc:
+                raise RuntimeError(
+                    "Gemini detector dependencies are unavailable. Install `openai` and ensure `gemini_detector` is importable."
+                ) from inner_exc
 
-    sig = inspect.signature(AutoDetectionModel.from_pretrained)
-    if "image_size" in sig.parameters:
-        from_pretrained_kwargs["image_size"] = image_size
-
-    if selected_model == "ultralytics":
-        predict_kwargs = {
-            "save": False,
-            "save_txt": False,
-            "save_conf": False,
-            "save_crop": False,
-            "show": False,
-            "verbose": False,
+        detection_model = GeminiSahiDetector(
+            confidence_threshold=conf_th,
+            device="cpu",
+            load_at_init=False,
+            raise_on_error=True,
+        )
+        detection_model.set_config(
+            GeminiSahiConfig(
+                openrouter_api_key=config.OPENROUTER_API_KEY,
+                model_name=config.OPENROUTER_MODEL,
+                base_url=config.OPENROUTER_BASE_URL,
+                temperature=config.OPENROUTER_TEMPERATURE,
+            )
+        )
+        detection_model.load_model()
+    else:
+        from_pretrained_kwargs: dict = {
+            "model_type": selected_model,
+            "model_path": weight_file,
+            "confidence_threshold": conf_th,
         }
-        if "task" in sig.parameters:
-            from_pretrained_kwargs["task"] = "detect"
-        if "model_kwargs" in sig.parameters:
-            from_pretrained_kwargs["model_kwargs"] = {
-                "task": "detect",
-                **predict_kwargs,
-            }
 
-    detection_model = AutoDetectionModel.from_pretrained(**from_pretrained_kwargs)
+        sig = inspect.signature(AutoDetectionModel.from_pretrained)
+        if "image_size" in sig.parameters:
+            from_pretrained_kwargs["image_size"] = image_size
+
+        if selected_model == "ultralytics":
+            predict_kwargs = {
+                "save": False,
+                "save_txt": False,
+                "save_conf": False,
+                "save_crop": False,
+                "show": False,
+                "verbose": False,
+            }
+            if "task" in sig.parameters:
+                from_pretrained_kwargs["task"] = "detect"
+            if "model_kwargs" in sig.parameters:
+                from_pretrained_kwargs["model_kwargs"] = {
+                    "task": "detect",
+                    **predict_kwargs,
+                }
+
+        detection_model = AutoDetectionModel.from_pretrained(
+            **from_pretrained_kwargs)
 
     with MODEL_CACHE_LOCK:
         if MODEL_CACHE_MAX_SIZE > 0 and len(MODEL_CACHE) >= MODEL_CACHE_MAX_SIZE:
             oldest_key = next(iter(MODEL_CACHE))
             del MODEL_CACHE[oldest_key]
-            logger.info(f"Evicted model from cache (max size {MODEL_CACHE_MAX_SIZE})")
+            logger.info(
+                f"Evicted model from cache (max size {MODEL_CACHE_MAX_SIZE})")
         MODEL_CACHE[cache_key] = detection_model
 
     return detection_model
@@ -496,7 +567,8 @@ def pick_default_weight_file(model_type: str) -> str | None:
 
 def extract_text_from_image(image: np.ndarray, objects: list[dict]) -> list[list[str]]:
     """Extract text from image using easyOCR."""
-    logger.log(logging.INFO, f"Extract text from image with {len(objects)} objects.")
+    logger.log(
+        logging.INFO, f"Extract text from image with {len(objects)} objects.")
     if len(objects) < 1:
         return []
     try:
@@ -507,7 +579,8 @@ def extract_text_from_image(image: np.ndarray, objects: list[dict]) -> list[list
 
         logger.log(logging.INFO, "Start extracting text from image.")
         for index, obj in enumerate(objects):
-            logger.log(logging.INFO, f"Cropping object {index + 1} from image.")
+            logger.log(
+                logging.INFO, f"Cropping object {index + 1} from image.")
             x_start, y_start, x_end, y_end = (
                 obj["Left"],
                 obj["Top"],
@@ -524,7 +597,8 @@ def extract_text_from_image(image: np.ndarray, objects: list[dict]) -> list[list
                 (height, wide) = cropped_img.shape[:2]
                 if height > wide:
                     cropped_img = utils.rotate_image(cropped_img, 270)
-                    logger.log(logging.INFO, "Rotated cropped image for vertical text.")
+                    logger.log(
+                        logging.INFO, "Rotated cropped image for vertical text.")
 
             logger.log(logging.INFO, "Making line thickness 2.")
             inverted_img = cv2.bitwise_not(cropped_img)
@@ -537,7 +611,8 @@ def extract_text_from_image(image: np.ndarray, objects: list[dict]) -> list[list
             )
             cv2.imwrite(cropped_img_name, cropped_img)
 
-            logger.log(logging.INFO, "Reading text from cropped image with text.")
+            logger.log(
+                logging.INFO, "Reading text from cropped image with text.")
             result = reader.readtext(
                 cropped_img,
                 decoder="wordbeamsearch",
@@ -583,16 +658,30 @@ logger.log(logging.INFO, "* *********************************** *")
 MODEL_LIST = list_weight_files()
 CONFIG_FILE_LIST = list_config_files()
 
-# Preload at least one model to verify it works
+# Preload at least one model to verify API readiness.
 try:
+    preload_errors: list[str] = []
     default_weight = pick_default_weight_file("ultralytics")
     if default_weight:
-        logger.info(f"Preloading default model: {default_weight}")
+        logger.info(f"Preloading default ultralytics model: {default_weight}")
         _ = get_cached_detection_model("ultralytics", default_weight, 0.8, 640)
         MODELS_LOADED = True
-        logger.info("Model preloaded successfully")
+        logger.info("Ultralytics model preloaded successfully")
     else:
-        logger.warning("No weight files found for preloading")
+        preload_errors.append("No ultralytics weight files found")
+
+    if not MODELS_LOADED and config.OPENROUTER_API_KEY:
+        logger.info("Preloading gemini detector")
+        _ = get_cached_detection_model("gemini", "", 0.8, 640)
+        MODELS_LOADED = True
+        logger.info("Gemini detector preloaded successfully")
+    elif not MODELS_LOADED and not config.OPENROUTER_API_KEY:
+        preload_errors.append(
+            "OPENROUTER_API_KEY is not configured for gemini detector")
+
+    if not MODELS_LOADED and preload_errors:
+        MODEL_LOAD_ERROR = "; ".join(preload_errors)
+        logger.warning(MODEL_LOAD_ERROR)
 except Exception as e:
     MODEL_LOAD_ERROR = str(e)
     logger.error(f"Failed to preload model: {e}")
@@ -665,7 +754,7 @@ async def api_models():
         return [item["value"] for item in settings.MODEL_TYPES if "value" in item]
     except Exception as exc:
         logger.error(f"Error loading model types: {exc}")
-        return ["ultralytics"]
+        return ["ultralytics", "gemini"]
 
 
 @app.get("/api/weight-files")
@@ -709,7 +798,8 @@ async def api_pdf_extract(file_input: UploadFile = File(...)):
         images = convert_from_bytes(pdf_bytes, dpi=config.PDF_DPI)
     except Exception as exc:
         logger.error(f"PDF extraction failed: {exc}")
-        raise HTTPException(status_code=400, detail=f"Failed to read PDF: {exc}") from exc
+        raise HTTPException(
+            status_code=400, detail=f"Failed to read PDF: {exc}") from exc
 
     if len(images) > config.MAX_PDF_PAGES:
         raise HTTPException(
@@ -760,26 +850,42 @@ async def api_detect(
 
     await file_input.close()
 
+    # Gemini model does not use filesystem weight/config files.
+    normalized_weight_file = weight_file
+    normalized_config_file = config_file
+    if selected_model == "gemini":
+        normalized_weight_file = ""
+        normalized_config_file = ""
+
     # Validate form parameters using Pydantic
     try:
         params = DetectRequest(
             selected_model=selected_model,
-            weight_file=weight_file,
-            config_file=config_file,
+            weight_file=normalized_weight_file,
+            config_file=normalized_config_file,
             conf_th=conf_th,
             image_size=image_size,
             overlap_ratio=overlap_ratio,
             text_ocr=text_OCR,
         )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-    if not params.weight_file:
-        params.weight_file = pick_default_weight_file(params.selected_model) or ""
+    if params.selected_model == "gemini":
+        params.weight_file = ""
+        if not config.OPENROUTER_API_KEY:
+            raise HTTPException(
+                status_code=500,
+                detail="OPENROUTER_API_KEY is required for gemini model",
+            )
+    elif not params.weight_file:
+        params.weight_file = pick_default_weight_file(
+            params.selected_model) or ""
         logger.log(
             logging.INFO, f"API detect: using default weight file: {params.weight_file}"
         )
-    if not params.weight_file:
+    if params.selected_model != "gemini" and not params.weight_file:
         raise HTTPException(
             status_code=400,
             detail="No weight file available. Add a model under yolo_weights or select a weight file.",
@@ -799,29 +905,52 @@ async def api_detect(
     logger.log(logging.INFO, f"API detect: image shape: {image.shape}")
 
     # Calculate overlap and normalize image_size to a multiple of 32 (YOLO stride).
-    adjusted_image_size = (int(math.ceil((params.image_size + 1) / 32)) - 1) * 32
-    logger.log(logging.INFO, f"API detect: adjusted image_size: {adjusted_image_size}")
+    adjusted_image_size = (
+        int(math.ceil((params.image_size + 1) / 32)) - 1) * 32
+    logger.log(
+        logging.INFO, f"API detect: adjusted image_size: {adjusted_image_size}")
 
     # Set up the model (Ultralytics + SAHI)
-    detection_model = get_cached_detection_model(
-        selected_model=params.selected_model,
-        weight_file=params.weight_file,
-        conf_th=params.conf_th,
-        image_size=adjusted_image_size,
-    )
+    try:
+        detection_model = get_cached_detection_model(
+            selected_model=params.selected_model,
+            weight_file=params.weight_file,
+            conf_th=params.conf_th,
+            image_size=adjusted_image_size,
+        )
+    except Exception as exc:
+        logger.error(
+            f"Failed to initialize model '{params.selected_model}': {exc}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to initialize model '{params.selected_model}'",
+        ) from exc
 
-    result = get_sliced_prediction(
-        processed_image,
-        detection_model,
-        slice_height=adjusted_image_size,
-        slice_width=adjusted_image_size,
-        overlap_height_ratio=params.overlap_ratio,
-        overlap_width_ratio=params.overlap_ratio,
-        postprocess_type="NMM",
-        postprocess_match_metric="IOU",
-        postprocess_match_threshold=0.2,
-        verbose=0,
-    )
+    try:
+        result = get_sliced_prediction(
+            processed_image,
+            detection_model,
+            slice_height=adjusted_image_size,
+            slice_width=adjusted_image_size,
+            overlap_height_ratio=params.overlap_ratio,
+            overlap_width_ratio=params.overlap_ratio,
+            postprocess_type="NMM",
+            postprocess_match_metric="IOU",
+            postprocess_match_threshold=0.2,
+            verbose=0,
+        )
+    except Exception as exc:
+        logger.exception("Inference failed for model '%s': %s",
+                         params.selected_model, exc)
+        if params.selected_model == "gemini":
+            raise HTTPException(
+                status_code=502,
+                detail=f"Gemini inference failed: {exc}",
+            ) from exc
+        raise HTTPException(
+            status_code=500,
+            detail=f"Detection inference failed for model '{params.selected_model}'",
+        ) from exc
 
     result_id = uuid.uuid4().hex
     image_filename = f"prediction_results_{result_id}.png"
@@ -831,8 +960,7 @@ async def api_detect(
     # Process results
     table_data = []
     symbol_with_text = []
-    category_mapping = getattr(detection_model, "category_mapping", {}) or {}
-    category_object_count = [0 for _ in range(len(list(category_mapping.values())))]
+    category_object_count: dict[int, int] = {}
 
     for index, prediction in enumerate(result.object_prediction_list):
         bbox = prediction.bbox
@@ -840,26 +968,31 @@ async def api_detect(
         width = x_max - x_min
         height = y_max - y_min
         object_category = prediction.category.name
-        object_category_id = prediction.category.id
+        object_category_id = int(prediction.category.id)
+        next_object_id = category_object_count.get(object_category_id, 0) + 1
 
         table_data.append(
             {
                 "Index": index + 1,
                 "Object": object_category,
                 "CategoryID": object_category_id,
-                "ObjectID": category_object_count[object_category_id] + 1,
+                "ObjectID": next_object_id,
                 "Left": math.floor(x_min),
                 "Top": math.floor(y_min),
                 "Width": math.ceil(width),
                 "Height": math.ceil(height),
                 "Score": round(float(prediction.score.value), 3),
-                "Text": f"{object_category} - no. {category_object_count[object_category_id] + 1}",
+                "Text": f"{object_category} - no. {next_object_id}",
             }
         )
 
-        category_object_count[object_category_id] += 1
+        category_object_count[object_category_id] = next_object_id
 
-        if object_category in settings.SYMBOL_WITH_TEXT:
+        normalized_object_category = object_category.replace("_", " ")
+        if (
+            object_category in settings.SYMBOL_WITH_TEXT
+            or normalized_object_category in settings.SYMBOL_WITH_TEXT
+        ):
             symbol_with_text.append(table_data[-1])
 
     # OCR if enabled
@@ -872,7 +1005,8 @@ async def api_detect(
                 table_data[idx]["Text"] = txt_to_display
 
     # Sort by category then object ID
-    sorted_data = sorted(table_data, key=lambda x: (x["CategoryID"], x["ObjectID"]))
+    sorted_data = sorted(table_data, key=lambda x: (
+        x["CategoryID"], x["ObjectID"]))
     for i in range(len(sorted_data)):
         sorted_data[i]["Index"] = i + 1
 
@@ -904,14 +1038,16 @@ async def api_patch_object(result_id: str, obj_id: int, payload: UpdateObjectReq
         result = get_result_or_404(result_id)
         objects = result.get("objects", [])
 
-        target = next((obj for obj in objects if obj.get("Index") == obj_id), None)
+        target = next(
+            (obj for obj in objects if obj.get("Index") == obj_id), None)
         if not target:
             raise HTTPException(status_code=404, detail="Object not found")
 
         # Convert Pydantic model to dict, excluding None values
         updates = payload.model_dump(exclude_none=True)
         if not updates:
-            raise HTTPException(status_code=400, detail="No valid fields to update")
+            raise HTTPException(
+                status_code=400, detail="No valid fields to update")
 
         target.update(updates)
         return target
@@ -928,7 +1064,8 @@ async def api_create_object(result_id: str, payload: CreateObjectRequest):
         category_id = payload.CategoryID
         if category_id is None:
             matched = next(
-                (obj for obj in objects if obj.get("Object") == payload.Object), None
+                (obj for obj in objects if obj.get(
+                    "Object") == payload.Object), None
             )
             category_id = matched.get("CategoryID") if matched else 0
 
@@ -936,10 +1073,12 @@ async def api_create_object(result_id: str, payload: CreateObjectRequest):
         object_id = payload.ObjectID
         if object_id is None:
             object_id = (
-                sum(1 for obj in objects if obj.get("CategoryID") == category_id) + 1
+                sum(1 for obj in objects if obj.get(
+                    "CategoryID") == category_id) + 1
             )
 
-        next_index = max((obj.get("Index", 0) for obj in objects), default=0) + 1
+        next_index = max((obj.get("Index", 0)
+                         for obj in objects), default=0) + 1
         new_obj = {
             "Index": next_index,
             "Object": payload.Object,
@@ -964,7 +1103,8 @@ async def api_delete_object(result_id: str, obj_id: int):
     with RESULTS_LOCK:
         result = get_result_or_404(result_id)
         objects = result.get("objects", [])
-        updated_objects = [obj for obj in objects if obj.get("Index") != obj_id]
+        updated_objects = [
+            obj for obj in objects if obj.get("Index") != obj_id]
         if len(updated_objects) == len(objects):
             raise HTTPException(status_code=404, detail="Object not found")
         result["objects"] = updated_objects
@@ -977,4 +1117,5 @@ if __name__ == "__main__":
     logger.log(logging.INFO, "*     Starting GARNET API Service     *")
     logger.log(logging.INFO, f"*     Environment: {config.ENV:21} *")
     logger.log(logging.INFO, "* *********************************** *")
-    uvicorn.run("api:app", reload=config.DEBUG, port=config.PORT, host=config.HOST)
+    uvicorn.run("api:app", reload=config.DEBUG,
+                port=config.PORT, host=config.HOST)

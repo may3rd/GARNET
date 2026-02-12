@@ -5,7 +5,7 @@ import { getCategoryColor } from '@/lib/categoryColors'
 import { objectKey } from '@/lib/objectKey'
 import { ZoomControls } from '@/components/ZoomControls'
 import { cn } from '@/lib/utils'
-import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, Trash2, XCircle } from 'lucide-react'
+import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, Trash2, X, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -63,6 +63,7 @@ const RESIZE_HANDLE_THRESHOLD = 12
 const MIN_OBJECT_SIZE = 4
 const DRAG_DETECTION_THRESHOLD = 3
 const AUTO_FIT_MAX_ATTEMPTS = 10
+const CARD_MARGIN = 12
 
 export const CanvasView = forwardRef(function CanvasView(
   {
@@ -105,6 +106,14 @@ export const CanvasView = forwardRef(function CanvasView(
   const [hasAutoFit, setHasAutoFit] = useState(false)
   const [isImageLoading, setIsImageLoading] = useState(true)
   const [cardSize, setCardSize] = useState({ width: 240, height: 150 })
+  const [manualCardPosition, setManualCardPosition] = useState<{ left: number; top: number } | null>(null)
+  const [cardDragState, setCardDragState] = useState<{
+    pointerId: number
+    startClientX: number
+    startClientY: number
+    startLeft: number
+    startTop: number
+  } | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
   const autoFitAttemptsRef = useRef(0)
   const lastFitKeyRef = useRef<string | undefined>(undefined)
@@ -335,6 +344,16 @@ export const CanvasView = forwardRef(function CanvasView(
     }
   }, [selectedObjectKey, selectedObject])
 
+  useEffect(() => {
+    setManualCardPosition(null)
+    setCardDragState(null)
+  }, [imageUrl])
+
+  useEffect(() => {
+    setManualCardPosition(null)
+    setCardDragState(null)
+  }, [selectedObjectKey])
+
   const getImagePoint = (clientX: number, clientY: number) => {
     const container = containerRef.current
     if (!container) return null
@@ -521,6 +540,17 @@ export const CanvasView = forwardRef(function CanvasView(
     }
 
     return nextOffset
+  }
+
+  const clampCardPosition = (nextPosition: { left: number; top: number }) => {
+    const container = containerRef.current
+    if (!container) return nextPosition
+    const maxLeft = Math.max(CARD_MARGIN, container.clientWidth - cardSize.width - CARD_MARGIN)
+    const maxTop = Math.max(CARD_MARGIN, container.clientHeight - cardSize.height - CARD_MARGIN)
+    return {
+      left: Math.min(maxLeft, Math.max(CARD_MARGIN, nextPosition.left)),
+      top: Math.min(maxTop, Math.max(CARD_MARGIN, nextPosition.top)),
+    }
   }
 
   const zoomAt = (nextScale: number, centerX: number, centerY: number) => {
@@ -763,21 +793,51 @@ export const CanvasView = forwardRef(function CanvasView(
     setMinimapPointerId(null)
   }
 
-  const selectionCardStyle = (() => {
+  const autoSelectionCardPosition = (() => {
     if (!selectedObject || !containerRef.current) return null
-    const container = containerRef.current
-    const baseX = offset.x + (selectedObject.Left + selectedObject.Width) * scale + 12
+    const baseX = offset.x + (selectedObject.Left + selectedObject.Width) * scale + CARD_MARGIN
     const baseY = offset.y + selectedObject.Top * scale
-    const clampedX = Math.min(
-      container.clientWidth - cardSize.width - 12,
-      Math.max(12, baseX)
-    )
-    const clampedY = Math.min(
-      container.clientHeight - cardSize.height - 12,
-      Math.max(12, baseY)
-    )
-    return { left: clampedX, top: clampedY }
+    return clampCardPosition({ left: baseX, top: baseY })
   })()
+
+  const selectionCardStyle = (() => {
+    if (!autoSelectionCardPosition) return null
+    if (!manualCardPosition) return autoSelectionCardPosition
+    return clampCardPosition(manualCardPosition)
+  })()
+
+  const handleSelectionCardDragStart = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || !selectionCardStyle) return
+    event.preventDefault()
+    event.stopPropagation()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    const clampedCurrent = clampCardPosition(selectionCardStyle)
+    setManualCardPosition(clampedCurrent)
+    setCardDragState({
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startLeft: clampedCurrent.left,
+      startTop: clampedCurrent.top,
+    })
+  }
+
+  const handleSelectionCardDragMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!cardDragState || event.pointerId !== cardDragState.pointerId) return
+    event.preventDefault()
+    event.stopPropagation()
+    const nextLeft = cardDragState.startLeft + (event.clientX - cardDragState.startClientX)
+    const nextTop = cardDragState.startTop + (event.clientY - cardDragState.startClientY)
+    setManualCardPosition(clampCardPosition({ left: nextLeft, top: nextTop }))
+  }
+
+  const handleSelectionCardDragEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!cardDragState || event.pointerId !== cardDragState.pointerId) return
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    setCardDragState(null)
+  }
 
   // Move useMemo to top level - fixes React hooks rule violation
   const objectElements = useMemo(() => objects.map((obj) => {
@@ -992,7 +1052,33 @@ export const CanvasView = forwardRef(function CanvasView(
           className="absolute z-50 w-60 rounded-xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-3 shadow-lg"
           style={selectionCardStyle}
         >
-          <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 h-7 w-7 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            title="Close"
+            aria-label="Close selected object panel"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              onSelectObject(null)
+            }}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+          <div
+            className={cn(
+              'text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] select-none rounded-md -mx-1 px-1 py-0.5 pr-8 touch-none',
+              cardDragState ? 'cursor-grabbing' : 'cursor-grab'
+            )}
+            title="Drag panel"
+            onPointerDown={handleSelectionCardDragStart}
+            onPointerMove={handleSelectionCardDragMove}
+            onPointerUp={handleSelectionCardDragEnd}
+            onPointerCancel={handleSelectionCardDragEnd}
+            onLostPointerCapture={() => setCardDragState(null)}
+          >
             Selected object
           </div>
           {!isEditing ? (
