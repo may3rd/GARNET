@@ -43,3 +43,5 @@ paddlepaddle
 paddleocr
 pdf2image
 psutil
+google-genai # for google ai calling
+pillow

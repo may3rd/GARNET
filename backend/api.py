@@ -934,9 +934,9 @@ async def api_detect(
             slice_width=adjusted_image_size,
             overlap_height_ratio=params.overlap_ratio,
             overlap_width_ratio=params.overlap_ratio,
-            postprocess_type="NMM",
+            postprocess_type="GREEDYNMM",
             postprocess_match_metric="IOU",
-            postprocess_match_threshold=0.2,
+            postprocess_match_threshold=0.4,
             verbose=0,
         )
     except Exception as exc:
