@@ -14,6 +14,7 @@ import inspect
 import logging
 import math
 import os
+import re
 import threading
 import time
 import uuid
@@ -21,6 +22,7 @@ from io import BytesIO
 
 import cv2
 import numpy as np
+import pandas as pd
 
 import easyocr
 import uvicorn
@@ -28,6 +30,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pdf2image import convert_from_bytes
 from pydantic import BaseModel, Field, field_validator
@@ -201,6 +204,15 @@ class DetectRequest(BaseModel):
     overlap_ratio: float = Field(
         default=0.2, ge=0.0, le=0.95, description="Slice overlap ratio"
     )
+    postprocess_type: str = Field(
+        default="GREEDYNMM", description="Postprocess type: NMM, GREEDYNMM, or NMS"
+    )
+    postprocess_match_metric: str = Field(
+        default="IOS", description="Postprocess match metric: IOU or IOS"
+    )
+    postprocess_match_threshold: float = Field(
+        default=0.1, ge=0.0, le=1.0, description="Postprocess match threshold"
+    )
     text_ocr: bool = Field(
         default=False, description="Enable OCR for text extraction")
 
@@ -214,6 +226,26 @@ class DetectRequest(BaseModel):
         }
         if v not in allowed:
             raise ValueError(f"Unsupported model type: {v}")
+        return v
+
+    @field_validator("postprocess_type")
+    @classmethod
+    def validate_postprocess_type(cls, v: str) -> str:
+        allowed = {"NMM", "GREEDYNMM", "NMS"}
+        if v not in allowed:
+            raise ValueError(
+                f"Unsupported postprocess_type: {v}. Allowed: {sorted(allowed)}"
+            )
+        return v
+
+    @field_validator("postprocess_match_metric")
+    @classmethod
+    def validate_postprocess_match_metric(cls, v: str) -> str:
+        allowed = {"IOU", "IOS"}
+        if v not in allowed:
+            raise ValueError(
+                f"Unsupported postprocess_match_metric: {v}. Allowed: {sorted(allowed)}"
+            )
         return v
 
     @field_validator("weight_file")
@@ -291,6 +323,20 @@ class HealthResponse(BaseModel):
     models_available: int
     memory_usage_mb: float
     model_load_error: str | None = None
+
+
+class ExcelExportImageRequest(BaseModel):
+    """A single image payload for Excel export."""
+
+    file_name: str = Field(..., min_length=1, max_length=255)
+    objects: list[dict] = Field(default_factory=list)
+
+
+class ExcelExportRequest(BaseModel):
+    """Request payload for Excel export endpoint."""
+
+    images: list[ExcelExportImageRequest] = Field(min_length=1)
+    filename: str = Field(default="garnet-results.xlsx", min_length=1, max_length=255)
 
 
 # =============================================================================
@@ -647,6 +693,40 @@ def validate_image_file(file: UploadFile) -> None:
         )
 
 
+def sanitize_excel_sheet_name(name: str, fallback: str = "Sheet") -> str:
+    """Return a valid Excel worksheet name (max 31 chars, invalid chars removed)."""
+    cleaned = re.sub(r'[\[\]\*\?/:\\]', "_", (name or "").strip())
+    cleaned = cleaned.strip("'")
+    if not cleaned:
+        cleaned = fallback
+    return cleaned[:31]
+
+
+def make_unique_sheet_name(base_name: str, used: set[str]) -> str:
+    """Ensure worksheet names are unique within the workbook."""
+    candidate = sanitize_excel_sheet_name(base_name)
+    if candidate not in used:
+        used.add(candidate)
+        return candidate
+
+    suffix = 1
+    while True:
+        suffix_text = f"_{suffix}"
+        max_base_len = max(1, 31 - len(suffix_text))
+        next_candidate = f"{candidate[:max_base_len]}{suffix_text}"
+        if next_candidate not in used:
+            used.add(next_candidate)
+            return next_candidate
+        suffix += 1
+
+
+def normalize_excel_filename(filename: str) -> str:
+    cleaned = os.path.basename(filename).strip() or "garnet-results.xlsx"
+    if not cleaned.lower().endswith(".xlsx"):
+        cleaned = f"{cleaned}.xlsx"
+    return cleaned
+
+
 # =============================================================================
 # Application Initialization
 # =============================================================================
@@ -825,6 +905,10 @@ async def api_detect(
     conf_th: float = Form(0.8),
     image_size: int = Form(640),
     overlap_ratio: float = Form(0.2),
+    postprocess_type: str = Form("GREEDYNMM"),
+    postprocess_match_metric: str = Form("IOS"),
+    prostprocess_match_metric: str = Form(""),
+    postprocess_match_threshold: float = Form(0.1),
     text_OCR: bool = Form(False),
 ):
     """
@@ -859,6 +943,11 @@ async def api_detect(
 
     # Validate form parameters using Pydantic
     try:
+        resolved_postprocess_match_metric = (
+            prostprocess_match_metric
+            if prostprocess_match_metric in {"IOU", "IOS"}
+            else postprocess_match_metric
+        )
         params = DetectRequest(
             selected_model=selected_model,
             weight_file=normalized_weight_file,
@@ -866,6 +955,9 @@ async def api_detect(
             conf_th=conf_th,
             image_size=image_size,
             overlap_ratio=overlap_ratio,
+            postprocess_type=postprocess_type,
+            postprocess_match_metric=resolved_postprocess_match_metric,
+            postprocess_match_threshold=postprocess_match_threshold,
             text_ocr=text_OCR,
         )
     except ValueError as e:
@@ -934,9 +1026,9 @@ async def api_detect(
             slice_width=adjusted_image_size,
             overlap_height_ratio=params.overlap_ratio,
             overlap_width_ratio=params.overlap_ratio,
-            postprocess_type="GREEDYNMM",
-            postprocess_match_metric="IOU",
-            postprocess_match_threshold=0.4,
+            postprocess_type=params.postprocess_type,
+            postprocess_match_metric=params.postprocess_match_metric,
+            postprocess_match_threshold=params.postprocess_match_threshold,
             verbose=0,
         )
     except Exception as exc:
@@ -1023,6 +1115,72 @@ async def api_detect(
         RESULTS_CREATED_AT[result_id] = time.time()
     cleanup_results_cache()
     return JSONResponse(result_payload)
+
+
+@app.post("/api/export/excel")
+async def api_export_excel(payload: ExcelExportRequest):
+    """
+    Export single or batch detection results to an Excel workbook.
+    For batch exports, one worksheet is created per image.
+    """
+    if not payload.images:
+        raise HTTPException(status_code=400, detail="No images supplied for Excel export")
+
+    column_order = [
+        "Index",
+        "Object",
+        "CategoryID",
+        "ObjectID",
+        "Left",
+        "Top",
+        "Width",
+        "Height",
+        "Score",
+        "Text",
+        "ReviewStatus",
+    ]
+
+    workbook_buffer = BytesIO()
+    used_sheet_names: set[str] = set()
+
+    with pd.ExcelWriter(workbook_buffer, engine="openpyxl") as writer:
+        for idx, image in enumerate(payload.images, start=1):
+            source_name = os.path.splitext(os.path.basename(image.file_name))[0]
+            sheet_name = make_unique_sheet_name(
+                source_name if source_name else f"Image_{idx}",
+                used_sheet_names,
+            )
+
+            objects = image.objects or []
+            if not objects:
+                df = pd.DataFrame(columns=column_order)
+            else:
+                extra_columns = sorted(
+                    {
+                        key
+                        for obj in objects
+                        for key in obj.keys()
+                        if key not in column_order
+                    }
+                )
+                ordered_columns = [*column_order, *extra_columns]
+                normalized_rows = [
+                    {column: obj.get(column) for column in ordered_columns}
+                    for obj in objects
+                ]
+                df = pd.DataFrame(normalized_rows, columns=ordered_columns)
+
+            df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+    workbook_buffer.seek(0)
+    filename = normalize_excel_filename(payload.filename)
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+
+    return StreamingResponse(
+        workbook_buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers=headers,
+    )
 
 
 @app.get("/api/results/{result_id}")

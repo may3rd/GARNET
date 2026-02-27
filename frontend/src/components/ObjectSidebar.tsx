@@ -254,6 +254,7 @@ export function ObjectSidebar({
                   <div className="h-px bg-[var(--border-muted)] my-2" />
                   {([
                     { id: 'json', label: 'JSON' },
+                    { id: 'excel', label: 'Excel' },
                     { id: 'yolo', label: 'YOLO' },
                     { id: 'coco', label: 'COCO' },
                     { id: 'labelme', label: 'LabelMe' },

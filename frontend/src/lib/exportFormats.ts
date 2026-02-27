@@ -1,6 +1,6 @@
 import type { DetectedObject } from '@/types'
 
-export type ExportFormat = 'json' | 'yolo' | 'coco' | 'labelme' | 'pdf'
+export type ExportFormat = 'json' | 'yolo' | 'coco' | 'labelme' | 'pdf' | 'excel'
 
 type CocoBatchImage = {
   fileName: string

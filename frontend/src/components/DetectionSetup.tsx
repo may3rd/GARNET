@@ -169,6 +169,56 @@ export function DetectionSetup() {
           />
         </div>
 
+        <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
+          Postprocess type
+          <Select
+            value={options.postprocessType}
+            onValueChange={(value) => setOptions({ postprocessType: value as 'NMM' | 'GREEDYNMM' | 'NMS' })}
+            disabled={isLocked}
+          >
+            <SelectTrigger className="mt-2">
+              <SelectValue placeholder="Select postprocess type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="NMM">NMM</SelectItem>
+              <SelectItem value="GREEDYNMM">GREEDYNMM</SelectItem>
+              <SelectItem value="NMS">NMS</SelectItem>
+            </SelectContent>
+          </Select>
+        </label>
+
+        <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
+          Postprocess match metric
+          <Select
+            value={options.postprocessMatchMetric}
+            onValueChange={(value) => setOptions({ postprocessMatchMetric: value as 'IOU' | 'IOS' })}
+            disabled={isLocked}
+          >
+            <SelectTrigger className="mt-2">
+              <SelectValue placeholder="Select match metric" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="IOU">IOU</SelectItem>
+              <SelectItem value="IOS">IOS</SelectItem>
+            </SelectContent>
+          </Select>
+        </label>
+
+        <div className="space-y-2">
+          <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
+            Postprocess match threshold: {options.postprocessMatchThreshold.toFixed(2)}
+          </div>
+          <Slider
+            value={[options.postprocessMatchThreshold]}
+            onValueChange={([value]) => setOptions({ postprocessMatchThreshold: value })}
+            min={0}
+            max={1}
+            step={0.01}
+            className="mt-2"
+            disabled={isLocked}
+          />
+        </div>
+
         <div className="flex items-center gap-2">
           <Checkbox
             id="textOCR"

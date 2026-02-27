@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStore } from '@/stores/appStore'
 import { buildYoloClasses, exportCocoBatch, exportYolo } from '@/lib/exportFormats'
+import { exportResultsToExcel } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -27,6 +28,7 @@ export function BatchResultsView() {
   const [previewItemId, setPreviewItemId] = useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set())
+  const [exportError, setExportError] = useState<string | null>(null)
 
   const previewCandidates = useMemo(
     () => batch.items.filter((item) => item.status !== 'done'),
@@ -108,6 +110,22 @@ export function BatchResultsView() {
     }))
     const coco = exportCocoBatch(images)
     download(new Blob([JSON.stringify(coco, null, 2)], { type: 'application/json' }), 'garnet-batch.coco.json')
+  }
+
+  const handleExportExcel = async () => {
+    if (!doneItems.length) return
+    try {
+      const itemsWithResults = doneItems.filter((item): item is typeof item & { result: NonNullable<typeof item['result']> } => !!item.result)
+      const images = itemsWithResults.map((item) => ({
+        file_name: item.fileName,
+        objects: filterObjects(item.result.objects).map((obj) => ({ ...obj })),
+      }))
+      const blob = await exportResultsToExcel(images, 'garnet-batch.xlsx')
+      download(blob, 'garnet-batch.xlsx')
+      setExportError(null)
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'Excel export failed')
+    }
   }
 
   const statusBadge = (status: BatchItemStatus) => {
@@ -302,6 +320,10 @@ export function BatchResultsView() {
             <Download className="h-4 w-4" />
             COCO
           </Button>
+          <Button variant="outline" size="sm" onClick={() => void handleExportExcel()} disabled={!doneItems.length}>
+            <Download className="h-4 w-4" />
+            Excel
+          </Button>
           {canPause && (
             <Button variant="outline" size="sm" onClick={toggleBatchPause}>
               <Pause className="h-4 w-4" />
@@ -338,6 +360,11 @@ export function BatchResultsView() {
           )}
         </div>
       </div>
+      {exportError && (
+        <div className="px-4 lg:px-6 py-2 text-xs text-red-500 border-b border-[var(--border-muted)]">
+          {exportError}
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto">
         <div className="divide-y divide-[var(--border-muted)]">

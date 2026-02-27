@@ -6,7 +6,7 @@ import { ObjectSidebar } from '@/components/ObjectSidebar'
 import { objectKey } from '@/lib/objectKey'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { useInlineEdit, type EditDraft } from '@/hooks/useInlineEdit'
-import { createResultObject, deleteResultObject, updateResultObject } from '@/lib/api'
+import { createResultObject, deleteResultObject, exportResultsToExcel, updateResultObject } from '@/lib/api'
 import { buildYoloClasses, exportCoco, exportLabelMe, exportYolo, type ExportFormat } from '@/lib/exportFormats'
 import { generatePdfReport, getImageAsDataUrl } from '@/lib/pdfExport'
 import { GripVertical } from 'lucide-react'
@@ -71,6 +71,21 @@ export function ResultsView() {
         new Blob([JSON.stringify(exportObjects, null, 2)], { type: 'application/json' }),
         `garnet-results-${filter}.json`
       )
+      return
+    }
+
+    if (format === 'excel') {
+      ; (async () => {
+        try {
+          const blob = await exportResultsToExcel(
+            [{ file_name: imageFileName, objects: exportObjects.map((obj) => ({ ...obj })) }],
+            `garnet-results-${filter}.xlsx`
+          )
+          download(blob, `garnet-results-${filter}.xlsx`)
+        } catch {
+          setSyncNotice('Unable to export Excel right now. Please try again.')
+        }
+      })()
       return
     }
 

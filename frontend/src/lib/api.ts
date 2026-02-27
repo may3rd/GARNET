@@ -7,7 +7,15 @@ export type DetectionOptions = {
   confTh: number
   imageSize: number
   overlapRatio: number
+  postprocessType: 'NMM' | 'GREEDYNMM' | 'NMS'
+  postprocessMatchMetric: 'IOU' | 'IOS'
+  postprocessMatchThreshold: number
   textOCR: boolean
+}
+
+export type ExcelExportImage = {
+  file_name: string
+  objects: Array<Record<string, unknown>>
 }
 
 const defaultOptions: DetectionOptions = {
@@ -17,6 +25,9 @@ const defaultOptions: DetectionOptions = {
   confTh: 0.8,
   imageSize: 640,
   overlapRatio: 0.2,
+  postprocessType: 'GREEDYNMM',
+  postprocessMatchMetric: 'IOS',
+  postprocessMatchThreshold: 0.1,
   textOCR: false,
 }
 
@@ -112,6 +123,9 @@ export async function runDetection(
   formData.append('conf_th', String(payload.confTh))
   formData.append('image_size', String(payload.imageSize))
   formData.append('overlap_ratio', String(payload.overlapRatio))
+  formData.append('postprocess_type', payload.postprocessType)
+  formData.append('postprocess_match_metric', payload.postprocessMatchMetric)
+  formData.append('postprocess_match_threshold', String(payload.postprocessMatchThreshold))
   formData.append('text_OCR', String(payload.textOCR))
 
   const requestSignal = createRequestSignal(signal, timeoutMs)
@@ -330,4 +344,24 @@ export async function extractPdfPages(
   }
 
   return response.json()
+}
+
+export async function exportResultsToExcel(
+  images: ExcelExportImage[],
+  filename = 'garnet-results.xlsx',
+  timeoutMs = DEFAULT_TIMEOUT
+): Promise<Blob> {
+  const response = await fetch('/api/export/excel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ images, filename }),
+    signal: createTimeoutSignal(timeoutMs),
+  })
+
+  if (!response.ok) {
+    const message = await response.text()
+    throw new APIError(message || 'Excel export failed', response.status)
+  }
+
+  return response.blob()
 }

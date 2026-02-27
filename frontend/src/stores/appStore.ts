@@ -68,6 +68,9 @@ const defaultOptions: DetectionOptions = {
   confTh: 0.8,
   imageSize: 640,
   overlapRatio: 0.2,
+  postprocessType: 'GREEDYNMM',
+  postprocessMatchMetric: 'IOS',
+  postprocessMatchThreshold: 0.1,
   textOCR: false,
 }
 
