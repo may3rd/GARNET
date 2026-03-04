@@ -20,7 +20,7 @@ class GeminiSahiConfig:
     openrouter_api_key: str
     model_name: str = "google/gemini-3-flash-preview"
     base_url: str = "https://openrouter.ai/api/v1"
-    temperature: float = 0.7
+    temperature: float = 0.1
 
 
 class GeminiSahiInferenceError(RuntimeError):
@@ -427,11 +427,17 @@ Generate the JSON response. **Return the JSON output exactly as specified.**
                 for ann in raw_annotations:
                     if not isinstance(ann, dict):
                         continue
-                    pixel_bbox = self._bbox_1000_to_pixel(ann.get("bbox"), width=w, height=h)
+                    bbox = ann.get("bbox")
+                    if not isinstance(bbox, list):
+                        continue
+                    pixel_bbox = self._bbox_1000_to_pixel(bbox, width=w, height=h)
                     if pixel_bbox is None:
                         continue
+                    category_id_val = ann.get("category_id")
+                    if category_id_val is None:
+                        continue
                     try:
-                        category_id = int(ann.get("category_id"))
+                        category_id = int(category_id_val)
                     except (TypeError, ValueError):
                         continue
                     self._original_predictions.append(
@@ -519,7 +525,7 @@ Generate the JSON response. **Return the JSON output exactly as specified.**
                 continue
             category_name = res.get("label") or (self.category_mapping or {}).get(str(category_id)) or "unknown"
             prediction = ObjectPrediction(
-                bbox=[x1, y1, x2, y2],
+                bbox=[int(x1), int(y1), int(x2), int(y2)],
                 category_id=category_id,
                 category_name=category_name,
                 score=score,

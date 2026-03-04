@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Compatibility entrypoint for GARNET API.
 
 Canonical backend implementation lives in `api.py`.

@@ -14,7 +14,6 @@ requests
 openai
 tqdm
 uvicorn
-clearml
 sahi
 EasyOCR
 onnx
@@ -30,7 +29,6 @@ brewer2mpl
 opencv-contrib-python
 tensorboard
 omegaconf
-future  # tensorboard dependency
 kornia
 cython
 shapely
@@ -39,8 +37,6 @@ flow_vis
 jupyter
 seaborn
 pytlsd
-paddlepaddle
-paddleocr
 pdf2image
 psutil
 google-genai # for google ai calling
