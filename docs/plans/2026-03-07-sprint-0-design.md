@@ -17,7 +17,7 @@
 ## Findings from baseline reproduction
 - The workspace does not expose `python`; runtime commands need `python3` or the repo venv interpreter.
 - The repo venv at [`.venv/bin/python`](/Users/maetee/Code/GARNET/.venv/bin/python) has the required Python packages, including `torch`.
-- The current full baseline run reaches Stage 4 and then fails at Stage 5 because [`backend/garnet/utils/deeplsd_utils.py`](/Users/maetee/Code/GARNET/backend/garnet/utils/deeplsd_utils.py) expects `DeepLSD/weights/deeplsd_md.tar`, which is missing in this workspace.
+- The current full baseline run reaches Stage 4 and then fails at Stage 5 because the old DeepLSD-backed line extraction step expects `DeepLSD/weights/deeplsd_md.tar`, which is missing in this workspace.
 - [`backend/garnet/pid_extractor.py`](/Users/maetee/Code/GARNET/backend/garnet/pid_extractor.py) contains duplicated `stage6_line_graph` definitions, which is a real maintenance risk and a Sprint 0 target.
 
 ## Design decisions

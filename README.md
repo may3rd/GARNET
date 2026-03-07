@@ -552,7 +552,7 @@ python garnet/pid_extractor.py \
 7. **Stage 7: Export**
     - Export to GraphML format
     - Export to CSV/JSON
-    - DEXPI XML export (via dexpi_exporter.py)
+    - Future export adapters will be added as later rebuild slices land
     - Output: Export files in output directory
 
 **Configurable Parameters (PipelineConfig):**

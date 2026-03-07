@@ -40,9 +40,9 @@ from pydantic import BaseModel, Field, field_validator
 from sahi import AutoDetectionModel, DetectionModel
 from sahi.predict import get_sliced_prediction
 
-from garnet import utils
 import garnet.Settings as Settings
 from garnet.pid_extractor import PIDPipeline
+from garnet.utils import rotate_image
 
 # =============================================================================
 # Environment-based Configuration
@@ -650,7 +650,7 @@ def extract_text_from_image(image: np.ndarray, objects: list[dict]) -> list[list
             if obj["Object"] in settings.VERTICAL_TEXT:
                 (height, wide) = cropped_img.shape[:2]
                 if height > wide:
-                    cropped_img = utils.rotate_image(cropped_img, 270)
+                    cropped_img = rotate_image(cropped_img, 270)
                     logger.log(
                         logging.INFO, "Rotated cropped image for vertical text.")
 

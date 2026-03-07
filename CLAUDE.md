@@ -166,40 +166,26 @@ batch ←─────────┘
 |--------|---------|
 | `Settings.py` | Global configuration (paths, symbol types, text classes) |
 | `predict_images.py` | Batch inference function for multiple P&ID images |
-| `object_and_text_detect.py` | YOLO11 + PaddleOCR detection pipeline with masking |
 | `text_ocr.py` | Text extraction utilities (rotation, preprocessing) |
-| `connectivity_graph.py` | Graph-based connectivity analysis (NetworkX) |
-| `pid_extractor.py` | **Complete P&ID digitization pipeline** (7+ stages) |
-| `dexpi_exporter.py` | DEXPI XML export for P&ID interchange |
+| `pid_extractor.py` | **Stage-by-stage P&ID rebuild entrypoint** (currently Stage 1 normalization only) |
 | `utils/utils.py` | Image utilities (rotation, line removal, morphology) |
-| `utils/deeplsd_utils.py` | DeepLSD line detection wrapper |
 
 **P&ID Processing Pipeline (pid_extractor.py)**:
 
-The most complex module (98KB) implementing end-to-end P&ID digitization:
+The active rebuild keeps this module intentionally small and reviewable:
 
-1. **Ingest**: Load image, COCO detections, OCR JSON
-2. **Preprocess**: Grayscale, adaptive binarization, optional deskew (perspective correction)
-3. **Symbols/Text**: Import detections, normalize labels, overlay on image
-4. **Linework**: Binarize → Skeletonize → Extract endpoints/junctions
-5. **Graph**: Build nodes/edges; attach symbols/text; merge nearby nodes
-6. **From/To**: Emit endpoint pairs per segment (connectivity table)
-7. **Export**: GraphML, CSV/JSON, DEXPI XML
+1. **Stage 1**: Load raw image input
+2. **Normalize**: Grayscale, histogram equalization, adaptive binary, Otsu binary
+3. **Persist**: Write inspectable artifact files plus `stage_manifest.json`
+4. **Expose**: Serve progress and artifacts through the pipeline job API
 
 **Configuration Dataclass**:
 ```python
 @dataclass
 class PipelineConfig:
-    device: str = "auto"                    # "cuda", "cpu", "mps", or "auto"
-    canny_low, canny_high: int              # Edge detection thresholds
-    binarize_block, binarize_c: int         # Adaptive thresholding params
-    min_segment_len: int                    # Line segment filtering
-    merge_node_dist: int                    # Node clustering distance
-    close_hv: bool                          # Close horizontal/vertical gaps
-    deskew: bool                            # Perspective correction
-    default_conf_thresh: float = 0.25       # Detection confidence threshold
-    class_conf_thresh: Dict                 # Per-class confidence overrides
-    class_role_map: Dict                    # Class → NodeType mapping
+    adaptive_block_size: int = 21
+    adaptive_c: int = 5
+    blur_kernel: int = 5
 ```
 
 ### Data Flow: Upload to Results
@@ -393,15 +379,11 @@ dataset/
 ├── garnet/                        # Core Python module
 │   ├── __init__.py
 │   ├── Settings.py                # Configuration
-│   ├── predict_images.py          # Batch inference
-│   ├── object_and_text_detect.py  # YOLO + OCR pipeline
+│   ├── predict_images.py          # Detection helper functions
 │   ├── text_ocr.py                # OCR utilities
-│   ├── connectivity_graph.py      # Graph analysis
-│   ├── pid_extractor.py           # Full P&ID pipeline (2800+ lines)
-│   ├── dexpi_exporter.py          # DEXPI XML export
+│   ├── pid_extractor.py           # Stage-by-stage rebuild entrypoint
 │   └── utils/
 │       ├── utils.py               # Image utilities
-│       └── deeplsd_utils.py       # Line detection
 ├── DeepLSD/                       # Line extraction submodule
 └── test/                          # Test datasets
 ```

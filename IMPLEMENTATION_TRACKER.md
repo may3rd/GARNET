@@ -25,10 +25,10 @@
 |------|---------------|--------|--------------------|
 | Staged orchestrator | [`backend/garnet/pid_extractor.py`](/Users/maetee/Code/GARNET/backend/garnet/pid_extractor.py) has `stage1_ingest` through `stage6_line_graph` | Partial | Current stages are useful but do not match the master-plan phase boundaries cleanly |
 | OCR ingestion | [`backend/garnet/text_ocr.py`](/Users/maetee/Code/GARNET/backend/garnet/text_ocr.py), OCR JSON inputs in `backend/ocr_results.json` | Partial | Full-page OCR discovery vs crop OCR refinement is not separated as first-class stages |
-| Object detection | [`backend/garnet/object_and_text_detect.py`](/Users/maetee/Code/GARNET/backend/garnet/object_and_text_detect.py), `backend/coco_annotations.json`, `backend/coco_arrows.json` | Partial | Flow arrows exist, but direction assignment is not yet a formal graph stage |
-| Pipe geometry | Stage 2 preprocess + Stage 4 skeleton output in `backend/output/` | Partial | B1 pipe mask, B1.5 morphology audit, B4 crossing/junction disambiguation, and B5 cleanup are not explicit, isolated deliverables |
-| Graph assembly | [`backend/garnet/connectivity_graph.py`](/Users/maetee/Code/GARNET/backend/garnet/connectivity_graph.py), `NetworkX` usage in pipeline | Partial | Graph-native QA, mixed directed/undirected semantics, and simplified export geometry are missing |
-| Export | [`backend/garnet/dexpi_exporter.py`](/Users/maetee/Code/GARNET/backend/garnet/dexpi_exporter.py), [`backend/schema/graph_v1.json`](/Users/maetee/Code/GARNET/backend/schema/graph_v1.json) | Partial | Confidence bundles, provenance, direction state, and simplified polylines are not yet consistently exported |
+| Object detection | `/api/detect` flow in [`backend/api.py`](/Users/maetee/Code/GARNET/backend/api.py), weight/config discovery, `predict_images.py` helpers | Active but separate | Detection exists for the API, but it is not yet part of the new staged rebuild pipeline |
+| Pipe geometry | Stage 1 normalization in [`backend/garnet/pid_extractor.py`](/Users/maetee/Code/GARNET/backend/garnet/pid_extractor.py), sample artifacts in `backend/output/slice1_stage1` | Early | B1 pipe mask, B1.5 morphology audit, B4 crossing/junction disambiguation, and B5 cleanup are not implemented in the rebuild yet |
+| Graph assembly | No active rebuild module yet; planned for later slices | Not started | Graph-native QA, mixed directed/undirected semantics, and simplified export geometry are still future work |
+| Export | [`backend/schema/graph_v1.json`](/Users/maetee/Code/GARNET/backend/schema/graph_v1.json) remains a reference artifact | Not started | Confidence bundles, provenance, direction state, and simplified polylines are not yet exported by the rebuild |
 | Verification | `py_compile` is available; smoke scripts exist | Weak | No reliable regression harness or stage-level acceptance scorecard yet |
 | Code health | `pid_extractor.py` contains duplicated `stage6_line_graph` definitions and a `stop-after` interface that does not cleanly match stage count | Risk | Stabilization is needed before adding more behavior |
 
@@ -84,7 +84,7 @@
 | S1-01 | Split input normalization into explicit working views with preprocessing metadata | A1 | `backend/garnet/pid_extractor.py` | Baseline run writes normalized image bundle + metadata JSON | TODO |
 | S1-02 | Promote full-page OCR discovery into its own stage with coverage-first outputs | A2 | `backend/garnet/text_ocr.py`, `backend/garnet/pid_extractor.py` | OCR stage writes text-region table with boxes, raw text, confidence, rotation | TODO |
 | S1-03 | Add crop OCR refinement for low-confidence, rotated, or ambiguous text candidates | A3 | `backend/garnet/text_ocr.py`, `backend/garnet/pid_extractor.py` | Refinement stage writes merged OCR table and unresolved queue | TODO |
-| S1-04 | Normalize detector outputs into separate evidence tables for small objects, arrows, equipment, and off-page connectors | A4-A6 | `backend/garnet/object_and_text_detect.py`, `backend/garnet/pid_extractor.py` | Detection run writes structured evidence JSON/CSV per category | TODO |
+| S1-04 | Normalize detector outputs into separate evidence tables for small objects, arrows, equipment, and off-page connectors | A4-A6 | `backend/garnet/pid_extractor.py`, helper module to be created if needed | Detection run writes structured evidence JSON/CSV per category | TODO |
 | S1-05 | Add provenance fields so each evidence item records source stage, model/input, and confidence | A2-A6 | `backend/garnet/pid_extractor.py`, `backend/schema/graph_v1.json` if needed | Evidence tables include provenance bundle | TODO |
 
 ## Sprint 2 - Geometry engine
@@ -101,9 +101,9 @@
 | S2-01 | Extract B1 pipe mask generation into a named stage with its own output artifact and metrics | B1 | `backend/garnet/pid_extractor.py` | Run to `--stop-after` geometry stage and inspect mask metrics JSON | TODO |
 | S2-02 | Add explicit B1.5 morphological sealing before skeletonization, with conservative defaults and audit counters | B1.5 | `backend/garnet/pid_extractor.py`, `backend/garnet/Settings.py` if config exposure is needed | Audit JSON reports holes sealed, blobs removed, and changed-pixel count | TODO |
 | S2-03 | Separate skeleton generation from skeleton-node detection and persist raw degree maps | B2-B3 | `backend/garnet/pid_extractor.py` | Raw skeleton, endpoint map, and junction-candidate map are written separately | TODO |
-| S2-04 | Add node clustering for graph-node candidates instead of relying on raw skeleton pixels | B6 | `backend/garnet/pid_extractor.py`, `backend/garnet/connectivity_graph.py` | Clustered node file includes centroid, member count, and type guess | TODO |
+| S2-04 | Add node clustering for graph-node candidates instead of relying on raw skeleton pixels | B6 | `backend/garnet/pid_extractor.py`, helper module to be created if needed | Clustered node file includes centroid, member count, and type guess | TODO |
 | S2-05 | Implement explicit crossing-vs-junction disambiguation with unresolved-candidate output | B4 | `backend/garnet/pid_extractor.py` | Run produces confirmed junctions, non-junction crossings, and unresolved queue | TODO |
-| S2-06 | Add topology-aware skeleton cleanup and traced edge polylines before graph assembly | B5-B7 | `backend/garnet/pid_extractor.py`, `backend/garnet/connectivity_graph.py` | Edge extraction report shows traced polyline count and cleanup removals | TODO |
+| S2-06 | Add topology-aware skeleton cleanup and traced edge polylines before graph assembly | B5-B7 | `backend/garnet/pid_extractor.py`, helper module to be created if needed | Edge extraction report shows traced polyline count and cleanup removals | TODO |
 
 ## Sprint 3 - Attachment and semantic association
 
@@ -117,10 +117,10 @@
 | ID | Task | Master-plan refs | Repo targets | Verification | Status |
 |----|------|------------------|--------------|--------------|--------|
 | S3-01 | Replace simple equipment snapping with multi-signal attachment scoring | C1 | `backend/garnet/pid_extractor.py` | Attachment report includes scores, chosen edge, and ambiguous candidates | TODO |
-| S3-02 | Formalize inline-object association rules and edge-splitting thresholds | C2 | `backend/garnet/pid_extractor.py`, `backend/garnet/connectivity_graph.py` | Inline association report shows confident splits vs unresolved items | TODO |
+| S3-02 | Formalize inline-object association rules and edge-splitting thresholds | C2 | `backend/garnet/pid_extractor.py`, helper module to be created if needed | Inline association report shows confident splits vs unresolved items | TODO |
 | S3-03 | Convert flow-arrow handling from visual overlay to edge-direction assignment and local propagation | C3 | `backend/garnet/pid_extractor.py`, `backend/schema/graph_v1.json` | Directed-edge metrics show assigned, propagated, and unresolved arrow-edge matches | TODO |
 | S3-04 | Associate text to equipment, edges, inline objects, and off-page connectors using more than distance alone | C4 | `backend/garnet/text_ocr.py`, `backend/garnet/pid_extractor.py` | Text-link report shows target type, confidence, and unresolved text queue | TODO |
-| S3-05 | Represent off-page connectors as explicit graph nodes with labels and page-reference fields | C5 | `backend/garnet/pid_extractor.py`, `backend/schema/graph_v1.json`, `backend/garnet/dexpi_exporter.py` | Export contains connector nodes with attachment metadata | TODO |
+| S3-05 | Represent off-page connectors as explicit graph nodes with labels and page-reference fields | C5 | `backend/garnet/pid_extractor.py`, `backend/schema/graph_v1.json`, export helper to be created if needed | Export contains connector nodes with attachment metadata | TODO |
 
 ## Sprint 4 - Graph, QA, and export
 
@@ -134,10 +134,10 @@
 
 | ID | Task | Master-plan refs | Repo targets | Verification | Status |
 |----|------|------------------|--------------|--------------|--------|
-| S4-01 | Unify node and edge schema across in-memory graph, JSON export, and DEXPI export | D1-D2 | `backend/garnet/pid_extractor.py`, `backend/garnet/dexpi_exporter.py`, `backend/schema/graph_v1.json` | Export validation confirms required fields exist for nodes and edges | TODO |
-| S4-02 | Add graph-native QA primitives for connected components, degree anomalies, articulation points, and orphan terminals | D3, E1 | `backend/garnet/connectivity_graph.py`, `backend/garnet/pid_extractor.py` | QA report JSON lists anomaly counts and affected node/edge ids | TODO |
+| S4-01 | Unify node and edge schema across in-memory graph, JSON export, and export adapter | D1-D2 | `backend/garnet/pid_extractor.py`, export helper to be created if needed, `backend/schema/graph_v1.json` | Export validation confirms required fields exist for nodes and edges | TODO |
+| S4-02 | Add graph-native QA primitives for connected components, degree anomalies, articulation points, and orphan terminals | D3, E1 | `backend/garnet/pid_extractor.py`, graph helper to be created if needed | QA report JSON lists anomaly counts and affected node/edge ids | TODO |
 | S4-03 | Generate an anomaly report and retry queue instead of only overlays | E1-E2 | `backend/garnet/pid_extractor.py` | Output includes machine-readable anomaly and retry files | TODO |
-| S4-04 | Add polyline simplification before export with configurable tolerance and compression metrics | D4 | `backend/garnet/connectivity_graph.py`, `backend/garnet/dexpi_exporter.py` | Compare export payload size before/after simplification | TODO |
+| S4-04 | Add polyline simplification before export with configurable tolerance and compression metrics | D4 | graph/export helper modules to be created if needed | Compare export payload size before/after simplification | TODO |
 | S4-05 | Expose graph QA and export outputs through the backend service where needed for later review tooling | D1-E1 | `backend/api.py`, `backend/schema/graph_v1.json` | API returns graph/QA artifacts for a sample run | TODO |
 
 ## Sprint 5 - Recovery loop and review boundary
@@ -154,7 +154,7 @@
 | S5-01 | Add targeted reprocessing hooks for OCR, attachment, crossing, arrow, and morphology retries | E2 | `backend/garnet/pid_extractor.py`, helper modules as needed | Retry queue items can trigger limited re-runs without replaying the whole sheet | TODO |
 | S5-02 | Define unresolved queues for ambiguous crossings, text conflicts, uncertain direction, and connector mismatches | E3 | `backend/garnet/pid_extractor.py`, `backend/schema/graph_v1.json` | Manual-review queue JSON contains category, geometry, evidence refs, and priority | TODO |
 | S5-03 | Add backend endpoints or export artifacts for review-ready unresolved cases | E3, V3 prep | `backend/api.py`, `backend/garnet/pid_extractor.py` | Sample run exposes unresolved queue through API or stable output artifact | TODO |
-| S5-04 | Define the multi-sheet merge contract for off-page connectors without implementing the full merge engine yet | V3 prep | `backend/schema/graph_v1.json`, `backend/garnet/dexpi_exporter.py` | Schema/update note documents connector keys required for later merge work | TODO |
+| S5-04 | Define the multi-sheet merge contract for off-page connectors without implementing the full merge engine yet | V3 prep | `backend/schema/graph_v1.json`, export helper to be created if needed | Schema/update note documents connector keys required for later merge work | TODO |
 
 ## Cross-sprint rules
 - Do not add new topology behavior without adding or updating stage artifacts and metrics.

@@ -10,7 +10,7 @@
 | Module | Type | Path | What it owns | How to run | Tests / checks | Docs | AGENTS |
 |--------|------|------|--------------|------------|----------------|------|--------|
 | Backend API | fastapi | `backend/` | HTTP API, file upload flow, result serving, runtime config | From `backend/`: `uvicorn api:app --reload --port 8001` | `python -m py_compile api.py garnet/*.py garnet/utils/*.py` | `README.md` | `backend/garnet/AGENTS.md` |
-| P&ID pipeline | python package | `backend/garnet/` | OCR, detection orchestration, geometry, graph building, DEXPI export | From `backend/`: `python -m garnet.pid_extractor` | See module AGENTS | `MASTER_PLAN.md` | `backend/garnet/AGENTS.md` |
+| P&ID pipeline | python package | `backend/garnet/` | Stage-by-stage P&ID rebuild, shared OCR/image utilities, pipeline orchestration | From `backend/`: `python -m garnet.pid_extractor` | See module AGENTS | `MASTER_PLAN.md` | `backend/garnet/AGENTS.md` |
 | Gemini detector | python adapter | `backend/gemini_detector/` | Gemini/OpenRouter SAHI detector for text-like classes | Called from backend code | `python -m py_compile gemini_detector/*.py` | module file | `backend/gemini_detector/AGENTS.md` |
 | Frontend | react + vite | `frontend/` | Review UI, canvas editing, exports, backend API client | From `frontend/`: `npm run dev` | `npm run build`, `npm run lint` | `README.md` | none |
 | DeepLSD | vendored library | `DeepLSD/` | Line-detection experiments and model support code | Follow local README / requirements | Module-specific | `DeepLSD/README.md` | none |
@@ -19,7 +19,7 @@
 ## Cross-domain workflows
 - Frontend <-> backend: the Vite app proxies `/api` and `/runs` to `VITE_API_URL`, defaulting to `http://localhost:8001`. Keep backend route changes synchronized with frontend API usage.
 - API <-> pipeline: `backend/api.py` is the service entrypoint, but the extraction logic lives in `backend/garnet/`. Change request/response shapes in the API layer only after checking the downstream pipeline output and frontend expectations.
-- Pipeline roadmap: for P&ID digitizing features, preserve the stage model in `MASTER_PLAN.md` and the scoped rules in `backend/garnet/AGENTS.md`.
+- Pipeline roadmap: for P&ID digitizing features, preserve the stage model in `MASTER_PLAN.md` and the scoped rules in `backend/garnet/AGENTS.md`. The live rebuild is currently Stage 1-only.
 - Generated artifacts: keep predictions, runs, temp files, and debug outputs in backend-owned artifact folders. Do not make the frontend depend on developer-local filesystem paths.
 
 ## Verification (preferred commands)
