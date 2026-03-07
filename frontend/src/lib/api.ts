@@ -1,4 +1,4 @@
-import type { DetectionResult, DetectedObject } from '@/types'
+import type { DetectionResult, DetectedObject, PipelineJob } from '@/types'
 
 export type DetectionOptions = {
   selectedModel: string
@@ -11,6 +11,10 @@ export type DetectionOptions = {
   postprocessMatchMetric: 'IOU' | 'IOS'
   postprocessMatchThreshold: number
   textOCR: boolean
+}
+
+export type PipelineOptions = {
+  stopAfter: number
 }
 
 export type ExcelExportImage = {
@@ -34,6 +38,7 @@ const defaultOptions: DetectionOptions = {
 // Default timeout values
 const DEFAULT_TIMEOUT = 300000 // 5 minutes for detection (can be slow for large images)
 const DEFAULT_REQUEST_TIMEOUT = 30000 // 30 seconds for regular API requests
+const PIPELINE_POLL_TIMEOUT = 10000
 
 function createTimeoutSignal(timeoutMs: number): AbortSignal {
   const controller = new AbortController()
@@ -106,6 +111,45 @@ export class APIError extends Error {
     super(message)
     this.name = 'APIError'
   }
+}
+
+export async function startPipelineJob(
+  file: File,
+  options: Partial<PipelineOptions> = {},
+  signal?: AbortSignal,
+  timeoutMs = DEFAULT_TIMEOUT
+): Promise<{ job_id: string }> {
+  const payload = { stopAfter: 1, ...options }
+  const formData = new FormData()
+  formData.append('file_input', file)
+  formData.append('stop_after', String(payload.stopAfter))
+
+  const requestSignal = createRequestSignal(signal, timeoutMs)
+  try {
+    const response = await fetch('/api/pipeline/jobs', {
+      method: 'POST',
+      body: formData,
+      signal: requestSignal.signal,
+    })
+    if (!response.ok) {
+      const message = await response.text()
+      throw new APIError(message || 'Pipeline start failed', response.status)
+    }
+    return response.json()
+  } catch (error) {
+    if (error instanceof APIError) throw error
+    if (error instanceof Error && error.name === 'AbortError') {
+      if (requestSignal.isCanceled()) throw new APIError('Pipeline canceled', undefined, false, true)
+      throw new APIError(`Pipeline start timed out after ${timeoutMs / 1000} seconds`, undefined, true)
+    }
+    throw new APIError(error instanceof Error ? error.message : 'An unknown error occurred')
+  } finally {
+    requestSignal.cleanup()
+  }
+}
+
+export async function getPipelineJob(jobId: string, signal?: AbortSignal): Promise<PipelineJob> {
+  return requestJson<PipelineJob>(`/api/pipeline/jobs/${jobId}`, { signal }, PIPELINE_POLL_TIMEOUT)
 }
 
 export async function runDetection(

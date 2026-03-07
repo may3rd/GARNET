@@ -8,9 +8,12 @@ import { Slider } from '@/components/ui/slider'
 import { Checkbox } from '@/components/ui/checkbox'
 
 export function DetectionSetup() {
+  const processingMode = useAppStore((state) => state.processingMode)
+  const setProcessingMode = useAppStore((state) => state.setProcessingMode)
   const options = useAppStore((state) => state.options)
   const setOptions = useAppStore((state) => state.setOptions)
   const runDetection = useAppStore((state) => state.runDetection)
+  const runPipeline = useAppStore((state) => state.runPipeline)
   const runBatchDetection = useAppStore((state) => state.runBatchDetection)
   const batch = useAppStore((state) => state.batch)
   const error = useAppStore((state) => state.error)
@@ -39,10 +42,11 @@ export function DetectionSetup() {
 
   const isBatchMode = batch.items.length > 0
   const isLocked = batch.locked
+  const isPipelineMode = processingMode === 'pipeline'
   const isGeminiModel = options.selectedModel === 'gemini'
   const hasRunnableBatchItems = batch.items.some((item) => item.status === 'queued' || item.status === 'failed')
-  const runAction = isBatchMode ? runBatchDetection : runDetection
-  const runLabel = isBatchMode ? `Run Batch (${batch.items.length})` : 'Run Detection'
+  const runAction = isPipelineMode ? runPipeline : isBatchMode ? runBatchDetection : runDetection
+  const runLabel = isPipelineMode ? 'Run Pipeline Stage 1' : isBatchMode ? `Run Batch (${batch.items.length})` : 'Run Detection'
 
   const handleModelChange = (value: string) => {
     if (value === 'gemini') {
@@ -62,9 +66,30 @@ export function DetectionSetup() {
         Detection Setup
       </div>
 
+      <div className="grid grid-cols-2 gap-2 rounded-xl border border-[var(--border-muted)] bg-[var(--bg-primary)] p-1">
+        <Button
+          variant={processingMode === 'detection' ? 'cta' : 'ghost'}
+          className="w-full"
+          onClick={() => setProcessingMode('detection')}
+          disabled={isLocked}
+        >
+          Detection
+        </Button>
+        <Button
+          variant={processingMode === 'pipeline' ? 'cta' : 'ghost'}
+          className="w-full"
+          onClick={() => setProcessingMode('pipeline')}
+          disabled={isLocked || isBatchMode}
+        >
+          Pipeline
+        </Button>
+      </div>
+
       {isBatchMode && (
         <div className="text-xs text-[var(--text-secondary)] bg-[var(--bg-primary)] border border-[var(--border-muted)] p-3 rounded-lg">
-          Batch mode is active. The selected model and settings apply to all images in the batch.
+          {isPipelineMode
+            ? 'Pipeline mode is limited to a single image in Slice 1.'
+            : 'Batch mode is active. The selected model and settings apply to all images in the batch.'}
         </div>
       )}
 
@@ -75,7 +100,7 @@ export function DetectionSetup() {
         </div>
       ) : (
       <div className="space-y-4">
-        <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
+        {!isPipelineMode && <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
           Model
           <Select
             value={options.selectedModel}
@@ -93,9 +118,9 @@ export function DetectionSetup() {
               ))}
             </SelectContent>
           </Select>
-        </label>
+        </label>}
 
-        {!isGeminiModel ? (
+        {!isPipelineMode && (!isGeminiModel ? (
           <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
             Weight file
             <Select
@@ -122,9 +147,9 @@ export function DetectionSetup() {
           <div className="text-xs text-[var(--text-secondary)] bg-[var(--bg-primary)] border border-[var(--border-muted)] p-3 rounded-lg">
             Gemini model uses OpenRouter LLM inference and does not require a weight file.
           </div>
-        )}
+        ))}
 
-        <div className="space-y-2">
+        {!isPipelineMode && <div className="space-y-2">
           <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
             Confidence: {Math.round(options.confTh * 100)}%
           </div>
@@ -137,9 +162,9 @@ export function DetectionSetup() {
             className="mt-2"
             disabled={isLocked}
           />
-        </div>
+        </div>}
 
-        <div className="space-y-2">
+        {!isPipelineMode && <div className="space-y-2">
           <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
             Overlay ratio: {options.overlapRatio.toFixed(2)}
           </div>
@@ -152,9 +177,9 @@ export function DetectionSetup() {
             className="mt-2"
             disabled={isLocked}
           />
-        </div>
+        </div>}
 
-        <div className="space-y-2">
+        {!isPipelineMode && <div className="space-y-2">
           <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
             Image size: {options.imageSize}px
           </div>
@@ -167,9 +192,9 @@ export function DetectionSetup() {
             className="mt-2"
             disabled={isLocked}
           />
-        </div>
+        </div>}
 
-        <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
+        {!isPipelineMode && <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
           Postprocess type
           <Select
             value={options.postprocessType}
@@ -185,9 +210,9 @@ export function DetectionSetup() {
               <SelectItem value="NMS">NMS</SelectItem>
             </SelectContent>
           </Select>
-        </label>
+        </label>}
 
-        <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
+        {!isPipelineMode && <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
           Postprocess match metric
           <Select
             value={options.postprocessMatchMetric}
@@ -202,9 +227,9 @@ export function DetectionSetup() {
               <SelectItem value="IOS">IOS</SelectItem>
             </SelectContent>
           </Select>
-        </label>
+        </label>}
 
-        <div className="space-y-2">
+        {!isPipelineMode && <div className="space-y-2">
           <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
             Postprocess match threshold: {options.postprocessMatchThreshold.toFixed(2)}
           </div>
@@ -217,9 +242,9 @@ export function DetectionSetup() {
             className="mt-2"
             disabled={isLocked}
           />
-        </div>
+        </div>}
 
-        <div className="flex items-center gap-2">
+        {!isPipelineMode && <div className="flex items-center gap-2">
           <Checkbox
             id="textOCR"
             checked={options.textOCR}
@@ -229,7 +254,13 @@ export function DetectionSetup() {
           <label htmlFor="textOCR" className="text-sm text-[var(--text-secondary)] cursor-pointer">
             Extract text with OCR
           </label>
-        </div>
+        </div>}
+
+        {isPipelineMode && (
+          <div className="text-xs text-[var(--text-secondary)] bg-[var(--bg-primary)] border border-[var(--border-muted)] p-3 rounded-lg">
+            Slice 1 runs only Stage 1 input normalization from a raw P&amp;ID image and returns the generated artifact bundle for review.
+          </div>
+        )}
 
         {error && (
           <div className="text-xs text-[var(--danger)] bg-[var(--bg-primary)] border border-[var(--border-muted)] p-3 rounded-lg">
@@ -241,7 +272,7 @@ export function DetectionSetup() {
           onClick={runAction}
           variant="cta"
           className="mt-auto"
-          disabled={isLoading || isLocked || (isBatchMode && !hasRunnableBatchItems)}
+          disabled={isLoading || isLocked || (isBatchMode && !hasRunnableBatchItems) || (isBatchMode && isPipelineMode)}
         >
           <Play className="h-4 w-4" />
           {runLabel}

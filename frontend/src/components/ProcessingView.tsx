@@ -4,22 +4,31 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
 export function ProcessingView() {
+  const processingMode = useAppStore((state) => state.processingMode)
+  const pipelineJob = useAppStore((state) => state.pipelineJob)
   const progress = useAppStore((state) => state.progress)
   const cancelDetection = useAppStore((state) => state.cancelDetection)
   const percent = progress?.percent ?? 0
-  const steps = [
-    { label: 'Upload image', threshold: 15 },
-    { label: 'Run detection', threshold: 55 },
-    { label: 'Extract text (OCR)', threshold: 80 },
-    { label: 'Finalize results', threshold: 100 },
-  ]
+  const steps = processingMode === 'pipeline'
+    ? (pipelineJob?.manifest?.stages.map((stage, index) => ({
+      label: stage.name.replaceAll('_', ' '),
+      threshold: Math.round(((index + 1) / Math.max(pipelineJob.manifest?.stages.length || 1, 1)) * 100),
+    })) ?? [{ label: 'stage1 input normalization', threshold: 100 }])
+    : [
+      { label: 'Upload image', threshold: 15 },
+      { label: 'Run detection', threshold: 55 },
+      { label: 'Extract text (OCR)', threshold: 80 },
+      { label: 'Finalize results', threshold: 100 },
+    ]
 
   return (
     <div className="flex flex-col items-center justify-center h-full px-6">
       <div className="w-full max-w-xl bg-[var(--bg-secondary)] border border-[var(--border-muted)] rounded-2xl p-6">
-        <div className="text-sm font-semibold">Analyzing P&amp;ID...</div>
+        <div className="text-sm font-semibold">
+          {processingMode === 'pipeline' ? 'Running pipeline...' : 'Analyzing P&amp;ID...'}
+        </div>
         <div className="text-xs text-[var(--text-secondary)] mt-1">
-          {progress?.step || 'Preparing detection'}
+          {progress?.step || (processingMode === 'pipeline' ? 'Preparing pipeline' : 'Preparing detection')}
         </div>
         <div className="mt-4 h-2 w-full bg-[var(--bg-primary)] rounded-full overflow-hidden">
           <div
@@ -60,7 +69,7 @@ export function ProcessingView() {
           onClick={cancelDetection}
         >
           <XCircle className="h-4 w-4 mr-2" />
-          Cancel detection
+          {processingMode === 'pipeline' ? 'Stop polling' : 'Cancel detection'}
         </Button>
       </div>
     </div>

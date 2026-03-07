@@ -11,6 +11,7 @@ import base64
 import datetime
 import glob
 import inspect
+import json
 import logging
 import math
 import os
@@ -19,6 +20,7 @@ import threading
 import time
 import uuid
 from io import BytesIO
+from typing import Any
 
 import cv2
 import numpy as np
@@ -29,6 +31,7 @@ import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -39,6 +42,7 @@ from sahi.predict import get_sliced_prediction
 
 from garnet import utils
 import garnet.Settings as Settings
+from garnet.pid_extractor import PIDPipeline
 
 # =============================================================================
 # Environment-based Configuration
@@ -49,6 +53,7 @@ ROOT_DIR = os.path.dirname(BACKEND_DIR)
 RUNS_DIR = os.path.join(BACKEND_DIR, "runs")
 DETECT_DIR = os.path.join(RUNS_DIR, "detect")
 ULTRALYTICS_RUNS_DIR = os.path.join(BACKEND_DIR, ".ultralytics_runs")
+PIPELINE_JOBS_DIR = os.path.join(BACKEND_DIR, "output", "pipeline_jobs")
 
 # Load environment from repository root first, then backend-local fallback.
 load_dotenv(os.path.join(ROOT_DIR, ".env"), override=False)
@@ -347,6 +352,8 @@ class ExcelExportRequest(BaseModel):
 RESULTS_STORE: dict[str, dict] = {}
 RESULTS_CREATED_AT: dict[str, float] = {}
 RESULTS_LOCK = threading.RLock()
+PIPELINE_JOBS: dict[str, dict[str, Any]] = {}
+PIPELINE_JOBS_LOCK = threading.RLock()
 
 # Create Settings object
 settings = Settings.Settings()
@@ -362,6 +369,7 @@ MODEL_LOAD_ERROR = None
 
 # Ensure predictions directory exists
 os.makedirs(config.PREDICTIONS_DIR, exist_ok=True)
+os.makedirs(PIPELINE_JOBS_DIR, exist_ok=True)
 
 # =============================================================================
 # Cleanup Job for Old Prediction Images
@@ -693,6 +701,74 @@ def validate_image_file(file: UploadFile) -> None:
         )
 
 
+def _pipeline_job_artifacts(job_id: str, job_dir: str) -> list[dict[str, str]]:
+    artifacts: list[dict[str, str]] = []
+    if not os.path.isdir(job_dir):
+        return artifacts
+    for name in sorted(os.listdir(job_dir)):
+        path = os.path.join(job_dir, name)
+        if not os.path.isfile(path) or name == "input.png":
+            continue
+        artifacts.append(
+            {
+                "name": name,
+                "url": f"/api/pipeline/jobs/{job_id}/artifacts/{name}",
+            }
+        )
+    return artifacts
+
+
+def _serialize_pipeline_job(job_id: str) -> dict[str, Any]:
+    with PIPELINE_JOBS_LOCK:
+        job = PIPELINE_JOBS.get(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Pipeline job not found")
+        payload = dict(job)
+
+    manifest_path = os.path.join(payload["job_dir"], "stage_manifest.json")
+    manifest = None
+    if os.path.exists(manifest_path):
+        with open(manifest_path, "r") as f:
+            manifest = json.load(f)
+    payload["manifest"] = manifest
+    payload["artifacts"] = _pipeline_job_artifacts(job_id, payload["job_dir"])
+    return payload
+
+
+def _run_pipeline_job(job_id: str, image_path: str, job_dir: str, stop_after: int) -> None:
+    def stage_callback(event: dict[str, Any]) -> None:
+        with PIPELINE_JOBS_LOCK:
+            job = PIPELINE_JOBS.get(job_id)
+            if not job:
+                return
+            stage = event.get("stage", {})
+            job["current_stage"] = stage.get("name")
+            if event.get("event") == "stage_started":
+                job["status"] = "running"
+            elif event.get("event") == "stage_completed":
+                job["status"] = "running"
+            elif event.get("event") == "stage_failed":
+                job["status"] = "failed"
+                job["error"] = stage.get("error", "Pipeline stage failed")
+
+    try:
+        pipe = PIDPipeline(image_path=image_path, out_dir=job_dir, stage_callback=stage_callback)
+        pipe.run(stop_after=stop_after)
+    except Exception as exc:
+        with PIPELINE_JOBS_LOCK:
+            job = PIPELINE_JOBS.get(job_id)
+            if job:
+                job["status"] = "failed"
+                job["error"] = str(exc)
+        return
+
+    with PIPELINE_JOBS_LOCK:
+        job = PIPELINE_JOBS.get(job_id)
+        if job:
+            job["status"] = "completed"
+            job["current_stage"] = "stage1_input_normalization"
+
+
 def sanitize_excel_sheet_name(name: str, fallback: str = "Sheet") -> str:
     """Return a valid Excel worksheet name (max 31 chars, invalid chars removed)."""
     cleaned = re.sub(r'[\[\]\*\?/:\\]', "_", (name or "").strip())
@@ -894,6 +970,69 @@ async def api_pdf_extract(file_input: UploadFile = File(...)):
         pages.append(base64.b64encode(buffer.getvalue()).decode("utf-8"))
 
     return {"count": len(pages), "pages": pages}
+
+
+@app.post("/api/pipeline/jobs")
+async def create_pipeline_job(
+    file_input: UploadFile = File(...),
+    stop_after: int = Form(1),
+):
+    validate_image_file(file_input)
+    if stop_after != 1:
+        raise HTTPException(status_code=400, detail="Slice 1 supports only stop_after=1")
+
+    input_bytes = await file_input.read()
+    if len(input_bytes) > config.MAX_FILE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File too large. Maximum size: {config.MAX_FILE_SIZE_MB}MB",
+        )
+    await file_input.close()
+
+    ext = os.path.splitext(file_input.filename or "")[1].lower() or ".png"
+    job_id = uuid.uuid4().hex
+    job_dir = os.path.join(PIPELINE_JOBS_DIR, job_id)
+    os.makedirs(job_dir, exist_ok=True)
+    image_path = os.path.join(job_dir, f"input{ext}")
+    with open(image_path, "wb") as f:
+        f.write(input_bytes)
+
+    with PIPELINE_JOBS_LOCK:
+        PIPELINE_JOBS[job_id] = {
+            "job_id": job_id,
+            "status": "queued",
+            "current_stage": None,
+            "error": None,
+            "job_dir": job_dir,
+            "created_at": time.time(),
+            "stop_after": stop_after,
+        }
+
+    worker = threading.Thread(
+        target=_run_pipeline_job,
+        args=(job_id, image_path, job_dir, stop_after),
+        daemon=True,
+    )
+    worker.start()
+    return {"job_id": job_id}
+
+
+@app.get("/api/pipeline/jobs/{job_id}")
+async def get_pipeline_job(job_id: str):
+    return _serialize_pipeline_job(job_id)
+
+
+@app.get("/api/pipeline/jobs/{job_id}/artifacts/{artifact_name}")
+async def get_pipeline_artifact(job_id: str, artifact_name: str):
+    payload = _serialize_pipeline_job(job_id)
+    job_dir = payload["job_dir"]
+    artifact_path = os.path.normpath(os.path.join(job_dir, artifact_name))
+    normalized_dir = os.path.normpath(job_dir)
+    if artifact_path != normalized_dir and not artifact_path.startswith(normalized_dir + os.sep):
+        raise HTTPException(status_code=400, detail="Invalid artifact path")
+    if not os.path.exists(artifact_path):
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    return FileResponse(artifact_path)
 
 
 @app.post("/api/detect")

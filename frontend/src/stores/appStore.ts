@@ -1,16 +1,18 @@
 import { create } from 'zustand'
-import type { AppView, BatchItem, DetectedObject, DetectionResult } from '@/types'
-import { APIError, runDetection, type DetectionOptions } from '@/lib/api'
+import type { AppView, BatchItem, DetectedObject, DetectionResult, PipelineJob, ProcessingMode } from '@/types'
+import { APIError, getPipelineJob, runDetection, startPipelineJob, type DetectionOptions } from '@/lib/api'
 import { useHistoryStore, type HistoryAction } from '@/stores/historyStore'
 import { objectKey } from '@/lib/objectKey'
 
 export type AppState = {
   currentView: AppView
+  processingMode: ProcessingMode
   imageFile: File | null
   imageUrl: string | null
   imageMeta: { width: number; height: number } | null
   options: DetectionOptions
   result: DetectionResult | null
+  pipelineJob: PipelineJob | null
   resultRunId: number
   reviewStatus: Record<string, 'accepted' | 'rejected'>
   selectedObjectKey: string | null
@@ -30,6 +32,7 @@ export type AppState = {
 }
 
 export type AppActions = {
+  setProcessingMode: (mode: ProcessingMode) => void
   setImageFile: (file: File | null) => void
   setBatchFiles: (files: File[]) => void
   addBatchFiles: (files: File[]) => void
@@ -40,6 +43,7 @@ export type AppActions = {
   setOptions: (options: Partial<DetectionOptions>) => void
   setView: (view: AppView) => void
   runDetection: () => Promise<void>
+  runPipeline: () => Promise<void>
   runBatchDetection: () => Promise<void>
   cancelDetection: () => void
   cancelBatch: () => void
@@ -120,11 +124,13 @@ const buildReviewMap = (result: DetectionResult | null) => {
 
 export const useAppStore = create<AppState & AppActions>((set, get) => ({
   currentView: 'empty',
+  processingMode: 'detection',
   imageFile: null,
   imageUrl: null,
   imageMeta: null,
   options: defaultOptions,
   result: null,
+  pipelineJob: null,
   resultRunId: 0,
   reviewStatus: {},
   selectedObjectKey: null,
@@ -134,6 +140,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   error: null,
   darkMode: initialDarkMode,
   batch: emptyBatchState,
+
+  setProcessingMode: (mode) => set({ processingMode: mode, error: null }),
 
   setConfidenceFilter: (value) => set({ confidenceFilter: value }),
 
@@ -149,6 +157,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         imageUrl: null,
         imageMeta: null,
         result: null,
+        pipelineJob: null,
         currentView: 'empty',
         batch: emptyBatchState,
       })
@@ -159,6 +168,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     set({
       imageFile: file,
       imageUrl: url,
+      pipelineJob: null,
+      result: null,
       currentView: 'preview',
       batch: emptyBatchState,
     })
@@ -180,6 +191,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       imageUrl: null,
       imageMeta: null,
       result: null,
+      pipelineJob: null,
       reviewStatus: {},
       selectedObjectKey: null,
       currentView: 'batch',
@@ -281,6 +293,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         imageUrl: null,
         imageMeta: null,
         result: null,
+        pipelineJob: null,
         reviewStatus: {},
         selectedObjectKey: null,
         currentView: 'empty',
@@ -291,6 +304,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   },
 
   runDetection: async () => {
+    if (get().processingMode === 'pipeline') {
+      await get().runPipeline()
+      return
+    }
     const { imageFile, options } = get()
     if (!imageFile) return
 
@@ -325,6 +342,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       const reviewFromPayload = buildReviewMap(result)
       set({
         result,
+        pipelineJob: null,
         resultRunId: Date.now(),
         reviewStatus: reviewFromPayload,
         selectedObjectKey: null,
@@ -361,6 +379,92 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   cancelDetection: () => {
     if (activeAbortController) {
       activeAbortController.abort()
+    }
+  },
+
+  runPipeline: async () => {
+    const { imageFile } = get()
+    if (!imageFile) return
+
+    if (progressTimer) {
+      window.clearInterval(progressTimer)
+      progressTimer = null
+    }
+    if (activeAbortController) {
+      activeAbortController.abort()
+    }
+    activeAbortController = new AbortController()
+
+    set({
+      isProcessing: true,
+      currentView: 'processing',
+      error: null,
+      result: null,
+      pipelineJob: null,
+      progress: { step: 'Creating pipeline job...', percent: 5 },
+    })
+
+    try {
+      const { job_id } = await startPipelineJob(imageFile, { stopAfter: 1 }, activeAbortController.signal)
+
+      while (true) {
+        const job = await getPipelineJob(job_id, activeAbortController.signal)
+        const totalStages = Math.max(job.manifest?.stop_after ?? 1, 1)
+        const completedStages = job.manifest?.stages.filter((stage) => stage.status === 'completed').length ?? 0
+        const currentStageName = job.current_stage ?? 'Queued'
+        const percent = job.status === 'completed'
+          ? 100
+          : Math.min(95, Math.max(10, Math.round((completedStages / totalStages) * 100)))
+
+        set({
+          pipelineJob: job,
+          progress: {
+            step: job.status === 'queued' ? 'Queued pipeline job...' : currentStageName.replaceAll('_', ' '),
+            percent,
+          },
+        })
+
+        if (job.status === 'completed') {
+          set({
+            isProcessing: false,
+            currentView: 'results',
+            progress: { step: 'Pipeline complete', percent: 100 },
+            pipelineJob: job,
+          })
+          break
+        }
+
+        if (job.status === 'failed') {
+          set({
+            isProcessing: false,
+            currentView: 'preview',
+            progress: null,
+            error: job.error || 'Pipeline failed',
+            pipelineJob: job,
+          })
+          break
+        }
+
+        await new Promise((resolve) => window.setTimeout(resolve, 400))
+      }
+    } catch (error) {
+      if (error instanceof APIError && error.isCanceled) {
+        set({
+          isProcessing: false,
+          currentView: 'preview',
+          error: 'Pipeline canceled',
+          progress: null,
+        })
+        return
+      }
+      set({
+        isProcessing: false,
+        currentView: 'preview',
+        error: error instanceof Error ? error.message : 'Pipeline failed',
+        progress: null,
+      })
+    } finally {
+      activeAbortController = null
     }
   },
 

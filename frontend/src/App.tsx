@@ -3,6 +3,7 @@ import { UploadZone } from '@/components/UploadZone'
 import { DetectionSetup } from '@/components/DetectionSetup'
 import { ProcessingView } from '@/components/ProcessingView'
 import { ResultsView } from '@/components/ResultsView'
+import { PipelineResultsView } from '@/components/PipelineResultsView'
 import { BatchResultsView } from '@/components/BatchResultsView'
 import { useAppStore } from '@/stores/appStore'
 import { cn } from '@/lib/utils'
@@ -37,6 +38,7 @@ function PreviewPane() {
 
 export default function App() {
   const currentView = useAppStore((state) => state.currentView)
+  const pipelineJob = useAppStore((state) => state.pipelineJob)
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg-primary)]">
@@ -64,7 +66,7 @@ export default function App() {
           </div>
         )}
 
-        {currentView === 'results' && <ResultsView />}
+        {currentView === 'results' && (pipelineJob ? <PipelineResultsView job={pipelineJob} /> : <ResultsView />)}
       </main>
     </div>
   )
