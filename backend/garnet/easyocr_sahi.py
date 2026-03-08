@@ -55,6 +55,9 @@ class EasyOcrSahiConfig:
     postprocess_type: str = "GREEDYNMM"
     postprocess_match_metric: str = "IOS"
     postprocess_match_threshold: float = 0.1
+    tighten_bboxes: bool = True
+    tighten_padding_px: int = 1
+    tighten_dark_threshold: int = 200
 
 
 def _get_reader(cfg: EasyOcrSahiConfig) -> easyocr.Reader:
@@ -91,6 +94,24 @@ def _bbox_ios(a: dict[str, int], b: dict[str, int]) -> float:
     if smaller <= 0:
         return 0.0
     return inter / smaller
+
+
+def _bbox_height(bbox: dict[str, int]) -> int:
+    return max(1, int(bbox["y_max"]) - int(bbox["y_min"]))
+
+
+def _bbox_width(bbox: dict[str, int]) -> int:
+    return max(1, int(bbox["x_max"]) - int(bbox["x_min"]))
+
+
+def _vertical_overlap_ratio(a: dict[str, int], b: dict[str, int]) -> float:
+    inter_top = max(a["y_min"], b["y_min"])
+    inter_bottom = min(a["y_max"], b["y_max"])
+    inter = max(0, inter_bottom - inter_top)
+    denom = min(_bbox_height(a), _bbox_height(b))
+    if denom <= 0:
+        return 0.0
+    return inter / denom
 
 
 def _rotate_image(tile: np.ndarray, orientation: str) -> np.ndarray:
@@ -193,9 +214,20 @@ def _can_merge_same_line(left: dict[str, Any], right: dict[str, Any], line_merge
         return False
     if right["reading_direction"] not in {"horizontal", "unknown"}:
         return False
+    height_ratio = max(_bbox_height(left["bbox"]), _bbox_height(right["bbox"])) / max(
+        1, min(_bbox_height(left["bbox"]), _bbox_height(right["bbox"]))
+    )
+    if height_ratio > 1.8:
+        return False
     left_center_y = (left["bbox"]["y_min"] + left["bbox"]["y_max"]) / 2
     right_center_y = (right["bbox"]["y_min"] + right["bbox"]["y_max"]) / 2
-    if abs(left_center_y - right_center_y) > line_merge_y_tolerance_px:
+    dynamic_y_tolerance = max(
+        line_merge_y_tolerance_px,
+        int(min(_bbox_height(left["bbox"]), _bbox_height(right["bbox"])) * 0.35),
+    )
+    if abs(left_center_y - right_center_y) > dynamic_y_tolerance:
+        return False
+    if _vertical_overlap_ratio(left["bbox"], right["bbox"]) < 0.55:
         return False
     gap = right["bbox"]["x_min"] - left["bbox"]["x_max"]
     if gap < 0:
@@ -286,6 +318,91 @@ def _draw_overlay(image_bgr: np.ndarray, regions: list[dict[str, Any]]) -> np.nd
     return overlay
 
 
+def _tighten_bbox_to_text_ink(
+    image_gray: np.ndarray,
+    bbox: dict[str, int],
+    *,
+    dark_threshold: int,
+    padding_px: int,
+) -> dict[str, int]:
+    height, width = image_gray.shape[:2]
+    x_min = max(0, int(bbox["x_min"]))
+    y_min = max(0, int(bbox["y_min"]))
+    x_max = min(width - 1, int(bbox["x_max"]))
+    y_max = min(height - 1, int(bbox["y_max"]))
+    if x_max <= x_min or y_max <= y_min:
+        return bbox
+
+    crop = image_gray[y_min : y_max + 1, x_min : x_max + 1]
+    if crop.size == 0:
+        return bbox
+
+    ink_mask = (crop <= dark_threshold).astype(np.uint8)
+    if not np.any(ink_mask):
+        _, ink_mask = cv2.threshold(crop, 0, 1, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    if not np.any(ink_mask):
+        return bbox
+
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(ink_mask, connectivity=8)
+    kept_components: list[tuple[int, int, int, int]] = []
+    fallback_components: list[tuple[int, int, int, int]] = []
+    crop_h, crop_w = ink_mask.shape[:2]
+
+    for label_idx in range(1, num_labels):
+        left = int(stats[label_idx, cv2.CC_STAT_LEFT])
+        top = int(stats[label_idx, cv2.CC_STAT_TOP])
+        comp_w = int(stats[label_idx, cv2.CC_STAT_WIDTH])
+        comp_h = int(stats[label_idx, cv2.CC_STAT_HEIGHT])
+        area = int(stats[label_idx, cv2.CC_STAT_AREA])
+        if area <= 0:
+            continue
+        right = left + comp_w - 1
+        bottom = top + comp_h - 1
+        touches_boundary = (
+            left <= 0 or top <= 0 or right >= crop_w - 1 or bottom >= crop_h - 1
+        )
+        component = (left, top, right, bottom)
+        fallback_components.append(component)
+        if not touches_boundary:
+            kept_components.append(component)
+
+    components = kept_components or fallback_components
+    if not components:
+        return bbox
+
+    tight_left = min(item[0] for item in components)
+    tight_top = min(item[1] for item in components)
+    tight_right = max(item[2] for item in components)
+    tight_bottom = max(item[3] for item in components)
+
+    return {
+        "x_min": max(0, x_min + tight_left - padding_px),
+        "y_min": max(0, y_min + tight_top - padding_px),
+        "x_max": min(width - 1, x_min + tight_right + padding_px),
+        "y_max": min(height - 1, y_min + tight_bottom + padding_px),
+    }
+
+
+def _tighten_region_bboxes(
+    image_gray: np.ndarray,
+    regions: list[dict[str, Any]],
+    cfg: EasyOcrSahiConfig,
+) -> list[dict[str, Any]]:
+    if not cfg.tighten_bboxes:
+        return regions
+    tightened: list[dict[str, Any]] = []
+    for region in regions:
+        tightened_region = dict(region)
+        tightened_region["bbox"] = _tighten_bbox_to_text_ink(
+            image_gray,
+            region["bbox"],
+            dark_threshold=cfg.tighten_dark_threshold,
+            padding_px=cfg.tighten_padding_px,
+        )
+        tightened.append(tightened_region)
+    return tightened
+
+
 def _choose_best_candidate(
     merged_bbox: dict[str, int],
     candidates: list[dict[str, Any]],
@@ -295,6 +412,47 @@ def _choose_best_candidate(
     if not matches:
         return None
     return max(matches, key=lambda item: (float(item.get("confidence", 0.0)), _bbox_ios(merged_bbox, item["bbox"])))
+
+
+def _refine_merged_bbox(
+    merged_bbox: dict[str, int],
+    candidates: list[dict[str, Any]],
+    match_threshold: float,
+) -> tuple[dict[str, int], dict[str, Any] | None]:
+    matches = [candidate for candidate in candidates if _bbox_ios(merged_bbox, candidate["bbox"]) >= match_threshold]
+    if not matches:
+        return merged_bbox, None
+
+    anchor = max(matches, key=lambda item: (float(item.get("confidence", 0.0)), _bbox_ios(merged_bbox, item["bbox"])))
+    anchor_bbox = anchor["bbox"]
+    anchor_center_y = (anchor_bbox["y_min"] + anchor_bbox["y_max"]) / 2
+    anchor_height = _bbox_height(anchor_bbox)
+
+    same_line_matches: list[dict[str, Any]] = []
+    for candidate in matches:
+        candidate_bbox = candidate["bbox"]
+        candidate_center_y = (candidate_bbox["y_min"] + candidate_bbox["y_max"]) / 2
+        center_delta = abs(candidate_center_y - anchor_center_y)
+        min_height = min(anchor_height, _bbox_height(candidate_bbox))
+        height_ratio = max(anchor_height, _bbox_height(candidate_bbox)) / max(1, min_height)
+        if candidate.get("rotation") != anchor.get("rotation"):
+            continue
+        if center_delta > max(6, int(min_height * 0.35)):
+            continue
+        if _vertical_overlap_ratio(anchor_bbox, candidate_bbox) < 0.55:
+            continue
+        if height_ratio > 1.8:
+            continue
+        same_line_matches.append(candidate)
+
+    refined_candidates = same_line_matches or [anchor]
+    refined_bbox = {
+        "x_min": min(item["bbox"]["x_min"] for item in refined_candidates),
+        "y_min": min(item["bbox"]["y_min"] for item in refined_candidates),
+        "x_max": max(item["bbox"]["x_max"] for item in refined_candidates),
+        "y_max": max(item["bbox"]["y_max"] for item in refined_candidates),
+    }
+    return refined_bbox, anchor
 
 
 def _read_tile_with_orientations(reader: easyocr.Reader, tile: np.ndarray, cfg: EasyOcrSahiConfig) -> list[tuple[str, list[Any]]]:
@@ -451,7 +609,7 @@ def run_easyocr_sahi(image_path: str | Path, image_id: str = "", cfg: EasyOcrSah
             "x_max": int(bbox_xyxy[2]),
             "y_max": int(bbox_xyxy[3]),
         }
-        chosen = _choose_best_candidate(
+        refined_bbox, chosen = _refine_merged_bbox(
             merged_bbox,
             detector.all_candidates,
             match_threshold=cfg.postprocess_match_threshold,
@@ -473,7 +631,7 @@ def run_easyocr_sahi(image_path: str | Path, image_id: str = "", cfg: EasyOcrSah
                 "normalized_text": chosen["normalized_text"],
                 "class": chosen["class"],
                 "confidence": round(float(chosen["confidence"]), 4),
-                "bbox": merged_bbox,
+                "bbox": refined_bbox,
                 "rotation": chosen["rotation"],
                 "reading_direction": chosen["reading_direction"],
                 "legibility": chosen["legibility"],
@@ -485,6 +643,7 @@ def run_easyocr_sahi(image_path: str | Path, image_id: str = "", cfg: EasyOcrSah
         line_merge_gap_px=cfg.line_merge_gap_px,
         line_merge_y_tolerance_px=cfg.line_merge_y_tolerance_px,
     )
+    merged_regions = _tighten_region_bboxes(ocr_image, merged_regions, cfg)
     merged_regions.sort(key=lambda item: (item["bbox"]["y_min"], item["bbox"]["x_min"], item["text"]))
     for idx, region in enumerate(merged_regions, start=1):
         region["id"] = f"ocr_{idx:06d}"
@@ -529,6 +688,9 @@ def run_easyocr_sahi(image_path: str | Path, image_id: str = "", cfg: EasyOcrSah
             "postprocess_type": cfg.postprocess_type,
             "postprocess_match_metric": cfg.postprocess_match_metric,
             "postprocess_match_threshold": cfg.postprocess_match_threshold,
+            "tighten_bboxes": cfg.tighten_bboxes,
+            "tighten_padding_px": cfg.tighten_padding_px,
+            "tighten_dark_threshold": cfg.tighten_dark_threshold,
         },
         "exception_candidates": exception_candidates,
         "overlay_image": _draw_overlay(base_image, merged_regions),

@@ -10,6 +10,7 @@ import numpy as np
 from sahi import AutoDetectionModel
 from sahi.predict import get_sliced_prediction
 
+from garnet.model_defaults import pick_default_weight_file
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
@@ -17,7 +18,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 @dataclass(frozen=True)
 class DetectionSahiConfig:
     model_type: str = "ultralytics"
-    weight_path: str = "yolo_weights/yolo11n_PPCL_640_20250204.pt"
+    weight_path: str = pick_default_weight_file("ultralytics") or "yolo_weights/yolo26n_PPCL_640_20260227.pt"
     config_path: str = "datasets/yaml/data.yaml"
     conf_th: float = 0.8
     image_size: int = 640

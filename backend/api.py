@@ -41,6 +41,8 @@ from sahi import AutoDetectionModel, DetectionModel
 from sahi.predict import get_sliced_prediction
 
 import garnet.Settings as Settings
+from garnet.model_defaults import list_weight_files as discover_weight_files
+from garnet.model_defaults import pick_default_weight_file
 from garnet.pid_extractor import PIDPipeline, PipelineConfig
 from garnet.utils import rotate_image
 
@@ -546,10 +548,7 @@ def get_memory_usage_mb() -> float:
 def list_weight_files(weight_paths: list | None = None) -> list:
     """Return the list of model in the `weight_paths` paths."""
     if weight_paths is None:
-        weight_paths = [
-            os.path.join(settings.MODEL_PATH, "*.onnx"),
-            os.path.join(settings.MODEL_PATH, "*.pt"),
-        ]
+        return [{"item": item} for item in discover_weight_files()]
     logger.log(logging.INFO, f"Load weight files from {weight_paths}")
     weight_files = []
 
@@ -606,18 +605,6 @@ def get_result_or_404(result_id: str) -> dict:
         if not result:
             raise HTTPException(status_code=404, detail="Result not found")
         return result
-
-
-def pick_default_weight_file(model_type: str) -> str | None:
-    weight_files = extract_item_list(MODEL_LIST)
-    if not weight_files:
-        return None
-    if model_type == "ultralytics":
-        for item in weight_files:
-            if item.endswith(".pt"):
-                return item
-    return weight_files[0]
-
 
 def extract_text_from_image(image: np.ndarray, objects: list[dict]) -> list[list[str]]:
     """Extract text from image using easyOCR."""

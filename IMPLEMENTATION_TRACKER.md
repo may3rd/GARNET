@@ -19,18 +19,18 @@
   - verification command and result
 - Use task IDs in commit messages or PR titles where possible, for example `S2-03 geometry: add skeleton node clustering`.
 
-## Current baseline (repo reality on 2026-03-07)
+## Current baseline (repo reality on 2026-03-09)
 
 | Area | Repo evidence | Status | Gap to master plan |
 |------|---------------|--------|--------------------|
-| Staged orchestrator | [`backend/garnet/pid_extractor.py`](/Users/maetee/Code/GARNET/backend/garnet/pid_extractor.py) has `stage1_ingest` through `stage6_line_graph` | Partial | Current stages are useful but do not match the master-plan phase boundaries cleanly |
+| Staged orchestrator | [`backend/garnet/pid_extractor.py`](/Users/maetee/Code/GARNET/backend/garnet/pid_extractor.py) currently implements `stage1_input_normalization`, `stage2_ocr_discovery`, `stage4_object_detection`, and `stage5_pipe_mask` | Active | Current stages are reviewable and runnable, but stage numbering is intentionally sparse and the master-plan geometry/graph phases are still incomplete |
 | OCR ingestion | [`backend/garnet/text_ocr.py`](/Users/maetee/Code/GARNET/backend/garnet/text_ocr.py), [`backend/garnet/easyocr_sahi.py`](/Users/maetee/Code/GARNET/backend/garnet/easyocr_sahi.py), planned Gemini route helper under `backend/garnet/`, Gemini adapter in [`backend/gemini_detector/gemini_sahi.py`](/Users/maetee/Code/GARNET/backend/gemini_detector/gemini_sahi.py) | Active | The rebuild needs selectable OCR routing so a run uses either EasyOCR or Gemini, not a mandatory chained Stage 2 -> Stage 3 path |
-| Object detection | `/api/detect` flow in [`backend/api.py`](/Users/maetee/Code/GARNET/backend/api.py), weight/config discovery, `predict_images.py` helpers | Active but separate | Detection exists for the API, but it is not yet part of the new staged rebuild pipeline |
-| Pipe geometry | Stage 1 normalization in [`backend/garnet/pid_extractor.py`](/Users/maetee/Code/GARNET/backend/garnet/pid_extractor.py), sample artifacts in `backend/output/slice1_stage1` | Early | B1 pipe mask, B1.5 morphology audit, B4 crossing/junction disambiguation, and B5 cleanup are not implemented in the rebuild yet |
+| Object detection | `/api/detect` flow in [`backend/api.py`](/Users/maetee/Code/GARNET/backend/api.py), [`backend/garnet/object_detection_sahi.py`](/Users/maetee/Code/GARNET/backend/garnet/object_detection_sahi.py), and Stage 4 in [`backend/garnet/pid_extractor.py`](/Users/maetee/Code/GARNET/backend/garnet/pid_extractor.py) | Active | Detection is now part of the staged rebuild, but it still uses a fixed baseline configuration and does not yet emit richer evidence tables |
+| Pipe geometry | Stage 5 pipe-mask generation in [`backend/garnet/pid_extractor.py`](/Users/maetee/Code/GARNET/backend/garnet/pid_extractor.py) and [`backend/garnet/pipe_mask.py`](/Users/maetee/Code/GARNET/backend/garnet/pipe_mask.py) | Early | B1 is started, but B1.5 morphology audit, skeletonization, junction/crossing handling, and traced-edge extraction are not implemented in the rebuild yet |
 | Graph assembly | No active rebuild module yet; planned for later slices | Not started | Graph-native QA, mixed directed/undirected semantics, and simplified export geometry are still future work |
 | Export | [`backend/schema/graph_v1.json`](/Users/maetee/Code/GARNET/backend/schema/graph_v1.json) remains a reference artifact | Not started | Confidence bundles, provenance, direction state, and simplified polylines are not yet exported by the rebuild |
 | Verification | `py_compile` is available; smoke scripts exist | Weak | No reliable regression harness or stage-level acceptance scorecard yet |
-| Code health | `pid_extractor.py` contains duplicated `stage6_line_graph` definitions and a `stop-after` interface that does not cleanly match stage count | Risk | Stabilization is needed before adding more behavior |
+| Code health | `pid_extractor.py` no longer carries the old duplicated line-graph stages, but it still has sparse stage numbering (`1,2,4,5`) and evolving defaults that must stay aligned with the API | Moderate | Keep the stage manifest, tracker, and shared model defaults aligned as new stages land |
 
 ## Suggested cadence
 - Use 1-week sprints.
@@ -191,5 +191,5 @@
 | Slice 1 | Stage 1-only pipeline from raw image input, backend job API, frontend Pipeline mode with stage progress and artifact review | `backend/output/slice1_stage1`, `backend/output/pipeline_jobs`, `backend/tests/test_pid_extractor_cli.py`, `backend/tests/test_pipeline_api.py` | DONE |
 | Slice 2 | SAHI-style tiled EasyOCR discovery from image only, visible as a second reviewable stage in API and frontend | `stage2_ocr_regions.json`, `stage2_ocr_overlay.png`, `stage2_ocr_summary.json`, `stage2_ocr_exception_candidates.json` | DONE |
 | Slice 3 | Selectable OCR routes: user chooses one OCR route per run, currently `easyocr`, `gemini`, or `paddleocr`, with Gemini using patched full-page prompts and route-local crop fallback | `stage2_ocr_regions.json`, `stage2_ocr_overlay.png`, `stage2_ocr_summary.json`, `stage2_ocr_exception_candidates.json`, optional Gemini raw patch/crop artifacts | DONE |
-| Slice 4 | Fixed-baseline Stage 4 object detection using Ultralytics + SAHI with `backend/yolo_weights/yolo11n_PPCL_640_20250204.pt` | `stage4_objects.json`, `stage4_objects_overlay.png`, `stage4_objects_summary.json` | DONE |
+| Slice 4 | Fixed-baseline Stage 4 object detection using Ultralytics + SAHI with `backend/yolo_weights/yolo26n_PPCL_640_20260227.pt` | `stage4_objects.json`, `stage4_objects_overlay.png`, `stage4_objects_summary.json` | DONE |
 | Slice 5 | Conservative Stage 5 pipe-mask generation from Stage 1 binaries with Stage 2 OCR suppression and Stage 4 object suppression | `stage5_pipe_mask.png`, `stage5_pipe_mask_overlay.png`, `stage5_pipe_mask_summary.json` | DONE |

@@ -22,6 +22,7 @@ import numpy as np
 from dotenv import load_dotenv
 from garnet.easyocr_sahi import EasyOcrSahiConfig, run_easyocr_sahi
 from garnet.gemini_ocr_sahi import GeminiOcrSahiConfig, run_gemini_ocr_sahi
+from garnet.model_defaults import pick_default_weight_file
 from garnet.object_detection_sahi import DetectionSahiConfig, run_object_detection_sahi
 from garnet.paddle_ocr_sahi import PaddleOcrSahiConfig, run_paddle_ocr_sahi
 from garnet.pipe_mask import run_pipe_mask_stage
@@ -72,7 +73,7 @@ class PipelineConfig:
     ocr_line_merge_gap_px: int = 24
     ocr_line_merge_y_tolerance_px: int = 10
     ocr_enable_rotated: bool = True
-    detection_weight_path: str = "yolo_weights/yolo11n_PPCL_640_20250204.pt"
+    detection_weight_path: str = pick_default_weight_file("ultralytics") or "yolo_weights/yolo26n_PPCL_640_20260227.pt"
     detection_image_size: int = 640
     detection_overlap_ratio: float = 0.2
     detection_postprocess_type: str = "GREEDYNMM"
@@ -128,6 +129,8 @@ class PIDPipeline:
             "out_dir": str(self.out_dir),
             "stop_after": stop_after,
             "ocr_route": self.cfg.ocr_route,
+            "detection_weight_path": self.cfg.detection_weight_path,
+            "stage_numbering_note": "Stage numbering is intentionally sparse: Stage 3 is not implemented yet.",
             "stages": [],
         }
         self._write_stage_manifest()

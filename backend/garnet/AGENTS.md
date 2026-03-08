@@ -58,7 +58,7 @@
 - Current Stage 4 object-detection baseline:
   - stage name is `stage4_object_detection`
   - keep sparse stage numbering honest; do not add a fake Stage 3 placeholder
-  - fixed baseline weight is `yolo_weights/yolo11n_PPCL_640_20250204.pt`
+  - fixed baseline weight is `yolo_weights/yolo26n_PPCL_640_20260227.pt`
   - detection path uses Ultralytics + SAHI
   - detection baseline uses `image_size = 640`
   - detection baseline uses `overlap_ratio = 0.2`
