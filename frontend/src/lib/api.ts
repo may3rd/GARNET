@@ -119,7 +119,7 @@ export async function startPipelineJob(
   signal?: AbortSignal,
   timeoutMs = DEFAULT_TIMEOUT
 ): Promise<{ job_id: string }> {
-  const payload = { stopAfter: 1, ...options }
+  const payload = { stopAfter: 2, ...options }
   const formData = new FormData()
   formData.append('file_input', file)
   formData.append('stop_after', String(payload.stopAfter))

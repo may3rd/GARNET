@@ -2,6 +2,9 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
+
+import numpy as np
 
 from garnet import pid_extractor
 
@@ -21,6 +24,9 @@ class FakePipeline(pid_extractor.PIDPipeline):
     def stage1_input_normalization(self) -> None:
         self._record("stage1")
 
+    def stage2_ocr_discovery(self) -> None:
+        self._record("stage2")
+
 class PIDPipelineRunnerTests(unittest.TestCase):
     def test_stage_definitions_follow_master_plan_order(self) -> None:
         pipe = FakePipeline(tempfile.mkdtemp())
@@ -31,6 +37,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             stage_names,
             [
                 "stage1_input_normalization",
+                "stage2_ocr_discovery",
             ],
         )
 
@@ -38,36 +45,56 @@ class PIDPipelineRunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             pipe = FakePipeline(tmp)
 
-            pipe.run(stop_after=1)
+            pipe.run(stop_after=2)
 
-            self.assertEqual(pipe.called, ["stage1"])
+            self.assertEqual(pipe.called, ["stage1", "stage2"])
             manifest = json.loads((Path(tmp) / "stage_manifest.json").read_text())
-            self.assertEqual(manifest["stop_after"], 1)
+            self.assertEqual(manifest["stop_after"], 2)
             self.assertEqual(
                 [item["name"] for item in manifest["stages"]],
                 [
                     "stage1_input_normalization",
+                    "stage2_ocr_discovery",
                 ],
             )
             self.assertTrue(all(item["status"] == "completed" for item in manifest["stages"]))
+
+    def test_run_rejects_stop_after_past_last_stage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = FakePipeline(tmp)
+
+            with self.assertRaisesRegex(ValueError, "stop_after must be between 1 and 2"):
+                pipe.run(stop_after=3)
 
     def test_run_writes_failed_stage_to_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             pipe = FakePipeline(tmp, fail_stage=2)
 
-            with self.assertRaisesRegex(ValueError, "stop_after must be between 1 and 1"):
+            with self.assertRaisesRegex(RuntimeError, "stage2 failed"):
                 pipe.run(stop_after=2)
 
-    def test_run_writes_failed_stage_to_manifest(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            pipe = FakePipeline(tmp, fail_stage=1)
-
-            with self.assertRaisesRegex(RuntimeError, "stage1 failed"):
-                pipe.run(stop_after=1)
-
             manifest = json.loads((Path(tmp) / "stage_manifest.json").read_text())
-            self.assertEqual(manifest["stages"][0]["status"], "failed")
-            self.assertIn("stage1 failed", manifest["stages"][0]["error"])
+            self.assertEqual(manifest["stages"][0]["status"], "completed")
+            self.assertEqual(manifest["stages"][1]["status"], "failed")
+            self.assertIn("stage2 failed", manifest["stages"][1]["error"])
+
+    def test_stage2_uses_plain_gray_artifact_as_ocr_input(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
+            pipe._save_img("stage1_gray", np.zeros((20, 20), dtype=np.uint8))
+            pipe._save_img("stage1_gray_equalized", np.ones((20, 20), dtype=np.uint8) * 255)
+
+            with patch("garnet.pid_extractor.run_easyocr_sahi") as mock_ocr:
+                mock_ocr.return_value = {
+                    "regions_payload": {"image_id": "", "pass_type": "sheet", "text_regions": []},
+                    "summary": {"image_id": "", "pass_type": "sheet"},
+                    "exception_candidates": [],
+                    "overlay_image": np.zeros((20, 20, 3), dtype=np.uint8),
+                }
+
+                pipe.stage2_ocr_discovery()
+
+            self.assertEqual(Path(mock_ocr.call_args.args[0]).name, "stage1_gray.png")
 
 
 if __name__ == "__main__":

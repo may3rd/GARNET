@@ -1,9 +1,9 @@
 """
-Stage 1-only P&ID pipeline.
+Stage-based P&ID pipeline rebuild.
 
-This file intentionally starts small: raw P&ID image in, normalization artifact
-bundle out. Later slices can add more stages without carrying legacy pipeline
-logic forward.
+The current implementation intentionally stays small and reviewable:
+- Stage 1: input normalization
+- Stage 2: tiled EasyOCR discovery
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
+from garnet.easyocr_sahi import EasyOcrSahiConfig, run_easyocr_sahi
 
 try:
     import cv2  # type: ignore
@@ -41,6 +42,17 @@ class PipelineConfig:
     adaptive_block_size: int = 21
     adaptive_c: int = 5
     blur_kernel: int = 5
+    ocr_slice_height: int = 1600
+    ocr_slice_width: int = 1600
+    ocr_overlap_height_ratio: float = 0.2
+    ocr_overlap_width_ratio: float = 0.2
+    ocr_min_score: float = 0.2
+    ocr_min_text_len: int = 2
+    ocr_low_text: float = 0.3
+    ocr_link_threshold: float = 0.7
+    ocr_line_merge_gap_px: int = 24
+    ocr_line_merge_y_tolerance_px: int = 10
+    ocr_enable_rotated: bool = True
 
 
 class PIDPipeline:
@@ -63,7 +75,10 @@ class PIDPipeline:
 
     # ---------- Stage runner ----------
     def _stage_definitions(self) -> List[Tuple[int, str, Callable[[], None]]]:
-        return [(1, "stage1_input_normalization", self.stage1_input_normalization)]
+        return [
+            (1, "stage1_input_normalization", self.stage1_input_normalization),
+            (2, "stage2_ocr_discovery", self.stage2_ocr_discovery),
+        ]
 
     def _manifest_path(self) -> Path:
         return self.out_dir / "stage_manifest.json"
@@ -219,12 +234,40 @@ class PIDPipeline:
             },
         )
 
+    # ---------- Stage 2 ----------
+    def stage2_ocr_discovery(self) -> None:
+        stage1_input = self.out_dir / "stage1_gray.png"
+        if not stage1_input.exists():
+            raise FileNotFoundError(f"Stage 2 requires Stage 1 artifact: {stage1_input}")
+
+        ocr_result = run_easyocr_sahi(
+            stage1_input,
+            image_id=Path(self.image_path).name,
+            cfg=EasyOcrSahiConfig(
+                slice_height=self.cfg.ocr_slice_height,
+                slice_width=self.cfg.ocr_slice_width,
+                overlap_height_ratio=self.cfg.ocr_overlap_height_ratio,
+                overlap_width_ratio=self.cfg.ocr_overlap_width_ratio,
+                min_score=self.cfg.ocr_min_score,
+                min_text_len=self.cfg.ocr_min_text_len,
+                low_text=self.cfg.ocr_low_text,
+                link_threshold=self.cfg.ocr_link_threshold,
+                line_merge_gap_px=self.cfg.ocr_line_merge_gap_px,
+                line_merge_y_tolerance_px=self.cfg.ocr_line_merge_y_tolerance_px,
+                enable_rotated_ocr=self.cfg.ocr_enable_rotated,
+            ),
+        )
+        self._save_json("stage2_ocr_regions", ocr_result["regions_payload"])
+        self._save_json("stage2_ocr_summary", ocr_result["summary"])
+        self._save_json("stage2_ocr_exception_candidates", ocr_result["exception_candidates"])
+        self._save_img("stage2_ocr_overlay", ocr_result["overlay_image"])
+
 
 def main() -> None:
-    parser = argparse.ArgumentParser("P&ID Stage 1 pipeline")
+    parser = argparse.ArgumentParser("P&ID pipeline")
     parser.add_argument("--image", required=True)
     parser.add_argument("--out", default=str(DEFAULT_OUT))
-    parser.add_argument("--stop-after", type=int, default=1, help="Run up to this stage (1-1)")
+    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1-2)")
     args = parser.parse_args()
     pipe = PIDPipeline(args.image, out_dir=args.out)
     pipe.run(stop_after=args.stop_after)

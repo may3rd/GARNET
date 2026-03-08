@@ -766,7 +766,7 @@ def _run_pipeline_job(job_id: str, image_path: str, job_dir: str, stop_after: in
         job = PIPELINE_JOBS.get(job_id)
         if job:
             job["status"] = "completed"
-            job["current_stage"] = "stage1_input_normalization"
+            job["current_stage"] = pipe._stage_definitions()[stop_after - 1][1]
 
 
 def sanitize_excel_sheet_name(name: str, fallback: str = "Sheet") -> str:
@@ -978,8 +978,8 @@ async def create_pipeline_job(
     stop_after: int = Form(1),
 ):
     validate_image_file(file_input)
-    if stop_after != 1:
-        raise HTTPException(status_code=400, detail="Slice 1 supports only stop_after=1")
+    if stop_after not in {1, 2}:
+        raise HTTPException(status_code=400, detail="Pipeline currently supports stop_after=1 or stop_after=2")
 
     input_bytes = await file_input.read()
     if len(input_bytes) > config.MAX_FILE_SIZE_BYTES:

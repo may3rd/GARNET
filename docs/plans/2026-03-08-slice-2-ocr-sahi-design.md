@@ -144,6 +144,32 @@
 - `stage3_ocr_unresolved.json`
 - optional raw crop-response folder when debug is enabled
 
+## Current production baseline
+- The current accepted Stage 2 baseline uses the plain grayscale artifact from Stage 1 as the OCR input:
+  - `stage1_gray.png`
+- Do not use `stage1_gray_equalized.png` as the primary OCR input unless a later comparison run proves it is better on the target drawing set.
+- The current Stage 2 tuning values for production-oriented runs are:
+  - `slice_height = 1600`
+  - `slice_width = 1600`
+  - `overlap_height_ratio = 0.2`
+  - `overlap_width_ratio = 0.2`
+  - `min_score = 0.2`
+  - `min_text_len = 2`
+  - `text_threshold = 0.7`
+  - `low_text = 0.3`
+  - `link_threshold = 0.7`
+  - `line_merge_gap_px = 24`
+  - `line_merge_y_tolerance_px = 10`
+  - `enable_rotated_ocr = true`
+  - `paragraph = false`
+- The current intent of these values:
+  - keep same-line engineering text together as one text region when spacing and baseline support it
+  - recover more rotated or vertical text by running OCR per tile in multiple orientations
+  - stay conservative enough that exception handling can still be pushed to Stage 3 Gemini refinement
+- Operational note:
+  - this baseline improves OCR quality on the current sample, but it increases CPU runtime because each tile is processed in multiple orientations
+  - treat this as the current quality-first baseline, not the final speed-optimized baseline
+
 ## Frontend review impact
 - Pipeline mode should show Stage 2 as OCR discovery over tiles, not as a full-sheet single pass.
 - Results should surface:

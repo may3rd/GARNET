@@ -32,6 +32,12 @@
 - Prefer additive stage methods or focused helper functions over enlarging already-long methods with unrelated side effects.
 - When future slices add OCR or symbol classes, update role mapping and review artifacts in the same change.
 - Keep heavyweight model loading and external-service calls configurable. Never hardcode secrets, API keys, or machine-specific absolute paths.
+- Current Stage 2 OCR baseline:
+  - use `stage1_gray.png` as the primary OCR input
+  - keep `stage1_gray_equalized.png` available for comparison runs, not as the default
+  - keep rotated OCR enabled for Stage 2 tile passes
+  - keep same-line merge enabled so nearby words on one engineering line become one text region when the baseline and spacing support it
+- If you tune OCR parameters, record the accepted values in `docs/plans/2026-03-08-slice-2-ocr-sahi-design.md` and log the reason in `SLICE_2_PROGRESS.md`.
 
 ## Runtime and verification
 - Run backend commands from `/Users/maetee/Code/GARNET/backend` so relative paths for weights, outputs, and datasets resolve consistently.

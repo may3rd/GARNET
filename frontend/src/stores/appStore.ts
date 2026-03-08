@@ -405,7 +405,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     })
 
     try {
-      const { job_id } = await startPipelineJob(imageFile, { stopAfter: 1 }, activeAbortController.signal)
+      const { job_id } = await startPipelineJob(imageFile, { stopAfter: 2 }, activeAbortController.signal)
 
       while (true) {
         const job = await getPipelineJob(job_id, activeAbortController.signal)

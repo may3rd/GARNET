@@ -11,7 +11,7 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
         <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-5">
           <div className="text-lg font-semibold">Pipeline Review</div>
           <div className="mt-1 text-sm text-[var(--text-secondary)]">
-            Slice 1 output for Stage 1 input normalization.
+            Slice 2 output for Stage 1 normalization and Stage 2 tiled OCR discovery.
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <div className="rounded-xl border border-[var(--border-muted)] bg-[var(--bg-primary)] p-3">

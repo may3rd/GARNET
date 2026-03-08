@@ -46,7 +46,7 @@ export function DetectionSetup() {
   const isGeminiModel = options.selectedModel === 'gemini'
   const hasRunnableBatchItems = batch.items.some((item) => item.status === 'queued' || item.status === 'failed')
   const runAction = isPipelineMode ? runPipeline : isBatchMode ? runBatchDetection : runDetection
-  const runLabel = isPipelineMode ? 'Run Pipeline Stage 1' : isBatchMode ? `Run Batch (${batch.items.length})` : 'Run Detection'
+  const runLabel = isPipelineMode ? 'Run Pipeline Stage 2' : isBatchMode ? `Run Batch (${batch.items.length})` : 'Run Detection'
 
   const handleModelChange = (value: string) => {
     if (value === 'gemini') {
@@ -88,7 +88,7 @@ export function DetectionSetup() {
       {isBatchMode && (
         <div className="text-xs text-[var(--text-secondary)] bg-[var(--bg-primary)] border border-[var(--border-muted)] p-3 rounded-lg">
           {isPipelineMode
-            ? 'Pipeline mode is limited to a single image in Slice 1.'
+            ? 'Pipeline mode is limited to a single image in Slice 2.'
             : 'Batch mode is active. The selected model and settings apply to all images in the batch.'}
         </div>
       )}
@@ -258,7 +258,7 @@ export function DetectionSetup() {
 
         {isPipelineMode && (
           <div className="text-xs text-[var(--text-secondary)] bg-[var(--bg-primary)] border border-[var(--border-muted)] p-3 rounded-lg">
-            Slice 1 runs only Stage 1 input normalization from a raw P&amp;ID image and returns the generated artifact bundle for review.
+            Slice 2 runs Stage 1 normalization plus Stage 2 tiled OCR discovery from a raw P&amp;ID image and returns the artifact bundle for review.
           </div>
         )}
 
