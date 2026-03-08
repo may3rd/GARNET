@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AppView, BatchItem, DetectedObject, DetectionResult, PipelineJob, ProcessingMode } from '@/types'
+import type { AppView, BatchItem, DetectedObject, DetectionResult, OcrRoute, PipelineJob, ProcessingMode } from '@/types'
 import { APIError, getPipelineJob, runDetection, startPipelineJob, type DetectionOptions } from '@/lib/api'
 import { useHistoryStore, type HistoryAction } from '@/stores/historyStore'
 import { objectKey } from '@/lib/objectKey'
@@ -11,6 +11,8 @@ export type AppState = {
   imageUrl: string | null
   imageMeta: { width: number; height: number } | null
   options: DetectionOptions
+  pipelineOcrRoute: OcrRoute
+  pipelineGeminiPostprocessMatchThreshold: number
   result: DetectionResult | null
   pipelineJob: PipelineJob | null
   resultRunId: number
@@ -41,6 +43,8 @@ export type AppActions = {
   clearBatch: () => void
   setImageMeta: (meta: { width: number; height: number } | null) => void
   setOptions: (options: Partial<DetectionOptions>) => void
+  setPipelineOcrRoute: (route: OcrRoute) => void
+  setPipelineGeminiPostprocessMatchThreshold: (value: number) => void
   setView: (view: AppView) => void
   runDetection: () => Promise<void>
   runPipeline: () => Promise<void>
@@ -129,6 +133,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   imageUrl: null,
   imageMeta: null,
   options: defaultOptions,
+  pipelineOcrRoute: 'easyocr',
+  pipelineGeminiPostprocessMatchThreshold: 0.1,
   result: null,
   pipelineJob: null,
   resultRunId: 0,
@@ -144,6 +150,11 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   setProcessingMode: (mode) => set({ processingMode: mode, error: null }),
 
   setConfidenceFilter: (value) => set({ confidenceFilter: value }),
+  setPipelineOcrRoute: (route) => set({ pipelineOcrRoute: route, error: null }),
+  setPipelineGeminiPostprocessMatchThreshold: (value) => set({
+    pipelineGeminiPostprocessMatchThreshold: value,
+    error: null,
+  }),
 
   setImageFile: (file) => {
     const previous = get().imageUrl
@@ -383,7 +394,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   },
 
   runPipeline: async () => {
-    const { imageFile } = get()
+    const { imageFile, pipelineOcrRoute, pipelineGeminiPostprocessMatchThreshold } = get()
     if (!imageFile) return
 
     if (progressTimer) {
@@ -405,7 +416,15 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     })
 
     try {
-      const { job_id } = await startPipelineJob(imageFile, { stopAfter: 2 }, activeAbortController.signal)
+      const { job_id } = await startPipelineJob(
+        imageFile,
+        {
+          stopAfter: 2,
+          ocrRoute: pipelineOcrRoute,
+          geminiPostprocessMatchThreshold: pipelineGeminiPostprocessMatchThreshold,
+        },
+        activeAbortController.signal
+      )
 
       while (true) {
         const job = await getPipelineJob(job_id, activeAbortController.signal)

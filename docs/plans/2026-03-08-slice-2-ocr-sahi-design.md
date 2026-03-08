@@ -1,22 +1,22 @@
 # Slice 2 OCR SAHI Design
 
 ## Goal
-- Define Slice 2 and Slice 3 OCR architecture for the rebuilt P&ID pipeline.
+- Define the Slice 2 EasyOCR route for the rebuilt P&ID pipeline.
 - Keep the rebuild image-only.
-- Use EasyOCR as the primary OCR detector.
-- Use Gemini/OpenRouter as a fallback refiner only for exception cases.
+- Use EasyOCR as one selectable OCR route.
+- Keep the Stage 2 artifact contract compatible with the later Gemini route.
 
 ## Approved direction
-- Stage 2 uses SAHI-style patching over the normalized P&ID image and runs EasyOCR on each patch.
-- Stage 3 reuses the Gemini/OpenRouter path from [`backend/gemini_detector/gemini_sahi.py`](/Users/maetee/Code/GARNET/backend/gemini_detector/gemini_sahi.py) for exception handling only.
-- EasyOCR remains the first-pass source of OCR detections.
-- VLM is not allowed to replace full-sheet OCR in this slice.
+- Stage 2 uses real SAHI slicing over the normalized P&ID image and runs EasyOCR on each patch.
+- EasyOCR is a selectable OCR route, not a mandatory first pass before Gemini.
+- The later Gemini route must reuse the same Stage 2 artifact contract so the API and frontend stay route-neutral.
+- VLM is not part of the EasyOCR route in this slice.
 
-## Why SAHI-style patching is required
+## Why SAHI patching is required
 - Full-sheet OCR on dense P&ID drawings under-detects small text and mixed-orientation labels.
 - Tiling improves local scale and recall without forcing global upscaling of the entire sheet.
 - The repo already has a proven SAHI-style pattern in [`backend/gemini_detector/gemini_sahi.py`](/Users/maetee/Code/GARNET/backend/gemini_detector/gemini_sahi.py).
-- Reusing the same tiling mental model keeps Stage 2 and Stage 3 consistent.
+- Reusing the same SAHI slicing/postprocess backbone keeps the EasyOCR route and Gemini route structurally consistent.
 
 ## Stage boundaries
 
@@ -26,47 +26,41 @@
   - Stage 1 normalized image outputs from [`backend/garnet/pid_extractor.py`](/Users/maetee/Code/GARNET/backend/garnet/pid_extractor.py)
   - Primary working image should be the most OCR-friendly normalized view, with room to compare additional views later if needed.
 - Core flow:
-  - cut the sheet into overlapping tiles
-  - run EasyOCR on each tile
-  - convert tile-local detections to sheet-local coordinates
-  - merge duplicate detections across overlapping tiles
+  - let SAHI cut the sheet into overlapping tiles
+  - run EasyOCR on each tile, including rotated passes when enabled
+  - let SAHI merge overlapping detections across tiles
+  - run a post-SAHI same-line merge so adjacent engineering words can become one text region
   - classify obvious text categories conservatively
-  - emit exception candidates for Stage 3
+  - emit exception candidates for review and for any later route-specific targeted analysis
 - Non-goals:
   - no VLM in Stage 2
   - no graph reasoning
   - no topology or semantic attachment
 
-### Stage 3: Gemini fallback / refiner
-- Stage name: `stage3_ocr_refinement`
-- Input:
-  - Stage 2 OCR output
-  - exception candidate crops from Stage 2
-- Core flow:
-  - crop only flagged OCR regions
-  - send each crop to Gemini/OpenRouter using the existing Gemini path
-  - refine text, class, bbox, rotation, reading direction, and legibility when the crop supports it
-  - merge refinement results back into the canonical OCR table
-  - emit unresolved cases when the fallback cannot safely improve the record
-- Non-goals:
-  - no full-sheet VLM OCR
-  - no replacing valid EasyOCR records without evidence from the crop
+### Later Gemini route
+- Gemini is no longer defined here as Stage 3 after EasyOCR.
+- The route-selection design now lives in [`docs/plans/2026-03-08-selectable-ocr-routes-design.md`](/Users/maetee/Code/GARNET/docs/plans/2026-03-08-selectable-ocr-routes-design.md).
+- The only contract this Slice 2 design must preserve is:
+  - Stage 2 artifacts stay stable and route-neutral
+  - exception candidates remain machine-readable
+  - downstream review can compare route outputs without schema branching
 
 ## Stage 2 module design
 - Add a new helper module under [`backend/garnet/`](/Users/maetee/Code/GARNET/backend/garnet), likely `easyocr_sahi.py`.
 - The module should follow the same broad adapter pattern as [`backend/gemini_detector/gemini_sahi.py`](/Users/maetee/Code/GARNET/backend/gemini_detector/gemini_sahi.py), but for OCR tiles instead of VLM object detections.
 - Responsibilities:
-  - tile generation and overlap settings
+  - SAHI slice generation and overlap settings
   - EasyOCR reader initialization and reuse
   - tile-local OCR execution
-  - coordinate shifting from tile to sheet
-  - duplicate merging across overlaps
+  - conversion from EasyOCR tile detections into SAHI predictions
+  - SAHI postprocess merge across overlaps
+  - final same-line phrase merge on the merged sheet-level OCR regions
   - conservative exception flagging
 
 ## Canonical OCR schema
 
 ### Shared record shape
-- Both Stage 2 and Stage 3 outputs should use the same `text_regions[]` record shape so downstream code and frontend review do not need format branching.
+- Both OCR routes should use the same `text_regions[]` record shape so downstream code and frontend review do not need format branching.
 - Required fields per region:
   - `id`
   - `text`
@@ -108,28 +102,14 @@
 
 - This is the same schema as the approved crop format, except `pass_type` is `sheet` and coordinates are sheet-local.
 
-### Stage 3 output contract
-- Stage 3 Gemini refinement must use the approved crop contract exactly for each crop response:
-  - `pass_type` must be `"crop"`
-  - coordinates must be crop-local
-  - `text_regions` records must follow the exact field set and allowed values specified by the user
-- The merged Stage 3 artifact can add provenance fields outside the Gemini raw response, but the stored raw Gemini output should remain faithful to that crop schema.
+### Gemini route compatibility
+- The later Gemini route should normalize its accepted OCR output into the same sheet-level Stage 2 contract.
+- Raw Gemini patch/crop responses may use route-specific formats and artifacts, but the common Stage 2 review bundle must remain stable.
 
 ## Classification policy
 - Stage 2 classification is conservative and local-only.
 - Default to `unknown` unless the crop strongly supports another allowed class.
-- EasyOCR is primarily responsible for text localization and transcription.
-- Gemini can refine class labels only for exception crops.
-
-## Exception policy for Stage 3
-- Send a region to Stage 3 only if one or more of these conditions apply:
-  - low confidence
-  - partial or degraded legibility
-  - rotated or vertical reading direction
-  - merged multi-string region suspected
-  - duplicate conflict after cross-tile merge
-  - unsafe normalization
-  - uncertain class assignment
+- EasyOCR is responsible for text localization and transcription within this route.
 
 ## Proposed Stage 2 artifacts
 - `stage2_ocr_regions.json`
@@ -137,12 +117,6 @@
 - `stage2_ocr_summary.json`
 - `stage2_ocr_exception_candidates.json`
 - optional debug folder for tile outputs when enabled
-
-## Proposed Stage 3 artifacts
-- `stage3_ocr_refined.json`
-- `stage3_ocr_comparison.json`
-- `stage3_ocr_unresolved.json`
-- optional raw crop-response folder when debug is enabled
 
 ## Current production baseline
 - The current accepted Stage 2 baseline uses the plain grayscale artifact from Stage 1 as the OCR input:
@@ -153,6 +127,9 @@
   - `slice_width = 1600`
   - `overlap_height_ratio = 0.2`
   - `overlap_width_ratio = 0.2`
+  - `postprocess_type = GREEDYNMM`
+  - `postprocess_match_metric = IOS`
+  - `postprocess_match_threshold = 0.1`
   - `min_score = 0.2`
   - `min_text_len = 2`
   - `text_threshold = 0.7`
@@ -163,9 +140,10 @@
   - `enable_rotated_ocr = true`
   - `paragraph = false`
 - The current intent of these values:
+  - let SAHI handle tile overlap merging with a permissive OCR-oriented IOS threshold
   - keep same-line engineering text together as one text region when spacing and baseline support it
   - recover more rotated or vertical text by running OCR per tile in multiple orientations
-  - stay conservative enough that exception handling can still be pushed to Stage 3 Gemini refinement
+  - stay conservative enough that the shared artifact contract remains usable by a later Gemini route
 - Operational note:
   - this baseline improves OCR quality on the current sample, but it increases CPU runtime because each tile is processed in multiple orientations
   - treat this as the current quality-first baseline, not the final speed-optimized baseline
@@ -175,20 +153,17 @@
 - Results should surface:
   - discovered text region count
   - exception candidate count
-  - refined count
-  - unresolved count
-- The review UI should keep Stage 2 and Stage 3 artifacts distinct so EasyOCR output and Gemini refinements remain auditable.
+- The review UI should treat the EasyOCR route as one complete Stage 2 run, not as a half-finished chain waiting for Stage 3.
 
 ## Risks and guardrails
 - Tile overlap can produce duplicate detections if merge logic is weak.
 - EasyOCR class assignment can become noisy if classification is too aggressive.
-- Gemini fallback can become expensive if exception thresholds are too loose.
 - The pipeline must preserve provenance so future debugging can answer:
   - what EasyOCR found
-  - what Gemini changed
-  - what remained unresolved
+  - which OCR route produced the result
+  - what remained uncertain
 
 ## Immediate implementation consequences
-- Slice 2 should implement Stage 2 only: SAHI-style EasyOCR discovery from the Stage 1 image bundle.
-- Slice 3 should implement Gemini crop fallback on top of the Stage 2 exception queue.
-- Do not combine Stages 2 and 3 into one release if the result hides which engine produced which output.
+- Slice 2 remains the EasyOCR route implementation: real SAHI-backed OCR discovery from the Stage 1 image bundle.
+- The selectable-route architecture is now defined separately in [`docs/plans/2026-03-08-selectable-ocr-routes-design.md`](/Users/maetee/Code/GARNET/docs/plans/2026-03-08-selectable-ocr-routes-design.md).
+- Do not turn this Slice 2 plan back into a mandatory EasyOCR-then-Gemini chain.

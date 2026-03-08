@@ -35,8 +35,19 @@
 - Current Stage 2 OCR baseline:
   - use `stage1_gray.png` as the primary OCR input
   - keep `stage1_gray_equalized.png` available for comparison runs, not as the default
+  - EasyOCR route now uses real SAHI `get_sliced_prediction(...)`, not a custom tile loop
+  - EasyOCR route uses `postprocess_match_metric = IOS`
+  - EasyOCR route uses `postprocess_match_threshold = 0.1`
   - keep rotated OCR enabled for Stage 2 tile passes
   - keep same-line merge enabled so nearby words on one engineering line become one text region when the baseline and spacing support it
+- Current pipeline OCR routing baseline:
+  - every pipeline run must choose exactly one OCR route: `easyocr` or `gemini`
+  - `easyocr` remains the local tiled OCR route
+  - `gemini` is a separate Stage 2 route, not a downstream Stage 3 after EasyOCR
+  - Gemini route uses real SAHI slicing with `1024x1024` patches
+  - Gemini route uses `postprocess_match_metric = IOS`
+  - Gemini route uses `postprocess_match_threshold = 0.1`
+  - Gemini route uses crop fallback only when the slice result is empty or best confidence is below `0.3`
 - If you tune OCR parameters, record the accepted values in `docs/plans/2026-03-08-slice-2-ocr-sahi-design.md` and log the reason in `SLICE_2_PROGRESS.md`.
 
 ## Runtime and verification

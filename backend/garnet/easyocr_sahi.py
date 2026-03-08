@@ -9,11 +9,30 @@ from typing import Any
 import cv2
 import easyocr
 import numpy as np
-from sahi.slicing import slice_image
+from sahi.models.base import DetectionModel
+from sahi.predict import get_sliced_prediction
+from sahi.prediction import ObjectPrediction
+from sahi.utils.compatibility import fix_full_shape_list, fix_shift_amount_list
 
 warnings.filterwarnings("ignore", message=".*pin_memory.*MPS.*")
 
 _READER_CACHE: dict[tuple[tuple[str, ...], bool], easyocr.Reader] = {}
+OCR_CLASSES = [
+    "equipment_tag",
+    "line_number",
+    "instrument_tag",
+    "valve_tag",
+    "utility_label",
+    "process_label",
+    "note",
+    "dimension",
+    "title_block",
+    "table_text",
+    "legend_text",
+    "unknown",
+]
+CATEGORY_NAME_TO_ID = {name: idx + 1 for idx, name in enumerate(OCR_CLASSES)}
+CATEGORY_ID_TO_NAME = {idx + 1: name for idx, name in enumerate(OCR_CLASSES)}
 
 
 @dataclass(frozen=True)
@@ -33,6 +52,9 @@ class EasyOcrSahiConfig:
     line_merge_y_tolerance_px: int = 10
     enable_rotated_ocr: bool = True
     paragraph: bool = False
+    postprocess_type: str = "GREEDYNMM"
+    postprocess_match_metric: str = "IOS"
+    postprocess_match_threshold: float = 0.1
 
 
 def _get_reader(cfg: EasyOcrSahiConfig) -> easyocr.Reader:
@@ -55,7 +77,7 @@ def _bbox_from_quad(quad: list[list[float]]) -> dict[str, int]:
     }
 
 
-def _bbox_iou(a: dict[str, int], b: dict[str, int]) -> float:
+def _bbox_ios(a: dict[str, int], b: dict[str, int]) -> float:
     inter_x1 = max(a["x_min"], b["x_min"])
     inter_y1 = max(a["y_min"], b["y_min"])
     inter_x2 = min(a["x_max"], b["x_max"])
@@ -65,10 +87,10 @@ def _bbox_iou(a: dict[str, int], b: dict[str, int]) -> float:
     inter = inter_w * inter_h
     area_a = max(0, a["x_max"] - a["x_min"]) * max(0, a["y_max"] - a["y_min"])
     area_b = max(0, b["x_max"] - b["x_min"]) * max(0, b["y_max"] - b["y_min"])
-    union = area_a + area_b - inter
-    if union <= 0:
+    smaller = min(area_a, area_b)
+    if smaller <= 0:
         return 0.0
-    return inter / union
+    return inter / smaller
 
 
 def _rotate_image(tile: np.ndarray, orientation: str) -> np.ndarray:
@@ -258,10 +280,21 @@ def _draw_overlay(image_bgr: np.ndarray, regions: list[dict[str, Any]]) -> np.nd
             overlay,
             (bbox["x_min"], bbox["y_min"]),
             (bbox["x_max"], bbox["y_max"]),
-            (0, 255, 255),
+            (255, 0, 0),
             2,
         )
     return overlay
+
+
+def _choose_best_candidate(
+    merged_bbox: dict[str, int],
+    candidates: list[dict[str, Any]],
+    match_threshold: float,
+) -> dict[str, Any] | None:
+    matches = [candidate for candidate in candidates if _bbox_ios(merged_bbox, candidate["bbox"]) >= match_threshold]
+    if not matches:
+        return None
+    return max(matches, key=lambda item: (float(item.get("confidence", 0.0)), _bbox_ios(merged_bbox, item["bbox"])))
 
 
 def _read_tile_with_orientations(reader: easyocr.Reader, tile: np.ndarray, cfg: EasyOcrSahiConfig) -> list[tuple[str, list[Any]]]:
@@ -283,6 +316,105 @@ def _read_tile_with_orientations(reader: easyocr.Reader, tile: np.ndarray, cfg: 
     return oriented_results
 
 
+class EasyOcrSahiDetectionModel(DetectionModel):
+    required_packages = ["easyocr", "numpy", "opencv-python", "sahi"]
+
+    def __init__(self, *, cfg: EasyOcrSahiConfig, reader: easyocr.Reader) -> None:
+        self.cfg = cfg
+        self.reader = reader
+        self.all_candidates: list[dict[str, Any]] = []
+        self.slice_count = 0
+        self._current_slice_shape: tuple[int, int] = (0, 0)
+        super().__init__(
+            load_at_init=False,
+            confidence_threshold=cfg.min_score,
+            category_mapping={str(idx): name for idx, name in CATEGORY_ID_TO_NAME.items()},
+        )
+
+    def load_model(self) -> None:
+        self.model = self.reader
+
+    def perform_inference(self, image: np.ndarray) -> None:
+        self._current_slice_shape = image.shape[:2]
+        local_regions: list[dict[str, Any]] = []
+        tile_height, tile_width = image.shape[:2]
+        for orientation, results in _read_tile_with_orientations(self.reader, image, self.cfg):
+            rotation = 0 if orientation == "none" else 90
+            for quad, text, score in results:
+                if float(score) < self.cfg.min_score:
+                    continue
+                if len(text.strip()) < self.cfg.min_text_len:
+                    continue
+                restored_quad = _rotate_quad_back(
+                    [[float(point[0]), float(point[1])] for point in quad],
+                    orientation,
+                    tile_width,
+                    tile_height,
+                )
+                bbox = _bbox_from_quad(restored_quad)
+                local_regions.append(
+                    {
+                        "text": text,
+                        "normalized_text": _safe_normalized_text(text),
+                        "class": _classify_text(text),
+                        "confidence": round(float(score), 4),
+                        "bbox": bbox,
+                        "rotation": rotation,
+                        "reading_direction": _region_direction(bbox, rotation),
+                        "legibility": _region_legibility(float(score), text, self.cfg.min_text_len),
+                    }
+                )
+        self._original_predictions = local_regions
+
+    def _create_object_prediction_list_from_original_predictions(
+        self,
+        shift_amount_list: list[list[int]] | None = [[0, 0]],
+        full_shape_list: list[list[int]] | None = None,
+    ) -> None:
+        shift_amount_list = fix_shift_amount_list(shift_amount_list)
+        full_shape_list = fix_full_shape_list(full_shape_list)
+        shift_amount = shift_amount_list[0]
+        full_shape = full_shape_list[0] if full_shape_list else None
+        self.slice_count += 1
+
+        object_predictions: list[ObjectPrediction] = []
+        for region in self._original_predictions:
+            bbox = region["bbox"]
+            bbox_xyxy = [
+                int(bbox["x_min"]),
+                int(bbox["y_min"]),
+                int(bbox["x_max"]),
+                int(bbox["y_max"]),
+            ]
+            class_name = region["class"] if region["class"] in CATEGORY_NAME_TO_ID else "unknown"
+            category_id = CATEGORY_NAME_TO_ID[class_name]
+            object_predictions.append(
+                ObjectPrediction(
+                    bbox=bbox_xyxy,
+                    category_id=category_id,
+                    category_name=CATEGORY_ID_TO_NAME[category_id],
+                    score=float(region["confidence"]),
+                    shift_amount=shift_amount,
+                    full_shape=full_shape,
+                )
+            )
+            self.all_candidates.append(
+                {
+                    **region,
+                    "class": class_name,
+                    "bbox": {
+                        "x_min": bbox_xyxy[0] + int(shift_amount[0]),
+                        "y_min": bbox_xyxy[1] + int(shift_amount[1]),
+                        "x_max": bbox_xyxy[2] + int(shift_amount[0]),
+                        "y_max": bbox_xyxy[3] + int(shift_amount[1]),
+                    },
+                }
+            )
+
+        self._object_prediction_list_per_image = [object_predictions]
+        self._object_prediction_list = object_predictions
+
+
 def run_easyocr_sahi(image_path: str | Path, image_id: str = "", cfg: EasyOcrSahiConfig | None = None) -> dict[str, Any]:
     cfg = cfg or EasyOcrSahiConfig()
     reader = _get_reader(cfg)
@@ -290,64 +422,66 @@ def run_easyocr_sahi(image_path: str | Path, image_id: str = "", cfg: EasyOcrSah
     base_image = cv2.imread(image_path, cv2.IMREAD_COLOR)
     if base_image is None:
         raise FileNotFoundError(f"Cannot read image for OCR: {image_path}")
+    ocr_image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    if ocr_image is None:
+        raise FileNotFoundError(f"Cannot read image for OCR: {image_path}")
 
-    slice_result = slice_image(
-        image=image_path,
+    detector = EasyOcrSahiDetectionModel(cfg=cfg, reader=reader)
+    prediction_result = get_sliced_prediction(
+        image=ocr_image,
+        detection_model=detector,
         slice_height=cfg.slice_height,
         slice_width=cfg.slice_width,
         overlap_height_ratio=cfg.overlap_height_ratio,
         overlap_width_ratio=cfg.overlap_width_ratio,
+        perform_standard_pred=False,
+        postprocess_type=cfg.postprocess_type,
+        postprocess_match_metric=cfg.postprocess_match_metric,
+        postprocess_match_threshold=cfg.postprocess_match_threshold,
+        verbose=0,
         auto_slice_resolution=False,
-        verbose=False,
     )
 
-    merged_regions: list[dict[str, Any]] = []
-    tile_count = 0
-    raw_detection_count = 0
-
-    for tile, starting_pixel in zip(slice_result.images, slice_result.starting_pixels):
-        tile_count += 1
-        shift_x, shift_y = int(starting_pixel[0]), int(starting_pixel[1])
-        tile_height, tile_width = tile.shape[:2]
-        for orientation, results in _read_tile_with_orientations(reader, tile, cfg):
-            rotation = 0 if orientation == "none" else 90
-            for quad, text, score in results:
-                if float(score) < cfg.min_score:
-                    continue
-                if len(text.strip()) < cfg.min_text_len:
-                    continue
-                raw_detection_count += 1
-                restored_quad = _rotate_quad_back(
-                    [[float(point[0]), float(point[1])] for point in quad],
-                    orientation,
-                    tile_width,
-                    tile_height,
-                )
-                shifted_quad = [[float(point[0] + shift_x), float(point[1] + shift_y)] for point in restored_quad]
-                bbox = _bbox_from_quad(shifted_quad)
-                region = {
-                    "id": "",
-                    "text": text,
-                    "normalized_text": _safe_normalized_text(text),
-                    "class": _classify_text(text),
-                    "confidence": round(float(score), 4),
-                    "bbox": bbox,
-                    "rotation": rotation,
-                    "reading_direction": _region_direction(bbox, rotation),
-                    "legibility": _region_legibility(float(score), text, cfg.min_text_len),
-                }
-                duplicate_idx = None
-                for idx, existing in enumerate(merged_regions):
-                    if existing["text"].strip() == region["text"].strip() and _bbox_iou(existing["bbox"], region["bbox"]) >= 0.3:
-                        duplicate_idx = idx
-                        break
-                if duplicate_idx is None:
-                    merged_regions.append(region)
-                elif region["confidence"] > merged_regions[duplicate_idx]["confidence"]:
-                    merged_regions[duplicate_idx] = region
+    sahi_merged_regions: list[dict[str, Any]] = []
+    for object_prediction in prediction_result.object_prediction_list:
+        bbox_xyxy = object_prediction.bbox.to_xyxy()
+        merged_bbox = {
+            "x_min": int(bbox_xyxy[0]),
+            "y_min": int(bbox_xyxy[1]),
+            "x_max": int(bbox_xyxy[2]),
+            "y_max": int(bbox_xyxy[3]),
+        }
+        chosen = _choose_best_candidate(
+            merged_bbox,
+            detector.all_candidates,
+            match_threshold=cfg.postprocess_match_threshold,
+        )
+        if chosen is None:
+            chosen = {
+                "text": "",
+                "normalized_text": "",
+                "class": object_prediction.category.name,
+                "confidence": float(object_prediction.score.value),
+                "rotation": 0,
+                "reading_direction": "unknown",
+                "legibility": "illegible",
+            }
+        sahi_merged_regions.append(
+            {
+                "id": "",
+                "text": chosen["text"],
+                "normalized_text": chosen["normalized_text"],
+                "class": chosen["class"],
+                "confidence": round(float(chosen["confidence"]), 4),
+                "bbox": merged_bbox,
+                "rotation": chosen["rotation"],
+                "reading_direction": chosen["reading_direction"],
+                "legibility": chosen["legibility"],
+            }
+        )
 
     merged_regions = _merge_same_line_regions(
-        merged_regions,
+        sahi_merged_regions,
         line_merge_gap_px=cfg.line_merge_gap_px,
         line_merge_y_tolerance_px=cfg.line_merge_y_tolerance_px,
     )
@@ -380,8 +514,9 @@ def run_easyocr_sahi(image_path: str | Path, image_id: str = "", cfg: EasyOcrSah
         "summary": {
             "image_id": image_id,
             "pass_type": "sheet",
-            "tile_count": tile_count,
-            "raw_detection_count": raw_detection_count,
+            "route": "easyocr",
+            "tile_count": detector.slice_count,
+            "raw_detection_count": len(detector.all_candidates),
             "merged_region_count": len(merged_regions),
             "exception_candidate_count": len(exception_candidates),
             "slice_height": cfg.slice_height,
@@ -391,6 +526,9 @@ def run_easyocr_sahi(image_path: str | Path, image_id: str = "", cfg: EasyOcrSah
             "rotated_ocr_enabled": cfg.enable_rotated_ocr,
             "line_merge_gap_px": cfg.line_merge_gap_px,
             "line_merge_y_tolerance_px": cfg.line_merge_y_tolerance_px,
+            "postprocess_type": cfg.postprocess_type,
+            "postprocess_match_metric": cfg.postprocess_match_metric,
+            "postprocess_match_threshold": cfg.postprocess_match_threshold,
         },
         "exception_candidates": exception_candidates,
         "overlay_image": _draw_overlay(base_image, merged_regions),

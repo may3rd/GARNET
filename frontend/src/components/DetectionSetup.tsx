@@ -12,6 +12,10 @@ export function DetectionSetup() {
   const setProcessingMode = useAppStore((state) => state.setProcessingMode)
   const options = useAppStore((state) => state.options)
   const setOptions = useAppStore((state) => state.setOptions)
+  const pipelineOcrRoute = useAppStore((state) => state.pipelineOcrRoute)
+  const setPipelineOcrRoute = useAppStore((state) => state.setPipelineOcrRoute)
+  const pipelineGeminiPostprocessMatchThreshold = useAppStore((state) => state.pipelineGeminiPostprocessMatchThreshold)
+  const setPipelineGeminiPostprocessMatchThreshold = useAppStore((state) => state.setPipelineGeminiPostprocessMatchThreshold)
   const runDetection = useAppStore((state) => state.runDetection)
   const runPipeline = useAppStore((state) => state.runPipeline)
   const runBatchDetection = useAppStore((state) => state.runBatchDetection)
@@ -46,7 +50,7 @@ export function DetectionSetup() {
   const isGeminiModel = options.selectedModel === 'gemini'
   const hasRunnableBatchItems = batch.items.some((item) => item.status === 'queued' || item.status === 'failed')
   const runAction = isPipelineMode ? runPipeline : isBatchMode ? runBatchDetection : runDetection
-  const runLabel = isPipelineMode ? 'Run Pipeline Stage 2' : isBatchMode ? `Run Batch (${batch.items.length})` : 'Run Detection'
+  const runLabel = isPipelineMode ? `Run Pipeline (${pipelineOcrRoute})` : isBatchMode ? `Run Batch (${batch.items.length})` : 'Run Detection'
 
   const handleModelChange = (value: string) => {
     if (value === 'gemini') {
@@ -257,8 +261,40 @@ export function DetectionSetup() {
         </div>}
 
         {isPipelineMode && (
-          <div className="text-xs text-[var(--text-secondary)] bg-[var(--bg-primary)] border border-[var(--border-muted)] p-3 rounded-lg">
-            Slice 2 runs Stage 1 normalization plus Stage 2 tiled OCR discovery from a raw P&amp;ID image and returns the artifact bundle for review.
+          <div className="space-y-4">
+            <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
+              OCR route
+              <Select value={pipelineOcrRoute} onValueChange={(value) => setPipelineOcrRoute(value as 'easyocr' | 'gemini')} disabled={isLocked}>
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Select OCR route" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="easyocr">EasyOCR</SelectItem>
+                  <SelectItem value="gemini">Gemini</SelectItem>
+                </SelectContent>
+              </Select>
+            </label>
+            <div className="text-xs text-[var(--text-secondary)] bg-[var(--bg-primary)] border border-[var(--border-muted)] p-3 rounded-lg">
+              {pipelineOcrRoute === 'easyocr'
+                ? 'Pipeline mode runs Stage 1 normalization plus Stage 2 tiled EasyOCR discovery and returns the review artifact bundle.'
+                : 'Pipeline mode runs Stage 1 normalization plus Stage 2 Gemini OCR over 1024x1024 patches, with crop fallback only for low-confidence or missed patch results.'}
+            </div>
+            {pipelineOcrRoute === 'gemini' && (
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
+                  SAHI match threshold: {pipelineGeminiPostprocessMatchThreshold.toFixed(2)}
+                </div>
+                <Slider
+                  value={[pipelineGeminiPostprocessMatchThreshold]}
+                  onValueChange={([value]) => setPipelineGeminiPostprocessMatchThreshold(value)}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  className="mt-2"
+                  disabled={isLocked}
+                />
+              </div>
+            )}
           </div>
         )}
 

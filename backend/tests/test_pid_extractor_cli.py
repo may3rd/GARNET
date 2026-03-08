@@ -96,6 +96,73 @@ class PIDPipelineRunnerTests(unittest.TestCase):
 
             self.assertEqual(Path(mock_ocr.call_args.args[0]).name, "stage1_gray.png")
 
+    def test_pipeline_config_defaults_to_easyocr_route(self) -> None:
+        cfg = pid_extractor.PipelineConfig()
+
+        self.assertEqual(cfg.ocr_route, "easyocr")
+        self.assertEqual(cfg.gemini_postprocess_match_threshold, 0.1)
+
+    def test_load_pipeline_env_reads_root_then_backend_env(self) -> None:
+        with patch("garnet.pid_extractor.load_dotenv") as mock_load_dotenv:
+            pid_extractor.load_pipeline_env()
+
+        self.assertEqual(mock_load_dotenv.call_count, 2)
+        self.assertEqual(mock_load_dotenv.call_args_list[0].args[0], pid_extractor.ROOT_DIR / ".env")
+        self.assertEqual(mock_load_dotenv.call_args_list[1].args[0], pid_extractor.BACKEND_DIR / ".env")
+        self.assertTrue(all(call.kwargs["override"] is False for call in mock_load_dotenv.call_args_list))
+
+    def test_stage2_dispatches_to_easyocr_route(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline(
+                "image.png",
+                out_dir=tmp,
+                cfg=pid_extractor.PipelineConfig(ocr_route="easyocr"),
+            )
+            pipe._save_img("stage1_gray", np.zeros((20, 20), dtype=np.uint8))
+
+            with patch("garnet.pid_extractor.run_easyocr_sahi") as mock_easyocr, patch(
+                "garnet.pid_extractor.run_gemini_ocr_sahi"
+            ) as mock_gemini:
+                mock_easyocr.return_value = {
+                    "regions_payload": {"image_id": "", "pass_type": "sheet", "text_regions": []},
+                    "summary": {"image_id": "", "pass_type": "sheet"},
+                    "exception_candidates": [],
+                    "overlay_image": np.zeros((20, 20, 3), dtype=np.uint8),
+                }
+
+                pipe.stage2_ocr_discovery()
+
+            mock_easyocr.assert_called_once()
+            mock_gemini.assert_not_called()
+
+    def test_stage2_dispatches_to_gemini_route(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline(
+                "image.png",
+                out_dir=tmp,
+                cfg=pid_extractor.PipelineConfig(
+                    ocr_route="gemini",
+                    gemini_postprocess_match_threshold=0.17,
+                ),
+            )
+            pipe._save_img("stage1_gray", np.zeros((20, 20), dtype=np.uint8))
+
+            with patch("garnet.pid_extractor.run_easyocr_sahi") as mock_easyocr, patch(
+                "garnet.pid_extractor.run_gemini_ocr_sahi"
+            ) as mock_gemini:
+                mock_gemini.return_value = {
+                    "regions_payload": {"image_id": "", "pass_type": "sheet", "text_regions": []},
+                    "summary": {"image_id": "", "pass_type": "sheet"},
+                    "exception_candidates": [],
+                    "overlay_image": np.zeros((20, 20, 3), dtype=np.uint8),
+                }
+
+                pipe.stage2_ocr_discovery()
+
+            mock_easyocr.assert_not_called()
+            mock_gemini.assert_called_once()
+            self.assertEqual(mock_gemini.call_args.kwargs["cfg"].postprocess_match_threshold, 0.17)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -24,7 +24,7 @@
 | Area | Repo evidence | Status | Gap to master plan |
 |------|---------------|--------|--------------------|
 | Staged orchestrator | [`backend/garnet/pid_extractor.py`](/Users/maetee/Code/GARNET/backend/garnet/pid_extractor.py) has `stage1_ingest` through `stage6_line_graph` | Partial | Current stages are useful but do not match the master-plan phase boundaries cleanly |
-| OCR ingestion | [`backend/garnet/text_ocr.py`](/Users/maetee/Code/GARNET/backend/garnet/text_ocr.py), planned SAHI-style EasyOCR helper under `backend/garnet/`, Gemini fallback path in [`backend/gemini_detector/gemini_sahi.py`](/Users/maetee/Code/GARNET/backend/gemini_detector/gemini_sahi.py) | Planned | The rebuild still needs Stage 2 tiled EasyOCR discovery and Stage 3 crop-level Gemini fallback/refinement |
+| OCR ingestion | [`backend/garnet/text_ocr.py`](/Users/maetee/Code/GARNET/backend/garnet/text_ocr.py), [`backend/garnet/easyocr_sahi.py`](/Users/maetee/Code/GARNET/backend/garnet/easyocr_sahi.py), planned Gemini route helper under `backend/garnet/`, Gemini adapter in [`backend/gemini_detector/gemini_sahi.py`](/Users/maetee/Code/GARNET/backend/gemini_detector/gemini_sahi.py) | Active | The rebuild needs selectable OCR routing so a run uses either EasyOCR or Gemini, not a mandatory chained Stage 2 -> Stage 3 path |
 | Object detection | `/api/detect` flow in [`backend/api.py`](/Users/maetee/Code/GARNET/backend/api.py), weight/config discovery, `predict_images.py` helpers | Active but separate | Detection exists for the API, but it is not yet part of the new staged rebuild pipeline |
 | Pipe geometry | Stage 1 normalization in [`backend/garnet/pid_extractor.py`](/Users/maetee/Code/GARNET/backend/garnet/pid_extractor.py), sample artifacts in `backend/output/slice1_stage1` | Early | B1 pipe mask, B1.5 morphology audit, B4 crossing/junction disambiguation, and B5 cleanup are not implemented in the rebuild yet |
 | Graph assembly | No active rebuild module yet; planned for later slices | Not started | Graph-native QA, mixed directed/undirected semantics, and simplified export geometry are still future work |
@@ -78,14 +78,16 @@
 **Definition of done**
 - OCR discovery and OCR refinement are separate artifacts.
 - Stage 2 uses EasyOCR on overlapped sheet tiles as the primary OCR detector.
-- Stage 3 uses Gemini/OpenRouter only for exception crops and refinement.
+- OCR must be user-selectable per run, with one route only:
+  - EasyOCR route
+  - Gemini route
 - Small objects, arrows, equipment, and off-page connectors are represented as structured evidence tables.
 
 | ID | Task | Master-plan refs | Repo targets | Verification | Status |
 |----|------|------------------|--------------|--------------|--------|
 | S1-01 | Split input normalization into explicit working views with preprocessing metadata | A1 | `backend/garnet/pid_extractor.py` | Baseline run writes normalized image bundle + metadata JSON | TODO |
 | S1-02 | Add Stage 2 OCR discovery using SAHI-style tiling with EasyOCR as the primary detector | A2 | `backend/garnet/easyocr_sahi.py`, `backend/garnet/text_ocr.py`, `backend/garnet/pid_extractor.py` | OCR stage writes canonical sheet-level `text_regions` JSON, overlay, summary, and exception candidates | DONE |
-| S1-03 | Add Stage 3 crop OCR refinement using Gemini/OpenRouter only for exception candidates from Stage 2 | A3 | `backend/garnet/text_ocr.py`, `backend/garnet/pid_extractor.py`, `backend/gemini_detector/gemini_sahi.py` | Refinement stage writes crop-level raw responses, merged OCR table, comparison report, and unresolved queue | TODO |
+| S1-03 | Add selectable OCR routes so a pipeline run uses either EasyOCR or Gemini/OpenRouter, with Gemini using `1024x1024` patch full-page prompts first and crop prompts only as route-local fallback for missed or `<0.3` confidence candidates | A2-A3 | `backend/garnet/gemini_ocr_sahi.py`, `backend/garnet/pid_extractor.py`, `backend/api.py`, `frontend/src/components/DetectionSetup.tsx`, `backend/gemini_detector/gemini_sahi.py`, `backend/garnet/OCR_prompts/` | Pipeline job accepts `ocr_route`, Stage 2 writes the shared OCR bundle for either route, and Gemini route also writes raw patch/crop audit artifacts | TODO |
 | S1-04 | Normalize detector outputs into separate evidence tables for small objects, arrows, equipment, and off-page connectors | A4-A6 | `backend/garnet/pid_extractor.py`, helper module to be created if needed | Detection run writes structured evidence JSON/CSV per category | TODO |
 | S1-05 | Add provenance fields so each evidence item records source stage, model/input, and confidence | A2-A6 | `backend/garnet/pid_extractor.py`, `backend/schema/graph_v1.json` if needed | Evidence tables include provenance bundle | TODO |
 
@@ -188,4 +190,4 @@
 |------|---------|----------|--------|
 | Slice 1 | Stage 1-only pipeline from raw image input, backend job API, frontend Pipeline mode with stage progress and artifact review | `backend/output/slice1_stage1`, `backend/output/pipeline_jobs`, `backend/tests/test_pid_extractor_cli.py`, `backend/tests/test_pipeline_api.py` | DONE |
 | Slice 2 | SAHI-style tiled EasyOCR discovery from image only, visible as a second reviewable stage in API and frontend | `stage2_ocr_regions.json`, `stage2_ocr_overlay.png`, `stage2_ocr_summary.json`, `stage2_ocr_exception_candidates.json` | DONE |
-| Slice 3 | Gemini/OpenRouter crop fallback and OCR refinement for Stage 2 exception candidates | raw crop responses, `stage3_ocr_refined.json`, `stage3_ocr_comparison.json`, `stage3_ocr_unresolved.json` | TODO |
+| Slice 3 | Selectable OCR routes: user chooses EasyOCR or Gemini per run, with Gemini using patched full-page prompts and route-local crop fallback | `stage2_ocr_regions.json`, `stage2_ocr_overlay.png`, `stage2_ocr_summary.json`, `stage2_ocr_exception_candidates.json`, optional Gemini raw patch/crop artifacts | TODO |

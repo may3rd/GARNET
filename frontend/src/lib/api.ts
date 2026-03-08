@@ -1,4 +1,4 @@
-import type { DetectionResult, DetectedObject, PipelineJob } from '@/types'
+import type { DetectionResult, DetectedObject, OcrRoute, PipelineJob } from '@/types'
 
 export type DetectionOptions = {
   selectedModel: string
@@ -15,6 +15,8 @@ export type DetectionOptions = {
 
 export type PipelineOptions = {
   stopAfter: number
+  ocrRoute: OcrRoute
+  geminiPostprocessMatchThreshold: number
 }
 
 export type ExcelExportImage = {
@@ -119,10 +121,17 @@ export async function startPipelineJob(
   signal?: AbortSignal,
   timeoutMs = DEFAULT_TIMEOUT
 ): Promise<{ job_id: string }> {
-  const payload = { stopAfter: 2, ...options }
+  const payload = {
+    stopAfter: 2,
+    ocrRoute: 'easyocr' as OcrRoute,
+    geminiPostprocessMatchThreshold: 0.1,
+    ...options,
+  }
   const formData = new FormData()
   formData.append('file_input', file)
   formData.append('stop_after', String(payload.stopAfter))
+  formData.append('ocr_route', payload.ocrRoute)
+  formData.append('gemini_postprocess_match_threshold', String(payload.geminiPostprocessMatchThreshold))
 
   const requestSignal = createRequestSignal(signal, timeoutMs)
   try {

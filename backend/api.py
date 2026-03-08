@@ -41,7 +41,7 @@ from sahi import AutoDetectionModel, DetectionModel
 from sahi.predict import get_sliced_prediction
 
 import garnet.Settings as Settings
-from garnet.pid_extractor import PIDPipeline
+from garnet.pid_extractor import PIDPipeline, PipelineConfig
 from garnet.utils import rotate_image
 
 # =============================================================================
@@ -735,7 +735,14 @@ def _serialize_pipeline_job(job_id: str) -> dict[str, Any]:
     return payload
 
 
-def _run_pipeline_job(job_id: str, image_path: str, job_dir: str, stop_after: int) -> None:
+def _run_pipeline_job(
+    job_id: str,
+    image_path: str,
+    job_dir: str,
+    stop_after: int,
+    ocr_route: str,
+    gemini_postprocess_match_threshold: float,
+) -> None:
     def stage_callback(event: dict[str, Any]) -> None:
         with PIPELINE_JOBS_LOCK:
             job = PIPELINE_JOBS.get(job_id)
@@ -752,7 +759,15 @@ def _run_pipeline_job(job_id: str, image_path: str, job_dir: str, stop_after: in
                 job["error"] = stage.get("error", "Pipeline stage failed")
 
     try:
-        pipe = PIDPipeline(image_path=image_path, out_dir=job_dir, stage_callback=stage_callback)
+        pipe = PIDPipeline(
+            image_path=image_path,
+            out_dir=job_dir,
+            stage_callback=stage_callback,
+            cfg=PipelineConfig(
+                ocr_route=ocr_route,
+                gemini_postprocess_match_threshold=gemini_postprocess_match_threshold,
+            ),
+        )
         pipe.run(stop_after=stop_after)
     except Exception as exc:
         with PIPELINE_JOBS_LOCK:
@@ -976,10 +991,16 @@ async def api_pdf_extract(file_input: UploadFile = File(...)):
 async def create_pipeline_job(
     file_input: UploadFile = File(...),
     stop_after: int = Form(1),
+    ocr_route: str = Form(...),
+    gemini_postprocess_match_threshold: float = Form(0.1),
 ):
     validate_image_file(file_input)
     if stop_after not in {1, 2}:
         raise HTTPException(status_code=400, detail="Pipeline currently supports stop_after=1 or stop_after=2")
+    if ocr_route not in {"easyocr", "gemini"}:
+        raise HTTPException(status_code=400, detail="Invalid ocr_route. Expected 'easyocr' or 'gemini'")
+    if not 0 <= gemini_postprocess_match_threshold <= 1:
+        raise HTTPException(status_code=400, detail="gemini_postprocess_match_threshold must be between 0 and 1")
 
     input_bytes = await file_input.read()
     if len(input_bytes) > config.MAX_FILE_SIZE_BYTES:
@@ -1006,11 +1027,13 @@ async def create_pipeline_job(
             "job_dir": job_dir,
             "created_at": time.time(),
             "stop_after": stop_after,
+            "ocr_route": ocr_route,
+            "gemini_postprocess_match_threshold": gemini_postprocess_match_threshold,
         }
 
     worker = threading.Thread(
         target=_run_pipeline_job,
-        args=(job_id, image_path, job_dir, stop_after),
+        args=(job_id, image_path, job_dir, stop_after, ocr_route, gemini_postprocess_match_threshold),
         daemon=True,
     )
     worker.start()

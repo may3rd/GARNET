@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Add Stage 2 OCR discovery to the rebuilt pipeline using SAHI-style tiling with EasyOCR as the primary detector, while preparing a clean exception interface for Stage 3 Gemini/OpenRouter refinement.
+**Goal:** Add the EasyOCR Stage 2 route to the rebuilt pipeline using SAHI-style tiling, while keeping the OCR artifact contract compatible with the later selectable Gemini route.
 
-**Architecture:** Keep the current Stage 1-only runner intact and extend it to a second reviewable stage. Stage 2 introduces a dedicated EasyOCR tiling helper that emits a canonical sheet-level OCR schema, summary artifacts, and an exception queue for later VLM refinement. Stage 3 is deliberately not implemented in this slice, but its contract is defined so Stage 2 outputs are immediately compatible with Gemini crop refinement.
+**Architecture:** Keep the current Stage 1-only runner intact and extend it to a second reviewable stage. Stage 2 introduces a dedicated EasyOCR tiling helper that emits a canonical sheet-level OCR schema, summary artifacts, and an exception queue. The later Gemini route is planned separately, so this slice focuses on making EasyOCR a complete, reviewable route while preserving a shared OCR contract.
 
 **Tech Stack:** Python 3.14, EasyOCR, OpenCV, NumPy, existing FastAPI pipeline job API, frontend React + Zustand + Vite, `unittest`.
 
@@ -85,7 +85,7 @@
 **Step 4: Run test to verify it passes**
 - Re-run backend tests and a sample pipeline command through Stage 2.
 
-### Task 4: Prepare the Stage 3 exception contract without implementing Gemini refinement yet
+### Task 4: Prepare a stable shared OCR contract without implementing the Gemini route yet
 
 **Files:**
 - Modify: `backend/garnet/pid_extractor.py`
@@ -93,9 +93,9 @@
 - Reference: `backend/gemini_detector/gemini_sahi.py`
 
 **Step 1: Write the failing test**
-- Assert Stage 2 exception candidates include enough data for a later crop refinement pass:
+- Assert Stage 2 exception candidates include enough data for later route-specific analysis:
   - source bbox
-  - crop path or crop coordinates
+  - source coordinates
   - reason codes
   - original EasyOCR record id
 
@@ -103,8 +103,8 @@
 - Re-run the targeted backend tests.
 
 **Step 3: Write minimal implementation**
-- Add a stable exception queue schema that Stage 3 can consume later.
-- Do not call Gemini yet in this slice.
+- Add a stable exception queue schema that later OCR route work can consume.
+- Do not call Gemini in this slice.
 
 **Step 4: Run test to verify it passes**
 - Re-run the targeted backend tests.
@@ -154,4 +154,4 @@
 - `cd backend && XDG_CACHE_HOME=../.tmp-cache MPLCONFIGDIR=../.tmp-mpl ../.venv/bin/python -m garnet.pid_extractor --image sample.png --out output/slice2_ocr --stop-after 2`
 
 **Step 5: Record actual status**
-- Update tracker/docs with the Slice 2 outcome and the handoff contract for Slice 3 Gemini refinement.
+- Update tracker/docs with the Slice 2 outcome and the shared OCR contract needed by the later selectable Gemini route.

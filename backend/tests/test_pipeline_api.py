@@ -53,7 +53,7 @@ class PipelineApiTests(unittest.TestCase):
                 response = client.post(
                     "/api/pipeline/jobs",
                     files={"file_input": ("sample.png", f, "image/png")},
-                    data={"stop_after": "2"},
+                    data={"stop_after": "2", "ocr_route": "easyocr"},
                 )
 
             self.assertEqual(response.status_code, 200)
@@ -75,13 +75,42 @@ class PipelineApiTests(unittest.TestCase):
             assert job_payload is not None
             self.assertEqual(job_payload["status"], "completed")
             self.assertEqual(job_payload["current_stage"], "stage2_ocr_discovery")
+            self.assertEqual(job_payload["ocr_route"], "easyocr")
             self.assertEqual(len(job_payload["manifest"]["stages"]), 2)
+            self.assertEqual(job_payload["manifest"]["ocr_route"], "easyocr")
             artifact_names = {item["name"] for item in job_payload["artifacts"]}
             self.assertIn("stage1_gray.png", artifact_names)
             self.assertIn("stage1_normalization_summary.json", artifact_names)
             self.assertIn("stage2_ocr_regions.json", artifact_names)
             self.assertIn("stage2_ocr_summary.json", artifact_names)
             self.assertIn("stage2_ocr_exception_candidates.json", artifact_names)
+
+    def test_pipeline_job_rejects_missing_ocr_route(self) -> None:
+        client = TestClient(app)
+        sample_path = Path(__file__).resolve().parents[1] / "sample.png"
+
+        with sample_path.open("rb") as f:
+            response = client.post(
+                "/api/pipeline/jobs",
+                files={"file_input": ("sample.png", f, "image/png")},
+                data={"stop_after": "2"},
+            )
+
+        self.assertEqual(response.status_code, 422)
+
+    def test_pipeline_job_rejects_invalid_ocr_route(self) -> None:
+        client = TestClient(app)
+        sample_path = Path(__file__).resolve().parents[1] / "sample.png"
+
+        with sample_path.open("rb") as f:
+            response = client.post(
+                "/api/pipeline/jobs",
+                files={"file_input": ("sample.png", f, "image/png")},
+                data={"stop_after": "2", "ocr_route": "bad-route"},
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("ocr_route", response.json()["detail"])
 
 
 if __name__ == "__main__":

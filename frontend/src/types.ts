@@ -1,5 +1,6 @@
 export type AppView = 'empty' | 'preview' | 'processing' | 'results' | 'batch'
 export type ProcessingMode = 'detection' | 'pipeline'
+export type OcrRoute = 'easyocr' | 'gemini'
 
 export type DetectedObject = {
   Index: number
@@ -55,6 +56,7 @@ export type PipelineManifest = {
   image_path: string
   out_dir: string
   stop_after: number
+  ocr_route: OcrRoute
   stages: PipelineStageManifest[]
 }
 
@@ -66,6 +68,8 @@ export type PipelineJob = {
   job_dir: string
   created_at: number
   stop_after: number
+  ocr_route: OcrRoute
+  gemini_postprocess_match_threshold?: number
   manifest: PipelineManifest | null
   artifacts: PipelineArtifact[]
 }

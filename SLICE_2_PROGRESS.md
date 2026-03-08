@@ -78,6 +78,26 @@
   - Compare the gray-input OCR output against the previous equalized-input run and decide whether Stage 2 also needs tile-size or overlap tuning.
 
 ### 2026-03-08 14:20 ICT
+- Task: `Slice 2 / Production baseline`
+- Action: Recorded the accepted Stage 2 production tuning baseline after the gray-image switch, rotated OCR pass, and same-line merge tuning.
+- Evidence:
+  - [`docs/plans/2026-03-08-slice-2-ocr-sahi-design.md`](/Users/maetee/Code/GARNET/docs/plans/2026-03-08-slice-2-ocr-sahi-design.md)
+  - [`backend/garnet/AGENTS.md`](/Users/maetee/Code/GARNET/backend/garnet/AGENTS.md)
+- Verification:
+  - documentation readback confirmed the accepted values and rationale are present
+- Next step / blocker:
+  - keep Gemini fallback separate and treat Stage 2 runtime tuning as a follow-up optimization pass.
+
+### 2026-03-08 20:28 ICT
+- Task: `Slice 2 / Real SAHI integration`
+- Action: Replaced the EasyOCR custom tile loop with a real SAHI `DetectionModel` + `get_sliced_prediction(...)` path, keeping rotated OCR and the post-SAHI same-line merge on top.
+- Evidence:
+  - [`backend/garnet/easyocr_sahi.py`](/Users/maetee/Code/GARNET/backend/garnet/easyocr_sahi.py)
+  - [`backend/tests/test_easyocr_sahi.py`](/Users/maetee/Code/GARNET/backend/tests/test_easyocr_sahi.py)
+- Verification:
+  - `cd backend && ../.venv/bin/python -m unittest discover -s tests -p 'test_easyocr_sahi.py' -v` -> pass
+- Next step / blocker:
+  - run the broader backend regression suite and, if needed, re-benchmark the EasyOCR sample run with the real SAHI merge path.
 - Task: `Slice 2 / OCR tuning`
 - Action: Tuned Stage 2 OCR for two concrete failure modes:
   - merge adjacent same-line text boxes into one text region
@@ -101,3 +121,22 @@
   - documented baseline includes the gray-image input rule and the current accepted OCR parameters
 - Next step / blocker:
   - future tuning should compare quality and runtime against this baseline, not against the older equalized-image configuration.
+
+### 2026-03-08 15:10 ICT
+- Task: `Slice 3 / Selectable OCR routes`
+- Action: Replaced the planned mandatory EasyOCR -> Gemini chain with user-selected OCR routing per pipeline run. Added backend route selection, API validation, a first Gemini OCR helper with `1024x1024` patching and low-confidence crop fallback, and frontend route selection in Pipeline mode.
+- Evidence:
+  - [`backend/garnet/pid_extractor.py`](/Users/maetee/Code/GARNET/backend/garnet/pid_extractor.py)
+  - [`backend/garnet/gemini_ocr_sahi.py`](/Users/maetee/Code/GARNET/backend/garnet/gemini_ocr_sahi.py)
+  - [`backend/api.py`](/Users/maetee/Code/GARNET/backend/api.py)
+  - [`backend/tests/test_gemini_ocr_sahi.py`](/Users/maetee/Code/GARNET/backend/tests/test_gemini_ocr_sahi.py)
+  - [`frontend/src/components/DetectionSetup.tsx`](/Users/maetee/Code/GARNET/frontend/src/components/DetectionSetup.tsx)
+  - [`frontend/src/stores/appStore.ts`](/Users/maetee/Code/GARNET/frontend/src/stores/appStore.ts)
+  - [`frontend/src/lib/api.ts`](/Users/maetee/Code/GARNET/frontend/src/lib/api.ts)
+  - [`frontend/src/components/PipelineResultsView.tsx`](/Users/maetee/Code/GARNET/frontend/src/components/PipelineResultsView.tsx)
+- Verification:
+  - `cd backend && ../.venv/bin/python -m py_compile api.py garnet/*.py garnet/utils/*.py tests/*.py` -> pass
+  - `cd backend && XDG_CACHE_HOME=../.tmp-cache MPLCONFIGDIR=../.tmp-mpl ../.venv/bin/python -m unittest discover -s tests -p 'test*.py' -v` -> pass
+  - `cd frontend && bun run build` -> pass
+- Next step / blocker:
+  - run a real Gemini-route sample once `OPENROUTER_API_KEY` is available locally and review the raw patch/crop artifacts before calling the route production-ready.

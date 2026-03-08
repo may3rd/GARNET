@@ -4,6 +4,7 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   const stages = job.manifest?.stages ?? []
   const imageArtifacts = job.artifacts.filter((artifact) => /\.(png|jpg|jpeg|webp)$/i.test(artifact.name))
   const jsonArtifacts = job.artifacts.filter((artifact) => artifact.name.endsWith('.json'))
+  const route = job.manifest?.ocr_route ?? job.ocr_route
 
   return (
     <div className="h-full overflow-auto bg-[var(--bg-canvas)]">
@@ -11,7 +12,7 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
         <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-5">
           <div className="text-lg font-semibold">Pipeline Review</div>
           <div className="mt-1 text-sm text-[var(--text-secondary)]">
-            Slice 2 output for Stage 1 normalization and Stage 2 tiled OCR discovery.
+            Stage 1 normalization and Stage 2 OCR discovery review.
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <div className="rounded-xl border border-[var(--border-muted)] bg-[var(--bg-primary)] p-3">
@@ -25,6 +26,10 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
             <div className="rounded-xl border border-[var(--border-muted)] bg-[var(--bg-primary)] p-3">
               <div className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">Current Stage</div>
               <div className="mt-1 text-sm font-semibold">{job.current_stage ?? 'Queued'}</div>
+            </div>
+            <div className="rounded-xl border border-[var(--border-muted)] bg-[var(--bg-primary)] p-3">
+              <div className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">OCR Route</div>
+              <div className="mt-1 text-sm font-semibold uppercase">{route}</div>
             </div>
           </div>
         </div>
