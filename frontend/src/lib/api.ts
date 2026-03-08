@@ -122,7 +122,7 @@ export async function startPipelineJob(
   timeoutMs = DEFAULT_TIMEOUT
 ): Promise<{ job_id: string }> {
   const payload = {
-    stopAfter: 2,
+    stopAfter: 5,
     ocrRoute: 'easyocr' as OcrRoute,
     geminiPostprocessMatchThreshold: 0.1,
     ...options,

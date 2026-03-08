@@ -419,7 +419,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       const { job_id } = await startPipelineJob(
         imageFile,
         {
-          stopAfter: 2,
+          stopAfter: 5,
           ocrRoute: pipelineOcrRoute,
           geminiPostprocessMatchThreshold: pipelineGeminiPostprocessMatchThreshold,
         },
@@ -428,7 +428,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
       while (true) {
         const job = await getPipelineJob(job_id, activeAbortController.signal)
-        const totalStages = Math.max(job.manifest?.stop_after ?? 1, 1)
+        const totalStages = Math.max(job.manifest?.stages.length ?? job.manifest?.stop_after ?? 1, 1)
         const completedStages = job.manifest?.stages.filter((stage) => stage.status === 'completed').length ?? 0
         const currentStageName = job.current_stage ?? 'Queued'
         const percent = job.status === 'completed'

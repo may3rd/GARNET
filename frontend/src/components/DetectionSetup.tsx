@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Play, SlidersHorizontal, Loader2 } from 'lucide-react'
 import { useAppStore } from '@/stores/appStore'
 import { getModels, getWeightFiles } from '@/lib/api'
+import type { OcrRoute } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
@@ -264,20 +265,23 @@ export function DetectionSetup() {
           <div className="space-y-4">
             <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
               OCR route
-              <Select value={pipelineOcrRoute} onValueChange={(value) => setPipelineOcrRoute(value as 'easyocr' | 'gemini')} disabled={isLocked}>
+              <Select value={pipelineOcrRoute} onValueChange={(value) => setPipelineOcrRoute(value as OcrRoute)} disabled={isLocked}>
                 <SelectTrigger className="mt-2">
                   <SelectValue placeholder="Select OCR route" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="easyocr">EasyOCR</SelectItem>
                   <SelectItem value="gemini">Gemini</SelectItem>
+                  <SelectItem value="paddleocr">PaddleOCR (det only)</SelectItem>
                 </SelectContent>
               </Select>
             </label>
             <div className="text-xs text-[var(--text-secondary)] bg-[var(--bg-primary)] border border-[var(--border-muted)] p-3 rounded-lg">
               {pipelineOcrRoute === 'easyocr'
-                ? 'Pipeline mode runs Stage 1 normalization plus Stage 2 tiled EasyOCR discovery and returns the review artifact bundle.'
-                : 'Pipeline mode runs Stage 1 normalization plus Stage 2 Gemini OCR over 1024x1024 patches, with crop fallback only for low-confidence or missed patch results.'}
+                ? 'Pipeline mode runs Stage 1 normalization, the selected Stage 2 OCR route, Stage 4 fixed-baseline object detection, and Stage 5 provisional pipe-mask generation.'
+                : pipelineOcrRoute === 'paddleocr'
+                ? 'Pipeline mode runs Stage 1 normalization, the selected Stage 2 OCR route, Stage 4 fixed-baseline object detection, and Stage 5 provisional pipe-mask generation.'
+                : 'Pipeline mode runs Stage 1 normalization, the selected Stage 2 OCR route, Stage 4 fixed-baseline object detection, and Stage 5 provisional pipe-mask generation.'}
             </div>
             {pipelineOcrRoute === 'gemini' && (
               <div className="space-y-2">

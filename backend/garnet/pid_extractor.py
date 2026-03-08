@@ -3,7 +3,9 @@ Stage-based P&ID pipeline rebuild.
 
 The current implementation intentionally stays small and reviewable:
 - Stage 1: input normalization
-- Stage 2: tiled EasyOCR discovery
+- Stage 2: selected OCR route discovery
+- Stage 4: fixed-baseline object detection
+- Stage 5: provisional pipe-mask generation
 """
 
 from __future__ import annotations
@@ -20,6 +22,9 @@ import numpy as np
 from dotenv import load_dotenv
 from garnet.easyocr_sahi import EasyOcrSahiConfig, run_easyocr_sahi
 from garnet.gemini_ocr_sahi import GeminiOcrSahiConfig, run_gemini_ocr_sahi
+from garnet.object_detection_sahi import DetectionSahiConfig, run_object_detection_sahi
+from garnet.paddle_ocr_sahi import PaddleOcrSahiConfig, run_paddle_ocr_sahi
+from garnet.pipe_mask import run_pipe_mask_stage
 
 try:
     import cv2  # type: ignore
@@ -67,6 +72,15 @@ class PipelineConfig:
     ocr_line_merge_gap_px: int = 24
     ocr_line_merge_y_tolerance_px: int = 10
     ocr_enable_rotated: bool = True
+    detection_weight_path: str = "yolo_weights/yolo11n_PPCL_640_20250204.pt"
+    detection_image_size: int = 640
+    detection_overlap_ratio: float = 0.2
+    detection_postprocess_type: str = "GREEDYNMM"
+    detection_postprocess_match_metric: str = "IOS"
+    detection_postprocess_match_threshold: float = 0.1
+    pipe_mask_ocr_padding: int = 1
+    pipe_mask_object_inset: int = 1
+    pipe_mask_min_component_area: int = 16
 
 
 class PIDPipeline:
@@ -92,6 +106,8 @@ class PIDPipeline:
         return [
             (1, "stage1_input_normalization", self.stage1_input_normalization),
             (2, "stage2_ocr_discovery", self.stage2_ocr_discovery),
+            (4, "stage4_object_detection", self.stage4_object_detection),
+            (5, "stage5_pipe_mask", self.stage5_pipe_mask),
         ]
 
     def _manifest_path(self) -> Path:
@@ -157,8 +173,9 @@ class PIDPipeline:
 
     def run(self, stop_after: int = 1) -> None:
         stages = self._stage_definitions()
-        if stop_after < 1 or stop_after > len(stages):
-            raise ValueError(f"stop_after must be between 1 and {len(stages)}, got {stop_after}")
+        valid_stop_after = {num for num, _, _ in stages}
+        if stop_after not in valid_stop_after:
+            raise ValueError(f"stop_after must be one of {sorted(valid_stop_after)}, got {stop_after}")
         self._reset_stage_manifest(stop_after)
         for stage_num, stage_name, stage_fn in stages:
             if stage_num > stop_after:
@@ -186,6 +203,13 @@ class PIDPipeline:
         with open(path, "w") as f:
             json.dump(data, f, indent=2)
         logger.info(f"saved {path}")
+
+    def _load_json_artifact(self, name: str) -> Any:
+        path = self.out_dir / f"{name}.json"
+        if not path.exists():
+            raise FileNotFoundError(f"Required artifact missing: {path}")
+        with open(path, "r") as f:
+            return json.load(f)
 
     # ---------- Stage 1 ----------
     def _ensure_image_loaded(self) -> np.ndarray:
@@ -281,6 +305,17 @@ class PIDPipeline:
                     postprocess_match_threshold=self.cfg.gemini_postprocess_match_threshold,
                 ),
             )
+        elif self.cfg.ocr_route == "paddleocr":
+            ocr_result = run_paddle_ocr_sahi(
+                stage1_input,
+                image_id=Path(self.image_path).name,
+                cfg=PaddleOcrSahiConfig(
+                    slice_height=self.cfg.ocr_slice_height,
+                    slice_width=self.cfg.ocr_slice_width,
+                    overlap_height_ratio=self.cfg.ocr_overlap_height_ratio,
+                    overlap_width_ratio=self.cfg.ocr_overlap_width_ratio,
+                ),
+            )
         else:
             raise ValueError(f"Unsupported ocr_route: {self.cfg.ocr_route}")
         ocr_result["summary"]["route"] = self.cfg.ocr_route
@@ -295,13 +330,65 @@ class PIDPipeline:
             self._save_json("stage2_gemini_patch_raw", ocr_result.get("patch_raw", []))
             self._save_json("stage2_gemini_crop_raw", ocr_result.get("crop_raw", []))
 
+    # ---------- Stage 4 ----------
+    def stage4_object_detection(self) -> None:
+        detection_result = run_object_detection_sahi(
+            self.image_path,
+            image_id=Path(self.image_path).name,
+            cfg=DetectionSahiConfig(
+                weight_path=self.cfg.detection_weight_path,
+                image_size=self.cfg.detection_image_size,
+                overlap_ratio=self.cfg.detection_overlap_ratio,
+                postprocess_type=self.cfg.detection_postprocess_type,
+                postprocess_match_metric=self.cfg.detection_postprocess_match_metric,
+                postprocess_match_threshold=self.cfg.detection_postprocess_match_threshold,
+            ),
+        )
+        self._save_json("stage4_objects", detection_result["objects_payload"])
+        self._save_json("stage4_objects_summary", detection_result["summary"])
+        self._save_img("stage4_objects_overlay", detection_result["overlay_image"])
+
+    # ---------- Stage 5 ----------
+    def stage5_pipe_mask(self) -> None:
+        gray_path = self.out_dir / "stage1_gray.png"
+        adaptive_path = self.out_dir / "stage1_binary_adaptive.png"
+        otsu_path = self.out_dir / "stage1_binary_otsu.png"
+        if not gray_path.exists() or not adaptive_path.exists() or not otsu_path.exists():
+            raise FileNotFoundError("Stage 5 requires Stage 1 grayscale and binary artifacts")
+        if cv2 is None:
+            raise RuntimeError("cv2 is required for Stage 5 pipe-mask generation")
+
+        gray_image = cv2.imread(str(gray_path), cv2.IMREAD_GRAYSCALE)
+        adaptive_mask = cv2.imread(str(adaptive_path), cv2.IMREAD_GRAYSCALE)
+        otsu_mask = cv2.imread(str(otsu_path), cv2.IMREAD_GRAYSCALE)
+        if gray_image is None or adaptive_mask is None or otsu_mask is None:
+            raise RuntimeError("Failed to load Stage 1 artifacts for Stage 5")
+
+        ocr_regions = self._load_json_artifact("stage2_ocr_regions").get("text_regions", [])
+        object_regions = self._load_json_artifact("stage4_objects").get("objects", [])
+        pipe_mask_result = run_pipe_mask_stage(
+            image_bgr=self._ensure_image_loaded(),
+            gray_image=gray_image,
+            adaptive_mask=adaptive_mask,
+            otsu_mask=otsu_mask,
+            ocr_regions=ocr_regions,
+            object_regions=object_regions,
+            image_id=Path(self.image_path).name,
+            ocr_padding=self.cfg.pipe_mask_ocr_padding,
+            object_inset=self.cfg.pipe_mask_object_inset,
+            min_component_area=self.cfg.pipe_mask_min_component_area,
+        )
+        self._save_img("stage5_pipe_mask", pipe_mask_result["mask_image"])
+        self._save_img("stage5_pipe_mask_overlay", pipe_mask_result["overlay_image"])
+        self._save_json("stage5_pipe_mask_summary", pipe_mask_result["summary"])
+
 
 def main() -> None:
     parser = argparse.ArgumentParser("P&ID pipeline")
     parser.add_argument("--image", required=True)
     parser.add_argument("--out", default=str(DEFAULT_OUT))
-    parser.add_argument("--ocr-route", choices=["easyocr", "gemini"], default="easyocr")
-    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1-2)")
+    parser.add_argument("--ocr-route", choices=["easyocr", "gemini", "paddleocr"], default="easyocr")
+    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, or 5)")
     args = parser.parse_args()
     pipe = PIDPipeline(args.image, out_dir=args.out, cfg=PipelineConfig(ocr_route=args.ocr_route))
     pipe.run(stop_after=args.stop_after)

@@ -21,8 +21,12 @@
 - Keep stage outputs inspectable and small enough to review in code and UI at each slice.
 
 ## Phase-to-file map
-- Stage 1 normalization and manifest writing: `pid_extractor.py`
-- OCR support for future slices: `text_ocr.py`
+- Stage 1 normalization, Stage 2 OCR routing, Stage 4 object detection, and Stage 5 pipe mask orchestration: `pid_extractor.py`
+- Stage 2 EasyOCR route: `easyocr_sahi.py`
+- Stage 2 Gemini/OpenRouter route: `gemini_ocr_sahi.py`
+- Stage 2 PaddleOCR route: `paddle_ocr_sahi.py`
+- Stage 4 fixed-baseline detection: `object_detection_sahi.py`
+- Stage 5 provisional pipe-mask generation: `pipe_mask.py`
 - Detection-serving helpers for the existing `/api/detect` path: `predict_images.py`, `Settings.py`
 - Shared image utilities: `utils/utils.py`
 
@@ -41,14 +45,37 @@
   - keep rotated OCR enabled for Stage 2 tile passes
   - keep same-line merge enabled so nearby words on one engineering line become one text region when the baseline and spacing support it
 - Current pipeline OCR routing baseline:
-  - every pipeline run must choose exactly one OCR route: `easyocr` or `gemini`
+  - every pipeline run must choose exactly one OCR route
+  - current supported routes are `easyocr`, `gemini`, and `paddleocr`
+  - keep route handling extensible because more OCR routes will be added later
   - `easyocr` remains the local tiled OCR route
   - `gemini` is a separate Stage 2 route, not a downstream Stage 3 after EasyOCR
+  - `paddleocr` is a separate Stage 2 route and must emit the same Stage 2 artifact bundle shape as the other routes
   - Gemini route uses real SAHI slicing with `1024x1024` patches
   - Gemini route uses `postprocess_match_metric = IOS`
   - Gemini route uses `postprocess_match_threshold = 0.1`
   - Gemini route uses crop fallback only when the slice result is empty or best confidence is below `0.3`
+- Current Stage 4 object-detection baseline:
+  - stage name is `stage4_object_detection`
+  - keep sparse stage numbering honest; do not add a fake Stage 3 placeholder
+  - fixed baseline weight is `yolo_weights/yolo11n_PPCL_640_20250204.pt`
+  - detection path uses Ultralytics + SAHI
+  - detection baseline uses `image_size = 640`
+  - detection baseline uses `overlap_ratio = 0.2`
+  - detection baseline uses `postprocess_type = GREEDYNMM`
+  - detection baseline uses `postprocess_match_metric = IOS`
+  - detection baseline uses `postprocess_match_threshold = 0.1`
+  - Stage 4 artifacts are `stage4_objects.json`, `stage4_objects_summary.json`, and `stage4_objects_overlay.png`
+- Current Stage 5 pipe-mask baseline:
+  - stage name is `stage5_pipe_mask`
+  - Stage 5 is provisional geometry evidence only; do not add morphology, skeletonization, or graph logic here
+  - candidate mask starts from `stage1_binary_adaptive.png` OR `stage1_binary_otsu.png`
+  - OCR suppression uses Stage 2 `text_regions` boxes with conservative padding
+  - object suppression uses Stage 4 object boxes with conservative interior suppression
+  - keep the output reviewable rather than aggressively repaired
+  - Stage 5 artifacts are `stage5_pipe_mask.png`, `stage5_pipe_mask_overlay.png`, and `stage5_pipe_mask_summary.json`
 - If you tune OCR parameters, record the accepted values in `docs/plans/2026-03-08-slice-2-ocr-sahi-design.md` and log the reason in `SLICE_2_PROGRESS.md`.
+- If you tune Stage 5 suppression parameters, update `PipelineConfig`, log the reason in `SLICE_5_PROGRESS.md`, and keep the Stage 5 design docs aligned with the accepted baseline.
 
 ## Runtime and verification
 - Run backend commands from `/Users/maetee/Code/GARNET/backend` so relative paths for weights, outputs, and datasets resolve consistently.

@@ -27,6 +27,12 @@ class FakePipeline(pid_extractor.PIDPipeline):
     def stage2_ocr_discovery(self) -> None:
         self._record("stage2")
 
+    def stage4_object_detection(self) -> None:
+        self._record("stage4")
+
+    def stage5_pipe_mask(self) -> None:
+        self._record("stage5")
+
 class PIDPipelineRunnerTests(unittest.TestCase):
     def test_stage_definitions_follow_master_plan_order(self) -> None:
         pipe = FakePipeline(tempfile.mkdtemp())
@@ -38,6 +44,8 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             [
                 "stage1_input_normalization",
                 "stage2_ocr_discovery",
+                "stage4_object_detection",
+                "stage5_pipe_mask",
             ],
         )
 
@@ -45,16 +53,18 @@ class PIDPipelineRunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             pipe = FakePipeline(tmp)
 
-            pipe.run(stop_after=2)
+            pipe.run(stop_after=5)
 
-            self.assertEqual(pipe.called, ["stage1", "stage2"])
+            self.assertEqual(pipe.called, ["stage1", "stage2", "stage4", "stage5"])
             manifest = json.loads((Path(tmp) / "stage_manifest.json").read_text())
-            self.assertEqual(manifest["stop_after"], 2)
+            self.assertEqual(manifest["stop_after"], 5)
             self.assertEqual(
                 [item["name"] for item in manifest["stages"]],
                 [
                     "stage1_input_normalization",
                     "stage2_ocr_discovery",
+                    "stage4_object_detection",
+                    "stage5_pipe_mask",
                 ],
             )
             self.assertTrue(all(item["status"] == "completed" for item in manifest["stages"]))
@@ -63,15 +73,15 @@ class PIDPipelineRunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             pipe = FakePipeline(tmp)
 
-            with self.assertRaisesRegex(ValueError, "stop_after must be between 1 and 2"):
-                pipe.run(stop_after=3)
+            with self.assertRaisesRegex(ValueError, "stop_after must be one of"):
+                pipe.run(stop_after=6)
 
     def test_run_writes_failed_stage_to_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             pipe = FakePipeline(tmp, fail_stage=2)
 
             with self.assertRaisesRegex(RuntimeError, "stage2 failed"):
-                pipe.run(stop_after=2)
+                pipe.run(stop_after=5)
 
             manifest = json.loads((Path(tmp) / "stage_manifest.json").read_text())
             self.assertEqual(manifest["stages"][0]["status"], "completed")
@@ -162,6 +172,77 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             mock_easyocr.assert_not_called()
             mock_gemini.assert_called_once()
             self.assertEqual(mock_gemini.call_args.kwargs["cfg"].postprocess_match_threshold, 0.17)
+
+    def test_stage4_writes_object_detection_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
+
+            with patch("garnet.pid_extractor.run_object_detection_sahi") as mock_detect:
+                mock_detect.return_value = {
+                    "objects_payload": {
+                        "image_id": "image.png",
+                        "pass_type": "sheet",
+                        "objects": [
+                            {
+                                "id": "obj_000001",
+                                "class_name": "valve",
+                                "confidence": 0.91,
+                                "bbox": {"x_min": 1, "y_min": 2, "x_max": 11, "y_max": 12},
+                                "source_model": "ultralytics",
+                                "source_weight": "yolo_weights/yolo11n_PPCL_640_20250204.pt",
+                            }
+                        ],
+                    },
+                    "summary": {
+                        "image_id": "image.png",
+                        "pass_type": "sheet",
+                        "route": "ultralytics",
+                        "source_weight": "yolo_weights/yolo11n_PPCL_640_20250204.pt",
+                    },
+                    "overlay_image": np.zeros((20, 20, 3), dtype=np.uint8),
+                }
+
+                pipe.stage4_object_detection()
+
+            mock_detect.assert_called_once()
+            self.assertTrue((Path(tmp) / "stage4_objects.json").exists())
+            self.assertTrue((Path(tmp) / "stage4_objects_summary.json").exists())
+            self.assertTrue((Path(tmp) / "stage4_objects_overlay.png").exists())
+            summary = json.loads((Path(tmp) / "stage4_objects_summary.json").read_text())
+            self.assertEqual(summary["source_weight"], "yolo_weights/yolo11n_PPCL_640_20250204.pt")
+
+    def test_stage5_writes_pipe_mask_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
+            pipe.image_bgr = np.zeros((20, 20, 3), dtype=np.uint8)
+            pipe._save_img("stage1_gray", np.zeros((20, 20), dtype=np.uint8))
+            pipe._save_img("stage1_binary_adaptive", np.zeros((20, 20), dtype=np.uint8))
+            pipe._save_img("stage1_binary_otsu", np.zeros((20, 20), dtype=np.uint8))
+            pipe._save_json("stage2_ocr_regions", {"text_regions": []})
+            pipe._save_json("stage4_objects", {"objects": []})
+
+            with patch("garnet.pid_extractor.run_pipe_mask_stage") as mock_pipe_mask:
+                mock_pipe_mask.return_value = {
+                    "mask_image": np.zeros((20, 20), dtype=np.uint8),
+                    "overlay_image": np.zeros((20, 20, 3), dtype=np.uint8),
+                    "summary": {
+                        "image_id": "image.png",
+                        "pass_type": "sheet",
+                        "mask_pixel_count": 15,
+                        "source_artifacts": [
+                            "stage1_gray.png",
+                            "stage2_ocr_regions.json",
+                            "stage4_objects.json",
+                        ],
+                    },
+                }
+
+                pipe.stage5_pipe_mask()
+
+            mock_pipe_mask.assert_called_once()
+            self.assertTrue((Path(tmp) / "stage5_pipe_mask.png").exists())
+            self.assertTrue((Path(tmp) / "stage5_pipe_mask_overlay.png").exists())
+            self.assertTrue((Path(tmp) / "stage5_pipe_mask_summary.json").exists())
 
 
 if __name__ == "__main__":

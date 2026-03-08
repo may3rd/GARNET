@@ -781,7 +781,9 @@ def _run_pipeline_job(
         job = PIPELINE_JOBS.get(job_id)
         if job:
             job["status"] = "completed"
-            job["current_stage"] = pipe._stage_definitions()[stop_after - 1][1]
+            completed_stages = pipe.stage_manifest.get("stages", [])
+            if completed_stages:
+                job["current_stage"] = completed_stages[-1]["name"]
 
 
 def sanitize_excel_sheet_name(name: str, fallback: str = "Sheet") -> str:
@@ -995,10 +997,10 @@ async def create_pipeline_job(
     gemini_postprocess_match_threshold: float = Form(0.1),
 ):
     validate_image_file(file_input)
-    if stop_after not in {1, 2}:
-        raise HTTPException(status_code=400, detail="Pipeline currently supports stop_after=1 or stop_after=2")
-    if ocr_route not in {"easyocr", "gemini"}:
-        raise HTTPException(status_code=400, detail="Invalid ocr_route. Expected 'easyocr' or 'gemini'")
+    if stop_after not in {1, 2, 4, 5}:
+        raise HTTPException(status_code=400, detail="Pipeline currently supports stop_after=1, stop_after=2, stop_after=4, or stop_after=5")
+    if ocr_route not in {"easyocr", "gemini", "paddleocr"}:
+        raise HTTPException(status_code=400, detail="Invalid ocr_route. Expected 'easyocr', 'gemini', or 'paddleocr'")
     if not 0 <= gemini_postprocess_match_threshold <= 1:
         raise HTTPException(status_code=400, detail="gemini_postprocess_match_threshold must be between 0 and 1")
 

@@ -41,3 +41,4 @@ pdf2image
 psutil
 google-genai # for google ai calling
 pillow
+rapidocr-onnxruntime # PP-OCRv4 det-only route (install with --ignore-requires-python on Python 3.14+)
