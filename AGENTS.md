@@ -47,3 +47,358 @@
 ## Links to module instructions
 - `backend/garnet/AGENTS.md`
 - `backend/gemini_detector/AGENTS.md`
+
+## Topology reconstruction reference
+Repository: GARNET
+
+This reference captures the canonical pipeline used to convert object detection
+outputs into a structured P&ID graph.
+
+### 1. System overview
+
+Goal:
+
+Convert detected P&ID content into a structured graph.
+
+Output graph contains:
+
+- equipment nodes
+- pipe junction nodes
+- pipe edges
+- equipment-to-pipe connections
+
+Pipeline structure:
+
+```
+Detection (SAHI + YOLO)
+↓
+Pipe Segmentation
+↓
+Skeleton Extraction
+↓
+Node Detection
+↓
+Equipment-Pipe Association
+↓
+Edge Tracing
+↓
+Graph Construction
+```
+
+The final graph represents the complete piping connectivity network.
+
+### 2. Pipe skeleton extraction
+
+Input:
+
+```
+pipe segmentation mask
+```
+
+Convert the mask into a 1-pixel centerline skeleton.
+
+Recommended algorithms:
+
+```
+opencv.ximgproc.thinning
+or
+skimage.morphology.skeletonize
+```
+
+Example:
+
+```python
+pipe_mask = cv2.imread("pipe_mask.png", 0)
+binary = pipe_mask > 0
+
+skeleton = skeletonize(binary).astype(np.uint8) * 255
+```
+
+All downstream topology analysis operates on this skeleton.
+
+### 3. Node detection
+
+Each skeleton pixel is analyzed using 8-neighborhood connectivity.
+
+| Degree | Meaning     |
+| ------ | ----------- |
+| 1      | endpoint    |
+| 2      | normal pipe |
+| >=3    | junction    |
+
+Implementation example:
+
+```python
+kernel = np.array([
+    [1, 1, 1],
+    [1, 10, 1],
+    [1, 1, 1],
+])
+
+neighbor_count = nd.convolve((skeleton > 0).astype(int), kernel)
+
+junctions = np.where(neighbor_count >= 13)
+endpoints = np.where(neighbor_count == 11)
+```
+
+Explanation:
+
+```
+10 = center pixel
++1 for each neighbor
+```
+
+Therefore:
+
+```
+11 -> endpoint
+12 -> normal pipe
+13+ -> junction
+```
+
+### 4. Equipment-to-pipe association
+
+Object detection produces equipment:
+
+```
+bbox
+class
+center
+```
+
+Each equipment must connect to the nearest pipe centerline.
+
+Approach:
+
+```
+KDTree nearest neighbor search
+```
+
+Example:
+
+```python
+from scipy.spatial import KDTree
+
+skeleton_points = np.column_stack(np.where(skeleton > 0))
+tree = KDTree(skeleton_points)
+
+distance, index = tree.query([equip_y, equip_x])
+nearest_pipe_point = skeleton_points[index]
+```
+
+Create an equipment connection node.
+
+Constraint:
+
+```
+distance < threshold (20-40 px typical)
+```
+
+### 5. Node consolidation
+
+Skeleton nodes are pixel-dense.
+
+Cluster nearby nodes into single graph nodes.
+
+Recommended method:
+
+```
+DBSCAN clustering
+```
+
+Example:
+
+```python
+clustering = DBSCAN(eps=6, min_samples=1).fit(nodes)
+```
+
+Each cluster centroid becomes a graph node.
+
+Node types:
+
+```
+junction
+endpoint
+equipment_connection
+```
+
+### 6. Edge tracing
+
+Edges represent pipe segments between nodes.
+
+Procedure:
+
+```
+1. Start from node
+2. Follow skeleton pixels
+3. Stop at next node
+4. Record path
+```
+
+Traversal strategy:
+
+```
+Depth-first traversal
+```
+
+Pseudo-code:
+
+```python
+def trace_edge(start_pixel):
+    path = []
+    current = start_pixel
+
+    while current not in node_set:
+        path.append(current)
+        next_pixel = find_next_neighbor(current)
+        current = next_pixel
+
+    return path, current
+```
+
+Edge representation:
+
+```
+(nodeA, nodeB, polyline)
+```
+
+### 7. Graph construction
+
+Use `NetworkX`.
+
+```python
+import networkx as nx
+
+G = nx.Graph()
+
+G.add_node(node_id, type="junction", pos=(x, y))
+G.add_edge(nodeA, nodeB, polyline=polyline)
+```
+
+Graph supports connectivity queries, flow path tracing, automatic line lists,
+and equipment connectivity matrices.
+
+### 8. Handling pipe crossings
+
+Skeleton methods falsely interpret pipe crossings as junctions.
+
+P&IDs often contain non-connected crossings.
+
+Rule:
+
+```
+crossing without junction symbol -> NOT connected
+```
+
+Detect junction symbols:
+
+```
+dot
+node
+tee
+```
+
+If no junction symbol exists, split edges to prevent false graph connections.
+
+### 9. Off-page connectors
+
+Detect connectors as special nodes with:
+
+```
+connector_id
+page_reference
+```
+
+Graphs from multiple pages are merged via connector IDs.
+
+### 10. Data model
+
+Node:
+
+```text
+{
+ id
+ type (pump, valve, junction)
+ tag
+ position
+}
+```
+
+Edge:
+
+```text
+{
+ source
+ target
+ polyline
+ pipe_class
+ line_number
+}
+```
+
+### 11. Graph export
+
+Supported formats:
+
+```
+GraphML
+JSON
+Neo4j
+```
+
+GraphML is preferred for interoperability.
+
+### 12. Large drawing optimization
+
+Typical P&IDs exceed:
+
+```
+30k x 20k pixels
+```
+
+Required spatial indexing:
+
+```
+KDTree
+R-tree
+tile-based graph merging
+```
+
+### 13. Engineering principle
+
+Detection accuracy is rarely the bottleneck.
+
+The real challenge is topological reconstruction under ambiguous geometry.
+
+Reliable systems combine:
+
+```
+computer vision
+computational geometry
+graph theory
+```
+
+### 14. Future improvements
+
+Advanced systems add:
+
+```
+relation inference models
+graph neural networks
+symbol-to-pipe prediction
+```
+
+These improve connection accuracy for noisy drawings.
+
+### 15. Canonical pipeline
+
+```
+SAHI tiling
+YOLO detection
+Pipe segmentation
+Skeleton extraction
+Node detection
+KDTree equipment association
+Edge tracing
+NetworkX graph generation
+```
