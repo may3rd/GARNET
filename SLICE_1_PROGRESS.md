@@ -61,3 +61,15 @@
   - `cd frontend && npm run build` -> pass
 - Next step / blocker:
   - Slice 1 is complete. Next build slice is OCR discovery as Stage 2, using the same job API and stage-progress UI.
+
+### 2026-03-08 10:15 ICT
+- Task: `Slice 2 / OCR design`
+- Action: Approved the next OCR architecture: Stage 2 will use SAHI-style tiled EasyOCR as the primary detector, and Stage 3 will reuse Gemini/OpenRouter only for exception crop fallback and refinement.
+- Evidence:
+  - [`docs/plans/2026-03-08-slice-2-ocr-sahi-design.md`](/Users/maetee/Code/GARNET/docs/plans/2026-03-08-slice-2-ocr-sahi-design.md)
+  - [`docs/plans/2026-03-08-slice-2-ocr-sahi-implementation.md`](/Users/maetee/Code/GARNET/docs/plans/2026-03-08-slice-2-ocr-sahi-implementation.md)
+  - updated [`IMPLEMENTATION_TRACKER.md`](/Users/maetee/Code/GARNET/IMPLEMENTATION_TRACKER.md)
+- Verification:
+  - planning docs reviewed and aligned to the new OCR rule: EasyOCR for detection, Gemini/OpenRouter for exception handling
+- Next step / blocker:
+  - Implement Slice 2 Stage 2 only first, keeping the Stage 3 Gemini contract defined but not yet executed.

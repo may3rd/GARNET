@@ -24,7 +24,7 @@
 | Area | Repo evidence | Status | Gap to master plan |
 |------|---------------|--------|--------------------|
 | Staged orchestrator | [`backend/garnet/pid_extractor.py`](/Users/maetee/Code/GARNET/backend/garnet/pid_extractor.py) has `stage1_ingest` through `stage6_line_graph` | Partial | Current stages are useful but do not match the master-plan phase boundaries cleanly |
-| OCR ingestion | [`backend/garnet/text_ocr.py`](/Users/maetee/Code/GARNET/backend/garnet/text_ocr.py), OCR JSON inputs in `backend/ocr_results.json` | Partial | Full-page OCR discovery vs crop OCR refinement is not separated as first-class stages |
+| OCR ingestion | [`backend/garnet/text_ocr.py`](/Users/maetee/Code/GARNET/backend/garnet/text_ocr.py), planned SAHI-style EasyOCR helper under `backend/garnet/`, Gemini fallback path in [`backend/gemini_detector/gemini_sahi.py`](/Users/maetee/Code/GARNET/backend/gemini_detector/gemini_sahi.py) | Planned | The rebuild still needs Stage 2 tiled EasyOCR discovery and Stage 3 crop-level Gemini fallback/refinement |
 | Object detection | `/api/detect` flow in [`backend/api.py`](/Users/maetee/Code/GARNET/backend/api.py), weight/config discovery, `predict_images.py` helpers | Active but separate | Detection exists for the API, but it is not yet part of the new staged rebuild pipeline |
 | Pipe geometry | Stage 1 normalization in [`backend/garnet/pid_extractor.py`](/Users/maetee/Code/GARNET/backend/garnet/pid_extractor.py), sample artifacts in `backend/output/slice1_stage1` | Early | B1 pipe mask, B1.5 morphology audit, B4 crossing/junction disambiguation, and B5 cleanup are not implemented in the rebuild yet |
 | Graph assembly | No active rebuild module yet; planned for later slices | Not started | Graph-native QA, mixed directed/undirected semantics, and simplified export geometry are still future work |
@@ -77,13 +77,15 @@
 
 **Definition of done**
 - OCR discovery and OCR refinement are separate artifacts.
+- Stage 2 uses EasyOCR on overlapped sheet tiles as the primary OCR detector.
+- Stage 3 uses Gemini/OpenRouter only for exception crops and refinement.
 - Small objects, arrows, equipment, and off-page connectors are represented as structured evidence tables.
 
 | ID | Task | Master-plan refs | Repo targets | Verification | Status |
 |----|------|------------------|--------------|--------------|--------|
 | S1-01 | Split input normalization into explicit working views with preprocessing metadata | A1 | `backend/garnet/pid_extractor.py` | Baseline run writes normalized image bundle + metadata JSON | TODO |
-| S1-02 | Promote full-page OCR discovery into its own stage with coverage-first outputs | A2 | `backend/garnet/text_ocr.py`, `backend/garnet/pid_extractor.py` | OCR stage writes text-region table with boxes, raw text, confidence, rotation | TODO |
-| S1-03 | Add crop OCR refinement for low-confidence, rotated, or ambiguous text candidates | A3 | `backend/garnet/text_ocr.py`, `backend/garnet/pid_extractor.py` | Refinement stage writes merged OCR table and unresolved queue | TODO |
+| S1-02 | Add Stage 2 OCR discovery using SAHI-style tiling with EasyOCR as the primary detector | A2 | `backend/garnet/easyocr_sahi.py`, `backend/garnet/text_ocr.py`, `backend/garnet/pid_extractor.py` | OCR stage writes canonical sheet-level `text_regions` JSON, overlay, summary, and exception candidates | TODO |
+| S1-03 | Add Stage 3 crop OCR refinement using Gemini/OpenRouter only for exception candidates from Stage 2 | A3 | `backend/garnet/text_ocr.py`, `backend/garnet/pid_extractor.py`, `backend/gemini_detector/gemini_sahi.py` | Refinement stage writes crop-level raw responses, merged OCR table, comparison report, and unresolved queue | TODO |
 | S1-04 | Normalize detector outputs into separate evidence tables for small objects, arrows, equipment, and off-page connectors | A4-A6 | `backend/garnet/pid_extractor.py`, helper module to be created if needed | Detection run writes structured evidence JSON/CSV per category | TODO |
 | S1-05 | Add provenance fields so each evidence item records source stage, model/input, and confidence | A2-A6 | `backend/garnet/pid_extractor.py`, `backend/schema/graph_v1.json` if needed | Evidence tables include provenance bundle | TODO |
 
@@ -185,5 +187,5 @@
 | Slice | Outcome | Evidence | Status |
 |------|---------|----------|--------|
 | Slice 1 | Stage 1-only pipeline from raw image input, backend job API, frontend Pipeline mode with stage progress and artifact review | `backend/output/slice1_stage1`, `backend/output/pipeline_jobs`, `backend/tests/test_pid_extractor_cli.py`, `backend/tests/test_pipeline_api.py` | DONE |
-| Slice 2 | OCR discovery from image only, visible as a second reviewable stage in API and frontend | New Stage 2 artifacts and polling UI state | TODO |
-| Slice 3 | OCR refinement as a distinct stage with before/after review artifacts | Stage 2 and Stage 3 comparison outputs | TODO |
+| Slice 2 | SAHI-style tiled EasyOCR discovery from image only, visible as a second reviewable stage in API and frontend | `stage2_ocr_regions.json`, `stage2_ocr_overlay.png`, `stage2_ocr_summary.json`, `stage2_ocr_exception_candidates.json` | TODO |
+| Slice 3 | Gemini/OpenRouter crop fallback and OCR refinement for Stage 2 exception candidates | raw crop responses, `stage3_ocr_refined.json`, `stage3_ocr_comparison.json`, `stage3_ocr_unresolved.json` | TODO |
