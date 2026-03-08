@@ -27,6 +27,7 @@ from garnet.object_detection_sahi import DetectionSahiConfig, run_object_detecti
 from garnet.paddle_ocr_sahi import PaddleOcrSahiConfig, run_paddle_ocr_sahi
 from garnet.pipe_mask import run_pipe_mask_stage
 from garnet.pipe_seal import run_pipe_seal_stage
+from garnet.pipe_skeleton import run_pipe_skeleton_stage
 
 try:
     import cv2  # type: ignore
@@ -114,6 +115,7 @@ class PIDPipeline:
             (4, "stage4_object_detection", self.stage4_object_detection),
             (5, "stage5_pipe_mask", self.stage5_pipe_mask),
             (6, "stage6_morphological_sealing", self.stage6_morphological_sealing),
+            (7, "stage7_skeleton_generation", self.stage7_skeleton_generation),
         ]
 
     def _manifest_path(self) -> Path:
@@ -414,13 +416,34 @@ class PIDPipeline:
         self._save_img("stage6_pipe_mask_sealed_overlay", seal_result["overlay_image"])
         self._save_json("stage6_pipe_mask_sealed_summary", seal_result["summary"])
 
+    # ---------- Stage 7 ----------
+    def stage7_skeleton_generation(self) -> None:
+        sealed_mask_path = self.out_dir / "stage6_pipe_mask_sealed.png"
+        if not sealed_mask_path.exists():
+            raise FileNotFoundError(f"Stage 7 requires Stage 6 artifact: {sealed_mask_path}")
+        if cv2 is None:
+            raise RuntimeError("cv2 is required for Stage 7 skeleton generation")
+
+        sealed_mask = cv2.imread(str(sealed_mask_path), cv2.IMREAD_GRAYSCALE)
+        if sealed_mask is None:
+            raise RuntimeError(f"Failed to load Stage 6 sealed mask: {sealed_mask_path}")
+
+        skeleton_result = run_pipe_skeleton_stage(
+            image_bgr=self._ensure_image_loaded(),
+            sealed_mask=sealed_mask,
+            image_id=Path(self.image_path).name,
+        )
+        self._save_img("stage7_pipe_skeleton", skeleton_result["skeleton_image"])
+        self._save_img("stage7_pipe_skeleton_overlay", skeleton_result["overlay_image"])
+        self._save_json("stage7_pipe_skeleton_summary", skeleton_result["summary"])
+
 
 def main() -> None:
     parser = argparse.ArgumentParser("P&ID pipeline")
     parser.add_argument("--image", required=True)
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     parser.add_argument("--ocr-route", choices=["easyocr", "gemini", "paddleocr"], default="easyocr")
-    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, or 6)")
+    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, or 7)")
     args = parser.parse_args()
     pipe = PIDPipeline(args.image, out_dir=args.out, cfg=PipelineConfig(ocr_route=args.ocr_route))
     pipe.run(stop_after=args.stop_after)

@@ -305,6 +305,77 @@ class PipelineApiTests(unittest.TestCase):
             self.assertIn("stage6_pipe_mask_sealed_overlay.png", artifact_names)
             self.assertIn("stage6_pipe_mask_sealed_summary.json", artifact_names)
 
+    def test_pipeline_job_runs_stage7_and_reports_skeleton_artifacts(self) -> None:
+        client = TestClient(app)
+        sample_path = Path(__file__).resolve().parents[1] / "sample.png"
+
+        fake_ocr_result = {
+            "regions_payload": {"image_id": "sample.png", "pass_type": "sheet", "text_regions": []},
+            "summary": {"image_id": "sample.png", "pass_type": "sheet"},
+            "exception_candidates": [],
+            "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
+        }
+        fake_detection_result = {
+            "objects_payload": {"image_id": "sample.png", "pass_type": "sheet", "objects": []},
+            "summary": {
+                "image_id": "sample.png",
+                "pass_type": "sheet",
+                "route": "ultralytics",
+                "object_count": 0,
+                "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt",
+            },
+            "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
+        }
+        fake_pipe_mask_result = {
+            "mask_image": np.zeros((50, 100), dtype=np.uint8),
+            "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
+            "summary": {"image_id": "sample.png", "pass_type": "sheet", "mask_pixel_count": 42},
+        }
+        fake_pipe_seal_result = {
+            "sealed_mask_image": np.zeros((50, 100), dtype=np.uint8),
+            "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
+            "summary": {"image_id": "sample.png", "pass_type": "sheet", "mask_pixel_count": 40},
+        }
+        fake_skeleton_result = {
+            "skeleton_image": np.zeros((50, 100), dtype=np.uint8),
+            "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
+            "summary": {"image_id": "sample.png", "pass_type": "sheet", "skeleton_pixel_count": 15},
+        }
+
+        with patch("garnet.pid_extractor.run_easyocr_sahi", return_value=fake_ocr_result), patch(
+            "garnet.pid_extractor.run_object_detection_sahi", return_value=fake_detection_result
+        ), patch("garnet.pid_extractor.run_pipe_mask_stage", return_value=fake_pipe_mask_result), patch(
+            "garnet.pid_extractor.run_pipe_seal_stage", return_value=fake_pipe_seal_result
+        ), patch("garnet.pid_extractor.run_pipe_skeleton_stage", return_value=fake_skeleton_result):
+            with sample_path.open("rb") as f:
+                response = client.post(
+                    "/api/pipeline/jobs",
+                    files={"file_input": ("sample.png", f, "image/png")},
+                    data={"stop_after": "7", "ocr_route": "easyocr"},
+                )
+
+            self.assertEqual(response.status_code, 200)
+            job_id = response.json()["job_id"]
+
+            deadline = time.time() + 10
+            job_payload = None
+            while time.time() < deadline:
+                poll = client.get(f"/api/pipeline/jobs/{job_id}")
+                self.assertEqual(poll.status_code, 200)
+                job_payload = poll.json()
+                if job_payload["status"] in {"completed", "failed"}:
+                    break
+                time.sleep(0.1)
+
+            self.assertIsNotNone(job_payload)
+            assert job_payload is not None
+            self.assertEqual(job_payload["status"], "completed")
+            self.assertEqual(job_payload["current_stage"], "stage7_skeleton_generation")
+            artifact_names = {item["name"] for item in job_payload["artifacts"]}
+            self.assertIn("stage7_pipe_skeleton.png", artifact_names)
+            self.assertIn("stage7_pipe_skeleton_overlay.png", artifact_names)
+            self.assertIn("stage7_pipe_skeleton_summary.json", artifact_names)
+
     def test_pipeline_job_rejects_missing_ocr_route(self) -> None:
         client = TestClient(app)
         sample_path = Path(__file__).resolve().parents[1] / "sample.png"
