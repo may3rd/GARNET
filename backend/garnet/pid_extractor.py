@@ -26,6 +26,7 @@ from garnet.model_defaults import pick_default_weight_file
 from garnet.object_detection_sahi import DetectionSahiConfig, run_object_detection_sahi
 from garnet.paddle_ocr_sahi import PaddleOcrSahiConfig, run_paddle_ocr_sahi
 from garnet.pipe_mask import run_pipe_mask_stage
+from garnet.pipe_seal import run_pipe_seal_stage
 
 try:
     import cv2  # type: ignore
@@ -82,6 +83,9 @@ class PipelineConfig:
     pipe_mask_ocr_padding: int = 1
     pipe_mask_object_inset: int = 1
     pipe_mask_min_component_area: int = 16
+    pipe_seal_horizontal_close_kernel: int = 5
+    pipe_seal_vertical_close_kernel: int = 5
+    pipe_seal_min_component_area: int = 16
 
 
 class PIDPipeline:
@@ -109,6 +113,7 @@ class PIDPipeline:
             (2, "stage2_ocr_discovery", self.stage2_ocr_discovery),
             (4, "stage4_object_detection", self.stage4_object_detection),
             (5, "stage5_pipe_mask", self.stage5_pipe_mask),
+            (6, "stage6_morphological_sealing", self.stage6_morphological_sealing),
         ]
 
     def _manifest_path(self) -> Path:
@@ -385,13 +390,37 @@ class PIDPipeline:
         self._save_img("stage5_pipe_mask_overlay", pipe_mask_result["overlay_image"])
         self._save_json("stage5_pipe_mask_summary", pipe_mask_result["summary"])
 
+    # ---------- Stage 6 ----------
+    def stage6_morphological_sealing(self) -> None:
+        pipe_mask_path = self.out_dir / "stage5_pipe_mask.png"
+        if not pipe_mask_path.exists():
+            raise FileNotFoundError(f"Stage 6 requires Stage 5 artifact: {pipe_mask_path}")
+        if cv2 is None:
+            raise RuntimeError("cv2 is required for Stage 6 morphological sealing")
+
+        pipe_mask = cv2.imread(str(pipe_mask_path), cv2.IMREAD_GRAYSCALE)
+        if pipe_mask is None:
+            raise RuntimeError(f"Failed to load Stage 5 pipe mask: {pipe_mask_path}")
+
+        seal_result = run_pipe_seal_stage(
+            image_bgr=self._ensure_image_loaded(),
+            pipe_mask=pipe_mask,
+            image_id=Path(self.image_path).name,
+            horizontal_close_kernel=self.cfg.pipe_seal_horizontal_close_kernel,
+            vertical_close_kernel=self.cfg.pipe_seal_vertical_close_kernel,
+            min_component_area=self.cfg.pipe_seal_min_component_area,
+        )
+        self._save_img("stage6_pipe_mask_sealed", seal_result["sealed_mask_image"])
+        self._save_img("stage6_pipe_mask_sealed_overlay", seal_result["overlay_image"])
+        self._save_json("stage6_pipe_mask_sealed_summary", seal_result["summary"])
+
 
 def main() -> None:
     parser = argparse.ArgumentParser("P&ID pipeline")
     parser.add_argument("--image", required=True)
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     parser.add_argument("--ocr-route", choices=["easyocr", "gemini", "paddleocr"], default="easyocr")
-    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, or 5)")
+    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, or 6)")
     args = parser.parse_args()
     pipe = PIDPipeline(args.image, out_dir=args.out, cfg=PipelineConfig(ocr_route=args.ocr_route))
     pipe.run(stop_after=args.stop_after)

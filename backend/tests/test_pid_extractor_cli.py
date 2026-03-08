@@ -33,6 +33,9 @@ class FakePipeline(pid_extractor.PIDPipeline):
     def stage5_pipe_mask(self) -> None:
         self._record("stage5")
 
+    def stage6_morphological_sealing(self) -> None:
+        self._record("stage6")
+
 class PIDPipelineRunnerTests(unittest.TestCase):
     def test_stage_definitions_follow_master_plan_order(self) -> None:
         pipe = FakePipeline(tempfile.mkdtemp())
@@ -46,6 +49,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                 "stage2_ocr_discovery",
                 "stage4_object_detection",
                 "stage5_pipe_mask",
+                "stage6_morphological_sealing",
             ],
         )
 
@@ -53,11 +57,11 @@ class PIDPipelineRunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             pipe = FakePipeline(tmp)
 
-            pipe.run(stop_after=5)
+            pipe.run(stop_after=6)
 
-            self.assertEqual(pipe.called, ["stage1", "stage2", "stage4", "stage5"])
+            self.assertEqual(pipe.called, ["stage1", "stage2", "stage4", "stage5", "stage6"])
             manifest = json.loads((Path(tmp) / "stage_manifest.json").read_text())
-            self.assertEqual(manifest["stop_after"], 5)
+            self.assertEqual(manifest["stop_after"], 6)
             self.assertEqual(
                 [item["name"] for item in manifest["stages"]],
                 [
@@ -65,6 +69,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                     "stage2_ocr_discovery",
                     "stage4_object_detection",
                     "stage5_pipe_mask",
+                    "stage6_morphological_sealing",
                 ],
             )
             self.assertTrue(all(item["status"] == "completed" for item in manifest["stages"]))
@@ -74,14 +79,14 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             pipe = FakePipeline(tmp)
 
             with self.assertRaisesRegex(ValueError, "stop_after must be one of"):
-                pipe.run(stop_after=6)
+                pipe.run(stop_after=7)
 
     def test_run_writes_failed_stage_to_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             pipe = FakePipeline(tmp, fail_stage=2)
 
             with self.assertRaisesRegex(RuntimeError, "stage2 failed"):
-                pipe.run(stop_after=5)
+                pipe.run(stop_after=6)
 
             manifest = json.loads((Path(tmp) / "stage_manifest.json").read_text())
             self.assertEqual(manifest["stages"][0]["status"], "completed")
@@ -243,6 +248,31 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "stage5_pipe_mask.png").exists())
             self.assertTrue((Path(tmp) / "stage5_pipe_mask_overlay.png").exists())
             self.assertTrue((Path(tmp) / "stage5_pipe_mask_summary.json").exists())
+
+    def test_stage6_writes_pipe_seal_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
+            pipe.image_bgr = np.zeros((20, 20, 3), dtype=np.uint8)
+            pipe._save_img("stage5_pipe_mask", np.zeros((20, 20), dtype=np.uint8))
+
+            with patch("garnet.pid_extractor.run_pipe_seal_stage") as mock_pipe_seal:
+                mock_pipe_seal.return_value = {
+                    "sealed_mask_image": np.zeros((20, 20), dtype=np.uint8),
+                    "overlay_image": np.zeros((20, 20, 3), dtype=np.uint8),
+                    "summary": {
+                        "image_id": "image.png",
+                        "pass_type": "sheet",
+                        "mask_pixel_count": 15,
+                        "source_artifacts": ["stage5_pipe_mask.png"],
+                    },
+                }
+
+                pipe.stage6_morphological_sealing()
+
+            mock_pipe_seal.assert_called_once()
+            self.assertTrue((Path(tmp) / "stage6_pipe_mask_sealed.png").exists())
+            self.assertTrue((Path(tmp) / "stage6_pipe_mask_sealed_overlay.png").exists())
+            self.assertTrue((Path(tmp) / "stage6_pipe_mask_sealed_summary.json").exists())
 
 
 if __name__ == "__main__":

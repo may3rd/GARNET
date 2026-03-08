@@ -37,9 +37,9 @@ class ObjectDetectionSahiTests(unittest.TestCase):
         self.assertEqual(obj["class_name"], "valve")
         self.assertEqual(obj["bbox"], {"x_min": 10, "y_min": 20, "x_max": 40, "y_max": 60})
         self.assertEqual(obj["source_model"], "ultralytics")
-        self.assertEqual(obj["source_weight"], "yolo_weights/yolo11n_PPCL_640_20250204.pt")
+        self.assertEqual(obj["source_weight"], "yolo_weights/yolo26n_PPCL_640_20260227.pt")
         self.assertEqual(result["summary"]["object_count"], 1)
-        self.assertEqual(result["summary"]["source_weight"], "yolo_weights/yolo11n_PPCL_640_20250204.pt")
+        self.assertEqual(result["summary"]["source_weight"], "yolo_weights/yolo26n_PPCL_640_20260227.pt")
 
     def test_draw_overlay_uses_blue_boxes(self) -> None:
         image = np.zeros((20, 20, 3), dtype=np.uint8)
