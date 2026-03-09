@@ -25,6 +25,7 @@ from garnet.gemini_ocr_sahi import GeminiOcrSahiConfig, run_gemini_ocr_sahi
 from garnet.model_defaults import pick_default_weight_file
 from garnet.object_detection_sahi import DetectionSahiConfig, run_object_detection_sahi
 from garnet.pipe_edges import run_pipe_edge_stage
+from garnet.pipe_junctions import run_pipe_junction_stage
 from garnet.paddle_ocr_sahi import PaddleOcrSahiConfig, run_paddle_ocr_sahi
 from garnet.pipe_mask import run_pipe_mask_stage
 from garnet.pipe_node_clusters import run_pipe_node_cluster_stage
@@ -125,6 +126,7 @@ class PIDPipeline:
             (8, "stage8_skeleton_node_detection", self.stage8_skeleton_node_detection),
             (9, "stage9_node_clustering", self.stage9_node_clustering),
             (10, "stage10_edge_tracing", self.stage10_edge_tracing),
+            (11, "stage11_junction_review", self.stage11_junction_review),
         ]
 
     def _manifest_path(self) -> Path:
@@ -521,13 +523,39 @@ class PIDPipeline:
         self._save_json("stage10_pipe_edges", edge_result["edges_payload"])
         self._save_json("stage10_pipe_edge_summary", edge_result["summary"])
 
+    # ---------- Stage 11 ----------
+    def stage11_junction_review(self) -> None:
+        skeleton_path = self.out_dir / "stage7_pipe_skeleton.png"
+        node_clusters_path = self.out_dir / "stage9_node_clusters.json"
+        if not skeleton_path.exists() or not node_clusters_path.exists():
+            raise FileNotFoundError("Stage 11 requires Stage 7 skeleton and Stage 9 clustered nodes")
+        if cv2 is None:
+            raise RuntimeError("cv2 is required for Stage 11 junction review")
+
+        skeleton_mask = cv2.imread(str(skeleton_path), cv2.IMREAD_GRAYSCALE)
+        if skeleton_mask is None:
+            raise RuntimeError(f"Failed to load Stage 7 skeleton: {skeleton_path}")
+
+        clusters_payload = self._load_json_artifact("stage9_node_clusters")
+        junction_result = run_pipe_junction_stage(
+            image_bgr=self._ensure_image_loaded(),
+            skeleton_mask=skeleton_mask,
+            node_clusters=clusters_payload.get("clusters", []),
+            image_id=Path(self.image_path).name,
+        )
+        self._save_img("stage11_confirmed_junctions", junction_result["confirmed_junction_image"])
+        self._save_img("stage11_unresolved_junctions", junction_result["unresolved_junction_image"])
+        self._save_img("stage11_junction_review_overlay", junction_result["overlay_image"])
+        self._save_json("stage11_junctions", junction_result["junctions_payload"])
+        self._save_json("stage11_junction_review_summary", junction_result["summary"])
+
 
 def main() -> None:
     parser = argparse.ArgumentParser("P&ID pipeline")
     parser.add_argument("--image", required=True)
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     parser.add_argument("--ocr-route", choices=["easyocr", "gemini", "paddleocr"], default="easyocr")
-    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, 7, 8, 9, or 10)")
+    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, 7, 8, 9, 10, or 11)")
     args = parser.parse_args()
     pipe = PIDPipeline(args.image, out_dir=args.out, cfg=PipelineConfig(ocr_route=args.ocr_route))
     pipe.run(stop_after=args.stop_after)
