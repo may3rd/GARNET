@@ -73,7 +73,7 @@ class PipelineConfig:
     adaptive_block_size: int = 21
     adaptive_c: int = 5
     blur_kernel: int = 5
-    ocr_route: str = "easyocr"
+    ocr_route: str = "ocrmac"
     gemini_postprocess_match_threshold: float = 0.1
     ocr_slice_height: int = 1600
     ocr_slice_width: int = 1600
@@ -694,7 +694,7 @@ def main() -> None:
     parser = argparse.ArgumentParser("P&ID pipeline")
     parser.add_argument("--image", required=True)
     parser.add_argument("--out", default=str(DEFAULT_OUT))
-    parser.add_argument("--ocr-route", choices=["easyocr", "gemini", "paddleocr", "ocrmac"], default="easyocr")
+    parser.add_argument("--ocr-route", choices=["easyocr", "gemini", "paddleocr", "ocrmac"], default="ocrmac")
     parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, or 13)")
     args = parser.parse_args()
     pipe = PIDPipeline(args.image, out_dir=args.out, cfg=PipelineConfig(ocr_route=args.ocr_route))

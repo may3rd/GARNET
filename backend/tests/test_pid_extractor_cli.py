@@ -140,7 +140,11 @@ class PIDPipelineRunnerTests(unittest.TestCase):
 
     def test_stage2_uses_plain_gray_artifact_as_ocr_input(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
+            pipe = pid_extractor.PIDPipeline(
+                "image.png",
+                out_dir=tmp,
+                cfg=pid_extractor.PipelineConfig(ocr_route="easyocr"),
+            )
             pipe._save_img("stage1_gray", np.zeros((20, 20), dtype=np.uint8))
             pipe._save_img("stage1_gray_equalized", np.ones((20, 20), dtype=np.uint8) * 255)
 
@@ -156,10 +160,10 @@ class PIDPipelineRunnerTests(unittest.TestCase):
 
             self.assertEqual(Path(mock_ocr.call_args.args[0]).name, "stage1_gray.png")
 
-    def test_pipeline_config_defaults_to_easyocr_route(self) -> None:
+    def test_pipeline_config_defaults_to_ocrmac_route(self) -> None:
         cfg = pid_extractor.PipelineConfig()
 
-        self.assertEqual(cfg.ocr_route, "easyocr")
+        self.assertEqual(cfg.ocr_route, "ocrmac")
         self.assertEqual(cfg.gemini_postprocess_match_threshold, 0.1)
 
     def test_load_pipeline_env_reads_root_then_backend_env(self) -> None:

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import math
+import platform
 import re
 from typing import Any
 
 import cv2
 import numpy as np
+from PIL import Image
 
 
 def _bbox_ios(a: dict[str, int], b: dict[str, int]) -> float:
@@ -38,6 +40,95 @@ def _looks_like_instrument_tag(text: str) -> bool:
     normalized = re.sub(r"\s+", "", normalized)
     normalized = re.sub(r"[^A-Z0-9-]", "", normalized)
     return re.fullmatch(r"[A-Z]{2,4}-?\d{3,4}[A-Z]?", normalized) is not None
+
+
+def _normalize_instrument_tag(text: str) -> str:
+    normalized = text.upper().strip()
+    normalized = normalized.replace("_", "-")
+    normalized = re.sub(r"\s+", "", normalized)
+    normalized = re.sub(r"[^A-Z0-9-]", "", normalized)
+    match = re.fullmatch(r"([A-Z]{2,4})-?(\d{3,4})([A-Z]?)", normalized)
+    if not match:
+        return normalized
+    prefix, digits, suffix = match.groups()
+    return f"{prefix}-{digits}{suffix}"
+
+
+def _get_ocrmac_module() -> Any:
+    if platform.system() != "Darwin":
+        return None
+    try:
+        from ocrmac import ocrmac as module  # type: ignore
+    except Exception:  # pragma: no cover
+        return None
+    return module
+
+
+def _crop_image(image_bgr: np.ndarray, bbox: dict[str, int], padding: int = 4) -> np.ndarray | None:
+    height, width = image_bgr.shape[:2]
+    x_min = max(0, int(bbox["x_min"]) - padding)
+    y_min = max(0, int(bbox["y_min"]) - padding)
+    x_max = min(width, int(bbox["x_max"]) + padding)
+    y_max = min(height, int(bbox["y_max"]) + padding)
+    if x_max <= x_min or y_max <= y_min:
+        return None
+    crop = image_bgr[y_min:y_max, x_min:x_max]
+    return crop if crop.size else None
+
+
+def _parse_ocrmac_annotations(annotations: list[tuple[Any, Any, Any]]) -> list[str]:
+    texts: list[str] = []
+    for item in annotations:
+        if not isinstance(item, (list, tuple)) or len(item) != 3:
+            continue
+        text = str(item[0]).strip()
+        if text:
+            texts.append(text)
+    return texts
+
+
+def _assemble_instrument_tag_from_parts(parts: list[str]) -> str:
+    normalized_parts = [
+        re.sub(r"[^A-Z0-9-]", "", part.upper().replace("_", "-"))
+        for part in parts
+        if part.strip()
+    ]
+    normalized_parts = [part for part in normalized_parts if part]
+    if not normalized_parts:
+        return ""
+
+    direct = "".join(normalized_parts)
+    if _looks_like_instrument_tag(direct):
+        return _normalize_instrument_tag(direct)
+
+    alpha_parts = [part for part in normalized_parts if re.fullmatch(r"[A-Z]{2,4}", part)]
+    digit_parts = [part for part in normalized_parts if re.fullmatch(r"\d{3,4}[A-Z]?", part)]
+    if alpha_parts and digit_parts:
+        candidate = f"{alpha_parts[0]}-{digit_parts[0]}"
+        if _looks_like_instrument_tag(candidate):
+            return _normalize_instrument_tag(candidate)
+
+    for part in normalized_parts:
+        if _looks_like_instrument_tag(part):
+            return _normalize_instrument_tag(part)
+    return ""
+
+
+def _confirm_with_crop_ocr(image_bgr: np.ndarray, bbox: dict[str, int]) -> str:
+    crop = _crop_image(image_bgr, bbox)
+    if crop is None:
+        return ""
+    ocrmac = _get_ocrmac_module()
+    if ocrmac is None:
+        return ""
+    annotations = ocrmac.OCR(
+        Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)),
+        recognition_level="accurate",
+        framework="vision",
+        language_preference=["en-US"],
+    ).recognize()
+    parts = _parse_ocrmac_annotations(annotations)
+    return _assemble_instrument_tag_from_parts(parts)
 
 
 def _candidate_text_regions(bbox: dict[str, int], text_regions: list[dict[str, Any]], max_distance_px: float) -> list[dict[str, Any]]:
@@ -85,6 +176,7 @@ def run_instrument_tag_fusion_stage(
     accepted: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
     confirmed_by_ocr = 0
+    detection_only_count = 0
 
     for idx, obj in enumerate(objects, start=1):
         bbox = obj["bbox"]
@@ -102,27 +194,47 @@ def run_instrument_tag_fusion_stage(
             "fused_confidence": float(obj.get("confidence", 0.0)),
             "semantic_class": "instrument_semantic",
             "source_object_class": str(obj.get("class_name", "")).lower(),
+            "review_state": "detection_only",
         }
         if fused_text and _looks_like_instrument_tag(fused_text):
             entry.update(
                 {
                     "text": fused_text,
-                    "normalized_text": fused_text.strip(),
+                    "normalized_text": _normalize_instrument_tag(fused_text),
                     "ocr_region_id": fused_region_ids,
                     "ocr_confirmed": True,
                     "fused_confidence": max(float(obj.get("confidence", 0.0)), 0.95),
+                    "review_state": "ocr_confirmed",
                 }
             )
             confirmed_by_ocr += 1
+        else:
+            crop_text = _confirm_with_crop_ocr(image_bgr, bbox)
+            if crop_text and _looks_like_instrument_tag(crop_text):
+                entry.update(
+                    {
+                        "text": crop_text,
+                        "normalized_text": _normalize_instrument_tag(crop_text),
+                        "ocr_region_id": "crop_ocr",
+                        "ocr_confirmed": True,
+                        "fused_confidence": max(float(obj.get("confidence", 0.0)), 0.95),
+                        "review_state": "ocr_confirmed",
+                    }
+                )
+                confirmed_by_ocr += 1
         if float(obj.get("confidence", 0.0)) >= 0.5 or entry["ocr_confirmed"]:
             accepted.append(entry)
+            if not entry["ocr_confirmed"]:
+                detection_only_count += 1
         else:
+            entry["review_state"] = "rejected"
             rejected.append(entry)
 
     overlay = image_bgr.copy()
     for entry in accepted:
         bbox = entry["bbox"]
-        cv2.rectangle(overlay, (bbox["x_min"], bbox["y_min"]), (bbox["x_max"], bbox["y_max"]), (255, 0, 0), 2)
+        color = (255, 0, 0) if entry["ocr_confirmed"] else (0, 165, 255)
+        cv2.rectangle(overlay, (bbox["x_min"], bbox["y_min"]), (bbox["x_max"], bbox["y_max"]), color, 2)
     for entry in rejected:
         bbox = entry["bbox"]
         cv2.rectangle(overlay, (bbox["x_min"], bbox["y_min"]), (bbox["x_max"], bbox["y_max"]), (0, 0, 255), 2)
@@ -135,13 +247,13 @@ def run_instrument_tag_fusion_stage(
             "rejected": rejected,
         },
         "overlay_image": overlay,
-            "summary": {
+        "summary": {
             "image_id": image_id,
             "pass_type": "sheet",
             "instrument_semantic_object_count": len(objects),
             "matched_instrument_semantic_count": len(accepted),
             "ocr_confirmed_instrument_semantic_count": confirmed_by_ocr,
-            "od_only_instrument_semantic_count": len([item for item in accepted if not item["ocr_confirmed"]]),
+            "detection_only_instrument_semantic_count": detection_only_count,
             "rejected_instrument_semantic_count": len(rejected),
             "max_distance_px": max_distance_px,
         },
