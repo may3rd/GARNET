@@ -1,6 +1,6 @@
 export type AppView = 'empty' | 'preview' | 'processing' | 'results' | 'batch'
 export type ProcessingMode = 'detection' | 'pipeline'
-export type OcrRoute = 'easyocr' | 'gemini' | 'paddleocr'
+export type OcrRoute = 'easyocr' | 'gemini' | 'paddleocr' | 'ocrmac'
 
 export type DetectedObject = {
   Index: number

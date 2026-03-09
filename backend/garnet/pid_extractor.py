@@ -26,6 +26,7 @@ from garnet.instrument_tag_fusion import run_instrument_tag_fusion_stage
 from garnet.line_number_fusion import run_line_number_fusion_stage
 from garnet.model_defaults import pick_default_weight_file
 from garnet.object_detection_sahi import DetectionSahiConfig, run_object_detection_sahi
+from garnet.ocrmac_sahi import OcrMacSahiConfig, run_ocrmac_sahi
 from garnet.pipe_edges import run_pipe_edge_stage
 from garnet.pipe_equipment_attachment import run_pipe_equipment_attachment_stage
 from garnet.pipe_graph import run_pipe_graph_stage
@@ -85,6 +86,8 @@ class PipelineConfig:
     ocr_line_merge_gap_px: int = 24
     ocr_line_merge_y_tolerance_px: int = 10
     ocr_enable_rotated: bool = True
+    ocrmac_framework: str = "vision"
+    ocrmac_recognition_level: str = "accurate"
     detection_weight_path: str = pick_default_weight_file("ultralytics") or "yolo_weights/yolo26n_PPCL_640_20260227.pt"
     detection_image_size: int = 640
     detection_overlap_ratio: float = 0.2
@@ -356,6 +359,19 @@ class PIDPipeline:
                 stage1_input,
                 image_id=Path(self.image_path).name,
                 cfg=PaddleOcrSahiConfig(
+                    slice_height=self.cfg.ocr_slice_height,
+                    slice_width=self.cfg.ocr_slice_width,
+                    overlap_height_ratio=self.cfg.ocr_overlap_height_ratio,
+                    overlap_width_ratio=self.cfg.ocr_overlap_width_ratio,
+                ),
+            )
+        elif self.cfg.ocr_route == "ocrmac":
+            ocr_result = run_ocrmac_sahi(
+                stage1_input,
+                image_id=Path(self.image_path).name,
+                cfg=OcrMacSahiConfig(
+                    framework=self.cfg.ocrmac_framework,
+                    recognition_level=self.cfg.ocrmac_recognition_level,
                     slice_height=self.cfg.ocr_slice_height,
                     slice_width=self.cfg.ocr_slice_width,
                     overlap_height_ratio=self.cfg.ocr_overlap_height_ratio,
@@ -678,7 +694,7 @@ def main() -> None:
     parser = argparse.ArgumentParser("P&ID pipeline")
     parser.add_argument("--image", required=True)
     parser.add_argument("--out", default=str(DEFAULT_OUT))
-    parser.add_argument("--ocr-route", choices=["easyocr", "gemini", "paddleocr"], default="easyocr")
+    parser.add_argument("--ocr-route", choices=["easyocr", "gemini", "paddleocr", "ocrmac"], default="easyocr")
     parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, or 13)")
     args = parser.parse_args()
     pipe = PIDPipeline(args.image, out_dir=args.out, cfg=PipelineConfig(ocr_route=args.ocr_route))

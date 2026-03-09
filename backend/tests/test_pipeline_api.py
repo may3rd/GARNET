@@ -93,6 +93,43 @@ class PipelineApiTests(unittest.TestCase):
             self.assertIn("stage2_ocr_summary.json", artifact_names)
             self.assertIn("stage2_ocr_exception_candidates.json", artifact_names)
 
+    def test_pipeline_job_accepts_ocrmac_route(self) -> None:
+        client = TestClient(app)
+        sample_path = Path(__file__).resolve().parents[1] / "sample.png"
+
+        fake_ocr_result = {
+            "regions_payload": {"image_id": "sample.png", "pass_type": "sheet", "text_regions": []},
+            "summary": {"image_id": "sample.png", "pass_type": "sheet", "route": "ocrmac"},
+            "exception_candidates": [],
+            "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
+        }
+
+        with patch("garnet.pid_extractor.run_ocrmac_sahi", return_value=fake_ocr_result):
+            with sample_path.open("rb") as f:
+                response = client.post(
+                    "/api/pipeline/jobs",
+                    files={"file_input": ("sample.png", f, "image/png")},
+                    data={"stop_after": "2", "ocr_route": "ocrmac"},
+                )
+
+            self.assertEqual(response.status_code, 200)
+            job_id = response.json()["job_id"]
+
+            deadline = time.time() + 10
+            job_payload = None
+            while time.time() < deadline:
+                poll = client.get(f"/api/pipeline/jobs/{job_id}")
+                self.assertEqual(poll.status_code, 200)
+                job_payload = poll.json()
+                if job_payload["status"] in {"completed", "failed"}:
+                    break
+                time.sleep(0.1)
+
+            self.assertIsNotNone(job_payload)
+            assert job_payload is not None
+            self.assertEqual(job_payload["status"], "completed")
+            self.assertEqual(job_payload["ocr_route"], "ocrmac")
+
     def test_pipeline_job_runs_stage4_and_reports_object_artifacts(self) -> None:
         client = TestClient(app)
         sample_path = Path(__file__).resolve().parents[1] / "sample.png"

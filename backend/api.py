@@ -989,8 +989,8 @@ async def create_pipeline_job(
             status_code=400,
             detail="Pipeline currently supports stop_after=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, or 13",
         )
-    if ocr_route not in {"easyocr", "gemini", "paddleocr"}:
-        raise HTTPException(status_code=400, detail="Invalid ocr_route. Expected 'easyocr', 'gemini', or 'paddleocr'")
+    if ocr_route not in {"easyocr", "gemini", "paddleocr", "ocrmac"}:
+        raise HTTPException(status_code=400, detail="Invalid ocr_route. Expected 'easyocr', 'gemini', 'paddleocr', or 'ocrmac'")
     if not 0 <= gemini_postprocess_match_threshold <= 1:
         raise HTTPException(status_code=400, detail="gemini_postprocess_match_threshold must be between 0 and 1")
 

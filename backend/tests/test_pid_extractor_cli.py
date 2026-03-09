@@ -223,6 +223,27 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             mock_gemini.assert_called_once()
             self.assertEqual(mock_gemini.call_args.kwargs["cfg"].postprocess_match_threshold, 0.17)
 
+    def test_stage2_dispatches_to_ocrmac_route(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline(
+                "image.png",
+                out_dir=tmp,
+                cfg=pid_extractor.PipelineConfig(ocr_route="ocrmac"),
+            )
+            pipe._save_img("stage1_gray", np.zeros((20, 20), dtype=np.uint8))
+
+            with patch("garnet.pid_extractor.run_ocrmac_sahi") as mock_ocrmac:
+                mock_ocrmac.return_value = {
+                    "regions_payload": {"image_id": "", "pass_type": "sheet", "text_regions": []},
+                    "summary": {"image_id": "", "pass_type": "sheet"},
+                    "exception_candidates": [],
+                    "overlay_image": np.zeros((20, 20, 3), dtype=np.uint8),
+                }
+
+                pipe.stage2_ocr_discovery()
+
+            mock_ocrmac.assert_called_once()
+
     def test_stage4_writes_object_detection_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)

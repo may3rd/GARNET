@@ -273,6 +273,7 @@ export function DetectionSetup() {
                   <SelectItem value="easyocr">EasyOCR</SelectItem>
                   <SelectItem value="gemini">Gemini</SelectItem>
                   <SelectItem value="paddleocr">PaddleOCR (det only)</SelectItem>
+                  <SelectItem value="ocrmac">OCRMac (macOS)</SelectItem>
                 </SelectContent>
               </Select>
             </label>
@@ -281,6 +282,8 @@ export function DetectionSetup() {
                 ? 'Pipeline mode now runs the full staged review flow through Stage 13: normalization, OCR, object detection, pipe mask, sealing, skeleton, node extraction, clustering, edge tracing, junction review, graph assembly, and graph QA.'
                 : pipelineOcrRoute === 'paddleocr'
                 ? 'Pipeline mode now runs the full staged review flow through Stage 13: normalization, OCR, object detection, pipe mask, sealing, skeleton, node extraction, clustering, edge tracing, junction review, graph assembly, and graph QA.'
+                : pipelineOcrRoute === 'ocrmac'
+                ? 'Pipeline mode now runs the full staged review flow through Stage 13 with OCRMac as the Stage 2 OCR route. OCRMac is macOS-only and the backend will reject unsupported environments.'
                 : 'Pipeline mode now runs the full staged review flow through Stage 13: normalization, OCR, object detection, pipe mask, sealing, skeleton, node extraction, clustering, edge tracing, junction review, graph assembly, and graph QA.'}
             </div>
             {pipelineOcrRoute === 'gemini' && (
