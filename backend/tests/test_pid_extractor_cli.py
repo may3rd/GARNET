@@ -54,6 +54,9 @@ class FakePipeline(pid_extractor.PIDPipeline):
     def stage12_graph_assembly(self) -> None:
         self._record("stage12")
 
+    def stage13_graph_qa(self) -> None:
+        self._record("stage13")
+
 class PIDPipelineRunnerTests(unittest.TestCase):
     def test_stage_definitions_follow_master_plan_order(self) -> None:
         pipe = FakePipeline(tempfile.mkdtemp())
@@ -74,6 +77,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                 "stage10_edge_tracing",
                 "stage11_junction_review",
                 "stage12_graph_assembly",
+                "stage13_graph_qa",
             ],
         )
 
@@ -81,11 +85,11 @@ class PIDPipelineRunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             pipe = FakePipeline(tmp)
 
-            pipe.run(stop_after=12)
+            pipe.run(stop_after=13)
 
-            self.assertEqual(pipe.called, ["stage1", "stage2", "stage4", "stage5", "stage6", "stage7", "stage8", "stage9", "stage10", "stage11", "stage12"])
+            self.assertEqual(pipe.called, ["stage1", "stage2", "stage4", "stage5", "stage6", "stage7", "stage8", "stage9", "stage10", "stage11", "stage12", "stage13"])
             manifest = json.loads((Path(tmp) / "stage_manifest.json").read_text())
-            self.assertEqual(manifest["stop_after"], 12)
+            self.assertEqual(manifest["stop_after"], 13)
             self.assertEqual(
                 [item["name"] for item in manifest["stages"]],
                 [
@@ -100,6 +104,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                     "stage10_edge_tracing",
                     "stage11_junction_review",
                     "stage12_graph_assembly",
+                    "stage13_graph_qa",
                 ],
             )
             self.assertTrue(all(item["status"] == "completed" for item in manifest["stages"]))
@@ -109,14 +114,14 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             pipe = FakePipeline(tmp)
 
             with self.assertRaisesRegex(ValueError, "stop_after must be one of"):
-                pipe.run(stop_after=13)
+                pipe.run(stop_after=14)
 
     def test_run_writes_failed_stage_to_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             pipe = FakePipeline(tmp, fail_stage=2)
 
             with self.assertRaisesRegex(RuntimeError, "stage2 failed"):
-                pipe.run(stop_after=12)
+                pipe.run(stop_after=13)
 
             manifest = json.loads((Path(tmp) / "stage_manifest.json").read_text())
             self.assertEqual(manifest["stages"][0]["status"], "completed")
@@ -464,6 +469,29 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             mock_pipe_graph.assert_called_once()
             self.assertTrue((Path(tmp) / "stage12_graph.json").exists())
             self.assertTrue((Path(tmp) / "stage12_graph_summary.json").exists())
+
+    def test_stage13_writes_graph_qa_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
+            pipe._save_json("stage12_graph", {"nodes": [], "edges": []})
+
+            with patch("garnet.pid_extractor.run_pipe_graph_qa_stage") as mock_pipe_graph_qa:
+                mock_pipe_graph_qa.return_value = {
+                    "anomaly_report": {"connected_component_count": 0},
+                    "review_queue": {"items": []},
+                    "summary": {
+                        "image_id": "image.png",
+                        "pass_type": "sheet",
+                        "review_queue_count": 0,
+                    },
+                }
+
+                pipe.stage13_graph_qa()
+
+            mock_pipe_graph_qa.assert_called_once()
+            self.assertTrue((Path(tmp) / "stage13_graph_anomalies.json").exists())
+            self.assertTrue((Path(tmp) / "stage13_review_queue.json").exists())
+            self.assertTrue((Path(tmp) / "stage13_graph_qa_summary.json").exists())
 
 
 if __name__ == "__main__":
