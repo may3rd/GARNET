@@ -26,6 +26,7 @@ from garnet.model_defaults import pick_default_weight_file
 from garnet.object_detection_sahi import DetectionSahiConfig, run_object_detection_sahi
 from garnet.paddle_ocr_sahi import PaddleOcrSahiConfig, run_paddle_ocr_sahi
 from garnet.pipe_mask import run_pipe_mask_stage
+from garnet.pipe_nodes import run_pipe_node_stage
 from garnet.pipe_seal import run_pipe_seal_stage
 from garnet.pipe_skeleton import run_pipe_skeleton_stage
 
@@ -116,6 +117,7 @@ class PIDPipeline:
             (5, "stage5_pipe_mask", self.stage5_pipe_mask),
             (6, "stage6_morphological_sealing", self.stage6_morphological_sealing),
             (7, "stage7_skeleton_generation", self.stage7_skeleton_generation),
+            (8, "stage8_skeleton_node_detection", self.stage8_skeleton_node_detection),
         ]
 
     def _manifest_path(self) -> Path:
@@ -437,13 +439,35 @@ class PIDPipeline:
         self._save_img("stage7_pipe_skeleton_overlay", skeleton_result["overlay_image"])
         self._save_json("stage7_pipe_skeleton_summary", skeleton_result["summary"])
 
+    # ---------- Stage 8 ----------
+    def stage8_skeleton_node_detection(self) -> None:
+        skeleton_path = self.out_dir / "stage7_pipe_skeleton.png"
+        if not skeleton_path.exists():
+            raise FileNotFoundError(f"Stage 8 requires Stage 7 artifact: {skeleton_path}")
+        if cv2 is None:
+            raise RuntimeError("cv2 is required for Stage 8 skeleton node detection")
+
+        skeleton_mask = cv2.imread(str(skeleton_path), cv2.IMREAD_GRAYSCALE)
+        if skeleton_mask is None:
+            raise RuntimeError(f"Failed to load Stage 7 skeleton: {skeleton_path}")
+
+        node_result = run_pipe_node_stage(
+            image_bgr=self._ensure_image_loaded(),
+            skeleton_mask=skeleton_mask,
+            image_id=Path(self.image_path).name,
+        )
+        self._save_img("stage8_endpoints", node_result["endpoint_image"])
+        self._save_img("stage8_junctions", node_result["junction_image"])
+        self._save_img("stage8_nodes_overlay", node_result["overlay_image"])
+        self._save_json("stage8_node_summary", node_result["summary"])
+
 
 def main() -> None:
     parser = argparse.ArgumentParser("P&ID pipeline")
     parser.add_argument("--image", required=True)
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     parser.add_argument("--ocr-route", choices=["easyocr", "gemini", "paddleocr"], default="easyocr")
-    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, or 7)")
+    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, 7, or 8)")
     args = parser.parse_args()
     pipe = PIDPipeline(args.image, out_dir=args.out, cfg=PipelineConfig(ocr_route=args.ocr_route))
     pipe.run(stop_after=args.stop_after)
