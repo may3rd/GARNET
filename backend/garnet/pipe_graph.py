@@ -34,6 +34,7 @@ def run_pipe_graph_stage(
     edges: list[dict[str, Any]],
     confirmed_junctions: list[dict[str, Any]],
     unresolved_junctions: list[dict[str, Any]],
+    equipment_attachments: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     confirmed_ids = {str(item["id"]) for item in confirmed_junctions}
     unresolved_ids = {str(item["id"]) for item in unresolved_junctions}
@@ -69,13 +70,64 @@ def run_pipe_graph_stage(
             }
         )
 
+    accepted_attachments = equipment_attachments or []
+    for attachment in accepted_attachments:
+        equipment_node_id = f"equipment::{attachment['det_id']}"
+        attachment_node_id = f"attach::{attachment['det_id']}"
+        nearest_point = attachment.get("nearest_point_xy") or (None, None)
+        graph.add_node(
+            equipment_node_id,
+            id=equipment_node_id,
+            type=attachment["class_name"],
+            position={
+                "x": float((attachment["bbox"][0] + attachment["bbox"][2]) / 2),
+                "y": float((attachment["bbox"][1] + attachment["bbox"][3]) / 2),
+            },
+            member_count=1,
+            review_state="provisional",
+        )
+        graph.add_node(
+            attachment_node_id,
+            id=attachment_node_id,
+            type="equipment_attachment",
+            position={
+                "x": float(nearest_point[0]) if nearest_point and nearest_point[0] is not None else 0.0,
+                "y": float(nearest_point[1]) if nearest_point and nearest_point[1] is not None else 0.0,
+            },
+            member_count=1,
+            review_state="provisional",
+        )
+        graph.add_edge(equipment_node_id, attachment_node_id, id=f"attach_edge::{attachment['det_id']}", pixel_length=0)
+        graph_edges.append(
+            {
+                "id": f"attach_edge::{attachment['det_id']}",
+                "source": equipment_node_id,
+                "target": attachment_node_id,
+                "pixel_length": 0,
+                "polyline": [],
+                "review_state": "provisional",
+            }
+        )
+
+    serialized_nodes = [
+        {
+            "id": node_id,
+            "type": attrs.get("type", "unknown"),
+            "position": attrs.get("position"),
+            "member_count": attrs.get("member_count", 0),
+            "review_state": attrs.get("review_state", "provisional"),
+        }
+        for node_id, attrs in graph.nodes(data=True)
+    ]
+
     return {
         "graph_payload": {
             "image_id": image_id,
             "pass_type": "sheet",
-            "nodes": nodes,
+            "nodes": serialized_nodes,
             "edges": graph_edges,
             "unresolved_junction_ids": sorted(unresolved_ids),
+            "equipment_attachments": accepted_attachments,
         },
         "summary": {
             "image_id": image_id,
@@ -84,6 +136,7 @@ def run_pipe_graph_stage(
             "edge_count": graph.number_of_edges(),
             "connected_component_count": nx.number_connected_components(graph) if graph.number_of_nodes() else 0,
             "unresolved_junction_count": len(unresolved_ids),
+            "accepted_attachment_count": len(accepted_attachments),
             "source_artifacts": [
                 "stage9_node_clusters.json",
                 "stage10_pipe_edges.json",

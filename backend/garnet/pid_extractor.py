@@ -25,6 +25,7 @@ from garnet.gemini_ocr_sahi import GeminiOcrSahiConfig, run_gemini_ocr_sahi
 from garnet.model_defaults import pick_default_weight_file
 from garnet.object_detection_sahi import DetectionSahiConfig, run_object_detection_sahi
 from garnet.pipe_edges import run_pipe_edge_stage
+from garnet.pipe_equipment_attachment import run_pipe_equipment_attachment_stage
 from garnet.pipe_graph import run_pipe_graph_stage
 from garnet.pipe_graph_qa import run_pipe_graph_qa_stage
 from garnet.pipe_junctions import run_pipe_junction_stage
@@ -96,6 +97,18 @@ class PipelineConfig:
     node_cluster_eps: float = 6.0
     node_cluster_min_samples: int = 1
     min_edge_length_px: int = 2
+    equipment_attachment_classes: tuple[str, ...] = (
+        "pump",
+        "heat exchanger",
+        "tank",
+        "vessel",
+        "column",
+        "compressor",
+        "blower",
+        "fan",
+    )
+    equipment_attachment_max_distance_px: float = 48.0
+    equipment_attachment_k_candidate_edges: int = 10
 
 
 class PIDPipeline:
@@ -555,9 +568,18 @@ class PIDPipeline:
 
     # ---------- Stage 12 ----------
     def stage12_graph_assembly(self) -> None:
+        object_payload = self._load_json_artifact("stage4_objects")
         node_clusters_payload = self._load_json_artifact("stage9_node_clusters")
         edges_payload = self._load_json_artifact("stage10_pipe_edges")
         junctions_payload = self._load_json_artifact("stage11_junctions")
+        attachment_result = run_pipe_equipment_attachment_stage(
+            image_id=Path(self.image_path).name,
+            objects=object_payload.get("objects", []),
+            edges=edges_payload.get("edges", []),
+            attachment_classes=self.cfg.equipment_attachment_classes,
+            max_distance_px=self.cfg.equipment_attachment_max_distance_px,
+            k_candidate_edges=self.cfg.equipment_attachment_k_candidate_edges,
+        )
 
         graph_result = run_pipe_graph_stage(
             image_id=Path(self.image_path).name,
@@ -565,7 +587,10 @@ class PIDPipeline:
             edges=edges_payload.get("edges", []),
             confirmed_junctions=junctions_payload.get("confirmed_junctions", []),
             unresolved_junctions=junctions_payload.get("unresolved_junctions", []),
+            equipment_attachments=attachment_result["attachments_payload"].get("accepted", []),
         )
+        self._save_json("stage12_equipment_attachments", attachment_result["attachments_payload"])
+        self._save_json("stage12_equipment_attachment_summary", attachment_result["summary"])
         self._save_json("stage12_graph", graph_result["graph_payload"])
         self._save_json("stage12_graph_summary", graph_result["summary"])
 

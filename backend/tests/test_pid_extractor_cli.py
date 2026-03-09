@@ -449,11 +449,18 @@ class PIDPipelineRunnerTests(unittest.TestCase):
     def test_stage12_writes_graph_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
+            pipe._save_json("stage4_objects", {"objects": []})
             pipe._save_json("stage9_node_clusters", {"clusters": []})
             pipe._save_json("stage10_pipe_edges", {"edges": []})
             pipe._save_json("stage11_junctions", {"confirmed_junctions": [], "unresolved_junctions": []})
 
-            with patch("garnet.pid_extractor.run_pipe_graph_stage") as mock_pipe_graph:
+            with patch("garnet.pid_extractor.run_pipe_equipment_attachment_stage") as mock_pipe_attachment, patch(
+                "garnet.pid_extractor.run_pipe_graph_stage"
+            ) as mock_pipe_graph:
+                mock_pipe_attachment.return_value = {
+                    "attachments_payload": {"accepted": [], "rejected": []},
+                    "summary": {"accepted_attachment_count": 0},
+                }
                 mock_pipe_graph.return_value = {
                     "graph_payload": {"nodes": [], "edges": []},
                     "summary": {
@@ -466,7 +473,10 @@ class PIDPipelineRunnerTests(unittest.TestCase):
 
                 pipe.stage12_graph_assembly()
 
+            mock_pipe_attachment.assert_called_once()
             mock_pipe_graph.assert_called_once()
+            self.assertTrue((Path(tmp) / "stage12_equipment_attachments.json").exists())
+            self.assertTrue((Path(tmp) / "stage12_equipment_attachment_summary.json").exists())
             self.assertTrue((Path(tmp) / "stage12_graph.json").exists())
             self.assertTrue((Path(tmp) / "stage12_graph_summary.json").exists())
 

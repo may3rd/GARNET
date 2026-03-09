@@ -800,6 +800,10 @@ class PipelineApiTests(unittest.TestCase):
             "junctions_payload": {"confirmed_junctions": [], "unresolved_junctions": []},
             "summary": {"image_id": "sample.png", "pass_type": "sheet", "confirmed_junction_count": 0, "unresolved_junction_count": 0},
         }
+        fake_attachment_result = {
+            "attachments_payload": {"accepted": [], "rejected": []},
+            "summary": {"accepted_attachment_count": 0},
+        }
         fake_graph_result = {
             "graph_payload": {"nodes": [], "edges": []},
             "summary": {"image_id": "sample.png", "pass_type": "sheet", "node_count": 0, "edge_count": 0},
@@ -814,6 +818,8 @@ class PipelineApiTests(unittest.TestCase):
         ), patch("garnet.pid_extractor.run_pipe_node_cluster_stage", return_value=fake_cluster_result), patch(
             "garnet.pid_extractor.run_pipe_edge_stage", return_value=fake_edge_result
         ), patch("garnet.pid_extractor.run_pipe_junction_stage", return_value=fake_junction_review_result), patch(
+            "garnet.pid_extractor.run_pipe_equipment_attachment_stage", return_value=fake_attachment_result
+        ), patch(
             "garnet.pid_extractor.run_pipe_graph_stage", return_value=fake_graph_result
         ):
             with sample_path.open("rb") as f:
@@ -841,6 +847,8 @@ class PipelineApiTests(unittest.TestCase):
             self.assertEqual(job_payload["status"], "completed")
             self.assertEqual(job_payload["current_stage"], "stage12_graph_assembly")
             artifact_names = {item["name"] for item in job_payload["artifacts"]}
+            self.assertIn("stage12_equipment_attachments.json", artifact_names)
+            self.assertIn("stage12_equipment_attachment_summary.json", artifact_names)
             self.assertIn("stage12_graph.json", artifact_names)
             self.assertIn("stage12_graph_summary.json", artifact_names)
 
