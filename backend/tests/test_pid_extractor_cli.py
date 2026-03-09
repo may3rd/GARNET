@@ -45,6 +45,9 @@ class FakePipeline(pid_extractor.PIDPipeline):
     def stage9_node_clustering(self) -> None:
         self._record("stage9")
 
+    def stage10_edge_tracing(self) -> None:
+        self._record("stage10")
+
 class PIDPipelineRunnerTests(unittest.TestCase):
     def test_stage_definitions_follow_master_plan_order(self) -> None:
         pipe = FakePipeline(tempfile.mkdtemp())
@@ -62,6 +65,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                 "stage7_skeleton_generation",
                 "stage8_skeleton_node_detection",
                 "stage9_node_clustering",
+                "stage10_edge_tracing",
             ],
         )
 
@@ -69,11 +73,11 @@ class PIDPipelineRunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             pipe = FakePipeline(tmp)
 
-            pipe.run(stop_after=9)
+            pipe.run(stop_after=10)
 
-            self.assertEqual(pipe.called, ["stage1", "stage2", "stage4", "stage5", "stage6", "stage7", "stage8", "stage9"])
+            self.assertEqual(pipe.called, ["stage1", "stage2", "stage4", "stage5", "stage6", "stage7", "stage8", "stage9", "stage10"])
             manifest = json.loads((Path(tmp) / "stage_manifest.json").read_text())
-            self.assertEqual(manifest["stop_after"], 9)
+            self.assertEqual(manifest["stop_after"], 10)
             self.assertEqual(
                 [item["name"] for item in manifest["stages"]],
                 [
@@ -85,6 +89,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                     "stage7_skeleton_generation",
                     "stage8_skeleton_node_detection",
                     "stage9_node_clustering",
+                    "stage10_edge_tracing",
                 ],
             )
             self.assertTrue(all(item["status"] == "completed" for item in manifest["stages"]))
@@ -94,14 +99,14 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             pipe = FakePipeline(tmp)
 
             with self.assertRaisesRegex(ValueError, "stop_after must be one of"):
-                pipe.run(stop_after=10)
+                pipe.run(stop_after=11)
 
     def test_run_writes_failed_stage_to_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             pipe = FakePipeline(tmp, fail_stage=2)
 
             with self.assertRaisesRegex(RuntimeError, "stage2 failed"):
-                pipe.run(stop_after=9)
+                pipe.run(stop_after=10)
 
             manifest = json.loads((Path(tmp) / "stage_manifest.json").read_text())
             self.assertEqual(manifest["stages"][0]["status"], "completed")
@@ -370,6 +375,31 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "stage9_node_clusters_overlay.png").exists())
             self.assertTrue((Path(tmp) / "stage9_node_clusters.json").exists())
             self.assertTrue((Path(tmp) / "stage9_node_cluster_summary.json").exists())
+
+    def test_stage10_writes_edge_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
+            pipe.image_bgr = np.zeros((20, 20, 3), dtype=np.uint8)
+            pipe._save_img("stage7_pipe_skeleton", np.zeros((20, 20), dtype=np.uint8))
+            pipe._save_json("stage9_node_clusters", {"clusters": []})
+
+            with patch("garnet.pid_extractor.run_pipe_edge_stage") as mock_pipe_edges:
+                mock_pipe_edges.return_value = {
+                    "overlay_image": np.zeros((20, 20, 3), dtype=np.uint8),
+                    "edges_payload": {"edges": []},
+                    "summary": {
+                        "image_id": "image.png",
+                        "pass_type": "sheet",
+                        "edge_count": 0,
+                    },
+                }
+
+                pipe.stage10_edge_tracing()
+
+            mock_pipe_edges.assert_called_once()
+            self.assertTrue((Path(tmp) / "stage10_pipe_edges_overlay.png").exists())
+            self.assertTrue((Path(tmp) / "stage10_pipe_edges.json").exists())
+            self.assertTrue((Path(tmp) / "stage10_pipe_edge_summary.json").exists())
 
 
 if __name__ == "__main__":
