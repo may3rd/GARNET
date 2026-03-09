@@ -25,6 +25,7 @@ from garnet.gemini_ocr_sahi import GeminiOcrSahiConfig, run_gemini_ocr_sahi
 from garnet.model_defaults import pick_default_weight_file
 from garnet.object_detection_sahi import DetectionSahiConfig, run_object_detection_sahi
 from garnet.pipe_edges import run_pipe_edge_stage
+from garnet.pipe_graph import run_pipe_graph_stage
 from garnet.pipe_junctions import run_pipe_junction_stage
 from garnet.paddle_ocr_sahi import PaddleOcrSahiConfig, run_paddle_ocr_sahi
 from garnet.pipe_mask import run_pipe_mask_stage
@@ -127,6 +128,7 @@ class PIDPipeline:
             (9, "stage9_node_clustering", self.stage9_node_clustering),
             (10, "stage10_edge_tracing", self.stage10_edge_tracing),
             (11, "stage11_junction_review", self.stage11_junction_review),
+            (12, "stage12_graph_assembly", self.stage12_graph_assembly),
         ]
 
     def _manifest_path(self) -> Path:
@@ -549,13 +551,29 @@ class PIDPipeline:
         self._save_json("stage11_junctions", junction_result["junctions_payload"])
         self._save_json("stage11_junction_review_summary", junction_result["summary"])
 
+    # ---------- Stage 12 ----------
+    def stage12_graph_assembly(self) -> None:
+        node_clusters_payload = self._load_json_artifact("stage9_node_clusters")
+        edges_payload = self._load_json_artifact("stage10_pipe_edges")
+        junctions_payload = self._load_json_artifact("stage11_junctions")
+
+        graph_result = run_pipe_graph_stage(
+            image_id=Path(self.image_path).name,
+            node_clusters=node_clusters_payload.get("clusters", []),
+            edges=edges_payload.get("edges", []),
+            confirmed_junctions=junctions_payload.get("confirmed_junctions", []),
+            unresolved_junctions=junctions_payload.get("unresolved_junctions", []),
+        )
+        self._save_json("stage12_graph", graph_result["graph_payload"])
+        self._save_json("stage12_graph_summary", graph_result["summary"])
+
 
 def main() -> None:
     parser = argparse.ArgumentParser("P&ID pipeline")
     parser.add_argument("--image", required=True)
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     parser.add_argument("--ocr-route", choices=["easyocr", "gemini", "paddleocr"], default="easyocr")
-    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, 7, 8, 9, 10, or 11)")
+    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, 7, 8, 9, 10, 11, or 12)")
     args = parser.parse_args()
     pipe = PIDPipeline(args.image, out_dir=args.out, cfg=PipelineConfig(ocr_route=args.ocr_route))
     pipe.run(stop_after=args.stop_after)

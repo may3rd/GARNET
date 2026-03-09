@@ -51,6 +51,9 @@ class FakePipeline(pid_extractor.PIDPipeline):
     def stage11_junction_review(self) -> None:
         self._record("stage11")
 
+    def stage12_graph_assembly(self) -> None:
+        self._record("stage12")
+
 class PIDPipelineRunnerTests(unittest.TestCase):
     def test_stage_definitions_follow_master_plan_order(self) -> None:
         pipe = FakePipeline(tempfile.mkdtemp())
@@ -70,6 +73,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                 "stage9_node_clustering",
                 "stage10_edge_tracing",
                 "stage11_junction_review",
+                "stage12_graph_assembly",
             ],
         )
 
@@ -77,11 +81,11 @@ class PIDPipelineRunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             pipe = FakePipeline(tmp)
 
-            pipe.run(stop_after=11)
+            pipe.run(stop_after=12)
 
-            self.assertEqual(pipe.called, ["stage1", "stage2", "stage4", "stage5", "stage6", "stage7", "stage8", "stage9", "stage10", "stage11"])
+            self.assertEqual(pipe.called, ["stage1", "stage2", "stage4", "stage5", "stage6", "stage7", "stage8", "stage9", "stage10", "stage11", "stage12"])
             manifest = json.loads((Path(tmp) / "stage_manifest.json").read_text())
-            self.assertEqual(manifest["stop_after"], 11)
+            self.assertEqual(manifest["stop_after"], 12)
             self.assertEqual(
                 [item["name"] for item in manifest["stages"]],
                 [
@@ -95,6 +99,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                     "stage9_node_clustering",
                     "stage10_edge_tracing",
                     "stage11_junction_review",
+                    "stage12_graph_assembly",
                 ],
             )
             self.assertTrue(all(item["status"] == "completed" for item in manifest["stages"]))
@@ -104,14 +109,14 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             pipe = FakePipeline(tmp)
 
             with self.assertRaisesRegex(ValueError, "stop_after must be one of"):
-                pipe.run(stop_after=12)
+                pipe.run(stop_after=13)
 
     def test_run_writes_failed_stage_to_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             pipe = FakePipeline(tmp, fail_stage=2)
 
             with self.assertRaisesRegex(RuntimeError, "stage2 failed"):
-                pipe.run(stop_after=11)
+                pipe.run(stop_after=12)
 
             manifest = json.loads((Path(tmp) / "stage_manifest.json").read_text())
             self.assertEqual(manifest["stages"][0]["status"], "completed")
@@ -435,6 +440,30 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "stage11_junction_review_overlay.png").exists())
             self.assertTrue((Path(tmp) / "stage11_junctions.json").exists())
             self.assertTrue((Path(tmp) / "stage11_junction_review_summary.json").exists())
+
+    def test_stage12_writes_graph_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
+            pipe._save_json("stage9_node_clusters", {"clusters": []})
+            pipe._save_json("stage10_pipe_edges", {"edges": []})
+            pipe._save_json("stage11_junctions", {"confirmed_junctions": [], "unresolved_junctions": []})
+
+            with patch("garnet.pid_extractor.run_pipe_graph_stage") as mock_pipe_graph:
+                mock_pipe_graph.return_value = {
+                    "graph_payload": {"nodes": [], "edges": []},
+                    "summary": {
+                        "image_id": "image.png",
+                        "pass_type": "sheet",
+                        "node_count": 0,
+                        "edge_count": 0,
+                    },
+                }
+
+                pipe.stage12_graph_assembly()
+
+            mock_pipe_graph.assert_called_once()
+            self.assertTrue((Path(tmp) / "stage12_graph.json").exists())
+            self.assertTrue((Path(tmp) / "stage12_graph_summary.json").exists())
 
 
 if __name__ == "__main__":
