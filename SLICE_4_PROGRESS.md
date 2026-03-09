@@ -61,3 +61,21 @@
   - Stage 4 summary reports `object_count = 165`
 - Next step / blocker:
   - the next slice should turn generic Stage 4 object evidence into more explicit category tables or begin the next geometry stage, depending on whether you want to keep building evidence first or move into pipe-mask extraction.
+
+### 2026-03-09 09:40 ICT
+- Task: `Slice 4 / Line number fusion`
+- Action: Added a dedicated `stage4_line_number_fusion` substage that uses Stage 4 `line number` detections as anchors, fuses nearby Stage 2 OCR fragments into a curated line-number list, and writes a review overlay with accepted boxes in blue and rejected boxes in red.
+- Evidence:
+  - [`backend/garnet/line_number_fusion.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/line_number_fusion.py)
+  - [`backend/output/pid_extractor_stage13_latest_full/stage4_line_numbers.json`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/pid_extractor_stage13_latest_full/stage4_line_numbers.json)
+  - [`backend/output/pid_extractor_stage13_latest_full/stage4_line_number_summary.json`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/pid_extractor_stage13_latest_full/stage4_line_number_summary.json)
+  - [`backend/output/pid_extractor_stage13_latest_full/stage4_line_number_overlay.png`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/pid_extractor_stage13_latest_full/stage4_line_number_overlay.png)
+- Verification:
+  - `cd backend && python -m unittest discover -s tests -p 'test*.py' -v` -> pass with API tests skipped when `pdf2image` is unavailable
+  - `cd backend && python -m garnet.pid_extractor --image sample.png --out output/pid_extractor_stage13_latest_full --ocr-route easyocr --stop-after 13` -> pass
+  - Stage 4 line-number summary reports:
+    - `line_number_object_count = 23`
+    - `matched_line_number_count = 21`
+    - `rejected_line_number_count = 2`
+- Next step / blocker:
+  - expose the fused line-number list more directly in the frontend review flow and keep dedicated equipment detection separate as planned `Stage 4.1`.
