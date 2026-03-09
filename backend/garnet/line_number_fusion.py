@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import math
+import re
 from typing import Any
+
+import cv2
+import numpy as np
 
 
 def _bbox_ios(a: dict[str, int], b: dict[str, int]) -> float:
@@ -28,32 +32,78 @@ def _distance(a: tuple[float, float], b: tuple[float, float]) -> float:
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
+def _looks_like_line_number(text: str) -> bool:
+    token = re.sub(r"\s+", "", text).upper()
+    if len(token) < 6:
+        return False
+    has_digit = any(ch.isdigit() for ch in token)
+    has_dash_or_underscore = "-" in token or "_" in token
+    has_alpha = any(ch.isalpha() for ch in token)
+    return has_digit and has_dash_or_underscore and has_alpha
+
+
+def _candidate_text_regions(
+    bbox: dict[str, int],
+    text_regions: list[dict[str, Any]],
+    max_distance_px: float,
+) -> list[dict[str, Any]]:
+    center = _center(bbox)
+    candidates: list[dict[str, Any]] = []
+    for region in text_regions:
+        region_bbox = region["bbox"]
+        ios = _bbox_ios(bbox, region_bbox)
+        dist = _distance(center, _center(region_bbox))
+        if ios > 0 or dist <= max_distance_px:
+            candidates.append(region)
+    return sorted(candidates, key=lambda item: (item["bbox"]["y_min"], item["bbox"]["x_min"]))
+
+
+def _fuse_candidate_texts(
+    bbox: dict[str, int],
+    regions: list[dict[str, Any]],
+) -> tuple[str, str | None]:
+    if not regions:
+        return "", None
+    bbox_center_y = (bbox["y_min"] + bbox["y_max"]) / 2.0
+    bbox_height = max(1, bbox["y_max"] - bbox["y_min"])
+    same_line = [
+        region
+        for region in regions
+        if abs(((region["bbox"]["y_min"] + region["bbox"]["y_max"]) / 2.0) - bbox_center_y) <= max(12, bbox_height * 0.8)
+    ]
+    chosen_regions = same_line or regions[:1]
+    chosen_regions = sorted(chosen_regions, key=lambda item: item["bbox"]["x_min"])
+    fused_text = " ".join(str(region.get("text", "")).strip() for region in chosen_regions if str(region.get("text", "")).strip()).strip()
+    fused_ids = [str(region["id"]) for region in chosen_regions]
+    return fused_text, ",".join(fused_ids) if fused_ids else None
+
+
 def run_line_number_fusion_stage(
     *,
     image_id: str,
+    image_bgr: np.ndarray,
     object_regions: list[dict[str, Any]],
     text_regions: list[dict[str, Any]],
     max_distance_px: float = 80.0,
 ) -> dict[str, Any]:
     line_number_objects = [obj for obj in object_regions if str(obj.get("class_name", "")).lower() == "line number"]
-    line_number_texts = [region for region in text_regions if str(region.get("class", "")).lower() == "line_number"]
 
     accepted: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
     for idx, obj in enumerate(line_number_objects, start=1):
         bbox = obj["bbox"]
-        obj_center = _center(bbox)
-        best = None
+        candidates = _candidate_text_regions(bbox, text_regions, max_distance_px)
+        fused_text, fused_region_ids = _fuse_candidate_texts(bbox, candidates)
         best_score = float("-inf")
-        for region in line_number_texts:
-            region_bbox = region["bbox"]
-            ios = _bbox_ios(bbox, region_bbox)
-            dist = _distance(obj_center, _center(region_bbox))
-            distance_score = max(0.0, 1.0 - (dist / max_distance_px))
-            score = (ios * 2.0) + distance_score + float(region.get("confidence", 0.0))
-            if score > best_score:
-                best_score = score
-                best = (region, ios, dist)
+        best_dist = None
+        if candidates:
+            best_score = max(
+                (_bbox_ios(bbox, region["bbox"]) * 2.0)
+                + max(0.0, 1.0 - (_distance(_center(bbox), _center(region["bbox"])) / max_distance_px))
+                + float(region.get("confidence", 0.0))
+                for region in candidates
+            )
+            best_dist = min(_distance(_center(bbox), _center(region["bbox"])) for region in candidates)
 
         entry = {
             "id": f"line_number_{idx:06d}",
@@ -65,22 +115,39 @@ def run_line_number_fusion_stage(
             "score": None,
             "distance_px": None,
         }
-        if best is not None:
-            region, ios, dist = best
-            if ios > 0 or dist <= max_distance_px:
-                entry.update(
-                    {
-                        "bbox": region["bbox"],
-                        "text": region["text"],
-                        "normalized_text": region.get("normalized_text", ""),
-                        "ocr_region_id": region["id"],
-                        "score": round(best_score, 4),
-                        "distance_px": round(dist, 3),
-                    }
-                )
-                accepted.append(entry)
-                continue
+        if fused_text and _looks_like_line_number(fused_text):
+            entry.update(
+                {
+                    "text": fused_text,
+                    "normalized_text": fused_text.strip(),
+                    "ocr_region_id": fused_region_ids,
+                    "score": round(best_score, 4) if best_score != float("-inf") else None,
+                    "distance_px": round(float(best_dist), 3) if best_dist is not None else None,
+                }
+            )
+            accepted.append(entry)
+            continue
         rejected.append(entry)
+
+    overlay = image_bgr.copy()
+    for entry in accepted:
+        bbox = entry["bbox"]
+        cv2.rectangle(
+            overlay,
+            (int(bbox["x_min"]), int(bbox["y_min"])),
+            (int(bbox["x_max"]), int(bbox["y_max"])),
+            (255, 0, 0),
+            2,
+        )
+    for entry in rejected:
+        bbox = entry["bbox"]
+        cv2.rectangle(
+            overlay,
+            (int(bbox["x_min"]), int(bbox["y_min"])),
+            (int(bbox["x_max"]), int(bbox["y_max"])),
+            (0, 0, 255),
+            2,
+        )
 
     return {
         "line_numbers_payload": {
@@ -89,6 +156,7 @@ def run_line_number_fusion_stage(
             "line_numbers": accepted,
             "rejected": rejected,
         },
+        "overlay_image": overlay,
         "summary": {
             "image_id": image_id,
             "pass_type": "sheet",

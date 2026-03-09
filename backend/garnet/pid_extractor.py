@@ -396,12 +396,14 @@ class PIDPipeline:
         ocr_payload = self._load_json_artifact("stage2_ocr_regions")
         fusion_result = run_line_number_fusion_stage(
             image_id=Path(self.image_path).name,
+            image_bgr=self._ensure_image_loaded(),
             object_regions=object_payload.get("objects", []),
             text_regions=ocr_payload.get("text_regions", []),
             max_distance_px=self.cfg.line_number_fusion_max_distance_px,
         )
         self._save_json("stage4_line_numbers", fusion_result["line_numbers_payload"])
         self._save_json("stage4_line_number_summary", fusion_result["summary"])
+        self._save_img("stage4_line_number_overlay", fusion_result["overlay_image"])
 
     # ---------- Stage 5 ----------
     def stage5_pipe_mask(self) -> None:
@@ -600,6 +602,7 @@ class PIDPipeline:
         )
         text_attachment_result = run_pipe_text_attachment_stage(
             image_id=Path(self.image_path).name,
+            image_bgr=self._ensure_image_loaded(),
             text_regions=text_payload.get("line_numbers", []),
             edges=edges_payload.get("edges", []),
             max_distance_px=self.cfg.line_text_attachment_max_distance_px,
@@ -618,6 +621,7 @@ class PIDPipeline:
         self._save_json("stage12_equipment_attachment_summary", attachment_result["summary"])
         self._save_json("stage12_text_attachments", text_attachment_result["attachments_payload"])
         self._save_json("stage12_text_attachment_summary", text_attachment_result["summary"])
+        self._save_img("stage12_text_attachment_overlay", text_attachment_result["overlay_image"])
         self._save_json("stage12_graph", graph_result["graph_payload"])
         self._save_json("stage12_graph_summary", graph_result["summary"])
 

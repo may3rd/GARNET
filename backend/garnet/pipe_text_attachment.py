@@ -3,6 +3,9 @@ from __future__ import annotations
 import math
 from typing import Any
 
+import cv2
+import numpy as np
+
 
 def _center_from_bbox(bbox: dict[str, int]) -> tuple[float, float]:
     return (
@@ -47,6 +50,7 @@ def _nearest_edge(text_center: tuple[float, float], edges: list[dict[str, Any]])
 def run_pipe_text_attachment_stage(
     *,
     image_id: str,
+    image_bgr: np.ndarray,
     text_regions: list[dict[str, Any]],
     edges: list[dict[str, Any]],
     max_distance_px: float = 80.0,
@@ -75,6 +79,40 @@ def run_pipe_text_attachment_stage(
         else:
             rejected.append(payload)
 
+    overlay = image_bgr.copy()
+    for edge in edges:
+        polyline = edge.get("polyline", [])
+        for start, end in zip(polyline, polyline[1:]):
+            cv2.line(
+                overlay,
+                (int(start["col"]), int(start["row"])),
+                (int(end["col"]), int(end["row"])),
+                (120, 120, 120),
+                1,
+            )
+    for item in accepted:
+        bbox = item["bbox"]
+        cv2.rectangle(
+            overlay,
+            (int(bbox["x_min"]), int(bbox["y_min"])),
+            (int(bbox["x_max"]), int(bbox["y_max"])),
+            (255, 0, 0),
+            2,
+        )
+        if item["edge_id"] is not None:
+            center_x = int(round((bbox["x_min"] + bbox["x_max"]) / 2))
+            center_y = int(round((bbox["y_min"] + bbox["y_max"]) / 2))
+            cv2.putText(
+                overlay,
+                str(item["text"])[:32],
+                (center_x + 4, center_y - 4),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.35,
+                (255, 0, 0),
+                1,
+                cv2.LINE_AA,
+            )
+
     return {
         "attachments_payload": {
             "image_id": image_id,
@@ -83,6 +121,7 @@ def run_pipe_text_attachment_stage(
             "rejected": rejected,
             "text_class": "line_number",
         },
+        "overlay_image": overlay,
         "summary": {
             "image_id": image_id,
             "pass_type": "sheet",

@@ -814,6 +814,7 @@ class PipelineApiTests(unittest.TestCase):
         }
         fake_text_attachment_result = {
             "attachments_payload": {"accepted": [], "rejected": []},
+            "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
             "summary": {"accepted_attachment_count": 0},
         }
         fake_graph_result = {
@@ -865,6 +866,7 @@ class PipelineApiTests(unittest.TestCase):
             self.assertIn("stage12_equipment_attachment_summary.json", artifact_names)
             self.assertIn("stage12_text_attachments.json", artifact_names)
             self.assertIn("stage12_text_attachment_summary.json", artifact_names)
+            self.assertIn("stage12_text_attachment_overlay.png", artifact_names)
             self.assertIn("stage12_graph.json", artifact_names)
             self.assertIn("stage12_graph_summary.json", artifact_names)
 

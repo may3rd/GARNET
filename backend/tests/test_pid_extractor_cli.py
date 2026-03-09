@@ -259,12 +259,14 @@ class PIDPipelineRunnerTests(unittest.TestCase):
     def test_stage4_line_number_fusion_writes_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
+            pipe.image_bgr = np.zeros((20, 20, 3), dtype=np.uint8)
             pipe._save_json("stage4_objects", {"objects": []})
             pipe._save_json("stage2_ocr_regions", {"text_regions": []})
 
             with patch("garnet.pid_extractor.run_line_number_fusion_stage") as mock_line_fusion:
                 mock_line_fusion.return_value = {
                     "line_numbers_payload": {"line_numbers": [], "rejected": []},
+                    "overlay_image": np.zeros((20, 20, 3), dtype=np.uint8),
                     "summary": {"matched_line_number_count": 0},
                 }
 
@@ -273,6 +275,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             mock_line_fusion.assert_called_once()
             self.assertTrue((Path(tmp) / "stage4_line_numbers.json").exists())
             self.assertTrue((Path(tmp) / "stage4_line_number_summary.json").exists())
+            self.assertTrue((Path(tmp) / "stage4_line_number_overlay.png").exists())
 
     def test_stage5_writes_pipe_mask_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -472,6 +475,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
     def test_stage12_writes_graph_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
+            pipe.image_bgr = np.zeros((20, 20, 3), dtype=np.uint8)
             pipe._save_json("stage4_objects", {"objects": []})
             pipe._save_json("stage2_ocr_regions", {"text_regions": []})
             pipe._save_json("stage4_line_numbers", {"line_numbers": []})
@@ -490,6 +494,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                 }
                 mock_pipe_text_attachment.return_value = {
                     "attachments_payload": {"accepted": [], "rejected": []},
+                    "overlay_image": np.zeros((20, 20, 3), dtype=np.uint8),
                     "summary": {"accepted_attachment_count": 0},
                 }
                 mock_pipe_graph.return_value = {
@@ -511,6 +516,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "stage12_equipment_attachment_summary.json").exists())
             self.assertTrue((Path(tmp) / "stage12_text_attachments.json").exists())
             self.assertTrue((Path(tmp) / "stage12_text_attachment_summary.json").exists())
+            self.assertTrue((Path(tmp) / "stage12_text_attachment_overlay.png").exists())
             self.assertTrue((Path(tmp) / "stage12_graph.json").exists())
             self.assertTrue((Path(tmp) / "stage12_graph_summary.json").exists())
 
