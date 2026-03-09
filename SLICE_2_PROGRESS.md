@@ -140,3 +140,23 @@
   - `cd frontend && bun run build` -> pass
 - Next step / blocker:
   - run a real Gemini-route sample once `OPENROUTER_API_KEY` is available locally and review the raw patch/crop artifacts before calling the route production-ready.
+
+### 2026-03-09 13:20 ICT
+- Task: `Slice 2 / OCRMac route`
+- Action: Added a new macOS-only `ocrmac` Stage 2 route using the Vision framework with tiled sheet processing and the shared Stage 2 OCR artifact contract.
+- Evidence:
+  - [`backend/garnet/ocrmac_sahi.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/ocrmac_sahi.py)
+  - [`backend/garnet/pid_extractor.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/pid_extractor.py)
+  - [`backend/api.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/api.py)
+  - [`frontend/src/components/DetectionSetup.tsx`](/Volumes/Ginnungagap/maetee/Code/GARNET/frontend/src/components/DetectionSetup.tsx)
+- Verification:
+  - `cd backend && python -m unittest discover -s tests -p 'test*.py' -v` -> pass with API tests skipped when `pdf2image` is unavailable
+  - `cd backend && python -m garnet.pid_extractor --image sample.png --out output/pid_extractor_ocrmac_sample --ocr-route ocrmac --stop-after 2` -> pass
+  - OCRMac sample summary reports:
+    - `tile_count = 9`
+    - `raw_detection_count = 593`
+    - `merged_region_count = 413`
+    - `exception_candidate_count = 315`
+    - Stage 2 duration `3.333389s`
+- Next step / blocker:
+  - compare OCRMac quality against the EasyOCR baseline on the same sample and decide whether OCRMac should become a preferred macOS route or stay as an optional alternative.
