@@ -140,13 +140,21 @@ class PipelineApiTests(unittest.TestCase):
         }
         fake_line_number_fusion_result = {
             "line_numbers_payload": {"line_numbers": [], "rejected": []},
+            "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
             "summary": {"matched_line_number_count": 0},
+        }
+        fake_instrument_tag_fusion_result = {
+            "instrument_tags_payload": {"instrument_tags": [], "rejected": []},
+            "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
+            "summary": {"matched_instrument_tag_count": 0},
         }
 
         with patch("garnet.pid_extractor.run_easyocr_sahi", return_value=fake_ocr_result), patch(
             "garnet.pid_extractor.run_object_detection_sahi", return_value=fake_detection_result
         ), patch(
             "garnet.pid_extractor.run_line_number_fusion_stage", return_value=fake_line_number_fusion_result
+        ), patch(
+            "garnet.pid_extractor.run_instrument_tag_fusion_stage", return_value=fake_instrument_tag_fusion_result
         ):
             with sample_path.open("rb") as f:
                 response = client.post(
@@ -171,13 +179,17 @@ class PipelineApiTests(unittest.TestCase):
             self.assertIsNotNone(job_payload)
             assert job_payload is not None
             self.assertEqual(job_payload["status"], "completed")
-            self.assertEqual(job_payload["current_stage"], "stage4_line_number_fusion")
+            self.assertEqual(job_payload["current_stage"], "stage4_instrument_tag_fusion")
             artifact_names = {item["name"] for item in job_payload["artifacts"]}
             self.assertIn("stage4_objects.json", artifact_names)
             self.assertIn("stage4_objects_summary.json", artifact_names)
             self.assertIn("stage4_objects_overlay.png", artifact_names)
             self.assertIn("stage4_line_numbers.json", artifact_names)
             self.assertIn("stage4_line_number_summary.json", artifact_names)
+            self.assertIn("stage4_line_number_overlay.png", artifact_names)
+            self.assertIn("stage4_instrument_tags.json", artifact_names)
+            self.assertIn("stage4_instrument_tag_summary.json", artifact_names)
+            self.assertIn("stage4_instrument_tag_overlay.png", artifact_names)
 
     def test_pipeline_job_runs_stage5_and_reports_pipe_mask_artifacts(self) -> None:
         client = TestClient(app)
@@ -817,6 +829,11 @@ class PipelineApiTests(unittest.TestCase):
             "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
             "summary": {"accepted_attachment_count": 0},
         }
+        fake_instrument_tag_attachment_result = {
+            "attachments_payload": {"accepted": [], "rejected": []},
+            "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
+            "summary": {"accepted_attachment_count": 0},
+        }
         fake_graph_result = {
             "graph_payload": {"nodes": [], "edges": []},
             "summary": {"image_id": "sample.png", "pass_type": "sheet", "node_count": 0, "edge_count": 0},
@@ -833,7 +850,8 @@ class PipelineApiTests(unittest.TestCase):
         ), patch("garnet.pid_extractor.run_pipe_junction_stage", return_value=fake_junction_review_result), patch(
             "garnet.pid_extractor.run_pipe_equipment_attachment_stage", return_value=fake_attachment_result
         ), patch(
-            "garnet.pid_extractor.run_pipe_text_attachment_stage", return_value=fake_text_attachment_result
+            "garnet.pid_extractor.run_pipe_text_attachment_stage",
+            side_effect=[fake_text_attachment_result, fake_instrument_tag_attachment_result],
         ), patch(
             "garnet.pid_extractor.run_pipe_graph_stage", return_value=fake_graph_result
         ):
@@ -867,6 +885,8 @@ class PipelineApiTests(unittest.TestCase):
             self.assertIn("stage12_text_attachments.json", artifact_names)
             self.assertIn("stage12_text_attachment_summary.json", artifact_names)
             self.assertIn("stage12_text_attachment_overlay.png", artifact_names)
+            self.assertIn("stage12_instrument_tag_attachments.json", artifact_names)
+            self.assertIn("stage12_instrument_tag_attachment_summary.json", artifact_names)
             self.assertIn("stage12_graph.json", artifact_names)
             self.assertIn("stage12_graph_summary.json", artifact_names)
 

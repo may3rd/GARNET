@@ -54,11 +54,14 @@ def run_pipe_text_attachment_stage(
     text_regions: list[dict[str, Any]],
     edges: list[dict[str, Any]],
     max_distance_px: float = 80.0,
+    text_class: str = "line_number",
 ) -> dict[str, Any]:
     line_number_regions = [
         item
         for item in text_regions
-        if item.get("class") == "line_number" or "source_object_id" in item
+        if item.get("class") == text_class
+        or item.get("semantic_class") == text_class
+        or ("source_object_id" in item and text_class == "line_number" and item.get("semantic_class") is None)
     ]
     accepted: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
@@ -119,7 +122,7 @@ def run_pipe_text_attachment_stage(
             "pass_type": "sheet",
             "accepted": accepted,
             "rejected": rejected,
-            "text_class": "line_number",
+            "text_class": text_class,
         },
         "overlay_image": overlay,
         "summary": {
@@ -129,6 +132,6 @@ def run_pipe_text_attachment_stage(
             "accepted_attachment_count": len(accepted),
             "rejected_attachment_count": len(rejected),
             "max_distance_px": max_distance_px,
-            "text_class": "line_number",
+            "text_class": text_class,
         },
     }

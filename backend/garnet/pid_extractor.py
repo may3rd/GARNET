@@ -22,6 +22,7 @@ import numpy as np
 from dotenv import load_dotenv
 from garnet.easyocr_sahi import EasyOcrSahiConfig, run_easyocr_sahi
 from garnet.gemini_ocr_sahi import GeminiOcrSahiConfig, run_gemini_ocr_sahi
+from garnet.instrument_tag_fusion import run_instrument_tag_fusion_stage
 from garnet.line_number_fusion import run_line_number_fusion_stage
 from garnet.model_defaults import pick_default_weight_file
 from garnet.object_detection_sahi import DetectionSahiConfig, run_object_detection_sahi
@@ -91,6 +92,7 @@ class PipelineConfig:
     detection_postprocess_match_metric: str = "IOS"
     detection_postprocess_match_threshold: float = 0.1
     line_number_fusion_max_distance_px: float = 80.0
+    instrument_tag_fusion_max_distance_px: float = 60.0
     pipe_mask_ocr_padding: int = 1
     pipe_mask_object_inset: int = 1
     pipe_mask_min_component_area: int = 16
@@ -140,6 +142,7 @@ class PIDPipeline:
             (2, "stage2_ocr_discovery", self.stage2_ocr_discovery),
             (4, "stage4_object_detection", self.stage4_object_detection),
             (4, "stage4_line_number_fusion", self.stage4_line_number_fusion),
+            (4, "stage4_instrument_tag_fusion", self.stage4_instrument_tag_fusion),
             (5, "stage5_pipe_mask", self.stage5_pipe_mask),
             (6, "stage6_morphological_sealing", self.stage6_morphological_sealing),
             (7, "stage7_skeleton_generation", self.stage7_skeleton_generation),
@@ -405,6 +408,20 @@ class PIDPipeline:
         self._save_json("stage4_line_number_summary", fusion_result["summary"])
         self._save_img("stage4_line_number_overlay", fusion_result["overlay_image"])
 
+    def stage4_instrument_tag_fusion(self) -> None:
+        object_payload = self._load_json_artifact("stage4_objects")
+        ocr_payload = self._load_json_artifact("stage2_ocr_regions")
+        fusion_result = run_instrument_tag_fusion_stage(
+            image_id=Path(self.image_path).name,
+            image_bgr=self._ensure_image_loaded(),
+            object_regions=object_payload.get("objects", []),
+            text_regions=ocr_payload.get("text_regions", []),
+            max_distance_px=self.cfg.instrument_tag_fusion_max_distance_px,
+        )
+        self._save_json("stage4_instrument_tags", fusion_result["instrument_tags_payload"])
+        self._save_json("stage4_instrument_tag_summary", fusion_result["summary"])
+        self._save_img("stage4_instrument_tag_overlay", fusion_result["overlay_image"])
+
     # ---------- Stage 5 ----------
     def stage5_pipe_mask(self) -> None:
         gray_path = self.out_dir / "stage1_gray.png"
@@ -589,6 +606,7 @@ class PIDPipeline:
     def stage12_graph_assembly(self) -> None:
         object_payload = self._load_json_artifact("stage4_objects")
         text_payload = self._load_json_artifact("stage4_line_numbers")
+        instrument_tag_payload = self._load_json_artifact("stage4_instrument_tags")
         node_clusters_payload = self._load_json_artifact("stage9_node_clusters")
         edges_payload = self._load_json_artifact("stage10_pipe_edges")
         junctions_payload = self._load_json_artifact("stage11_junctions")
@@ -606,6 +624,15 @@ class PIDPipeline:
             text_regions=text_payload.get("line_numbers", []),
             edges=edges_payload.get("edges", []),
             max_distance_px=self.cfg.line_text_attachment_max_distance_px,
+            text_class="line_number",
+        )
+        instrument_tag_attachment_result = run_pipe_text_attachment_stage(
+            image_id=Path(self.image_path).name,
+            image_bgr=self._ensure_image_loaded(),
+            text_regions=instrument_tag_payload.get("instrument_tags", []),
+            edges=edges_payload.get("edges", []),
+            max_distance_px=self.cfg.line_text_attachment_max_distance_px,
+            text_class="instrument_tag",
         )
 
         graph_result = run_pipe_graph_stage(
@@ -616,12 +643,15 @@ class PIDPipeline:
             unresolved_junctions=junctions_payload.get("unresolved_junctions", []),
             equipment_attachments=attachment_result["attachments_payload"].get("accepted", []),
             text_attachments=text_attachment_result["attachments_payload"].get("accepted", []),
+            instrument_tag_attachments=instrument_tag_attachment_result["attachments_payload"].get("accepted", []),
         )
         self._save_json("stage12_equipment_attachments", attachment_result["attachments_payload"])
         self._save_json("stage12_equipment_attachment_summary", attachment_result["summary"])
         self._save_json("stage12_text_attachments", text_attachment_result["attachments_payload"])
         self._save_json("stage12_text_attachment_summary", text_attachment_result["summary"])
         self._save_img("stage12_text_attachment_overlay", text_attachment_result["overlay_image"])
+        self._save_json("stage12_instrument_tag_attachments", instrument_tag_attachment_result["attachments_payload"])
+        self._save_json("stage12_instrument_tag_attachment_summary", instrument_tag_attachment_result["summary"])
         self._save_json("stage12_graph", graph_result["graph_payload"])
         self._save_json("stage12_graph_summary", graph_result["summary"])
 

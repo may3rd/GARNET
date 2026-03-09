@@ -33,6 +33,9 @@ class FakePipeline(pid_extractor.PIDPipeline):
     def stage4_line_number_fusion(self) -> None:
         self._record("stage4")
 
+    def stage4_instrument_tag_fusion(self) -> None:
+        self._record("stage4")
+
     def stage5_pipe_mask(self) -> None:
         self._record("stage5")
 
@@ -73,6 +76,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                 "stage2_ocr_discovery",
                 "stage4_object_detection",
                 "stage4_line_number_fusion",
+                "stage4_instrument_tag_fusion",
                 "stage5_pipe_mask",
                 "stage6_morphological_sealing",
                 "stage7_skeleton_generation",
@@ -91,7 +95,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
 
             pipe.run(stop_after=13)
 
-            self.assertEqual(pipe.called, ["stage1", "stage2", "stage4", "stage4", "stage5", "stage6", "stage7", "stage8", "stage9", "stage10", "stage11", "stage12", "stage13"])
+            self.assertEqual(pipe.called, ["stage1", "stage2", "stage4", "stage4", "stage4", "stage5", "stage6", "stage7", "stage8", "stage9", "stage10", "stage11", "stage12", "stage13"])
             manifest = json.loads((Path(tmp) / "stage_manifest.json").read_text())
             self.assertEqual(manifest["stop_after"], 13)
             self.assertEqual(
@@ -101,6 +105,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                     "stage2_ocr_discovery",
                     "stage4_object_detection",
                     "stage4_line_number_fusion",
+                    "stage4_instrument_tag_fusion",
                     "stage5_pipe_mask",
                     "stage6_morphological_sealing",
                     "stage7_skeleton_generation",
@@ -276,6 +281,27 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "stage4_line_numbers.json").exists())
             self.assertTrue((Path(tmp) / "stage4_line_number_summary.json").exists())
             self.assertTrue((Path(tmp) / "stage4_line_number_overlay.png").exists())
+
+    def test_stage4_instrument_tag_fusion_writes_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
+            pipe.image_bgr = np.zeros((20, 20, 3), dtype=np.uint8)
+            pipe._save_json("stage4_objects", {"objects": []})
+            pipe._save_json("stage2_ocr_regions", {"text_regions": []})
+
+            with patch("garnet.pid_extractor.run_instrument_tag_fusion_stage") as mock_tag_fusion:
+                mock_tag_fusion.return_value = {
+                    "instrument_tags_payload": {"instrument_tags": [], "rejected": []},
+                    "overlay_image": np.zeros((20, 20, 3), dtype=np.uint8),
+                    "summary": {"matched_instrument_tag_count": 0},
+                }
+
+                pipe.stage4_instrument_tag_fusion()
+
+            mock_tag_fusion.assert_called_once()
+            self.assertTrue((Path(tmp) / "stage4_instrument_tags.json").exists())
+            self.assertTrue((Path(tmp) / "stage4_instrument_tag_summary.json").exists())
+            self.assertTrue((Path(tmp) / "stage4_instrument_tag_overlay.png").exists())
 
     def test_stage5_writes_pipe_mask_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -479,6 +505,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             pipe._save_json("stage4_objects", {"objects": []})
             pipe._save_json("stage2_ocr_regions", {"text_regions": []})
             pipe._save_json("stage4_line_numbers", {"line_numbers": []})
+            pipe._save_json("stage4_instrument_tags", {"instrument_tags": []})
             pipe._save_json("stage9_node_clusters", {"clusters": []})
             pipe._save_json("stage10_pipe_edges", {"edges": []})
             pipe._save_json("stage11_junctions", {"confirmed_junctions": [], "unresolved_junctions": []})
@@ -510,13 +537,15 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                 pipe.stage12_graph_assembly()
 
             mock_pipe_attachment.assert_called_once()
-            mock_pipe_text_attachment.assert_called_once()
+            self.assertEqual(mock_pipe_text_attachment.call_count, 2)
             mock_pipe_graph.assert_called_once()
             self.assertTrue((Path(tmp) / "stage12_equipment_attachments.json").exists())
             self.assertTrue((Path(tmp) / "stage12_equipment_attachment_summary.json").exists())
             self.assertTrue((Path(tmp) / "stage12_text_attachments.json").exists())
             self.assertTrue((Path(tmp) / "stage12_text_attachment_summary.json").exists())
             self.assertTrue((Path(tmp) / "stage12_text_attachment_overlay.png").exists())
+            self.assertTrue((Path(tmp) / "stage12_instrument_tag_attachments.json").exists())
+            self.assertTrue((Path(tmp) / "stage12_instrument_tag_attachment_summary.json").exists())
             self.assertTrue((Path(tmp) / "stage12_graph.json").exists())
             self.assertTrue((Path(tmp) / "stage12_graph_summary.json").exists())
 
