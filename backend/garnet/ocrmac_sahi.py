@@ -9,6 +9,7 @@ from typing import Any
 
 import cv2
 import numpy as np
+from PIL import Image
 
 logger = logging.getLogger("pid")
 
@@ -202,8 +203,9 @@ def run_ocrmac_sahi(
     raw_detections: list[dict[str, Any]] = []
     for y0, x0, y1, x1 in tiles:
         tile_rgb = image_rgb[y0:y1, x0:x1]
+        tile_image = Image.fromarray(tile_rgb)
         annotations = ocrmac.OCR(
-            tile_rgb,
+            tile_image,
             recognition_level=cfg.recognition_level,
             framework=cfg.framework,
             language_preference=list(cfg.language_preference),
