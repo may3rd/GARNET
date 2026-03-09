@@ -30,7 +30,7 @@ class InstrumentTagFusionTests(unittest.TestCase):
             max_distance_px=30.0,
         )
 
-        self.assertEqual(result["summary"]["matched_instrument_tag_count"], 1)
+        self.assertEqual(result["summary"]["matched_instrument_semantic_count"], 1)
 
 
 if __name__ == "__main__":

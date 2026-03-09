@@ -31,7 +31,7 @@ from garnet.pipe_equipment_attachment import run_pipe_equipment_attachment_stage
 from garnet.pipe_graph import run_pipe_graph_stage
 from garnet.pipe_graph_qa import run_pipe_graph_qa_stage
 from garnet.pipe_junctions import run_pipe_junction_stage
-from garnet.pipe_text_attachment import run_pipe_text_attachment_stage
+from garnet.pipe_text_attachment import render_text_attachment_overlay, run_pipe_text_attachment_stage
 from garnet.paddle_ocr_sahi import PaddleOcrSahiConfig, run_paddle_ocr_sahi
 from garnet.pipe_mask import run_pipe_mask_stage
 from garnet.pipe_node_clusters import run_pipe_node_cluster_stage
@@ -632,7 +632,14 @@ class PIDPipeline:
             text_regions=instrument_tag_payload.get("instrument_tags", []),
             edges=edges_payload.get("edges", []),
             max_distance_px=self.cfg.line_text_attachment_max_distance_px,
-            text_class="instrument_tag",
+            text_class="instrument_semantic",
+        )
+        combined_text_overlay = render_text_attachment_overlay(
+            image_bgr=self._ensure_image_loaded(),
+            edges=edges_payload.get("edges", []),
+            attachments=
+                text_attachment_result["attachments_payload"].get("accepted", [])
+                + instrument_tag_attachment_result["attachments_payload"].get("accepted", []),
         )
 
         graph_result = run_pipe_graph_stage(
@@ -649,7 +656,7 @@ class PIDPipeline:
         self._save_json("stage12_equipment_attachment_summary", attachment_result["summary"])
         self._save_json("stage12_text_attachments", text_attachment_result["attachments_payload"])
         self._save_json("stage12_text_attachment_summary", text_attachment_result["summary"])
-        self._save_img("stage12_text_attachment_overlay", text_attachment_result["overlay_image"])
+        self._save_img("stage12_text_attachment_overlay", combined_text_overlay)
         self._save_json("stage12_instrument_tag_attachments", instrument_tag_attachment_result["attachments_payload"])
         self._save_json("stage12_instrument_tag_attachment_summary", instrument_tag_attachment_result["summary"])
         self._save_json("stage12_graph", graph_result["graph_payload"])

@@ -33,12 +33,11 @@ def _distance(a: tuple[float, float], b: tuple[float, float]) -> float:
 
 
 def _looks_like_instrument_tag(text: str) -> bool:
-    compact = re.sub(r"[^A-Z0-9]", "", text.upper())
-    if len(compact) < 3:
-        return False
-    has_alpha = any(ch.isalpha() for ch in compact)
-    has_digit = any(ch.isdigit() for ch in compact)
-    return has_alpha and has_digit
+    normalized = text.upper().strip()
+    normalized = normalized.replace("_", "-")
+    normalized = re.sub(r"\s+", "", normalized)
+    normalized = re.sub(r"[^A-Z0-9-]", "", normalized)
+    return re.fullmatch(r"[A-Z]{2,4}-?\d{3,4}[A-Z]?", normalized) is not None
 
 
 def _candidate_text_regions(bbox: dict[str, int], text_regions: list[dict[str, Any]], max_distance_px: float) -> list[dict[str, Any]]:
@@ -78,9 +77,14 @@ def run_instrument_tag_fusion_stage(
     text_regions: list[dict[str, Any]],
     max_distance_px: float = 60.0,
 ) -> dict[str, Any]:
-    objects = [obj for obj in object_regions if str(obj.get("class_name", "")).lower() == "instrument tag"]
+    objects = [
+        obj
+        for obj in object_regions
+        if str(obj.get("class_name", "")).lower() in {"instrument tag", "instrument dcs", "instrument logic"}
+    ]
     accepted: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
+    confirmed_by_ocr = 0
 
     for idx, obj in enumerate(objects, start=1):
         bbox = obj["bbox"]
@@ -93,6 +97,11 @@ def run_instrument_tag_fusion_stage(
             "text": "",
             "normalized_text": "",
             "ocr_region_id": None,
+            "ocr_confirmed": False,
+            "detection_confidence": float(obj.get("confidence", 0.0)),
+            "fused_confidence": float(obj.get("confidence", 0.0)),
+            "semantic_class": "instrument_semantic",
+            "source_object_class": str(obj.get("class_name", "")).lower(),
         }
         if fused_text and _looks_like_instrument_tag(fused_text):
             entry.update(
@@ -100,9 +109,12 @@ def run_instrument_tag_fusion_stage(
                     "text": fused_text,
                     "normalized_text": fused_text.strip(),
                     "ocr_region_id": fused_region_ids,
-                    "semantic_class": "instrument_tag",
+                    "ocr_confirmed": True,
+                    "fused_confidence": max(float(obj.get("confidence", 0.0)), 0.95),
                 }
             )
+            confirmed_by_ocr += 1
+        if float(obj.get("confidence", 0.0)) >= 0.5 or entry["ocr_confirmed"]:
             accepted.append(entry)
         else:
             rejected.append(entry)
@@ -123,12 +135,14 @@ def run_instrument_tag_fusion_stage(
             "rejected": rejected,
         },
         "overlay_image": overlay,
-        "summary": {
+            "summary": {
             "image_id": image_id,
             "pass_type": "sheet",
-            "instrument_tag_object_count": len(objects),
-            "matched_instrument_tag_count": len(accepted),
-            "rejected_instrument_tag_count": len(rejected),
+            "instrument_semantic_object_count": len(objects),
+            "matched_instrument_semantic_count": len(accepted),
+            "ocr_confirmed_instrument_semantic_count": confirmed_by_ocr,
+            "od_only_instrument_semantic_count": len([item for item in accepted if not item["ocr_confirmed"]]),
+            "rejected_instrument_semantic_count": len(rejected),
             "max_distance_px": max_distance_px,
         },
     }

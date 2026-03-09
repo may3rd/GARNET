@@ -90,6 +90,7 @@ def run_line_number_fusion_stage(
 
     accepted: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
+    confirmed_by_ocr = 0
     for idx, obj in enumerate(line_number_objects, start=1):
         bbox = obj["bbox"]
         candidates = _candidate_text_regions(bbox, text_regions, max_distance_px)
@@ -114,6 +115,10 @@ def run_line_number_fusion_stage(
             "ocr_region_id": None,
             "score": None,
             "distance_px": None,
+            "ocr_confirmed": False,
+            "detection_confidence": float(obj.get("confidence", 0.0)),
+            "fused_confidence": float(obj.get("confidence", 0.0)),
+            "semantic_class": "line_number",
         }
         if fused_text and _looks_like_line_number(fused_text):
             entry.update(
@@ -123,11 +128,15 @@ def run_line_number_fusion_stage(
                     "ocr_region_id": fused_region_ids,
                     "score": round(best_score, 4) if best_score != float("-inf") else None,
                     "distance_px": round(float(best_dist), 3) if best_dist is not None else None,
+                    "ocr_confirmed": True,
+                    "fused_confidence": max(float(obj.get("confidence", 0.0)), 0.95),
                 }
             )
+            confirmed_by_ocr += 1
+        if float(obj.get("confidence", 0.0)) >= 0.5 or entry["ocr_confirmed"]:
             accepted.append(entry)
-            continue
-        rejected.append(entry)
+        else:
+            rejected.append(entry)
 
     overlay = image_bgr.copy()
     for entry in accepted:
@@ -157,11 +166,13 @@ def run_line_number_fusion_stage(
             "rejected": rejected,
         },
         "overlay_image": overlay,
-        "summary": {
+            "summary": {
             "image_id": image_id,
             "pass_type": "sheet",
             "line_number_object_count": len(line_number_objects),
             "matched_line_number_count": len(accepted),
+            "ocr_confirmed_line_number_count": confirmed_by_ocr,
+            "od_only_line_number_count": len([item for item in accepted if not item["ocr_confirmed"]]),
             "rejected_line_number_count": len(rejected),
             "max_distance_px": max_distance_px,
         },

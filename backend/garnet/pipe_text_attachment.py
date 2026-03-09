@@ -63,6 +63,7 @@ def run_pipe_text_attachment_stage(
         or item.get("semantic_class") == text_class
         or ("source_object_id" in item and text_class == "line_number" and item.get("semantic_class") is None)
     ]
+    line_number_regions = [item for item in line_number_regions if str(item.get("text", "")).strip()]
     accepted: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
 
@@ -135,3 +136,48 @@ def run_pipe_text_attachment_stage(
             "text_class": text_class,
         },
     }
+
+
+def render_text_attachment_overlay(
+    *,
+    image_bgr: np.ndarray,
+    edges: list[dict[str, Any]],
+    attachments: list[dict[str, Any]],
+) -> np.ndarray:
+    overlay = image_bgr.copy()
+    for edge in edges:
+        polyline = edge.get("polyline", [])
+        for start, end in zip(polyline, polyline[1:]):
+            cv2.line(
+                overlay,
+                (int(start["col"]), int(start["row"])),
+                (int(end["col"]), int(end["row"])),
+                (120, 120, 120),
+                1,
+            )
+    for item in attachments:
+        bbox = item["bbox"]
+        label = str(item.get("text", ""))[:32]
+        color = (255, 0, 0)
+        if item.get("semantic_class") == "instrument_semantic":
+            color = (0, 165, 255)
+        cv2.rectangle(
+            overlay,
+            (int(bbox["x_min"]), int(bbox["y_min"])),
+            (int(bbox["x_max"]), int(bbox["y_max"])),
+            color,
+            2,
+        )
+        center_x = int(round((bbox["x_min"] + bbox["x_max"]) / 2))
+        center_y = int(round((bbox["y_min"] + bbox["y_max"]) / 2))
+        cv2.putText(
+            overlay,
+            label,
+            (center_x + 4, center_y - 4),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.35,
+            color,
+            1,
+            cv2.LINE_AA,
+        )
+    return overlay
