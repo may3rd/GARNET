@@ -804,6 +804,10 @@ class PipelineApiTests(unittest.TestCase):
             "attachments_payload": {"accepted": [], "rejected": []},
             "summary": {"accepted_attachment_count": 0},
         }
+        fake_text_attachment_result = {
+            "attachments_payload": {"accepted": [], "rejected": []},
+            "summary": {"accepted_attachment_count": 0},
+        }
         fake_graph_result = {
             "graph_payload": {"nodes": [], "edges": []},
             "summary": {"image_id": "sample.png", "pass_type": "sheet", "node_count": 0, "edge_count": 0},
@@ -819,6 +823,8 @@ class PipelineApiTests(unittest.TestCase):
             "garnet.pid_extractor.run_pipe_edge_stage", return_value=fake_edge_result
         ), patch("garnet.pid_extractor.run_pipe_junction_stage", return_value=fake_junction_review_result), patch(
             "garnet.pid_extractor.run_pipe_equipment_attachment_stage", return_value=fake_attachment_result
+        ), patch(
+            "garnet.pid_extractor.run_pipe_text_attachment_stage", return_value=fake_text_attachment_result
         ), patch(
             "garnet.pid_extractor.run_pipe_graph_stage", return_value=fake_graph_result
         ):
@@ -849,6 +855,8 @@ class PipelineApiTests(unittest.TestCase):
             artifact_names = {item["name"] for item in job_payload["artifacts"]}
             self.assertIn("stage12_equipment_attachments.json", artifact_names)
             self.assertIn("stage12_equipment_attachment_summary.json", artifact_names)
+            self.assertIn("stage12_text_attachments.json", artifact_names)
+            self.assertIn("stage12_text_attachment_summary.json", artifact_names)
             self.assertIn("stage12_graph.json", artifact_names)
             self.assertIn("stage12_graph_summary.json", artifact_names)
 

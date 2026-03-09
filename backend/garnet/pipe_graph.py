@@ -35,6 +35,7 @@ def run_pipe_graph_stage(
     confirmed_junctions: list[dict[str, Any]],
     unresolved_junctions: list[dict[str, Any]],
     equipment_attachments: list[dict[str, Any]] | None = None,
+    text_attachments: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     confirmed_ids = {str(item["id"]) for item in confirmed_junctions}
     unresolved_ids = {str(item["id"]) for item in unresolved_junctions}
@@ -52,6 +53,20 @@ def run_pipe_graph_stage(
     for node in nodes:
         graph.add_node(node["id"], **node)
 
+    accepted_text_attachments = text_attachments or []
+    edge_texts: dict[str, list[dict[str, Any]]] = {}
+    for attachment in accepted_text_attachments:
+        edge_id = attachment.get("edge_id")
+        if edge_id is None:
+            continue
+        edge_texts.setdefault(str(edge_id), []).append(
+            {
+                "region_id": attachment["region_id"],
+                "text": attachment["text"],
+                "normalized_text": attachment.get("normalized_text", ""),
+            }
+        )
+
     graph_edges: list[dict[str, Any]] = []
     for edge in edges:
         src = edge["source"]
@@ -67,6 +82,7 @@ def run_pipe_graph_stage(
                 "pixel_length": edge.get("pixel_length", 0),
                 "polyline": edge.get("polyline", []),
                 "review_state": "provisional",
+                "line_texts": edge_texts.get(str(edge["id"]), []),
             }
         )
 
@@ -128,6 +144,7 @@ def run_pipe_graph_stage(
             "edges": graph_edges,
             "unresolved_junction_ids": sorted(unresolved_ids),
             "equipment_attachments": accepted_attachments,
+            "text_attachments": accepted_text_attachments,
         },
         "summary": {
             "image_id": image_id,
@@ -137,6 +154,7 @@ def run_pipe_graph_stage(
             "connected_component_count": nx.number_connected_components(graph) if graph.number_of_nodes() else 0,
             "unresolved_junction_count": len(unresolved_ids),
             "accepted_attachment_count": len(accepted_attachments),
+            "accepted_text_attachment_count": len(accepted_text_attachments),
             "source_artifacts": [
                 "stage9_node_clusters.json",
                 "stage10_pipe_edges.json",

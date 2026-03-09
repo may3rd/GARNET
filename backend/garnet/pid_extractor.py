@@ -29,6 +29,7 @@ from garnet.pipe_equipment_attachment import run_pipe_equipment_attachment_stage
 from garnet.pipe_graph import run_pipe_graph_stage
 from garnet.pipe_graph_qa import run_pipe_graph_qa_stage
 from garnet.pipe_junctions import run_pipe_junction_stage
+from garnet.pipe_text_attachment import run_pipe_text_attachment_stage
 from garnet.paddle_ocr_sahi import PaddleOcrSahiConfig, run_paddle_ocr_sahi
 from garnet.pipe_mask import run_pipe_mask_stage
 from garnet.pipe_node_clusters import run_pipe_node_cluster_stage
@@ -109,6 +110,7 @@ class PipelineConfig:
     )
     equipment_attachment_max_distance_px: float = 48.0
     equipment_attachment_k_candidate_edges: int = 10
+    line_text_attachment_max_distance_px: float = 80.0
 
 
 class PIDPipeline:
@@ -569,6 +571,7 @@ class PIDPipeline:
     # ---------- Stage 12 ----------
     def stage12_graph_assembly(self) -> None:
         object_payload = self._load_json_artifact("stage4_objects")
+        text_payload = self._load_json_artifact("stage2_ocr_regions")
         node_clusters_payload = self._load_json_artifact("stage9_node_clusters")
         edges_payload = self._load_json_artifact("stage10_pipe_edges")
         junctions_payload = self._load_json_artifact("stage11_junctions")
@@ -580,6 +583,12 @@ class PIDPipeline:
             max_distance_px=self.cfg.equipment_attachment_max_distance_px,
             k_candidate_edges=self.cfg.equipment_attachment_k_candidate_edges,
         )
+        text_attachment_result = run_pipe_text_attachment_stage(
+            image_id=Path(self.image_path).name,
+            text_regions=text_payload.get("text_regions", []),
+            edges=edges_payload.get("edges", []),
+            max_distance_px=self.cfg.line_text_attachment_max_distance_px,
+        )
 
         graph_result = run_pipe_graph_stage(
             image_id=Path(self.image_path).name,
@@ -588,9 +597,12 @@ class PIDPipeline:
             confirmed_junctions=junctions_payload.get("confirmed_junctions", []),
             unresolved_junctions=junctions_payload.get("unresolved_junctions", []),
             equipment_attachments=attachment_result["attachments_payload"].get("accepted", []),
+            text_attachments=text_attachment_result["attachments_payload"].get("accepted", []),
         )
         self._save_json("stage12_equipment_attachments", attachment_result["attachments_payload"])
         self._save_json("stage12_equipment_attachment_summary", attachment_result["summary"])
+        self._save_json("stage12_text_attachments", text_attachment_result["attachments_payload"])
+        self._save_json("stage12_text_attachment_summary", text_attachment_result["summary"])
         self._save_json("stage12_graph", graph_result["graph_payload"])
         self._save_json("stage12_graph_summary", graph_result["summary"])
 
