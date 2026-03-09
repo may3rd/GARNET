@@ -28,12 +28,23 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   const imageArtifacts = job.artifacts.filter((artifact) => /\.(png|jpg|jpeg|webp)$/i.test(artifact.name))
   const jsonArtifacts = job.artifacts.filter((artifact) => artifact.name.endsWith('.json'))
   const route = job.manifest?.ocr_route ?? job.ocr_route
+  const spotlightImageArtifacts = useMemo(
+    () =>
+      imageArtifacts.filter((artifact) =>
+        [
+          'stage4_line_number_overlay.png',
+          'stage12_text_attachment_overlay.png',
+        ].includes(artifact.name)
+      ),
+    [imageArtifacts]
+  )
   const summaryArtifacts = useMemo(
     () =>
       jsonArtifacts.filter((artifact) =>
         [
           'stage2_ocr_summary.json',
           'stage4_objects_summary.json',
+          'stage4_line_number_summary.json',
           'stage5_pipe_mask_summary.json',
           'stage6_pipe_mask_sealed_summary.json',
           'stage7_pipe_skeleton_summary.json',
@@ -41,6 +52,8 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
           'stage9_node_cluster_summary.json',
           'stage10_pipe_edge_summary.json',
           'stage11_junction_review_summary.json',
+          'stage12_equipment_attachment_summary.json',
+          'stage12_text_attachment_summary.json',
           'stage12_graph_summary.json',
           'stage13_graph_qa_summary.json',
         ].includes(artifact.name)
@@ -103,6 +116,26 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
         </div>
 
         <SummaryCard
+          title="Line Numbers"
+          entries={[
+            ['Detected Tags', jsonSummaries['stage4_line_number_summary.json']?.line_number_object_count],
+            ['Matched OCR', jsonSummaries['stage4_line_number_summary.json']?.matched_line_number_count],
+            ['Rejected Tags', jsonSummaries['stage4_line_number_summary.json']?.rejected_line_number_count],
+            ['Attach Candidates', jsonSummaries['stage12_text_attachment_summary.json']?.candidate_count],
+          ]}
+        />
+
+        <SummaryCard
+          title="Attachments"
+          entries={[
+            ['Equipment Attached', jsonSummaries['stage12_equipment_attachment_summary.json']?.accepted_attachment_count],
+            ['Equipment Rejected', jsonSummaries['stage12_equipment_attachment_summary.json']?.rejected_attachment_count],
+            ['Text Attached', jsonSummaries['stage12_text_attachment_summary.json']?.accepted_attachment_count],
+            ['Text Rejected', jsonSummaries['stage12_text_attachment_summary.json']?.rejected_attachment_count],
+          ]}
+        />
+
+        <SummaryCard
           title="Graph Summary"
           entries={[
             ['Nodes', jsonSummaries['stage12_graph_summary.json']?.node_count],
@@ -139,6 +172,20 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
           </div>
 
           <div className="space-y-6">
+            {spotlightImageArtifacts.length > 0 && (
+              <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-5">
+                <div className="text-sm font-semibold">Line Number Review</div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  {spotlightImageArtifacts.map((artifact) => (
+                    <div key={artifact.name} className="rounded-xl border border-[var(--border-muted)] bg-[var(--bg-primary)] p-3">
+                      <div className="mb-2 text-xs font-semibold text-[var(--text-secondary)]">{artifact.name}</div>
+                      <img src={artifact.url} alt={artifact.name} className="w-full rounded-lg border border-[var(--border-muted)]" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-5">
               <div className="text-sm font-semibold">Image Artifacts</div>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
