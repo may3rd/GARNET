@@ -984,8 +984,11 @@ async def create_pipeline_job(
     gemini_postprocess_match_threshold: float = Form(0.1),
 ):
     validate_image_file(file_input)
-    if stop_after not in {1, 2, 4, 5}:
-        raise HTTPException(status_code=400, detail="Pipeline currently supports stop_after=1, stop_after=2, stop_after=4, or stop_after=5")
+    if stop_after not in {1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}:
+        raise HTTPException(
+            status_code=400,
+            detail="Pipeline currently supports stop_after=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, or 13",
+        )
     if ocr_route not in {"easyocr", "gemini", "paddleocr"}:
         raise HTTPException(status_code=400, detail="Invalid ocr_route. Expected 'easyocr', 'gemini', or 'paddleocr'")
     if not 0 <= gemini_postprocess_match_threshold <= 1:

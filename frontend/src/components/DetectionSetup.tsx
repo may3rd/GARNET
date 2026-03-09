@@ -278,10 +278,10 @@ export function DetectionSetup() {
             </label>
             <div className="text-xs text-[var(--text-secondary)] bg-[var(--bg-primary)] border border-[var(--border-muted)] p-3 rounded-lg">
               {pipelineOcrRoute === 'easyocr'
-                ? 'Pipeline mode runs Stage 1 normalization, the selected Stage 2 OCR route, Stage 4 fixed-baseline object detection, and Stage 5 provisional pipe-mask generation.'
+                ? 'Pipeline mode now runs the full staged review flow through Stage 13: normalization, OCR, object detection, pipe mask, sealing, skeleton, node extraction, clustering, edge tracing, junction review, graph assembly, and graph QA.'
                 : pipelineOcrRoute === 'paddleocr'
-                ? 'Pipeline mode runs Stage 1 normalization, the selected Stage 2 OCR route, Stage 4 fixed-baseline object detection, and Stage 5 provisional pipe-mask generation.'
-                : 'Pipeline mode runs Stage 1 normalization, the selected Stage 2 OCR route, Stage 4 fixed-baseline object detection, and Stage 5 provisional pipe-mask generation.'}
+                ? 'Pipeline mode now runs the full staged review flow through Stage 13: normalization, OCR, object detection, pipe mask, sealing, skeleton, node extraction, clustering, edge tracing, junction review, graph assembly, and graph QA.'
+                : 'Pipeline mode now runs the full staged review flow through Stage 13: normalization, OCR, object detection, pipe mask, sealing, skeleton, node extraction, clustering, edge tracing, junction review, graph assembly, and graph QA.'}
             </div>
             {pipelineOcrRoute === 'gemini' && (
               <div className="space-y-2">
