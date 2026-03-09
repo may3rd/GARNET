@@ -51,7 +51,11 @@ def run_pipe_text_attachment_stage(
     edges: list[dict[str, Any]],
     max_distance_px: float = 80.0,
 ) -> dict[str, Any]:
-    line_number_regions = [item for item in text_regions if item.get("class") == "line_number"]
+    line_number_regions = [
+        item
+        for item in text_regions
+        if item.get("class") == "line_number" or "source_object_id" in item
+    ]
     accepted: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
 
@@ -59,7 +63,7 @@ def run_pipe_text_attachment_stage(
         center = _center_from_bbox(region["bbox"])
         edge_id, distance_px = _nearest_edge(center, edges)
         payload = {
-            "region_id": region["id"],
+            "region_id": region.get("id", region.get("source_object_id")),
             "text": region["text"],
             "normalized_text": region.get("normalized_text", ""),
             "bbox": region["bbox"],

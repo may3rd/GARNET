@@ -22,6 +22,7 @@ import numpy as np
 from dotenv import load_dotenv
 from garnet.easyocr_sahi import EasyOcrSahiConfig, run_easyocr_sahi
 from garnet.gemini_ocr_sahi import GeminiOcrSahiConfig, run_gemini_ocr_sahi
+from garnet.line_number_fusion import run_line_number_fusion_stage
 from garnet.model_defaults import pick_default_weight_file
 from garnet.object_detection_sahi import DetectionSahiConfig, run_object_detection_sahi
 from garnet.pipe_edges import run_pipe_edge_stage
@@ -89,6 +90,7 @@ class PipelineConfig:
     detection_postprocess_type: str = "GREEDYNMM"
     detection_postprocess_match_metric: str = "IOS"
     detection_postprocess_match_threshold: float = 0.1
+    line_number_fusion_max_distance_px: float = 80.0
     pipe_mask_ocr_padding: int = 1
     pipe_mask_object_inset: int = 1
     pipe_mask_min_component_area: int = 16
@@ -137,6 +139,7 @@ class PIDPipeline:
             (1, "stage1_input_normalization", self.stage1_input_normalization),
             (2, "stage2_ocr_discovery", self.stage2_ocr_discovery),
             (4, "stage4_object_detection", self.stage4_object_detection),
+            (4, "stage4_line_number_fusion", self.stage4_line_number_fusion),
             (5, "stage5_pipe_mask", self.stage5_pipe_mask),
             (6, "stage6_morphological_sealing", self.stage6_morphological_sealing),
             (7, "stage7_skeleton_generation", self.stage7_skeleton_generation),
@@ -388,6 +391,18 @@ class PIDPipeline:
         self._save_json("stage4_objects_summary", detection_result["summary"])
         self._save_img("stage4_objects_overlay", detection_result["overlay_image"])
 
+    def stage4_line_number_fusion(self) -> None:
+        object_payload = self._load_json_artifact("stage4_objects")
+        ocr_payload = self._load_json_artifact("stage2_ocr_regions")
+        fusion_result = run_line_number_fusion_stage(
+            image_id=Path(self.image_path).name,
+            object_regions=object_payload.get("objects", []),
+            text_regions=ocr_payload.get("text_regions", []),
+            max_distance_px=self.cfg.line_number_fusion_max_distance_px,
+        )
+        self._save_json("stage4_line_numbers", fusion_result["line_numbers_payload"])
+        self._save_json("stage4_line_number_summary", fusion_result["summary"])
+
     # ---------- Stage 5 ----------
     def stage5_pipe_mask(self) -> None:
         gray_path = self.out_dir / "stage1_gray.png"
@@ -571,7 +586,7 @@ class PIDPipeline:
     # ---------- Stage 12 ----------
     def stage12_graph_assembly(self) -> None:
         object_payload = self._load_json_artifact("stage4_objects")
-        text_payload = self._load_json_artifact("stage2_ocr_regions")
+        text_payload = self._load_json_artifact("stage4_line_numbers")
         node_clusters_payload = self._load_json_artifact("stage9_node_clusters")
         edges_payload = self._load_json_artifact("stage10_pipe_edges")
         junctions_payload = self._load_json_artifact("stage11_junctions")
@@ -585,7 +600,7 @@ class PIDPipeline:
         )
         text_attachment_result = run_pipe_text_attachment_stage(
             image_id=Path(self.image_path).name,
-            text_regions=text_payload.get("text_regions", []),
+            text_regions=text_payload.get("line_numbers", []),
             edges=edges_payload.get("edges", []),
             max_distance_px=self.cfg.line_text_attachment_max_distance_px,
         )

@@ -138,9 +138,15 @@ class PipelineApiTests(unittest.TestCase):
             },
             "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
         }
+        fake_line_number_fusion_result = {
+            "line_numbers_payload": {"line_numbers": [], "rejected": []},
+            "summary": {"matched_line_number_count": 0},
+        }
 
         with patch("garnet.pid_extractor.run_easyocr_sahi", return_value=fake_ocr_result), patch(
             "garnet.pid_extractor.run_object_detection_sahi", return_value=fake_detection_result
+        ), patch(
+            "garnet.pid_extractor.run_line_number_fusion_stage", return_value=fake_line_number_fusion_result
         ):
             with sample_path.open("rb") as f:
                 response = client.post(
@@ -165,11 +171,13 @@ class PipelineApiTests(unittest.TestCase):
             self.assertIsNotNone(job_payload)
             assert job_payload is not None
             self.assertEqual(job_payload["status"], "completed")
-            self.assertEqual(job_payload["current_stage"], "stage4_object_detection")
+            self.assertEqual(job_payload["current_stage"], "stage4_line_number_fusion")
             artifact_names = {item["name"] for item in job_payload["artifacts"]}
             self.assertIn("stage4_objects.json", artifact_names)
             self.assertIn("stage4_objects_summary.json", artifact_names)
             self.assertIn("stage4_objects_overlay.png", artifact_names)
+            self.assertIn("stage4_line_numbers.json", artifact_names)
+            self.assertIn("stage4_line_number_summary.json", artifact_names)
 
     def test_pipeline_job_runs_stage5_and_reports_pipe_mask_artifacts(self) -> None:
         client = TestClient(app)

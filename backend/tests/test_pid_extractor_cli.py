@@ -30,6 +30,9 @@ class FakePipeline(pid_extractor.PIDPipeline):
     def stage4_object_detection(self) -> None:
         self._record("stage4")
 
+    def stage4_line_number_fusion(self) -> None:
+        self._record("stage4")
+
     def stage5_pipe_mask(self) -> None:
         self._record("stage5")
 
@@ -69,6 +72,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                 "stage1_input_normalization",
                 "stage2_ocr_discovery",
                 "stage4_object_detection",
+                "stage4_line_number_fusion",
                 "stage5_pipe_mask",
                 "stage6_morphological_sealing",
                 "stage7_skeleton_generation",
@@ -87,7 +91,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
 
             pipe.run(stop_after=13)
 
-            self.assertEqual(pipe.called, ["stage1", "stage2", "stage4", "stage5", "stage6", "stage7", "stage8", "stage9", "stage10", "stage11", "stage12", "stage13"])
+            self.assertEqual(pipe.called, ["stage1", "stage2", "stage4", "stage4", "stage5", "stage6", "stage7", "stage8", "stage9", "stage10", "stage11", "stage12", "stage13"])
             manifest = json.loads((Path(tmp) / "stage_manifest.json").read_text())
             self.assertEqual(manifest["stop_after"], 13)
             self.assertEqual(
@@ -96,6 +100,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                     "stage1_input_normalization",
                     "stage2_ocr_discovery",
                     "stage4_object_detection",
+                    "stage4_line_number_fusion",
                     "stage5_pipe_mask",
                     "stage6_morphological_sealing",
                     "stage7_skeleton_generation",
@@ -229,7 +234,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                                 "confidence": 0.91,
                                 "bbox": {"x_min": 1, "y_min": 2, "x_max": 11, "y_max": 12},
                                 "source_model": "ultralytics",
-                                "source_weight": "yolo_weights/yolo11n_PPCL_640_20250204.pt",
+                                "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt",
                             }
                         ],
                     },
@@ -237,7 +242,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                         "image_id": "image.png",
                         "pass_type": "sheet",
                         "route": "ultralytics",
-                        "source_weight": "yolo_weights/yolo11n_PPCL_640_20250204.pt",
+                        "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt",
                     },
                     "overlay_image": np.zeros((20, 20, 3), dtype=np.uint8),
                 }
@@ -249,7 +254,25 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "stage4_objects_summary.json").exists())
             self.assertTrue((Path(tmp) / "stage4_objects_overlay.png").exists())
             summary = json.loads((Path(tmp) / "stage4_objects_summary.json").read_text())
-            self.assertEqual(summary["source_weight"], "yolo_weights/yolo11n_PPCL_640_20250204.pt")
+            self.assertEqual(summary["source_weight"], "yolo_weights/yolo26n_PPCL_640_20260227.pt")
+
+    def test_stage4_line_number_fusion_writes_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
+            pipe._save_json("stage4_objects", {"objects": []})
+            pipe._save_json("stage2_ocr_regions", {"text_regions": []})
+
+            with patch("garnet.pid_extractor.run_line_number_fusion_stage") as mock_line_fusion:
+                mock_line_fusion.return_value = {
+                    "line_numbers_payload": {"line_numbers": [], "rejected": []},
+                    "summary": {"matched_line_number_count": 0},
+                }
+
+                pipe.stage4_line_number_fusion()
+
+            mock_line_fusion.assert_called_once()
+            self.assertTrue((Path(tmp) / "stage4_line_numbers.json").exists())
+            self.assertTrue((Path(tmp) / "stage4_line_number_summary.json").exists())
 
     def test_stage5_writes_pipe_mask_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -451,6 +474,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
             pipe._save_json("stage4_objects", {"objects": []})
             pipe._save_json("stage2_ocr_regions", {"text_regions": []})
+            pipe._save_json("stage4_line_numbers", {"line_numbers": []})
             pipe._save_json("stage9_node_clusters", {"clusters": []})
             pipe._save_json("stage10_pipe_edges", {"edges": []})
             pipe._save_json("stage11_junctions", {"confirmed_junctions": [], "unresolved_junctions": []})
