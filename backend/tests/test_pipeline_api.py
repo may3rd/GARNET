@@ -456,6 +456,94 @@ class PipelineApiTests(unittest.TestCase):
             self.assertIn("stage8_nodes_overlay.png", artifact_names)
             self.assertIn("stage8_node_summary.json", artifact_names)
 
+    def test_pipeline_job_runs_stage9_and_reports_node_cluster_artifacts(self) -> None:
+        client = TestClient(app)
+        sample_path = Path(__file__).resolve().parents[1] / "sample.png"
+
+        fake_ocr_result = {
+            "regions_payload": {"image_id": "sample.png", "pass_type": "sheet", "text_regions": []},
+            "summary": {"image_id": "sample.png", "pass_type": "sheet"},
+            "exception_candidates": [],
+            "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
+        }
+        fake_detection_result = {
+            "objects_payload": {"image_id": "sample.png", "pass_type": "sheet", "objects": []},
+            "summary": {
+                "image_id": "sample.png",
+                "pass_type": "sheet",
+                "route": "ultralytics",
+                "object_count": 0,
+                "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt",
+            },
+            "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
+        }
+        fake_pipe_mask_result = {
+            "mask_image": np.zeros((50, 100), dtype=np.uint8),
+            "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
+            "summary": {"image_id": "sample.png", "pass_type": "sheet", "mask_pixel_count": 42},
+        }
+        fake_pipe_seal_result = {
+            "sealed_mask_image": np.zeros((50, 100), dtype=np.uint8),
+            "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
+            "summary": {"image_id": "sample.png", "pass_type": "sheet", "mask_pixel_count": 40},
+        }
+        fake_skeleton_result = {
+            "skeleton_image": np.zeros((50, 100), dtype=np.uint8),
+            "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
+            "summary": {"image_id": "sample.png", "pass_type": "sheet", "skeleton_pixel_count": 15},
+        }
+        fake_node_result = {
+            "endpoint_image": np.zeros((50, 100), dtype=np.uint8),
+            "junction_image": np.zeros((50, 100), dtype=np.uint8),
+            "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
+            "summary": {"image_id": "sample.png", "pass_type": "sheet", "endpoint_count": 4, "junction_count": 1},
+        }
+        fake_cluster_result = {
+            "endpoint_cluster_image": np.zeros((50, 100), dtype=np.uint8),
+            "junction_cluster_image": np.zeros((50, 100), dtype=np.uint8),
+            "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
+            "clusters_payload": {"clusters": []},
+            "summary": {"image_id": "sample.png", "pass_type": "sheet", "endpoint_cluster_count": 2, "junction_cluster_count": 1},
+        }
+
+        with patch("garnet.pid_extractor.run_easyocr_sahi", return_value=fake_ocr_result), patch(
+            "garnet.pid_extractor.run_object_detection_sahi", return_value=fake_detection_result
+        ), patch("garnet.pid_extractor.run_pipe_mask_stage", return_value=fake_pipe_mask_result), patch(
+            "garnet.pid_extractor.run_pipe_seal_stage", return_value=fake_pipe_seal_result
+        ), patch("garnet.pid_extractor.run_pipe_skeleton_stage", return_value=fake_skeleton_result), patch(
+            "garnet.pid_extractor.run_pipe_node_stage", return_value=fake_node_result
+        ), patch("garnet.pid_extractor.run_pipe_node_cluster_stage", return_value=fake_cluster_result):
+            with sample_path.open("rb") as f:
+                response = client.post(
+                    "/api/pipeline/jobs",
+                    files={"file_input": ("sample.png", f, "image/png")},
+                    data={"stop_after": "9", "ocr_route": "easyocr"},
+                )
+
+            self.assertEqual(response.status_code, 200)
+            job_id = response.json()["job_id"]
+
+            deadline = time.time() + 10
+            job_payload = None
+            while time.time() < deadline:
+                poll = client.get(f"/api/pipeline/jobs/{job_id}")
+                self.assertEqual(poll.status_code, 200)
+                job_payload = poll.json()
+                if job_payload["status"] in {"completed", "failed"}:
+                    break
+                time.sleep(0.1)
+
+            self.assertIsNotNone(job_payload)
+            assert job_payload is not None
+            self.assertEqual(job_payload["status"], "completed")
+            self.assertEqual(job_payload["current_stage"], "stage9_node_clustering")
+            artifact_names = {item["name"] for item in job_payload["artifacts"]}
+            self.assertIn("stage9_endpoint_clusters.png", artifact_names)
+            self.assertIn("stage9_junction_clusters.png", artifact_names)
+            self.assertIn("stage9_node_clusters_overlay.png", artifact_names)
+            self.assertIn("stage9_node_clusters.json", artifact_names)
+            self.assertIn("stage9_node_cluster_summary.json", artifact_names)
+
     def test_pipeline_job_rejects_missing_ocr_route(self) -> None:
         client = TestClient(app)
         sample_path = Path(__file__).resolve().parents[1] / "sample.png"

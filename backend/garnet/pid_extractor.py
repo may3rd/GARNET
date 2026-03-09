@@ -26,6 +26,7 @@ from garnet.model_defaults import pick_default_weight_file
 from garnet.object_detection_sahi import DetectionSahiConfig, run_object_detection_sahi
 from garnet.paddle_ocr_sahi import PaddleOcrSahiConfig, run_paddle_ocr_sahi
 from garnet.pipe_mask import run_pipe_mask_stage
+from garnet.pipe_node_clusters import run_pipe_node_cluster_stage
 from garnet.pipe_nodes import run_pipe_node_stage
 from garnet.pipe_seal import run_pipe_seal_stage
 from garnet.pipe_skeleton import run_pipe_skeleton_stage
@@ -88,6 +89,8 @@ class PipelineConfig:
     pipe_seal_horizontal_close_kernel: int = 5
     pipe_seal_vertical_close_kernel: int = 5
     pipe_seal_min_component_area: int = 16
+    node_cluster_eps: float = 6.0
+    node_cluster_min_samples: int = 1
 
 
 class PIDPipeline:
@@ -118,6 +121,7 @@ class PIDPipeline:
             (6, "stage6_morphological_sealing", self.stage6_morphological_sealing),
             (7, "stage7_skeleton_generation", self.stage7_skeleton_generation),
             (8, "stage8_skeleton_node_detection", self.stage8_skeleton_node_detection),
+            (9, "stage9_node_clustering", self.stage9_node_clustering),
         ]
 
     def _manifest_path(self) -> Path:
@@ -461,13 +465,41 @@ class PIDPipeline:
         self._save_img("stage8_nodes_overlay", node_result["overlay_image"])
         self._save_json("stage8_node_summary", node_result["summary"])
 
+    # ---------- Stage 9 ----------
+    def stage9_node_clustering(self) -> None:
+        endpoints_path = self.out_dir / "stage8_endpoints.png"
+        junctions_path = self.out_dir / "stage8_junctions.png"
+        if not endpoints_path.exists() or not junctions_path.exists():
+            raise FileNotFoundError("Stage 9 requires Stage 8 endpoint and junction artifacts")
+        if cv2 is None:
+            raise RuntimeError("cv2 is required for Stage 9 node clustering")
+
+        endpoint_mask = cv2.imread(str(endpoints_path), cv2.IMREAD_GRAYSCALE)
+        junction_mask = cv2.imread(str(junctions_path), cv2.IMREAD_GRAYSCALE)
+        if endpoint_mask is None or junction_mask is None:
+            raise RuntimeError("Failed to load Stage 8 node masks")
+
+        cluster_result = run_pipe_node_cluster_stage(
+            image_bgr=self._ensure_image_loaded(),
+            endpoint_mask=endpoint_mask,
+            junction_mask=junction_mask,
+            image_id=Path(self.image_path).name,
+            cluster_eps=self.cfg.node_cluster_eps,
+            cluster_min_samples=self.cfg.node_cluster_min_samples,
+        )
+        self._save_img("stage9_endpoint_clusters", cluster_result["endpoint_cluster_image"])
+        self._save_img("stage9_junction_clusters", cluster_result["junction_cluster_image"])
+        self._save_img("stage9_node_clusters_overlay", cluster_result["overlay_image"])
+        self._save_json("stage9_node_clusters", cluster_result["clusters_payload"])
+        self._save_json("stage9_node_cluster_summary", cluster_result["summary"])
+
 
 def main() -> None:
     parser = argparse.ArgumentParser("P&ID pipeline")
     parser.add_argument("--image", required=True)
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     parser.add_argument("--ocr-route", choices=["easyocr", "gemini", "paddleocr"], default="easyocr")
-    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, 7, or 8)")
+    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, 7, 8, or 9)")
     args = parser.parse_args()
     pipe = PIDPipeline(args.image, out_dir=args.out, cfg=PipelineConfig(ocr_route=args.ocr_route))
     pipe.run(stop_after=args.stop_after)

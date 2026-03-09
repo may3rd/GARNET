@@ -42,6 +42,9 @@ class FakePipeline(pid_extractor.PIDPipeline):
     def stage8_skeleton_node_detection(self) -> None:
         self._record("stage8")
 
+    def stage9_node_clustering(self) -> None:
+        self._record("stage9")
+
 class PIDPipelineRunnerTests(unittest.TestCase):
     def test_stage_definitions_follow_master_plan_order(self) -> None:
         pipe = FakePipeline(tempfile.mkdtemp())
@@ -58,6 +61,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                 "stage6_morphological_sealing",
                 "stage7_skeleton_generation",
                 "stage8_skeleton_node_detection",
+                "stage9_node_clustering",
             ],
         )
 
@@ -65,11 +69,11 @@ class PIDPipelineRunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             pipe = FakePipeline(tmp)
 
-            pipe.run(stop_after=8)
+            pipe.run(stop_after=9)
 
-            self.assertEqual(pipe.called, ["stage1", "stage2", "stage4", "stage5", "stage6", "stage7", "stage8"])
+            self.assertEqual(pipe.called, ["stage1", "stage2", "stage4", "stage5", "stage6", "stage7", "stage8", "stage9"])
             manifest = json.loads((Path(tmp) / "stage_manifest.json").read_text())
-            self.assertEqual(manifest["stop_after"], 8)
+            self.assertEqual(manifest["stop_after"], 9)
             self.assertEqual(
                 [item["name"] for item in manifest["stages"]],
                 [
@@ -80,6 +84,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                     "stage6_morphological_sealing",
                     "stage7_skeleton_generation",
                     "stage8_skeleton_node_detection",
+                    "stage9_node_clustering",
                 ],
             )
             self.assertTrue(all(item["status"] == "completed" for item in manifest["stages"]))
@@ -89,14 +94,14 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             pipe = FakePipeline(tmp)
 
             with self.assertRaisesRegex(ValueError, "stop_after must be one of"):
-                pipe.run(stop_after=9)
+                pipe.run(stop_after=10)
 
     def test_run_writes_failed_stage_to_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             pipe = FakePipeline(tmp, fail_stage=2)
 
             with self.assertRaisesRegex(RuntimeError, "stage2 failed"):
-                pipe.run(stop_after=8)
+                pipe.run(stop_after=9)
 
             manifest = json.loads((Path(tmp) / "stage_manifest.json").read_text())
             self.assertEqual(manifest["stages"][0]["status"], "completed")
@@ -335,6 +340,36 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "stage8_junctions.png").exists())
             self.assertTrue((Path(tmp) / "stage8_nodes_overlay.png").exists())
             self.assertTrue((Path(tmp) / "stage8_node_summary.json").exists())
+
+    def test_stage9_writes_node_cluster_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
+            pipe.image_bgr = np.zeros((20, 20, 3), dtype=np.uint8)
+            pipe._save_img("stage8_endpoints", np.zeros((20, 20), dtype=np.uint8))
+            pipe._save_img("stage8_junctions", np.zeros((20, 20), dtype=np.uint8))
+
+            with patch("garnet.pid_extractor.run_pipe_node_cluster_stage") as mock_pipe_clusters:
+                mock_pipe_clusters.return_value = {
+                    "endpoint_cluster_image": np.zeros((20, 20), dtype=np.uint8),
+                    "junction_cluster_image": np.zeros((20, 20), dtype=np.uint8),
+                    "overlay_image": np.zeros((20, 20, 3), dtype=np.uint8),
+                    "clusters_payload": {"clusters": []},
+                    "summary": {
+                        "image_id": "image.png",
+                        "pass_type": "sheet",
+                        "endpoint_cluster_count": 2,
+                        "junction_cluster_count": 1,
+                    },
+                }
+
+                pipe.stage9_node_clustering()
+
+            mock_pipe_clusters.assert_called_once()
+            self.assertTrue((Path(tmp) / "stage9_endpoint_clusters.png").exists())
+            self.assertTrue((Path(tmp) / "stage9_junction_clusters.png").exists())
+            self.assertTrue((Path(tmp) / "stage9_node_clusters_overlay.png").exists())
+            self.assertTrue((Path(tmp) / "stage9_node_clusters.json").exists())
+            self.assertTrue((Path(tmp) / "stage9_node_cluster_summary.json").exists())
 
 
 if __name__ == "__main__":
