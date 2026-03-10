@@ -172,6 +172,39 @@ class PipeTextAttachmentTests(unittest.TestCase):
 
         self.assertEqual(result["summary"]["accepted_attachment_count"], 1)
 
+    def test_run_pipe_text_attachment_stage_uses_adaptive_threshold_for_long_line_number(self) -> None:
+        text_regions = [
+            {
+                "id": "ocr_1",
+                "text": '-6"-NAS-25-003003-B2A2-NI',
+                "normalized_text": '-6"-NAS-25-003003-B2A2-NI',
+                "class": "line_number",
+                "bbox": {"x_min": 0, "y_min": 0, "x_max": 160, "y_max": 28},
+            }
+        ]
+        edges = [
+            {
+                "id": "edge_1",
+                "source": "n1",
+                "target": "n2",
+                "polyline": [
+                    {"row": 160, "col": 200},
+                    {"row": 180, "col": 220},
+                ],
+            }
+        ]
+
+        result = run_pipe_text_attachment_stage(
+            image_id="sample.png",
+            image_bgr=np.zeros((240, 260, 3), dtype=np.uint8),
+            text_regions=text_regions,
+            edges=edges,
+            max_distance_px=80.0,
+        )
+
+        self.assertEqual(result["summary"]["accepted_attachment_count"], 1)
+        self.assertGreater(result["attachments_payload"]["accepted"][0]["threshold_px"], 140.0)
+
     def test_run_line_number_fusion_stage_rejects_tiny_detection_only_fragment(self) -> None:
         object_regions = [
             {

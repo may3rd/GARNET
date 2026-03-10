@@ -50,6 +50,21 @@ def _sample_bbox_points(bbox: dict[str, int]) -> list[tuple[float, float]]:
     ]
 
 
+def _adaptive_attachment_threshold(region: dict[str, Any], base_threshold_px: float, text_class: str) -> float:
+    if text_class != "line_number":
+        return float(base_threshold_px)
+    bbox = region["bbox"]
+    width = max(0.0, float(bbox["x_max"]) - float(bbox["x_min"]))
+    height = max(1.0, float(bbox["y_max"]) - float(bbox["y_min"]))
+    normalized_text = str(region.get("normalized_text") or region.get("text") or "")
+    major_digit_groups = len([m for m in normalized_text.split("-") if any(ch.isdigit() for ch in m) and len("".join(ch for ch in m if ch.isdigit())) >= 3])
+    width_bonus = min(70.0, width * 0.45)
+    length_bonus = min(35.0, max(0, len(normalized_text) - 18) * 1.8)
+    digit_group_bonus = min(20.0, max(0, major_digit_groups - 1) * 10.0)
+    slender_bonus = 12.0 if width > height * 4.0 else 0.0
+    return min(180.0, float(base_threshold_px) + width_bonus + length_bonus + digit_group_bonus + slender_bonus)
+
+
 def _nearest_edge(bbox: dict[str, int], edges: list[dict[str, Any]]) -> tuple[str | None, float]:
     best_edge_id = None
     best_dist = float("inf")
@@ -91,6 +106,7 @@ def run_pipe_text_attachment_stage(
 
     for region in line_number_regions:
         edge_id, distance_px = _nearest_edge(region["bbox"], edges)
+        threshold_px = _adaptive_attachment_threshold(region, max_distance_px, text_class)
         payload = {
             "region_id": region.get("id", region.get("source_object_id")),
             "text": region["text"],
@@ -98,8 +114,9 @@ def run_pipe_text_attachment_stage(
             "bbox": region["bbox"],
             "edge_id": edge_id,
             "distance_px": None if math.isinf(distance_px) else round(float(distance_px), 3),
+            "threshold_px": round(float(threshold_px), 3),
         }
-        if edge_id is not None and distance_px <= max_distance_px:
+        if edge_id is not None and distance_px <= threshold_px:
             accepted.append(payload)
         else:
             rejected.append(payload)
