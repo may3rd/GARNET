@@ -190,12 +190,19 @@ export function ObjectSidebar({
       if (prev.has(groupKey)) return prev
       return new Set(prev).add(groupKey)
     })
-    // Scroll to selected item after a brief delay for DOM update
-    const timeoutId = setTimeout(() => {
-      selectedItemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-    }, 50)
-    return () => clearTimeout(timeoutId)
-  }, [selectedObjectKey, objects])
+    // Scroll after DOM update so the selected item is visible even when group expansion just changed.
+    let frameA = 0
+    let frameB = 0
+    frameA = window.requestAnimationFrame(() => {
+      frameB = window.requestAnimationFrame(() => {
+        selectedItemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      })
+    })
+    return () => {
+      window.cancelAnimationFrame(frameA)
+      window.cancelAnimationFrame(frameB)
+    }
+  }, [selectedObjectKey, objects, filteredVisible.length])
 
   const MAX_GROUP_ITEMS = 200
   const MIN_BOX_SIZE = 2
@@ -504,6 +511,7 @@ export function ObjectSidebar({
                       <li
                         key={`${obj.CategoryID}-${obj.ObjectID}-${obj.Index}`}
                         ref={isSelected ? selectedItemRef : null}
+                        data-object-key={objectKey(obj)}
                         className="p-4"
                       >
                         <button

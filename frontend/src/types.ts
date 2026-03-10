@@ -73,3 +73,28 @@ export type PipelineJob = {
   manifest: PipelineManifest | null
   artifacts: PipelineArtifact[]
 }
+
+export type PipelineReviewDecision = 'accepted' | 'rejected' | 'deferred'
+export type PipelineReviewBucket =
+  | 'stage4_line_number'
+  | 'stage4_instrument'
+  | 'stage12_line_attachment'
+  | 'stage12_instrument_attachment'
+
+export type PipelineReviewItem = {
+  bucket: PipelineReviewBucket
+  id: string
+  title: string
+  subtitle: string
+  text: string
+  normalizedText: string
+  artifactName: string
+  statusHint: string
+  bbox?: Record<string, unknown>
+  ocrSource?: string
+  reviewState?: string
+  distancePx?: number
+  thresholdPx?: number
+  edgeId?: string
+  sourceObjectId?: string
+}

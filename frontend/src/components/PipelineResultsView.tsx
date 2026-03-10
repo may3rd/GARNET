@@ -1,30 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { PipelineJob } from '@/types'
+import type { PipelineJob, PipelineReviewBucket, PipelineReviewDecision, PipelineReviewItem } from '@/types'
 import { PipelineArtifactCanvas } from '@/components/PipelineArtifactCanvas'
+import { PipelineHitlReviewView } from '@/components/PipelineHitlReviewView'
 
 type JsonValue = string | number | boolean | null | JsonObject | JsonValue[]
 type JsonObject = Record<string, JsonValue>
-type ReviewDecision = 'accepted' | 'rejected' | 'deferred'
-type ReviewBucket = 'stage4_line_number' | 'stage4_instrument' | 'stage12_line_attachment' | 'stage12_instrument_attachment'
 type ReviewFilter = 'all' | ReviewDecision | 'unresolved'
-
-type ReviewItem = {
-  bucket: ReviewBucket
-  id: string
-  title: string
-  subtitle: string
-  text: string
-  normalizedText: string
-  artifactName: string
-  statusHint: string
-  bbox?: JsonObject
-  ocrSource?: string
-  reviewState?: string
-  distancePx?: number
-  thresholdPx?: number
-  edgeId?: string
-  sourceObjectId?: string
-}
 
 const REVIEW_STORAGE_PREFIX = 'garnet-pipeline-review'
 
@@ -165,6 +146,7 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   const [activeReviewFilter, setActiveReviewFilter] = useState<ReviewFilter>('all')
   const [selectedReviewItemId, setSelectedReviewItemId] = useState<string | null>(null)
   const [reviewDecisions, setReviewDecisions] = useState<Record<string, ReviewDecision>>({})
+  const [workspaceOpen, setWorkspaceOpen] = useState(false)
   const stages = job.manifest?.stages ?? []
   const imageArtifacts = job.artifacts.filter((artifact) => /\.(png|jpg|jpeg|webp)$/i.test(artifact.name))
   const jsonArtifacts = job.artifacts.filter((artifact) => artifact.name.endsWith('.json'))
@@ -359,6 +341,20 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
     }))
   }
 
+  if (workspaceOpen) {
+    return (
+      <PipelineHitlReviewView
+        jobId={job.job_id}
+        activeBucket={activeReviewBucket}
+        itemsByBucket={reviewItems}
+        imageArtifacts={imageArtifacts}
+        initialReviewDecisions={reviewDecisions}
+        onApply={(decisions) => setReviewDecisions(decisions)}
+        onClose={() => setWorkspaceOpen(false)}
+      />
+    )
+  }
+
   return (
     <div className="h-full overflow-auto bg-[var(--bg-canvas)]">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-6">
@@ -501,6 +497,15 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
           <div className="space-y-6">
             <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-5">
               <div className="text-sm font-semibold">Review Flow</div>
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => setWorkspaceOpen(true)}
+                  className="rounded-lg border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-2 text-sm font-semibold text-[var(--accent)]"
+                >
+                  Open Full Review Workspace
+                </button>
+              </div>
               <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 {([
                   ['stage4_line_number', 'Stage 4 Line Numbers'],
