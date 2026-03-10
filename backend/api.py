@@ -45,6 +45,7 @@ from garnet.model_defaults import list_weight_files as discover_weight_files
 from garnet.model_defaults import pick_default_weight_file
 from garnet.pid_extractor import PIDPipeline, PipelineConfig
 from garnet.review_state import empty_review_state, load_review_state, save_review_state
+from garnet.reviewed_outputs import generate_reviewed_outputs
 from garnet.utils import rotate_image
 
 # =============================================================================
@@ -1083,6 +1084,33 @@ async def put_pipeline_review_state(job_id: str, request: ReviewStateRequest):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return load_review_state(payload["job_dir"], manifest)
+
+
+@app.get("/api/pipeline/jobs/{job_id}/reviewed-graph")
+async def get_pipeline_reviewed_graph(job_id: str):
+    payload = _serialize_pipeline_job(job_id)
+    try:
+        result = generate_reviewed_outputs(payload["job_dir"])
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {
+        "graph": result["graph_payload"],
+        "summary": result["graph_summary"],
+    }
+
+
+@app.get("/api/pipeline/jobs/{job_id}/reviewed-qa")
+async def get_pipeline_reviewed_qa(job_id: str):
+    payload = _serialize_pipeline_job(job_id)
+    try:
+        result = generate_reviewed_outputs(payload["job_dir"])
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {
+        "anomaly_report": result["qa"]["anomaly_report"],
+        "review_queue": result["qa"]["review_queue"],
+        "summary": result["qa"]["summary"],
+    }
 
 
 @app.get("/api/pipeline/jobs/{job_id}/artifacts/{artifact_name}")
