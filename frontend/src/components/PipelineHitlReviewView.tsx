@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, RotateCcw, RotateCw, X } from 'lucide-react'
-import type { DetectedObject, PipelineArtifact, PipelineReviewBucket, PipelineReviewDecision, PipelineReviewItem } from '@/types'
+import type {
+  DetectedObject,
+  PipelineArtifact,
+  PipelineReviewBucket,
+  PipelineReviewDecision,
+  PipelineReviewItem,
+  PipelineReviewState,
+} from '@/types'
 import { CanvasView, type CanvasViewHandle } from '@/components/CanvasView'
 import { ObjectSidebar } from '@/components/ObjectSidebar'
 import { objectKey } from '@/lib/objectKey'
+import { getPipelineReviewState, putPipelineReviewState } from '@/lib/api'
 
 type WorkspaceDraft = {
   Object: string
@@ -117,6 +125,8 @@ export function PipelineHitlReviewView({
   const [isEditing, setIsEditing] = useState(false)
   const [fitKey, setFitKey] = useState(`bucket:${activeBucket}`)
   const [historyVersion, setHistoryVersion] = useState(0)
+  const [isSaving, setIsSaving] = useState(false)
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null)
 
   const snapshotState = (
     overrides?: Partial<Pick<WorkspaceSnapshot, 'bucketStates' | 'reviewDecisions' | 'workspaceBucket' | 'selectedObjectKey'>>
@@ -159,28 +169,56 @@ export function PipelineHitlReviewView({
   }, [initialReviewDecisions])
 
   useEffect(() => {
-    const nextStates: Record<PipelineReviewBucket, DetectedObject[]> = {
-      stage4_line_number: [],
-      stage4_instrument: [],
-      stage12_line_attachment: [],
-      stage12_instrument_attachment: [],
-    }
-    ;(Object.keys(nextStates) as PipelineReviewBucket[]).forEach((bucket) => {
-      const stored = window.localStorage.getItem(workspaceKey(jobId, bucket))
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored) as DetectedObject[]
-          if (parsed.length > 0 || itemsByBucket[bucket].length === 0) {
-            nextStates[bucket] = parsed
-            return
-          }
-        } catch {
-          // fall through to seed from review items
-        }
+    let active = true
+    const load = async () => {
+      setWorkspaceError(null)
+      let remoteState: PipelineReviewState | null = null
+      try {
+        remoteState = await getPipelineReviewState(jobId)
+      } catch (error) {
+        setWorkspaceError(error instanceof Error ? error.message : 'Failed to load review state')
       }
-      nextStates[bucket] = seedObjects(bucket, itemsByBucket[bucket])
-    })
-    setBucketStates(nextStates)
+
+      const nextStates: Record<PipelineReviewBucket, DetectedObject[]> = {
+        stage4_line_number: [],
+        stage4_instrument: [],
+        stage12_line_attachment: [],
+        stage12_instrument_attachment: [],
+      }
+      ;(Object.keys(nextStates) as PipelineReviewBucket[]).forEach((bucket) => {
+        const remoteWorkspace = remoteState?.workspace_objects?.[bucket]
+        if (Array.isArray(remoteWorkspace) && remoteWorkspace.length > 0) {
+          nextStates[bucket] = remoteWorkspace as unknown as DetectedObject[]
+          return
+        }
+        const stored = window.localStorage.getItem(workspaceKey(jobId, bucket))
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored) as DetectedObject[]
+            if (parsed.length > 0 || itemsByBucket[bucket].length === 0) {
+              nextStates[bucket] = parsed
+              return
+            }
+          } catch {
+            // fall through to seed from review items
+          }
+        }
+        nextStates[bucket] = seedObjects(bucket, itemsByBucket[bucket])
+      })
+      if (!active) return
+      setBucketStates(nextStates)
+      if (remoteState) {
+        const nextDecisions: Record<string, PipelineReviewDecision> = {}
+        for (const item of remoteState.items) {
+          nextDecisions[`${item.bucket}:${item.entity_id ?? item.item_id}`] = item.decision
+        }
+        setDraftReviewDecisions(nextDecisions)
+      }
+    }
+    void load()
+    return () => {
+      active = false
+    }
   }, [itemsByBucket, jobId])
 
   useEffect(() => {
@@ -302,8 +340,33 @@ export function PipelineHitlReviewView({
     ;(Object.keys(bucketStates) as PipelineReviewBucket[]).forEach((bucket) => {
       window.localStorage.setItem(workspaceKey(jobId, bucket), JSON.stringify(bucketStates[bucket]))
     })
-    onApply(draftReviewDecisions)
-    onClose()
+    const payload = {
+      items: Object.entries(draftReviewDecisions).map(([key, decision]) => {
+        const [bucket, entityId] = key.split(':', 2) as [PipelineReviewBucket, string]
+        return {
+          item_id: key,
+          bucket,
+          entity_id: entityId,
+          decision,
+        }
+      }),
+      workspace_objects: bucketStates as unknown as PipelineReviewState['workspace_objects'],
+    }
+    setIsSaving(true)
+    setWorkspaceError(null)
+    void putPipelineReviewState(jobId, payload)
+      .then((saved) => {
+        const nextDecisions: Record<string, PipelineReviewDecision> = {}
+        for (const item of saved.items) {
+          nextDecisions[`${item.bucket}:${item.entity_id ?? item.item_id}`] = item.decision
+        }
+        onApply(nextDecisions)
+        onClose()
+      })
+      .catch((error) => {
+        setWorkspaceError(error instanceof Error ? error.message : 'Failed to save review state')
+      })
+      .finally(() => setIsSaving(false))
   }
 
   useEffect(() => {
@@ -320,6 +383,7 @@ export function PipelineHitlReviewView({
         <div>
           <div className="text-lg font-semibold">Pipeline HITL Review</div>
           <div className="text-xs text-[var(--text-secondary)]">Dedicated review workspace with the detection-mode layout.</div>
+          {workspaceError ? <div className="mt-1 text-xs text-[var(--danger)]">{workspaceError}</div> : null}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -351,10 +415,11 @@ export function PipelineHitlReviewView({
           <button
             type="button"
             onClick={handleApply}
-            className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-700"
+            disabled={isSaving}
+            className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-700 disabled:opacity-40"
           >
             <Check className="h-4 w-4" />
-            OK
+            {isSaving ? 'Saving...' : 'OK'}
           </button>
         </div>
       </div>

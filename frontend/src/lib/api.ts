@@ -1,4 +1,4 @@
-import type { DetectionResult, DetectedObject, OcrRoute, PipelineJob } from '@/types'
+import type { DetectionResult, DetectedObject, OcrRoute, PipelineJob, PipelineReviewState } from '@/types'
 
 export type DetectionOptions = {
   selectedModel: string
@@ -159,6 +159,27 @@ export async function startPipelineJob(
 
 export async function getPipelineJob(jobId: string, signal?: AbortSignal): Promise<PipelineJob> {
   return requestJson<PipelineJob>(`/api/pipeline/jobs/${jobId}`, { signal }, PIPELINE_POLL_TIMEOUT)
+}
+
+export async function getPipelineReviewState(jobId: string, signal?: AbortSignal): Promise<PipelineReviewState> {
+  return requestJson<PipelineReviewState>(`/api/pipeline/jobs/${jobId}/review-state`, { signal }, PIPELINE_POLL_TIMEOUT)
+}
+
+export async function putPipelineReviewState(
+  jobId: string,
+  payload: Pick<PipelineReviewState, 'items' | 'workspace_objects'>,
+  signal?: AbortSignal
+): Promise<PipelineReviewState> {
+  return requestJson<PipelineReviewState>(
+    `/api/pipeline/jobs/${jobId}/review-state`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal,
+    },
+    DEFAULT_REQUEST_TIMEOUT
+  )
 }
 
 export async function runDetection(

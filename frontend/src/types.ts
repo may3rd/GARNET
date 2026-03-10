@@ -98,3 +98,24 @@ export type PipelineReviewItem = {
   edgeId?: string
   sourceObjectId?: string
 }
+
+export type PipelineReviewStateItem = {
+  item_id: string
+  bucket: PipelineReviewBucket
+  source_stage?: string | null
+  source_artifact?: string | null
+  entity_id?: string | null
+  decision: PipelineReviewDecision
+  reviewer?: string | null
+  reason?: string | null
+  edited_object?: Record<string, unknown> | null
+}
+
+export type PipelineReviewState = {
+  job_id: string
+  image_path: string | null
+  version: number
+  updated_at: number
+  items: PipelineReviewStateItem[]
+  workspace_objects: Record<PipelineReviewBucket, Array<Record<string, unknown>>>
+}

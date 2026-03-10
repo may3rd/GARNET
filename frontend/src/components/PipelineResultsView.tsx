@@ -148,8 +148,14 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   const [reviewDecisions, setReviewDecisions] = useState<Record<string, ReviewDecision>>({})
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
   const stages = job.manifest?.stages ?? []
-  const imageArtifacts = job.artifacts.filter((artifact) => /\.(png|jpg|jpeg|webp)$/i.test(artifact.name))
-  const jsonArtifacts = job.artifacts.filter((artifact) => artifact.name.endsWith('.json'))
+  const imageArtifacts = useMemo(
+    () => job.artifacts.filter((artifact) => /\.(png|jpg|jpeg|webp)$/i.test(artifact.name)),
+    [job.artifacts]
+  )
+  const jsonArtifacts = useMemo(
+    () => job.artifacts.filter((artifact) => artifact.name.endsWith('.json')),
+    [job.artifacts]
+  )
   const route = job.manifest?.ocr_route ?? job.ocr_route
   const spotlightImageArtifacts = useMemo(
     () =>
