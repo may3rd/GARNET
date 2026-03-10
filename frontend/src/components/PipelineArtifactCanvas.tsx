@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Image as KonvaImage, Layer, Stage } from 'react-konva'
+import { Image as KonvaImage, Layer, Rect, Stage } from 'react-konva'
 import { ZoomControls } from '@/components/ZoomControls'
 
 const MIN_ZOOM = 0.2
@@ -9,9 +9,15 @@ const PADDING = 24
 type PipelineArtifactCanvasProps = {
   imageUrl: string
   title: string
+  highlightBox?: {
+    xMin: number
+    yMin: number
+    xMax: number
+    yMax: number
+  } | null
 }
 
-export function PipelineArtifactCanvas({ imageUrl, title }: PipelineArtifactCanvasProps) {
+export function PipelineArtifactCanvas({ imageUrl, title, highlightBox = null }: PipelineArtifactCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [stageSize, setStageSize] = useState({ width: 800, height: 520 })
   const [imageEl, setImageEl] = useState<HTMLImageElement | null>(null)
@@ -118,7 +124,33 @@ export function PipelineArtifactCanvas({ imageUrl, title }: PipelineArtifactCanv
             zoomAt(scale * direction, pointer.x, pointer.y)
           }}
         >
-          <Layer>{imageEl ? <KonvaImage image={imageEl} width={imageSize.width} height={imageSize.height} /> : null}</Layer>
+          <Layer>
+            {imageEl ? <KonvaImage image={imageEl} width={imageSize.width} height={imageSize.height} /> : null}
+            {highlightBox ? (
+              <>
+                <Rect
+                  x={highlightBox.xMin}
+                  y={highlightBox.yMin}
+                  width={Math.max(1, highlightBox.xMax - highlightBox.xMin)}
+                  height={Math.max(1, highlightBox.yMax - highlightBox.yMin)}
+                  fill="rgba(59,130,246,0.12)"
+                  stroke="#2563eb"
+                  strokeWidth={2}
+                  listening={false}
+                />
+                <Rect
+                  x={highlightBox.xMin - 4}
+                  y={highlightBox.yMin - 4}
+                  width={Math.max(1, highlightBox.xMax - highlightBox.xMin + 8)}
+                  height={Math.max(1, highlightBox.yMax - highlightBox.yMin + 8)}
+                  stroke="rgba(37,99,235,0.45)"
+                  dash={[8, 6]}
+                  strokeWidth={1.5}
+                  listening={false}
+                />
+              </>
+            ) : null}
+          </Layer>
         </Stage>
       </div>
       {isLoading && (

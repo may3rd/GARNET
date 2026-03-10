@@ -43,6 +43,21 @@ function toJsonObject(value: JsonValue | undefined): JsonObject | undefined {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as JsonObject) : undefined
 }
 
+function toHighlightBox(bbox: JsonObject | undefined) {
+  if (!bbox) return null
+  const xMin = toNumber(bbox.x_min)
+  const yMin = toNumber(bbox.y_min)
+  const xMax = toNumber(bbox.x_max)
+  const yMax = toNumber(bbox.y_max)
+  if ([xMin, yMin, xMax, yMax].some((value) => value === undefined)) return null
+  return {
+    xMin: xMin as number,
+    yMin: yMin as number,
+    xMax: xMax as number,
+    yMax: yMax as number,
+  }
+}
+
 function buildReviewItems(
   payloadName: string,
   payload: JsonObject | undefined
@@ -512,7 +527,11 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
                   Blue = sheet OCR, green = crop OCR, cyan = rotated crop OCR, orange = detection only, red = rejected.
                 </div>
                 <div className="mt-4">
-                  <PipelineArtifactCanvas imageUrl={activeArtifact.url} title={activeArtifact.name} />
+                  <PipelineArtifactCanvas
+                    imageUrl={activeArtifact.url}
+                    title={activeArtifact.name}
+                    highlightBox={selectedReviewItem ? toHighlightBox(selectedReviewItem.bbox) : null}
+                  />
                 </div>
               </div>
             )}
