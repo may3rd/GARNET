@@ -116,12 +116,57 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
         </div>
 
         <SummaryCard
+          title="OCR Summary"
+          entries={[
+            ['Route', jsonSummaries['stage2_ocr_summary.json']?.route],
+            ['Tiles', jsonSummaries['stage2_ocr_summary.json']?.tile_count],
+            ['Raw Regions', jsonSummaries['stage2_ocr_summary.json']?.raw_detection_count],
+            ['Merged Regions', jsonSummaries['stage2_ocr_summary.json']?.merged_region_count],
+            ['Exceptions', jsonSummaries['stage2_ocr_summary.json']?.exception_candidate_count],
+            ['Framework', jsonSummaries['stage2_ocr_summary.json']?.framework],
+            ['Recognition', jsonSummaries['stage2_ocr_summary.json']?.recognition_level],
+          ]}
+        />
+
+        <SummaryCard
           title="Line Numbers"
           entries={[
             ['Detected Tags', jsonSummaries['stage4_line_number_summary.json']?.line_number_object_count],
-            ['Matched OCR', jsonSummaries['stage4_line_number_summary.json']?.matched_line_number_count],
+            ['OCR Confirmed', jsonSummaries['stage4_line_number_summary.json']?.ocr_confirmed_line_number_count],
+            ['Detection Only', jsonSummaries['stage4_line_number_summary.json']?.od_only_line_number_count],
             ['Rejected Tags', jsonSummaries['stage4_line_number_summary.json']?.rejected_line_number_count],
             ['Attach Candidates', jsonSummaries['stage12_text_attachment_summary.json']?.candidate_count],
+          ]}
+        />
+
+        <SummaryCard
+          title="Line Number Provenance"
+          entries={[
+            ['Sheet OCR', jsonSummaries['stage4_line_number_summary.json']?.sheet_ocr_line_number_count],
+            ['Crop OCR', jsonSummaries['stage4_line_number_summary.json']?.crop_ocr_line_number_count],
+            ['Rotated Crop OCR', jsonSummaries['stage4_line_number_summary.json']?.rotated_crop_ocr_line_number_count],
+            ['Detection Only', jsonSummaries['stage4_line_number_summary.json']?.od_only_line_number_count],
+          ]}
+        />
+
+        <SummaryCard
+          title="Instrumentation"
+          entries={[
+            ['Detected Tags', jsonSummaries['stage4_instrument_tag_summary.json']?.instrument_semantic_object_count],
+            ['OCR Confirmed', jsonSummaries['stage4_instrument_tag_summary.json']?.ocr_confirmed_instrument_semantic_count],
+            ['Detection Only', jsonSummaries['stage4_instrument_tag_summary.json']?.detection_only_instrument_semantic_count],
+            ['Rejected Tags', jsonSummaries['stage4_instrument_tag_summary.json']?.rejected_instrument_semantic_count],
+            ['Attached Tags', jsonSummaries['stage12_instrument_tag_attachment_summary.json']?.accepted_attachment_count],
+          ]}
+        />
+
+        <SummaryCard
+          title="Instrumentation Provenance"
+          entries={[
+            ['Sheet OCR', jsonSummaries['stage4_instrument_tag_summary.json']?.sheet_ocr_instrument_semantic_count],
+            ['Crop OCR', jsonSummaries['stage4_instrument_tag_summary.json']?.crop_ocr_instrument_semantic_count],
+            ['Rotated Crop OCR', jsonSummaries['stage4_instrument_tag_summary.json']?.rotated_crop_ocr_instrument_semantic_count],
+            ['Detection Only', jsonSummaries['stage4_instrument_tag_summary.json']?.detection_only_instrument_semantic_count],
           ]}
         />
 
@@ -175,6 +220,9 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
             {spotlightImageArtifacts.length > 0 && (
               <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-5">
                 <div className="text-sm font-semibold">Line Number Review</div>
+                <div className="mt-1 text-xs text-[var(--text-secondary)]">
+                  Blue = sheet OCR, green = crop OCR, cyan = rotated crop OCR, orange = detection only, red = rejected.
+                </div>
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                   {spotlightImageArtifacts.map((artifact) => (
                     <div key={artifact.name} className="rounded-xl border border-[var(--border-muted)] bg-[var(--bg-primary)] p-3">

@@ -76,6 +76,21 @@ def _crop_image(image_bgr: np.ndarray, bbox: dict[str, int], padding: int = 4) -
     return crop if crop.size else None
 
 
+def _enhance_crop_for_ocr(crop: np.ndarray) -> np.ndarray:
+    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+    upscaled = cv2.resize(gray, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_CUBIC)
+    denoised = cv2.GaussianBlur(upscaled, (3, 3), 0)
+    binary = cv2.adaptiveThreshold(
+        denoised,
+        255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        21,
+        5,
+    )
+    return cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
+
+
 def _parse_ocrmac_annotations(annotations: list[tuple[Any, Any, Any]]) -> list[str]:
     texts: list[str] = []
     for item in annotations:
@@ -123,7 +138,10 @@ def _confirm_with_crop_ocr(image_bgr: np.ndarray, bbox: dict[str, int]) -> str:
         return ""
     crops = [("crop_ocr", crop)]
     if crop.shape[0] > max(32, crop.shape[1] * 1.2):
-        crops.append(("crop_ocr_rotated", cv2.rotate(crop, cv2.ROTATE_90_CLOCKWISE)))
+        rotated = cv2.rotate(crop, cv2.ROTATE_90_CLOCKWISE)
+        crops.append(("crop_ocr_rotated", rotated))
+        crops.append(("crop_ocr_rotated_preprocessed", _enhance_crop_for_ocr(rotated)))
+    crops.append(("crop_ocr_preprocessed", _enhance_crop_for_ocr(crop)))
 
     for source, crop_view in crops:
         annotations = ocrmac.OCR(
@@ -244,7 +262,13 @@ def run_instrument_tag_fusion_stage(
     overlay = image_bgr.copy()
     for entry in accepted:
         bbox = entry["bbox"]
-        color = (255, 0, 0) if entry["ocr_confirmed"] else (0, 165, 255)
+        color = (0, 165, 255)
+        if entry.get("ocr_source") == "sheet_ocr":
+            color = (255, 0, 0)
+        elif entry.get("ocr_source") in {"crop_ocr", "crop_ocr_preprocessed"}:
+            color = (0, 200, 0)
+        elif str(entry.get("ocr_source", "")).startswith("crop_ocr_rotated"):
+            color = (0, 220, 220)
         cv2.rectangle(overlay, (bbox["x_min"], bbox["y_min"]), (bbox["x_max"], bbox["y_max"]), color, 2)
     for entry in rejected:
         bbox = entry["bbox"]
@@ -265,6 +289,13 @@ def run_instrument_tag_fusion_stage(
             "matched_instrument_semantic_count": len(accepted),
             "ocr_confirmed_instrument_semantic_count": confirmed_by_ocr,
             "detection_only_instrument_semantic_count": detection_only_count,
+            "sheet_ocr_instrument_semantic_count": len([item for item in accepted if item.get("ocr_source") == "sheet_ocr"]),
+            "crop_ocr_instrument_semantic_count": len(
+                [item for item in accepted if item.get("ocr_source") in {"crop_ocr", "crop_ocr_preprocessed"}]
+            ),
+            "rotated_crop_ocr_instrument_semantic_count": len(
+                [item for item in accepted if str(item.get("ocr_source", "")).startswith("crop_ocr_rotated")]
+            ),
             "rejected_instrument_semantic_count": len(rejected),
             "max_distance_px": max_distance_px,
         },
