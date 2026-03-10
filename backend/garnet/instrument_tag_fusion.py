@@ -121,14 +121,22 @@ def _confirm_with_crop_ocr(image_bgr: np.ndarray, bbox: dict[str, int]) -> str:
     ocrmac = _get_ocrmac_module()
     if ocrmac is None:
         return ""
-    annotations = ocrmac.OCR(
-        Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)),
-        recognition_level="accurate",
-        framework="vision",
-        language_preference=["en-US"],
-    ).recognize()
-    parts = _parse_ocrmac_annotations(annotations)
-    return _assemble_instrument_tag_from_parts(parts)
+    crops = [("crop_ocr", crop)]
+    if crop.shape[0] > max(32, crop.shape[1] * 1.2):
+        crops.append(("crop_ocr_rotated", cv2.rotate(crop, cv2.ROTATE_90_CLOCKWISE)))
+
+    for source, crop_view in crops:
+        annotations = ocrmac.OCR(
+            Image.fromarray(cv2.cvtColor(crop_view, cv2.COLOR_BGR2RGB)),
+            recognition_level="accurate",
+            framework="vision",
+            language_preference=["en-US"],
+        ).recognize()
+        parts = _parse_ocrmac_annotations(annotations)
+        assembled = _assemble_instrument_tag_from_parts(parts)
+        if assembled:
+            return source, assembled
+    return "", ""
 
 
 def _candidate_text_regions(bbox: dict[str, int], text_regions: list[dict[str, Any]], max_distance_px: float) -> list[dict[str, Any]]:
@@ -189,6 +197,7 @@ def run_instrument_tag_fusion_stage(
             "text": "",
             "normalized_text": "",
             "ocr_region_id": None,
+            "ocr_source": None,
             "ocr_confirmed": False,
             "detection_confidence": float(obj.get("confidence", 0.0)),
             "fused_confidence": float(obj.get("confidence", 0.0)),
@@ -202,6 +211,7 @@ def run_instrument_tag_fusion_stage(
                     "text": fused_text,
                     "normalized_text": _normalize_instrument_tag(fused_text),
                     "ocr_region_id": fused_region_ids,
+                    "ocr_source": "sheet_ocr",
                     "ocr_confirmed": True,
                     "fused_confidence": max(float(obj.get("confidence", 0.0)), 0.95),
                     "review_state": "ocr_confirmed",
@@ -209,13 +219,14 @@ def run_instrument_tag_fusion_stage(
             )
             confirmed_by_ocr += 1
         else:
-            crop_text = _confirm_with_crop_ocr(image_bgr, bbox)
+            crop_source, crop_text = _confirm_with_crop_ocr(image_bgr, bbox)
             if crop_text and _looks_like_instrument_tag(crop_text):
                 entry.update(
                     {
                         "text": crop_text,
                         "normalized_text": _normalize_instrument_tag(crop_text),
-                        "ocr_region_id": "crop_ocr",
+                        "ocr_region_id": crop_source,
+                        "ocr_source": crop_source,
                         "ocr_confirmed": True,
                         "fused_confidence": max(float(obj.get("confidence", 0.0)), 0.95),
                         "review_state": "ocr_confirmed",

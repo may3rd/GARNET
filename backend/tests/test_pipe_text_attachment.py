@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 
@@ -40,6 +41,36 @@ class PipeTextAttachmentTests(unittest.TestCase):
 
         self.assertEqual(result["summary"]["matched_line_number_count"], 1)
         self.assertIn('3"-PL-25', result["line_numbers_payload"]["line_numbers"][0]["text"])
+
+    @patch("garnet.line_number_fusion._confirm_with_crop_ocr", return_value=("crop_ocr", '6"-NAS-25-003003-B2A2-NI'))
+    def test_run_line_number_fusion_stage_uses_crop_confirmation_when_sheet_ocr_misses(self, _mock_crop) -> None:
+        object_regions = [
+            {
+                "id": "obj_1",
+                "class_name": "line number",
+                "bbox": {"x_min": 0, "y_min": 0, "x_max": 160, "y_max": 24},
+                "confidence": 0.72,
+            }
+        ]
+
+        result = run_line_number_fusion_stage(
+            image_id="sample.png",
+            image_bgr=np.zeros((40, 180, 3), dtype=np.uint8),
+            object_regions=object_regions,
+            text_regions=[],
+            max_distance_px=40.0,
+        )
+
+        self.assertEqual(result["summary"]["matched_line_number_count"], 1)
+        self.assertEqual(result["summary"]["ocr_confirmed_line_number_count"], 1)
+        self.assertEqual(result["summary"]["od_only_line_number_count"], 0)
+        self.assertEqual(
+            result["line_numbers_payload"]["line_numbers"][0]["normalized_text"],
+            '6"-NAS-25-003003-B2A2-NI',
+        )
+        self.assertEqual(result["line_numbers_payload"]["line_numbers"][0]["ocr_region_id"], "crop_ocr")
+        self.assertEqual(result["line_numbers_payload"]["line_numbers"][0]["ocr_source"], "crop_ocr")
+        self.assertEqual(result["line_numbers_payload"]["line_numbers"][0]["review_state"], "ocr_confirmed")
 
     def test_run_pipe_text_attachment_stage_attaches_line_number_to_edge(self) -> None:
         text_regions = [

@@ -33,7 +33,7 @@ class InstrumentTagFusionTests(unittest.TestCase):
 
         self.assertEqual(result["summary"]["matched_instrument_semantic_count"], 1)
 
-    @patch("garnet.instrument_tag_fusion._confirm_with_crop_ocr", return_value="PI-0201A")
+    @patch("garnet.instrument_tag_fusion._confirm_with_crop_ocr", return_value=("crop_ocr", "PI-0201A"))
     def test_run_instrument_tag_fusion_stage_uses_crop_confirmation_for_two_line_tag(self, _mock_crop) -> None:
         object_regions = [
             {
@@ -55,6 +55,7 @@ class InstrumentTagFusionTests(unittest.TestCase):
 
         self.assertEqual(result["summary"]["matched_instrument_semantic_count"], 1)
         self.assertEqual(result["instrument_tags_payload"]["instrument_tags"][0]["normalized_text"], "PI-0201A")
+        self.assertEqual(result["instrument_tags_payload"]["instrument_tags"][0]["ocr_source"], "crop_ocr")
 
 
 if __name__ == "__main__":

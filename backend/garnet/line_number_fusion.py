@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import math
+import platform
 import re
 from typing import Any
 
 import cv2
 import numpy as np
+from PIL import Image
 
 
 def _bbox_ios(a: dict[str, int], b: dict[str, int]) -> float:
@@ -40,6 +42,92 @@ def _looks_like_line_number(text: str) -> bool:
     has_dash_or_underscore = "-" in token or "_" in token
     has_alpha = any(ch.isalpha() for ch in token)
     return has_digit and has_dash_or_underscore and has_alpha
+
+
+def _normalize_line_number(text: str) -> str:
+    normalized = text.upper().strip()
+    normalized = normalized.replace("_", "-")
+    normalized = re.sub(r"\s+", "", normalized)
+    normalized = re.sub(r"-{2,}", "-", normalized)
+    return normalized
+
+
+def _get_ocrmac_module() -> Any:
+    if platform.system() != "Darwin":
+        return None
+    try:
+        from ocrmac import ocrmac as module  # type: ignore
+    except Exception:  # pragma: no cover
+        return None
+    return module
+
+
+def _crop_image(image_bgr: np.ndarray, bbox: dict[str, int], padding: int = 4) -> np.ndarray | None:
+    height, width = image_bgr.shape[:2]
+    x_min = max(0, int(bbox["x_min"]) - padding)
+    y_min = max(0, int(bbox["y_min"]) - padding)
+    x_max = min(width, int(bbox["x_max"]) + padding)
+    y_max = min(height, int(bbox["y_max"]) + padding)
+    if x_max <= x_min or y_max <= y_min:
+        return None
+    crop = image_bgr[y_min:y_max, x_min:x_max]
+    return crop if crop.size else None
+
+
+def _parse_ocrmac_annotations(annotations: list[tuple[Any, Any, Any]]) -> list[str]:
+    texts: list[str] = []
+    for item in annotations:
+        if not isinstance(item, (list, tuple)) or len(item) != 3:
+            continue
+        text = str(item[0]).strip()
+        if text:
+            texts.append(text)
+    return texts
+
+
+def _assemble_line_number_from_parts(parts: list[str]) -> str:
+    normalized_parts = [_normalize_line_number(part) for part in parts if str(part).strip()]
+    normalized_parts = [part for part in normalized_parts if part]
+    if not normalized_parts:
+        return ""
+
+    candidate = "".join(normalized_parts)
+    if _looks_like_line_number(candidate):
+        return _normalize_line_number(candidate)
+
+    candidate = "-".join(normalized_parts)
+    if _looks_like_line_number(candidate):
+        return _normalize_line_number(candidate)
+
+    for part in normalized_parts:
+        if _looks_like_line_number(part):
+            return _normalize_line_number(part)
+    return ""
+
+
+def _confirm_with_crop_ocr(image_bgr: np.ndarray, bbox: dict[str, int]) -> str:
+    crop = _crop_image(image_bgr, bbox)
+    if crop is None:
+        return ""
+    ocrmac = _get_ocrmac_module()
+    if ocrmac is None:
+        return ""
+    crops = [("crop_ocr", crop)]
+    if crop.shape[0] > max(32, crop.shape[1] * 1.2):
+        crops.append(("crop_ocr_rotated", cv2.rotate(crop, cv2.ROTATE_90_CLOCKWISE)))
+
+    for source, crop_view in crops:
+        annotations = ocrmac.OCR(
+            Image.fromarray(cv2.cvtColor(crop_view, cv2.COLOR_BGR2RGB)),
+            recognition_level="accurate",
+            framework="vision",
+            language_preference=["en-US"],
+        ).recognize()
+        parts = _parse_ocrmac_annotations(annotations)
+        assembled = _assemble_line_number_from_parts(parts)
+        if assembled:
+            return source, assembled
+    return "", ""
 
 
 def _candidate_text_regions(
@@ -113,39 +201,60 @@ def run_line_number_fusion_stage(
             "text": "",
             "normalized_text": "",
             "ocr_region_id": None,
+            "ocr_source": None,
             "score": None,
             "distance_px": None,
             "ocr_confirmed": False,
             "detection_confidence": float(obj.get("confidence", 0.0)),
             "fused_confidence": float(obj.get("confidence", 0.0)),
             "semantic_class": "line_number",
+            "review_state": "detection_only",
         }
         if fused_text and _looks_like_line_number(fused_text):
             entry.update(
                 {
                     "text": fused_text,
-                    "normalized_text": fused_text.strip(),
+                    "normalized_text": _normalize_line_number(fused_text),
                     "ocr_region_id": fused_region_ids,
+                    "ocr_source": "sheet_ocr",
                     "score": round(best_score, 4) if best_score != float("-inf") else None,
                     "distance_px": round(float(best_dist), 3) if best_dist is not None else None,
                     "ocr_confirmed": True,
                     "fused_confidence": max(float(obj.get("confidence", 0.0)), 0.95),
+                    "review_state": "ocr_confirmed",
                 }
             )
             confirmed_by_ocr += 1
+        else:
+            crop_source, crop_text = _confirm_with_crop_ocr(image_bgr, bbox)
+            if crop_text and _looks_like_line_number(crop_text):
+                entry.update(
+                    {
+                        "text": crop_text,
+                        "normalized_text": _normalize_line_number(crop_text),
+                        "ocr_region_id": crop_source,
+                        "ocr_source": crop_source,
+                        "ocr_confirmed": True,
+                        "fused_confidence": max(float(obj.get("confidence", 0.0)), 0.95),
+                        "review_state": "ocr_confirmed",
+                    }
+                )
+                confirmed_by_ocr += 1
         if float(obj.get("confidence", 0.0)) >= 0.5 or entry["ocr_confirmed"]:
             accepted.append(entry)
         else:
+            entry["review_state"] = "rejected"
             rejected.append(entry)
 
     overlay = image_bgr.copy()
     for entry in accepted:
         bbox = entry["bbox"]
+        color = (255, 0, 0) if entry["ocr_confirmed"] else (0, 165, 255)
         cv2.rectangle(
             overlay,
             (int(bbox["x_min"]), int(bbox["y_min"])),
             (int(bbox["x_max"]), int(bbox["y_max"])),
-            (255, 0, 0),
+            color,
             2,
         )
     for entry in rejected:
