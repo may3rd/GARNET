@@ -133,7 +133,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   imageUrl: null,
   imageMeta: null,
   options: defaultOptions,
-  pipelineOcrRoute: 'easyocr',
+  pipelineOcrRoute: 'ocrmac',
   pipelineGeminiPostprocessMatchThreshold: 0.1,
   result: null,
   pipelineJob: null,

@@ -123,7 +123,7 @@ export async function startPipelineJob(
 ): Promise<{ job_id: string }> {
   const payload = {
     stopAfter: 13,
-    ocrRoute: 'easyocr' as OcrRoute,
+    ocrRoute: 'ocrmac' as OcrRoute,
     geminiPostprocessMatchThreshold: 0.1,
     ...options,
   }
