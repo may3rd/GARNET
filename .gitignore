@@ -164,6 +164,7 @@ cython_debug/
 .DS_Store
 .ruff_cache/
 .claude/
+.tmp-mpl/
 
 # Backend ignores
 backend/__pycache__/
