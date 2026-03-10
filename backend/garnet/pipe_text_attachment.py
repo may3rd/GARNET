@@ -51,6 +51,8 @@ def _sample_bbox_points(bbox: dict[str, int]) -> list[tuple[float, float]]:
 
 
 def _adaptive_attachment_threshold(region: dict[str, Any], base_threshold_px: float, text_class: str) -> float:
+    if text_class == "instrument_semantic":
+        return float(base_threshold_px) + 5.0
     if text_class != "line_number":
         return float(base_threshold_px)
     bbox = region["bbox"]

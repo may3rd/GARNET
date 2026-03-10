@@ -205,6 +205,40 @@ class PipeTextAttachmentTests(unittest.TestCase):
         self.assertEqual(result["summary"]["accepted_attachment_count"], 1)
         self.assertGreater(result["attachments_payload"]["accepted"][0]["threshold_px"], 140.0)
 
+    def test_run_pipe_text_attachment_stage_uses_small_tolerance_for_instrument_semantic(self) -> None:
+        text_regions = [
+            {
+                "id": "inst_1",
+                "text": "XC-2504",
+                "normalized_text": "XC-2504",
+                "semantic_class": "instrument_semantic",
+                "bbox": {"x_min": 0, "y_min": 0, "x_max": 100, "y_max": 100},
+            }
+        ]
+        edges = [
+            {
+                "id": "edge_1",
+                "source": "n1",
+                "target": "n2",
+                "polyline": [
+                    {"row": 181, "col": 100},
+                    {"row": 181, "col": 120},
+                ],
+            }
+        ]
+
+        result = run_pipe_text_attachment_stage(
+            image_id="sample.png",
+            image_bgr=np.zeros((240, 240, 3), dtype=np.uint8),
+            text_regions=text_regions,
+            edges=edges,
+            max_distance_px=80.0,
+            text_class="instrument_semantic",
+        )
+
+        self.assertEqual(result["summary"]["accepted_attachment_count"], 1)
+        self.assertEqual(result["attachments_payload"]["accepted"][0]["threshold_px"], 85.0)
+
     def test_run_line_number_fusion_stage_rejects_tiny_detection_only_fragment(self) -> None:
         object_regions = [
             {
