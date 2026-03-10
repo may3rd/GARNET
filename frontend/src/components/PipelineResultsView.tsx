@@ -6,6 +6,7 @@ type JsonValue = string | number | boolean | null | JsonObject | JsonValue[]
 type JsonObject = Record<string, JsonValue>
 type ReviewDecision = 'accepted' | 'rejected' | 'deferred'
 type ReviewBucket = 'stage4_line_number' | 'stage4_instrument' | 'stage12_line_attachment' | 'stage12_instrument_attachment'
+type ReviewFilter = 'all' | ReviewDecision | 'unresolved'
 
 type ReviewItem = {
   bucket: ReviewBucket
@@ -161,6 +162,7 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   const [jsonDetails, setJsonDetails] = useState<Record<string, JsonObject>>({})
   const [activeArtifactName, setActiveArtifactName] = useState<string | null>(null)
   const [activeReviewBucket, setActiveReviewBucket] = useState<ReviewBucket>('stage4_line_number')
+  const [activeReviewFilter, setActiveReviewFilter] = useState<ReviewFilter>('all')
   const [selectedReviewItemId, setSelectedReviewItemId] = useState<string | null>(null)
   const [reviewDecisions, setReviewDecisions] = useState<Record<string, ReviewDecision>>({})
   const stages = job.manifest?.stages ?? []
@@ -304,21 +306,30 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   )
 
   const activeReviewItems = reviewItems[activeReviewBucket]
+  const filteredReviewItems = useMemo(() => {
+    return activeReviewItems.filter((item) => {
+      if (activeReviewFilter === 'all') return true
+      if (activeReviewFilter === 'unresolved') {
+        return item.reviewState === 'detection_only' || item.reviewState === 'rejected' || !item.reviewState
+      }
+      return (reviewDecisions[`${item.bucket}:${item.id}`] ?? 'deferred') === activeReviewFilter
+    })
+  }, [activeReviewFilter, activeReviewItems, reviewDecisions])
   const selectedReviewItem =
-    activeReviewItems.find((item) => item.id === selectedReviewItemId) ??
-    activeReviewItems[0] ??
+    filteredReviewItems.find((item) => item.id === selectedReviewItemId) ??
+    filteredReviewItems[0] ??
     null
 
   useEffect(() => {
-    if (!activeReviewItems.length) {
+    if (!filteredReviewItems.length) {
       setSelectedReviewItemId(null)
       return
     }
-    if (selectedReviewItemId && activeReviewItems.some((item) => item.id === selectedReviewItemId)) {
+    if (selectedReviewItemId && filteredReviewItems.some((item) => item.id === selectedReviewItemId)) {
       return
     }
-    setSelectedReviewItemId(activeReviewItems[0].id)
-  }, [activeReviewItems, selectedReviewItemId])
+    setSelectedReviewItemId(filteredReviewItems[0].id)
+  }, [filteredReviewItems, selectedReviewItemId])
 
   useEffect(() => {
     if (!selectedReviewItem) return
@@ -539,8 +550,33 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
               <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-5">
                 <div className="text-sm font-semibold">Review Items</div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {([
+                    ['all', 'All'],
+                    ['accepted', 'Accepted'],
+                    ['rejected', 'Rejected'],
+                    ['deferred', 'Deferred'],
+                    ['unresolved', 'Unresolved'],
+                  ] as Array<[ReviewFilter, string]>).map(([filterKey, label]) => {
+                    const isActive = filterKey === activeReviewFilter
+                    return (
+                      <button
+                        key={filterKey}
+                        type="button"
+                        onClick={() => setActiveReviewFilter(filterKey)}
+                        className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                          isActive
+                            ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                            : 'border-[var(--border-muted)] bg-[var(--bg-primary)] text-[var(--text-secondary)]'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
                 <div className="mt-4 max-h-[420px] space-y-2 overflow-auto pr-1">
-                  {activeReviewItems.map((item) => {
+                  {filteredReviewItems.map((item) => {
                     const isSelected = item.id === selectedReviewItem?.id
                     const decision = reviewDecisions[`${item.bucket}:${item.id}`] ?? 'deferred'
                     return (
@@ -569,9 +605,9 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
                       </button>
                     )
                   })}
-                  {!activeReviewItems.length ? (
+                  {!filteredReviewItems.length ? (
                     <div className="rounded-xl border border-[var(--border-muted)] bg-[var(--bg-primary)] p-4 text-sm text-[var(--text-secondary)]">
-                      No review items available for this section.
+                      No review items match the current filter.
                     </div>
                   ) : null}
                 </div>
