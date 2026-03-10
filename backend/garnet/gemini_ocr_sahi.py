@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 import numpy as np
+from dotenv import dotenv_values
 from sahi.models.base import DetectionModel
 from sahi.predict import get_sliced_prediction
 from sahi.prediction import ObjectPrediction
@@ -23,6 +24,7 @@ PromptBundle = dict[str, str]
 InferFn = Callable[[np.ndarray], dict[str, Any]]
 
 PROMPT_DIR = Path(__file__).resolve().parent / "OCR_prompts"
+ROOT_ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
 OCR_CLASSES = [
     "equipment_tag",
     "line_number",
@@ -54,6 +56,23 @@ class GeminiOcrSahiConfig:
     postprocess_type: str = "GREEDYNMM"
     postprocess_match_metric: str = "IOS"
     postprocess_match_threshold: float = 0.1
+
+
+def _resolve_openrouter_api_key(explicit_key: str | None) -> str:
+    if explicit_key and explicit_key.strip():
+        return explicit_key.strip()
+
+    env_key = (os.getenv("OPENROUTER_API_KEY") or "").strip()
+    if env_key:
+        return env_key
+
+    if ROOT_ENV_PATH.exists():
+        root_env = dotenv_values(ROOT_ENV_PATH)
+        root_key = str(root_env.get("OPENROUTER_API_KEY") or "").strip()
+        if root_key:
+            return root_key
+
+    return ""
 
 
 def _load_prompt_bundle(prompt_dir: Path | None = None) -> PromptBundle:
@@ -235,9 +254,9 @@ def _infer_with_openrouter(
 ) -> dict[str, Any]:
     from openai import OpenAI  # type: ignore
 
-    api_key = (cfg.openrouter_api_key or os.getenv("OPENROUTER_API_KEY", "")).strip()
+    api_key = _resolve_openrouter_api_key(cfg.openrouter_api_key)
     if not api_key:
-        raise RuntimeError("OPENROUTER_API_KEY is required for Gemini OCR route")
+        raise RuntimeError("OPENROUTER_API_KEY is required for Gemini OCR route and can be supplied by cfg, env, or the repo root .env")
     if cv2 is None:  # pragma: no cover
         raise RuntimeError("cv2 is required for Gemini OCR route")
 
