@@ -76,6 +76,22 @@ def _crop_image(image_bgr: np.ndarray, bbox: dict[str, int], padding: int = 4) -
     return crop if crop.size else None
 
 
+def _crop_image_inset(image_bgr: np.ndarray, bbox: dict[str, int], inset_ratio: float = 0.1) -> np.ndarray | None:
+    height, width = image_bgr.shape[:2]
+    bw = max(1, int(bbox["x_max"] - bbox["x_min"]))
+    bh = max(1, int(bbox["y_max"] - bbox["y_min"]))
+    inset_x = max(1, int(round(bw * inset_ratio)))
+    inset_y = max(1, int(round(bh * inset_ratio)))
+    x_min = max(0, int(bbox["x_min"]) + inset_x)
+    y_min = max(0, int(bbox["y_min"]) + inset_y)
+    x_max = min(width, int(bbox["x_max"]) - inset_x)
+    y_max = min(height, int(bbox["y_max"]) - inset_y)
+    if x_max <= x_min or y_max <= y_min:
+        return None
+    crop = image_bgr[y_min:y_max, x_min:x_max]
+    return crop if crop.size else None
+
+
 def _enhance_crop_for_ocr(crop: np.ndarray) -> np.ndarray:
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
     upscaled = cv2.resize(gray, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_CUBIC)
@@ -103,11 +119,7 @@ def _parse_ocrmac_annotations(annotations: list[tuple[Any, Any, Any]]) -> list[s
 
 
 def _assemble_instrument_tag_from_parts(parts: list[str]) -> str:
-    normalized_parts = [
-        re.sub(r"[^A-Z0-9-]", "", part.upper().replace("_", "-"))
-        for part in parts
-        if part.strip()
-    ]
+    normalized_parts = [re.sub(r"[^A-Z0-9-]", "", part.upper().replace("_", "-")) for part in parts if part.strip()]
     normalized_parts = [part for part in normalized_parts if part]
     if not normalized_parts:
         return ""
@@ -116,8 +128,15 @@ def _assemble_instrument_tag_from_parts(parts: list[str]) -> str:
     if _looks_like_instrument_tag(direct):
         return _normalize_instrument_tag(direct)
 
-    alpha_parts = [part for part in normalized_parts if re.fullmatch(r"[A-Z]{2,4}", part)]
+    collapsed_alpha_parts = [re.sub(r"[^A-Z]", "", part) for part in normalized_parts]
+    alpha_parts = [part for part in collapsed_alpha_parts if re.fullmatch(r"[A-Z]{1,4}", part)]
     digit_parts = [part for part in normalized_parts if re.fullmatch(r"\d{3,4}[A-Z]?", part)]
+    if alpha_parts and digit_parts:
+        joined_alpha = "".join(alpha_parts)
+        if re.fullmatch(r"[A-Z]{2,4}", joined_alpha):
+            candidate = f"{joined_alpha}-{digit_parts[0]}"
+            if _looks_like_instrument_tag(candidate):
+                return _normalize_instrument_tag(candidate)
     if alpha_parts and digit_parts:
         candidate = f"{alpha_parts[0]}-{digit_parts[0]}"
         if _looks_like_instrument_tag(candidate):
@@ -137,6 +156,10 @@ def _confirm_with_crop_ocr(image_bgr: np.ndarray, bbox: dict[str, int]) -> str:
     if ocrmac is None:
         return ""
     crops = [("crop_ocr", crop)]
+    tight_crop = _crop_image_inset(image_bgr, bbox, inset_ratio=0.1)
+    if tight_crop is not None:
+        crops.append(("crop_ocr_tight", tight_crop))
+        crops.append(("crop_ocr_tight_preprocessed", _enhance_crop_for_ocr(tight_crop)))
     if crop.shape[0] > max(32, crop.shape[1] * 1.2):
         rotated = cv2.rotate(crop, cv2.ROTATE_90_CLOCKWISE)
         crops.append(("crop_ocr_rotated", rotated))
@@ -265,7 +288,7 @@ def run_instrument_tag_fusion_stage(
         color = (0, 165, 255)
         if entry.get("ocr_source") == "sheet_ocr":
             color = (255, 0, 0)
-        elif entry.get("ocr_source") in {"crop_ocr", "crop_ocr_preprocessed"}:
+        elif entry.get("ocr_source") in {"crop_ocr", "crop_ocr_preprocessed", "crop_ocr_tight", "crop_ocr_tight_preprocessed"}:
             color = (0, 200, 0)
         elif str(entry.get("ocr_source", "")).startswith("crop_ocr_rotated"):
             color = (0, 220, 220)
@@ -291,7 +314,11 @@ def run_instrument_tag_fusion_stage(
             "detection_only_instrument_semantic_count": detection_only_count,
             "sheet_ocr_instrument_semantic_count": len([item for item in accepted if item.get("ocr_source") == "sheet_ocr"]),
             "crop_ocr_instrument_semantic_count": len(
-                [item for item in accepted if item.get("ocr_source") in {"crop_ocr", "crop_ocr_preprocessed"}]
+                [
+                    item
+                    for item in accepted
+                    if item.get("ocr_source") in {"crop_ocr", "crop_ocr_preprocessed", "crop_ocr_tight", "crop_ocr_tight_preprocessed"}
+                ]
             ),
             "rotated_crop_ocr_instrument_semantic_count": len(
                 [item for item in accepted if str(item.get("ocr_source", "")).startswith("crop_ocr_rotated")]
