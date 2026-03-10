@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { PipelineJob } from '@/types'
+import { PipelineArtifactCanvas } from '@/components/PipelineArtifactCanvas'
 
 type JsonValue = string | number | boolean | null | JsonObject | JsonValue[]
 type JsonObject = Record<string, JsonValue>
@@ -24,6 +25,7 @@ function SummaryCard({ title, entries }: { title: string; entries: Array<[string
 
 export function PipelineResultsView({ job }: { job: PipelineJob }) {
   const [jsonSummaries, setJsonSummaries] = useState<Record<string, JsonObject>>({})
+  const [activeArtifactName, setActiveArtifactName] = useState<string | null>(null)
   const stages = job.manifest?.stages ?? []
   const imageArtifacts = job.artifacts.filter((artifact) => /\.(png|jpg|jpeg|webp)$/i.test(artifact.name))
   const jsonArtifacts = job.artifacts.filter((artifact) => artifact.name.endsWith('.json'))
@@ -86,6 +88,19 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
       active = false
     }
   }, [summaryArtifacts])
+
+  useEffect(() => {
+    if (!imageArtifacts.length) {
+      setActiveArtifactName(null)
+      return
+    }
+    if (activeArtifactName && imageArtifacts.some((artifact) => artifact.name === activeArtifactName)) {
+      return
+    }
+    setActiveArtifactName((spotlightImageArtifacts[0] ?? imageArtifacts[0])?.name ?? null)
+  }, [activeArtifactName, imageArtifacts, spotlightImageArtifacts])
+
+  const activeArtifact = imageArtifacts.find((artifact) => artifact.name === activeArtifactName) ?? imageArtifacts[0] ?? null
 
   return (
     <div className="h-full overflow-auto bg-[var(--bg-canvas)]">
@@ -217,32 +232,39 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
           </div>
 
           <div className="space-y-6">
-            {spotlightImageArtifacts.length > 0 && (
+            {activeArtifact && (
               <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-5">
-                <div className="text-sm font-semibold">Line Number Review</div>
+                <div className="text-sm font-semibold">Artifact Viewer</div>
                 <div className="mt-1 text-xs text-[var(--text-secondary)]">
                   Blue = sheet OCR, green = crop OCR, cyan = rotated crop OCR, orange = detection only, red = rejected.
                 </div>
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  {spotlightImageArtifacts.map((artifact) => (
-                    <div key={artifact.name} className="rounded-xl border border-[var(--border-muted)] bg-[var(--bg-primary)] p-3">
-                      <div className="mb-2 text-xs font-semibold text-[var(--text-secondary)]">{artifact.name}</div>
-                      <img src={artifact.url} alt={artifact.name} className="w-full rounded-lg border border-[var(--border-muted)]" />
-                    </div>
-                  ))}
+                <div className="mt-4">
+                  <PipelineArtifactCanvas imageUrl={activeArtifact.url} title={activeArtifact.name} />
                 </div>
               </div>
             )}
 
             <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-5">
-              <div className="text-sm font-semibold">Image Artifacts</div>
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                {imageArtifacts.map((artifact) => (
-                  <div key={artifact.name} className="rounded-xl border border-[var(--border-muted)] bg-[var(--bg-primary)] p-3">
-                    <div className="mb-2 text-xs font-semibold text-[var(--text-secondary)]">{artifact.name}</div>
-                    <img src={artifact.url} alt={artifact.name} className="w-full rounded-lg border border-[var(--border-muted)]" />
-                  </div>
-                ))}
+              <div className="text-sm font-semibold">Artifact Thumbnails</div>
+              <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {imageArtifacts.map((artifact) => {
+                  const isActive = artifact.name === activeArtifactName
+                  return (
+                    <button
+                      key={artifact.name}
+                      type="button"
+                      onClick={() => setActiveArtifactName(artifact.name)}
+                      className={`rounded-xl border bg-[var(--bg-primary)] p-3 text-left transition ${
+                        isActive
+                          ? 'border-[var(--accent)] ring-2 ring-[var(--accent)]/25'
+                          : 'border-[var(--border-muted)] hover:border-[var(--accent)]/50'
+                      }`}
+                    >
+                      <div className="mb-2 text-xs font-semibold text-[var(--text-secondary)]">{artifact.name}</div>
+                      <img src={artifact.url} alt={artifact.name} className="w-full rounded-lg border border-[var(--border-muted)]" />
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
