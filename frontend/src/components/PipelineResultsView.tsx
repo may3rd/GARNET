@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { PipelineJob, PipelineReviewBucket, PipelineReviewDecision, PipelineReviewItem } from '@/types'
 import { PipelineArtifactCanvas } from '@/components/PipelineArtifactCanvas'
 import { PipelineHitlReviewView } from '@/components/PipelineHitlReviewView'
+import { getPipelineReviewedGraph, getPipelineReviewedQa } from '@/lib/api'
 
 type JsonValue = string | number | boolean | null | JsonObject | JsonValue[]
 type JsonObject = Record<string, JsonValue>
@@ -147,6 +148,9 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   const [selectedReviewItemId, setSelectedReviewItemId] = useState<string | null>(null)
   const [reviewDecisions, setReviewDecisions] = useState<Record<string, ReviewDecision>>({})
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
+  const [graphMode, setGraphMode] = useState<'raw' | 'reviewed'>('raw')
+  const [reviewedGraphSummary, setReviewedGraphSummary] = useState<JsonObject | null>(null)
+  const [reviewedQaSummary, setReviewedQaSummary] = useState<JsonObject | null>(null)
   const stages = job.manifest?.stages ?? []
   const imageArtifacts = useMemo(
     () => job.artifacts.filter((artifact) => /\.(png|jpg|jpeg|webp)$/i.test(artifact.name)),
@@ -269,6 +273,29 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
 
   useEffect(() => {
     window.localStorage.setItem(reviewStorageKey(job.job_id), JSON.stringify(reviewDecisions))
+  }, [job.job_id, reviewDecisions])
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      try {
+        const [graph, qa] = await Promise.all([
+          getPipelineReviewedGraph(job.job_id),
+          getPipelineReviewedQa(job.job_id),
+        ])
+        if (!active) return
+        setReviewedGraphSummary(graph.summary as JsonObject)
+        setReviewedQaSummary(qa.summary as JsonObject)
+      } catch {
+        if (!active) return
+        setReviewedGraphSummary(null)
+        setReviewedQaSummary(null)
+      }
+    }
+    void load()
+    return () => {
+      active = false
+    }
   }, [job.job_id, reviewDecisions])
 
   useEffect(() => {
@@ -457,20 +484,20 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
         <SummaryCard
           title="Graph Summary"
           entries={[
-            ['Nodes', jsonSummaries['stage12_graph_summary.json']?.node_count],
-            ['Edges', jsonSummaries['stage12_graph_summary.json']?.edge_count],
-            ['Components', jsonSummaries['stage12_graph_summary.json']?.connected_component_count],
-            ['Unresolved Junctions', jsonSummaries['stage12_graph_summary.json']?.unresolved_junction_count],
+            ['Nodes', graphMode === 'reviewed' ? reviewedGraphSummary?.node_count : jsonSummaries['stage12_graph_summary.json']?.node_count],
+            ['Edges', graphMode === 'reviewed' ? reviewedGraphSummary?.edge_count : jsonSummaries['stage12_graph_summary.json']?.edge_count],
+            ['Components', graphMode === 'reviewed' ? reviewedGraphSummary?.connected_component_count : jsonSummaries['stage12_graph_summary.json']?.connected_component_count],
+            ['Unresolved Junctions', graphMode === 'reviewed' ? reviewedGraphSummary?.unresolved_junction_count : jsonSummaries['stage12_graph_summary.json']?.unresolved_junction_count],
           ]}
         />
 
         <SummaryCard
           title="QA Summary"
           entries={[
-            ['QA Components', jsonSummaries['stage13_graph_qa_summary.json']?.connected_component_count],
-            ['Articulation Points', jsonSummaries['stage13_graph_qa_summary.json']?.articulation_point_count],
-            ['Isolated Nodes', jsonSummaries['stage13_graph_qa_summary.json']?.isolated_node_count],
-            ['Review Queue', jsonSummaries['stage13_graph_qa_summary.json']?.review_queue_count],
+            ['QA Components', graphMode === 'reviewed' ? reviewedQaSummary?.connected_component_count : jsonSummaries['stage13_graph_qa_summary.json']?.connected_component_count],
+            ['Articulation Points', graphMode === 'reviewed' ? reviewedQaSummary?.articulation_point_count : jsonSummaries['stage13_graph_qa_summary.json']?.articulation_point_count],
+            ['Isolated Nodes', graphMode === 'reviewed' ? reviewedQaSummary?.isolated_node_count : jsonSummaries['stage13_graph_qa_summary.json']?.isolated_node_count],
+            ['Review Queue', graphMode === 'reviewed' ? reviewedQaSummary?.review_queue_count : jsonSummaries['stage13_graph_qa_summary.json']?.review_queue_count],
           ]}
         />
 
@@ -511,6 +538,22 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
                 >
                   Open Full Review Workspace
                 </button>
+              </div>
+              <div className="mt-3 flex gap-2">
+                {(['raw', 'reviewed'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setGraphMode(mode)}
+                    className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                      graphMode === mode
+                        ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                        : 'border-[var(--border-muted)] bg-[var(--bg-primary)] text-[var(--text-secondary)]'
+                    }`}
+                  >
+                    {mode === 'raw' ? 'Raw Outputs' : 'Reviewed Outputs'}
+                  </button>
+                ))}
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 {([

@@ -119,3 +119,14 @@ export type PipelineReviewState = {
   items: PipelineReviewStateItem[]
   workspace_objects: Record<PipelineReviewBucket, Array<Record<string, unknown>>>
 }
+
+export type PipelineReviewedGraphResponse = {
+  graph: Record<string, unknown>
+  summary: Record<string, unknown>
+}
+
+export type PipelineReviewedQaResponse = {
+  anomaly_report: Record<string, unknown>
+  review_queue: Record<string, unknown>
+  summary: Record<string, unknown>
+}
