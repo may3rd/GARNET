@@ -34,6 +34,10 @@ def _distance(a: tuple[float, float], b: tuple[float, float]) -> float:
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
+def _bbox_size(bbox: dict[str, int]) -> tuple[int, int]:
+    return max(0, int(bbox["x_max"] - bbox["x_min"])), max(0, int(bbox["y_max"] - bbox["y_min"]))
+
+
 def _bbox_gap(a: dict[str, int], b: dict[str, int]) -> float:
     dx = max(0, max(a["x_min"] - b["x_max"], b["x_min"] - a["x_max"]))
     dy = max(0, max(a["y_min"] - b["y_max"], b["y_min"] - a["y_max"]))
@@ -68,6 +72,17 @@ def _line_number_quality_score(text: str) -> tuple[int, int, int]:
         token.count("-"),
         len(token),
     )
+
+
+def _should_reject_detection_only_line_number(bbox: dict[str, int], image_shape: tuple[int, ...]) -> bool:
+    img_h, img_w = image_shape[:2]
+    w, h = _bbox_size(bbox)
+    area = w * h
+    near_left_border = bbox["x_min"] <= max(8, int(round(img_w * 0.01)))
+    near_right_border = bbox["x_max"] >= img_w - max(8, int(round(img_w * 0.01)))
+    extreme_vertical = h > max(400, w * 8)
+    tiny_fragment = area <= 1800 and max(w, h) <= 40
+    return tiny_fragment or ((near_left_border or near_right_border) and extreme_vertical)
 
 
 def _normalize_line_number(text: str) -> str:
@@ -304,7 +319,10 @@ def run_line_number_fusion_stage(
             entry["ocr_confirmed"] = True
         if entry["ocr_confirmed"]:
             confirmed_by_ocr += 1
-        if float(obj.get("confidence", 0.0)) >= 0.5 or entry["ocr_confirmed"]:
+        if not entry["ocr_confirmed"] and _should_reject_detection_only_line_number(bbox, image_bgr.shape):
+            entry["review_state"] = "rejected"
+            rejected.append(entry)
+        elif float(obj.get("confidence", 0.0)) >= 0.5 or entry["ocr_confirmed"]:
             accepted.append(entry)
         else:
             entry["review_state"] = "rejected"

@@ -172,6 +172,48 @@ class PipeTextAttachmentTests(unittest.TestCase):
 
         self.assertEqual(result["summary"]["accepted_attachment_count"], 1)
 
+    def test_run_line_number_fusion_stage_rejects_tiny_detection_only_fragment(self) -> None:
+        object_regions = [
+            {
+                "id": "obj_1",
+                "class_name": "line number",
+                "bbox": {"x_min": 5, "y_min": 5, "x_max": 35, "y_max": 35},
+                "confidence": 0.9,
+            }
+        ]
+
+        result = run_line_number_fusion_stage(
+            image_id="sample.png",
+            image_bgr=np.zeros((100, 100, 3), dtype=np.uint8),
+            object_regions=object_regions,
+            text_regions=[],
+            max_distance_px=40.0,
+        )
+
+        self.assertEqual(result["summary"]["matched_line_number_count"], 0)
+        self.assertEqual(result["summary"]["rejected_line_number_count"], 1)
+
+    def test_run_line_number_fusion_stage_rejects_extreme_border_vertical_detection_only(self) -> None:
+        object_regions = [
+            {
+                "id": "obj_1",
+                "class_name": "line number",
+                "bbox": {"x_min": 0, "y_min": 10, "x_max": 70, "y_max": 1200},
+                "confidence": 0.9,
+            }
+        ]
+
+        result = run_line_number_fusion_stage(
+            image_id="sample.png",
+            image_bgr=np.zeros((1400, 1000, 3), dtype=np.uint8),
+            object_regions=object_regions,
+            text_regions=[],
+            max_distance_px=40.0,
+        )
+
+        self.assertEqual(result["summary"]["matched_line_number_count"], 0)
+        self.assertEqual(result["summary"]["rejected_line_number_count"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
