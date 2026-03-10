@@ -61,6 +61,15 @@ def _looks_like_line_number_fragment(text: str) -> bool:
     return has_digit and has_dash and has_alpha
 
 
+def _line_number_quality_score(text: str) -> tuple[int, int, int]:
+    token = _normalize_line_number(text)
+    return (
+        len(re.findall(r"\d{3,}", token)),
+        token.count("-"),
+        len(token),
+    )
+
+
 def _normalize_line_number(text: str) -> str:
     normalized = text.upper().strip()
     normalized = normalized.replace("_", "-")
@@ -262,6 +271,7 @@ def run_line_number_fusion_stage(
             "semantic_class": "line_number",
             "review_state": "detection_only",
         }
+        sheet_confirmed = False
         if fused_text and _looks_like_line_number(fused_text):
             entry.update(
                 {
@@ -276,10 +286,10 @@ def run_line_number_fusion_stage(
                     "review_state": "ocr_confirmed",
                 }
             )
-            confirmed_by_ocr += 1
-        else:
-            crop_source, crop_text = _confirm_with_crop_ocr(image_bgr, bbox)
-            if crop_text and _looks_like_line_number(crop_text):
+            sheet_confirmed = True
+        crop_source, crop_text = _confirm_with_crop_ocr(image_bgr, bbox)
+        if crop_text and _looks_like_line_number(crop_text):
+            if not sheet_confirmed or _line_number_quality_score(crop_text) > _line_number_quality_score(entry["text"]):
                 entry.update(
                     {
                         "text": crop_text,
@@ -291,7 +301,9 @@ def run_line_number_fusion_stage(
                         "review_state": "ocr_confirmed",
                     }
                 )
-                confirmed_by_ocr += 1
+            entry["ocr_confirmed"] = True
+        if entry["ocr_confirmed"]:
+            confirmed_by_ocr += 1
         if float(obj.get("confidence", 0.0)) >= 0.5 or entry["ocr_confirmed"]:
             accepted.append(entry)
         else:

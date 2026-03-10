@@ -72,6 +72,40 @@ class PipeTextAttachmentTests(unittest.TestCase):
         self.assertEqual(result["line_numbers_payload"]["line_numbers"][0]["ocr_source"], "crop_ocr")
         self.assertEqual(result["line_numbers_payload"]["line_numbers"][0]["review_state"], "ocr_confirmed")
 
+    @patch("garnet.line_number_fusion._confirm_with_crop_ocr", return_value=("crop_ocr", '6"-NAS-25-003003-B2A2-NI'))
+    def test_run_line_number_fusion_stage_prefers_fuller_crop_text_over_partial_sheet_text(self, _mock_crop) -> None:
+        object_regions = [
+            {
+                "id": "obj_1",
+                "class_name": "line number",
+                "bbox": {"x_min": 0, "y_min": 0, "x_max": 220, "y_max": 24},
+                "confidence": 0.72,
+            }
+        ]
+        text_regions = [
+            {
+                "id": "ocr_1",
+                "text": '6"-NAS-25-003003-E',
+                "bbox": {"x_min": 2, "y_min": 2, "x_max": 180, "y_max": 20},
+                "confidence": 0.9,
+                "class": "line_number",
+            }
+        ]
+
+        result = run_line_number_fusion_stage(
+            image_id="sample.png",
+            image_bgr=np.zeros((40, 240, 3), dtype=np.uint8),
+            object_regions=object_regions,
+            text_regions=text_regions,
+            max_distance_px=40.0,
+        )
+
+        self.assertEqual(
+            result["line_numbers_payload"]["line_numbers"][0]["normalized_text"],
+            '6"-NAS-25-003003-B2A2-NI',
+        )
+        self.assertEqual(result["line_numbers_payload"]["line_numbers"][0]["ocr_source"], "crop_ocr")
+
     def test_run_pipe_text_attachment_stage_attaches_line_number_to_edge(self) -> None:
         text_regions = [
             {
