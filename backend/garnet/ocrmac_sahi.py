@@ -24,6 +24,7 @@ class OcrMacSahiConfig:
     slice_width: int = 1600
     overlap_height_ratio: float = 0.2
     overlap_width_ratio: float = 0.2
+    enable_rotated_ocr: bool = True
     postprocess_match_metric: str = "IOS"
     postprocess_match_threshold: float = 0.1
 
@@ -100,6 +101,51 @@ def _safe_normalized_text(text: str) -> str:
     return normalized if normalized == text.strip() else ""
 
 
+def _rotate_image(tile_rgb: np.ndarray, orientation: str) -> np.ndarray:
+    if orientation == "none":
+        return tile_rgb
+    if orientation == "cw":
+        return cv2.rotate(tile_rgb, cv2.ROTATE_90_CLOCKWISE)
+    if orientation == "ccw":
+        return cv2.rotate(tile_rgb, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    raise ValueError(f"Unsupported orientation: {orientation}")
+
+
+def _rotate_points_back(
+    points: list[tuple[float, float]],
+    *,
+    orientation: str,
+    original_width: int,
+    original_height: int,
+) -> list[tuple[float, float]]:
+    restored: list[tuple[float, float]] = []
+    for x_rot, y_rot in points:
+        if orientation == "none":
+            x_orig, y_orig = x_rot, y_rot
+        elif orientation == "cw":
+            x_orig = y_rot
+            y_orig = original_height - 1 - x_rot
+        elif orientation == "ccw":
+            x_orig = original_width - 1 - y_rot
+            y_orig = x_rot
+        else:
+            raise ValueError(f"Unsupported orientation: {orientation}")
+        restored.append((float(x_orig), float(y_orig)))
+    return restored
+
+
+def _region_direction(bbox: dict[str, int], rotation: int) -> str:
+    width = max(1, bbox["x_max"] - bbox["x_min"])
+    height = max(1, bbox["y_max"] - bbox["y_min"])
+    if rotation not in {0, 180}:
+        return "rotated"
+    if height > width * 1.4:
+        return "vertical"
+    if width > height * 1.4:
+        return "horizontal"
+    return "unknown"
+
+
 def _classify_text(text: str) -> str:
     token = text.strip()
     upper = token.upper()
@@ -130,8 +176,11 @@ def _annotation_to_detection(
     *,
     tile_width: int,
     tile_height: int,
+    original_width: int,
+    original_height: int,
     x_offset: int,
     y_offset: int,
+    orientation: str,
 ) -> dict[str, Any] | None:
     if len(annotation) != 3:
         return None
@@ -141,24 +190,43 @@ def _annotation_to_detection(
     norm_x, norm_y, norm_w, norm_h = [float(v) for v in bbox_xywh]
 
     # Vision-style normalized coordinates use bottom-left origin.
-    x_min = int(round((norm_x * tile_width) + x_offset))
-    box_width = int(round(norm_w * tile_width))
-    box_height = int(round(norm_h * tile_height))
+    x_min = norm_x * tile_width
+    box_width = norm_w * tile_width
+    box_height = norm_h * tile_height
     y_top_from_bottom = norm_y + norm_h
-    y_min = int(round(((1.0 - y_top_from_bottom) * tile_height) + y_offset))
+    y_min = (1.0 - y_top_from_bottom) * tile_height
+    x_max = x_min + box_width
+    y_max = y_min + box_height
+
+    rotated_points = [
+        (x_min, y_min),
+        (x_max, y_min),
+        (x_max, y_max),
+        (x_min, y_max),
+    ]
+    restored_points = _rotate_points_back(
+        rotated_points,
+        orientation=orientation,
+        original_width=original_width,
+        original_height=original_height,
+    )
+    restored_x = [point[0] for point in restored_points]
+    restored_y = [point[1] for point in restored_points]
+    restored_bbox = {
+        "x_min": int(round(min(restored_x))) + x_offset,
+        "y_min": int(round(min(restored_y))) + y_offset,
+        "x_max": int(round(max(restored_x))) + x_offset,
+        "y_max": int(round(max(restored_y))) + y_offset,
+    }
+    rotation = 0 if orientation == "none" else 90
     return {
         "text": str(text),
         "normalized_text": _safe_normalized_text(str(text)),
         "class": _classify_text(str(text)),
         "confidence": round(float(confidence), 4),
-        "bbox": {
-            "x_min": x_min,
-            "y_min": y_min,
-            "x_max": x_min + box_width,
-            "y_max": y_min + box_height,
-        },
-        "rotation": 0,
-        "reading_direction": "horizontal",
+        "bbox": restored_bbox,
+        "rotation": rotation,
+        "reading_direction": _region_direction(restored_bbox, rotation),
         "legibility": "clear" if float(confidence) >= 0.8 else "degraded",
     }
 
@@ -203,27 +271,36 @@ def run_ocrmac_sahi(
     raw_detections: list[dict[str, Any]] = []
     for y0, x0, y1, x1 in tiles:
         tile_rgb = image_rgb[y0:y1, x0:x1]
-        tile_image = Image.fromarray(tile_rgb)
-        annotations = ocrmac.OCR(
-            tile_image,
-            recognition_level=cfg.recognition_level,
-            framework=cfg.framework,
-            language_preference=list(cfg.language_preference),
-        ).recognize()
         tile_h, tile_w = tile_rgb.shape[:2]
-        for annotation in annotations:
-            det = _annotation_to_detection(
-                annotation,
-                tile_width=tile_w,
-                tile_height=tile_h,
-                x_offset=x0,
-                y_offset=y0,
-            )
-            if det is None:
-                continue
-            if det["confidence"] < cfg.confidence_threshold:
-                continue
-            raw_detections.append(det)
+        orientations = ["none"]
+        if cfg.enable_rotated_ocr:
+            orientations.extend(["cw", "ccw"])
+        for orientation in orientations:
+            oriented_tile_rgb = _rotate_image(tile_rgb, orientation)
+            oriented_h, oriented_w = oriented_tile_rgb.shape[:2]
+            tile_image = Image.fromarray(oriented_tile_rgb)
+            annotations = ocrmac.OCR(
+                tile_image,
+                recognition_level=cfg.recognition_level,
+                framework=cfg.framework,
+                language_preference=list(cfg.language_preference),
+            ).recognize()
+            for annotation in annotations:
+                det = _annotation_to_detection(
+                    annotation,
+                    tile_width=oriented_w,
+                    tile_height=oriented_h,
+                    original_width=tile_w,
+                    original_height=tile_h,
+                    x_offset=x0,
+                    y_offset=y0,
+                    orientation=orientation,
+                )
+                if det is None:
+                    continue
+                if det["confidence"] < cfg.confidence_threshold:
+                    continue
+                raw_detections.append(det)
 
     deduped = _nms_ios(raw_detections, cfg.postprocess_match_threshold)
     for idx, region in enumerate(sorted(deduped, key=lambda item: (item["bbox"]["y_min"], item["bbox"]["x_min"], item["text"])), start=1):
@@ -265,6 +342,7 @@ def run_ocrmac_sahi(
             "framework": cfg.framework,
             "recognition_level": cfg.recognition_level,
             "language_preference": list(cfg.language_preference),
+            "rotated_ocr_enabled": cfg.enable_rotated_ocr,
             "postprocess_match_metric": cfg.postprocess_match_metric,
             "postprocess_match_threshold": cfg.postprocess_match_threshold,
         },

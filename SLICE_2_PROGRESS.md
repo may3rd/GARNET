@@ -160,3 +160,32 @@
     - Stage 2 duration `3.333389s`
 - Next step / blocker:
   - compare OCRMac quality against the EasyOCR baseline on the same sample and decide whether OCRMac should become a preferred macOS route or stay as an optional alternative.
+
+### 2026-03-11 06:35 ICT
+- Task: `Slice 2 / OCRMac rotated line numbers`
+- Action: Extended the `ocrmac` Stage 2 route to run 90-degree tile passes, restore rotated OCR boxes back into sheet coordinates, and carry rotation metadata through the shared Stage 2 contract so vertical line numbers survive into Stage 4 fusion. Re-ran the sample sheet and a 9-image PPCL batch to validate the change on real drawings.
+- Evidence:
+  - [`backend/garnet/ocrmac_sahi.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/ocrmac_sahi.py)
+  - [`backend/garnet/pid_extractor.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/pid_extractor.py)
+  - [`backend/tests/test_ocrmac_sahi.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/tests/test_ocrmac_sahi.py)
+  - [`backend/tests/test_pid_extractor_cli.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/tests/test_pid_extractor_cli.py)
+  - sample rerun: [`backend/output/ocrmac_sample_rerun_20260311`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/ocrmac_sample_rerun_20260311)
+  - PPCL reruns: [`backend/output/ppcl_batch_20260311`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/ppcl_batch_20260311)
+- Verification:
+  - `cd backend && python -m py_compile api.py garnet/*.py garnet/utils/*.py` -> pass
+  - `cd backend && python -m unittest discover -s tests -p 'test_ocrmac_sahi.py' -v` -> pass
+  - `cd backend && python -m unittest discover -s tests -p 'test_pid_extractor_cli.py' -v` -> pass
+  - `cd backend && python -m garnet.pid_extractor --image sample.png --ocr-route ocrmac --stop-after 4 --out output/ocrmac_sample_rerun_20260311` -> pass
+  - `cd backend && for img in test/ppcl/Test-*.jpg; do python -m garnet.pid_extractor --image "$img" --ocr-route ocrmac --stop-after 4 --out "output/ppcl_batch_20260311/$(basename "${img%.jpg}")"; done` -> pass
+  - Sample rerun summary:
+    - `merged_region_count = 443`
+    - `rotated_regions = 63`
+    - `line_number_object_count = 23`
+    - `matched_line_number_count = 23`
+    - `ocr_confirmed_line_number_count = 23`
+  - PPCL batch summary:
+    - all 9 images completed through Stage 4
+    - per-sheet rotated OCR region counts ranged from `39` to `82`
+    - two sheets (`Test-00001`, `Test-00009`) reached `0` rejected line numbers
+- Next step / blocker:
+  - keep Stage 4 line-number fusion tuning separate; the current Slice 2 result is good enough to move forward without expecting 100 percent recall yet.

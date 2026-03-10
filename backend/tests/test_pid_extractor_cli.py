@@ -247,6 +247,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                 pipe.stage2_ocr_discovery()
 
             mock_ocrmac.assert_called_once()
+            self.assertTrue(mock_ocrmac.call_args.kwargs["cfg"].enable_rotated_ocr)
 
     def test_stage4_writes_object_detection_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

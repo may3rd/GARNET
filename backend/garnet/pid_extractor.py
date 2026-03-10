@@ -376,6 +376,7 @@ class PIDPipeline:
                     slice_width=self.cfg.ocr_slice_width,
                     overlap_height_ratio=self.cfg.ocr_overlap_height_ratio,
                     overlap_width_ratio=self.cfg.ocr_overlap_width_ratio,
+                    enable_rotated_ocr=self.cfg.ocr_enable_rotated,
                 ),
             )
         else:
