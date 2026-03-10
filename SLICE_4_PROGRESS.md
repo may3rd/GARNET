@@ -79,3 +79,23 @@
     - `rejected_line_number_count = 2`
 - Next step / blocker:
   - expose the fused line-number list more directly in the frontend review flow and keep dedicated equipment detection separate as planned `Stage 4.1`.
+
+### 2026-03-10 08:25 ICT
+- Task: `Slice 4 / Validated semantic refinement`
+- Action: Tightened Stage 4 semantic fusion so line numbers prefer fuller crop OCR over partial sheet OCR, reject bogus OD-only page-border/title artifacts, and instrumentation semantics use tighter balloon crops plus crop provenance. This turned the remaining residual line-number and instrument OCR issues into either real geometry cases or explicit rejects.
+- Evidence:
+  - [`backend/garnet/line_number_fusion.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/line_number_fusion.py)
+  - [`backend/garnet/instrument_tag_fusion.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/instrument_tag_fusion.py)
+  - [`backend/output/validation3x_Test-00009/stage4_line_number_summary.json`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/validation3x_Test-00009/stage4_line_number_summary.json)
+  - [`backend/output/validation3x_Test-00001/stage4_line_number_summary.json`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/validation3x_Test-00001/stage4_line_number_summary.json)
+  - [`backend/output/validation3x_Test-00003/stage4_line_number_summary.json`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/validation3x_Test-00003/stage4_line_number_summary.json)
+  - [`backend/output/validation3x_Test-00001/stage4_instrument_tag_summary.json`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/validation3x_Test-00001/stage4_instrument_tag_summary.json)
+- Verification:
+  - `cd backend && python -m unittest discover -s tests -p 'test_pipe_text_attachment.py' -v` -> pass
+  - Random PPCL validation reruns:
+    - `Test-00009`: line numbers `27/27` OCR-confirmed, `0` OD-only; instrumentation `14/14` OCR-confirmed
+    - `Test-00001`: line numbers `22/23` OCR-confirmed with `1` explicit reject and `0` OD-only; instrumentation `33/33` OCR-confirmed
+    - `Test-00003`: line numbers `11/13` OCR-confirmed with `2` explicit rejects and `0` OD-only; instrumentation `12/12` OCR-confirmed
+- Next step / blocker:
+  - dedicated equipment detection is still on hold as planned `Stage 4.1`
+  - remaining Stage 4 line-number non-matches are now mostly true rejects rather than ambiguous OD-only cases

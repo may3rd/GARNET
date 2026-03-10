@@ -51,3 +51,21 @@
     - `accepted_attachment_count = 19` for line-number text attachment
 - Next step / blocker:
   - attachment is still provisional because dedicated equipment detection remains on hold as planned `Stage 4.1`, and the frontend still surfaces only summary cards rather than attachment-level inspection.
+
+### 2026-03-10 08:25 ICT
+- Task: `Slice 12 / Attachment validation and threshold refinement`
+- Action: Tightened Stage 12 text attachment so line numbers use bbox-to-edge distance and adaptive thresholds, while instrumentation semantics get a narrow tolerance bump. This resolved the remaining real line-number miss in `Test-00009` and the single instrumentation threshold-edge miss in `Test-00001`.
+- Evidence:
+  - [`backend/garnet/pipe_text_attachment.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/pipe_text_attachment.py)
+  - [`backend/output/validation3x_Test-00009/stage12_text_attachment_summary.json`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/validation3x_Test-00009/stage12_text_attachment_summary.json)
+  - [`backend/output/inspect2_Test-00001/stage12_instrument_tag_attachment_summary.json`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/inspect2_Test-00001/stage12_instrument_tag_attachment_summary.json)
+  - [`backend/output/validation3x_Test-00001/stage12_instrument_tag_attachment_summary.json`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/validation3x_Test-00001/stage12_instrument_tag_attachment_summary.json)
+  - [`backend/output/validation3x_Test-00003/stage12_text_attachment_summary.json`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/validation3x_Test-00003/stage12_text_attachment_summary.json)
+- Verification:
+  - `cd backend && python -m unittest discover -s tests -p 'test_pipe_text_attachment.py' -v` -> pass
+  - Fresh validation runs report:
+    - `Test-00009`: line-number attachments `27/27`
+    - `Test-00001`: line-number attachments `22/22`, instrumentation attachments `33/33`
+    - `Test-00003`: line-number attachments `11/11`, instrumentation attachments `12/12`
+- Next step / blocker:
+  - the main remaining open attachment work is to expose per-item provenance and thresholds in the frontend review UI, not core backend correctness for these validated cases
