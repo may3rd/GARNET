@@ -1,5 +1,7 @@
 import time
 import unittest
+import tempfile
+import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -18,6 +20,93 @@ except ModuleNotFoundError as exc:
 
 @unittest.skipIf(app is None, "pdf2image is not installed in this test environment")
 class PipelineApiTests(unittest.TestCase):
+    def test_pipeline_review_state_get_returns_empty_default(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp:
+            job_id = "review_job_1"
+            with patch.dict("api.PIPELINE_JOBS", {job_id: {
+                "job_id": job_id,
+                "status": "completed",
+                "current_stage": "stage13_graph_qa",
+                "error": None,
+                "job_dir": tmp,
+                "created_at": time.time(),
+                "stop_after": 13,
+                "ocr_route": "ocrmac",
+            }}, clear=False):
+                response = client.get(f"/api/pipeline/jobs/{job_id}/review-state")
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["job_id"], Path(tmp).name)
+            self.assertEqual(payload["items"], [])
+
+    def test_pipeline_review_state_put_persists_payload(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp:
+            job_id = "review_job_2"
+            with open(Path(tmp) / "stage_manifest.json", "w", encoding="utf-8") as f:
+                json.dump({"image_path": "sample.png"}, f)
+            with patch.dict("api.PIPELINE_JOBS", {job_id: {
+                "job_id": job_id,
+                "status": "completed",
+                "current_stage": "stage13_graph_qa",
+                "error": None,
+                "job_dir": tmp,
+                "created_at": time.time(),
+                "stop_after": 13,
+                "ocr_route": "ocrmac",
+            }}, clear=False):
+                response = client.put(
+                    f"/api/pipeline/jobs/{job_id}/review-state",
+                    json={
+                        "items": [
+                            {
+                                "item_id": "stage4_line_number:line_number_000001",
+                                "bucket": "stage4_line_number",
+                                "source_stage": "stage4_line_number_fusion",
+                                "source_artifact": "stage4_line_numbers.json",
+                                "entity_id": "line_number_000001",
+                                "decision": "accepted",
+                            }
+                        ],
+                        "workspace_objects": {"stage4_line_number": [{"Object": "line_number"}]},
+                    },
+                )
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(len(payload["items"]), 1)
+            self.assertEqual(payload["items"][0]["decision"], "accepted")
+            self.assertTrue((Path(tmp) / "stage_review_state.json").exists())
+
+    def test_pipeline_review_state_put_rejects_invalid_bucket(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp:
+            job_id = "review_job_3"
+            with patch.dict("api.PIPELINE_JOBS", {job_id: {
+                "job_id": job_id,
+                "status": "completed",
+                "current_stage": "stage13_graph_qa",
+                "error": None,
+                "job_dir": tmp,
+                "created_at": time.time(),
+                "stop_after": 13,
+                "ocr_route": "ocrmac",
+            }}, clear=False):
+                response = client.put(
+                    f"/api/pipeline/jobs/{job_id}/review-state",
+                    json={
+                        "items": [
+                            {
+                                "item_id": "bad",
+                                "bucket": "bad_bucket",
+                                "decision": "accepted",
+                            }
+                        ],
+                        "workspace_objects": {},
+                    },
+                )
+            self.assertEqual(response.status_code, 400)
+
     def test_pipeline_job_runs_stage2_and_reports_artifacts(self) -> None:
         client = TestClient(app)
         sample_path = Path(__file__).resolve().parents[1] / "sample.png"

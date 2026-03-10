@@ -44,6 +44,7 @@ import garnet.Settings as Settings
 from garnet.model_defaults import list_weight_files as discover_weight_files
 from garnet.model_defaults import pick_default_weight_file
 from garnet.pid_extractor import PIDPipeline, PipelineConfig
+from garnet.review_state import empty_review_state, load_review_state, save_review_state
 from garnet.utils import rotate_image
 
 # =============================================================================
@@ -344,6 +345,23 @@ class ExcelExportRequest(BaseModel):
 
     images: list[ExcelExportImageRequest] = Field(min_length=1)
     filename: str = Field(default="garnet-results.xlsx", min_length=1, max_length=255)
+
+
+class ReviewStateItemRequest(BaseModel):
+    item_id: str = Field(..., min_length=1)
+    bucket: str = Field(..., min_length=1)
+    source_stage: str | None = None
+    source_artifact: str | None = None
+    entity_id: str | None = None
+    decision: str = Field(..., min_length=1)
+    reviewer: str | None = None
+    reason: str | None = None
+    edited_object: dict[str, Any] | None = None
+
+
+class ReviewStateRequest(BaseModel):
+    items: list[ReviewStateItemRequest] = Field(default_factory=list)
+    workspace_objects: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
 
 
 # =============================================================================
@@ -722,6 +740,14 @@ def _serialize_pipeline_job(job_id: str) -> dict[str, Any]:
     return payload
 
 
+def _pipeline_job_manifest(job_dir: str) -> dict[str, Any] | None:
+    manifest_path = os.path.join(job_dir, "stage_manifest.json")
+    if not os.path.exists(manifest_path):
+        return None
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
 def _run_pipeline_job(
     job_id: str,
     image_path: str,
@@ -1035,6 +1061,28 @@ async def create_pipeline_job(
 @app.get("/api/pipeline/jobs/{job_id}")
 async def get_pipeline_job(job_id: str):
     return _serialize_pipeline_job(job_id)
+
+
+@app.get("/api/pipeline/jobs/{job_id}/review-state")
+async def get_pipeline_review_state(job_id: str):
+    payload = _serialize_pipeline_job(job_id)
+    manifest = _pipeline_job_manifest(payload["job_dir"])
+    return load_review_state(payload["job_dir"], manifest)
+
+
+@app.put("/api/pipeline/jobs/{job_id}/review-state")
+async def put_pipeline_review_state(job_id: str, request: ReviewStateRequest):
+    payload = _serialize_pipeline_job(job_id)
+    manifest = _pipeline_job_manifest(payload["job_dir"])
+    data = {
+        "items": [item.model_dump() for item in request.items],
+        "workspace_objects": request.workspace_objects,
+    }
+    try:
+        save_review_state(payload["job_dir"], data, manifest)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return load_review_state(payload["job_dir"], manifest)
 
 
 @app.get("/api/pipeline/jobs/{job_id}/artifacts/{artifact_name}")
