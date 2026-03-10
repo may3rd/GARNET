@@ -30,9 +30,30 @@ def _project_point_to_segment(point: tuple[float, float], a: tuple[float, float]
     return proj, math.hypot(px - proj[0], py - proj[1])
 
 
-def _nearest_edge(text_center: tuple[float, float], edges: list[dict[str, Any]]) -> tuple[str | None, float]:
+def _sample_bbox_points(bbox: dict[str, int]) -> list[tuple[float, float]]:
+    x_min = float(bbox["x_min"])
+    y_min = float(bbox["y_min"])
+    x_max = float(bbox["x_max"])
+    y_max = float(bbox["y_max"])
+    cx = (x_min + x_max) / 2.0
+    cy = (y_min + y_max) / 2.0
+    return [
+        (x_min, y_min),
+        (x_max, y_min),
+        (x_min, y_max),
+        (x_max, y_max),
+        (cx, y_min),
+        (cx, y_max),
+        (x_min, cy),
+        (x_max, cy),
+        (cx, cy),
+    ]
+
+
+def _nearest_edge(bbox: dict[str, int], edges: list[dict[str, Any]]) -> tuple[str | None, float]:
     best_edge_id = None
     best_dist = float("inf")
+    sample_points = _sample_bbox_points(bbox)
     for edge in edges:
         polyline = edge.get("polyline", [])
         if len(polyline) < 2:
@@ -40,10 +61,11 @@ def _nearest_edge(text_center: tuple[float, float], edges: list[dict[str, Any]])
         for start, end in zip(polyline, polyline[1:]):
             a = (float(start["col"]), float(start["row"]))
             b = (float(end["col"]), float(end["row"]))
-            _, dist = _project_point_to_segment(text_center, a, b)
-            if dist < best_dist:
-                best_dist = dist
-                best_edge_id = str(edge["id"])
+            for point in sample_points:
+                _, dist = _project_point_to_segment(point, a, b)
+                if dist < best_dist:
+                    best_dist = dist
+                    best_edge_id = str(edge["id"])
     return best_edge_id, best_dist
 
 
@@ -68,8 +90,7 @@ def run_pipe_text_attachment_stage(
     rejected: list[dict[str, Any]] = []
 
     for region in line_number_regions:
-        center = _center_from_bbox(region["bbox"])
-        edge_id, distance_px = _nearest_edge(center, edges)
+        edge_id, distance_px = _nearest_edge(region["bbox"], edges)
         payload = {
             "region_id": region.get("id", region.get("source_object_id")),
             "text": region["text"],

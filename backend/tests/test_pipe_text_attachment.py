@@ -106,6 +106,38 @@ class PipeTextAttachmentTests(unittest.TestCase):
         self.assertEqual(result["summary"]["accepted_attachment_count"], 1)
         self.assertEqual(len(result["attachments_payload"]["accepted"]), 1)
 
+    def test_run_pipe_text_attachment_stage_uses_bbox_distance_not_center_only(self) -> None:
+        text_regions = [
+            {
+                "id": "ocr_1",
+                "text": '6"-NAS-25-003003-B2A2-NI',
+                "normalized_text": '6"-NAS-25-003003-B2A2-NI',
+                "class": "line_number",
+                "bbox": {"x_min": 10, "y_min": 0, "x_max": 150, "y_max": 20},
+            }
+        ]
+        edges = [
+            {
+                "id": "edge_1",
+                "source": "n1",
+                "target": "n2",
+                "polyline": [
+                    {"row": 24, "col": 10},
+                    {"row": 24, "col": 150},
+                ],
+            }
+        ]
+
+        result = run_pipe_text_attachment_stage(
+            image_id="sample.png",
+            image_bgr=np.zeros((40, 160, 3), dtype=np.uint8),
+            text_regions=text_regions,
+            edges=edges,
+            max_distance_px=10.0,
+        )
+
+        self.assertEqual(result["summary"]["accepted_attachment_count"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -34,14 +34,31 @@ def _distance(a: tuple[float, float], b: tuple[float, float]) -> float:
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
+def _bbox_gap(a: dict[str, int], b: dict[str, int]) -> float:
+    dx = max(0, max(a["x_min"] - b["x_max"], b["x_min"] - a["x_max"]))
+    dy = max(0, max(a["y_min"] - b["y_max"], b["y_min"] - a["y_max"]))
+    return math.hypot(dx, dy)
+
+
 def _looks_like_line_number(text: str) -> bool:
-    token = re.sub(r"\s+", "", text).upper()
+    token = _normalize_line_number(text)
     if len(token) < 6:
         return False
     has_digit = any(ch.isdigit() for ch in token)
-    has_dash_or_underscore = "-" in token or "_" in token
+    has_dash = "-" in token
     has_alpha = any(ch.isalpha() for ch in token)
-    return has_digit and has_dash_or_underscore and has_alpha
+    has_major_digit_group = re.search(r"\d{3,}", token) is not None
+    return has_digit and has_dash and has_alpha and has_major_digit_group
+
+
+def _looks_like_line_number_fragment(text: str) -> bool:
+    token = _normalize_line_number(text)
+    if len(token) < 4:
+        return False
+    has_digit = any(ch.isdigit() for ch in token)
+    has_dash = "-" in token
+    has_alpha = any(ch.isalpha() for ch in token)
+    return has_digit and has_dash and has_alpha
 
 
 def _normalize_line_number(text: str) -> str:
@@ -153,15 +170,20 @@ def _candidate_text_regions(
     text_regions: list[dict[str, Any]],
     max_distance_px: float,
 ) -> list[dict[str, Any]]:
-    center = _center(bbox)
     candidates: list[dict[str, Any]] = []
     for region in text_regions:
+        region_text = str(region.get("text", "")).strip()
+        region_class = str(region.get("class", "")).lower()
+        if not region_text:
+            continue
+        if not (_looks_like_line_number_fragment(region_text) or region_class == "line_number"):
+            continue
         region_bbox = region["bbox"]
         ios = _bbox_ios(bbox, region_bbox)
-        dist = _distance(center, _center(region_bbox))
-        if ios > 0 or dist <= max_distance_px:
+        gap = _bbox_gap(bbox, region_bbox)
+        if ios > 0 or gap <= max_distance_px:
             candidates.append(region)
-    return sorted(candidates, key=lambda item: (item["bbox"]["y_min"], item["bbox"]["x_min"]))
+    return sorted(candidates, key=lambda item: (round(_bbox_gap(bbox, item["bbox"]), 3), item["bbox"]["y_min"], item["bbox"]["x_min"]))
 
 
 def _fuse_candidate_texts(
@@ -170,15 +192,27 @@ def _fuse_candidate_texts(
 ) -> tuple[str, str | None]:
     if not regions:
         return "", None
+    bbox_center_x = (bbox["x_min"] + bbox["x_max"]) / 2.0
     bbox_center_y = (bbox["y_min"] + bbox["y_max"]) / 2.0
+    bbox_width = max(1, bbox["x_max"] - bbox["x_min"])
     bbox_height = max(1, bbox["y_max"] - bbox["y_min"])
-    same_line = [
-        region
-        for region in regions
-        if abs(((region["bbox"]["y_min"] + region["bbox"]["y_max"]) / 2.0) - bbox_center_y) <= max(12, bbox_height * 0.8)
-    ]
-    chosen_regions = same_line or regions[:1]
-    chosen_regions = sorted(chosen_regions, key=lambda item: item["bbox"]["x_min"])
+    is_vertical = bbox_height > bbox_width * 1.5
+    if is_vertical:
+        same_track = [
+            region
+            for region in regions
+            if abs(((region["bbox"]["x_min"] + region["bbox"]["x_max"]) / 2.0) - bbox_center_x) <= max(14, bbox_width * 1.2)
+        ]
+        chosen_regions = same_track or regions[:1]
+        chosen_regions = sorted(chosen_regions, key=lambda item: item["bbox"]["y_min"])
+    else:
+        same_line = [
+            region
+            for region in regions
+            if abs(((region["bbox"]["y_min"] + region["bbox"]["y_max"]) / 2.0) - bbox_center_y) <= max(12, bbox_height * 0.8)
+        ]
+        chosen_regions = same_line or regions[:1]
+        chosen_regions = sorted(chosen_regions, key=lambda item: item["bbox"]["x_min"])
     fused_text = " ".join(str(region.get("text", "")).strip() for region in chosen_regions if str(region.get("text", "")).strip()).strip()
     fused_ids = [str(region["id"]) for region in chosen_regions]
     return fused_text, ",".join(fused_ids) if fused_ids else None
