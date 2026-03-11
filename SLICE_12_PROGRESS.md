@@ -69,3 +69,14 @@
     - `Test-00003`: line-number attachments `11/11`, instrumentation attachments `12/12`
 - Next step / blocker:
   - the main remaining open attachment work is to expose per-item provenance and thresholds in the frontend review UI, not core backend correctness for these validated cases
+
+### 2026-03-11 21:05 ICT
+- Task: `Slice 12 / Crossing-aware graph summary`
+- Action: Extended Stage 12 graph assembly so the graph summary now carries crossing-resolution totals from Stage 10, including non-connecting and unresolved crossing counts, instead of only generic node/edge totals.
+- Evidence:
+  - [`backend/garnet/pipe_graph.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/pipe_graph.py)
+  - graph regression coverage in [`backend/tests/test_pipe_graph.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/tests/test_pipe_graph.py)
+- Verification:
+  - `cd backend && python -m unittest discover -s tests -p 'test_pipe_graph.py' -v` -> pass
+- Next step / blocker:
+  - use those crossing totals inside Stage 13 anomaly reporting so unresolved topology ambiguity is visible in the review queue, not just in the raw Stage 10 artifacts.

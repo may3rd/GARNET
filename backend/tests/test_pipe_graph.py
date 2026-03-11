@@ -30,6 +30,8 @@ class PipeGraphTests(unittest.TestCase):
         self.assertEqual(len(result["graph_payload"]["nodes"]), 2)
         self.assertEqual(len(result["graph_payload"]["edges"]), 1)
         self.assertEqual(result["summary"]["crossing_candidate_count"], 1)
+        self.assertEqual(result["summary"]["non_connecting_crossing_count"], 0)
+        self.assertEqual(result["summary"]["unresolved_crossing_count"], 0)
 
     def test_run_pipe_graph_stage_includes_equipment_attachment_nodes(self) -> None:
         clusters = [

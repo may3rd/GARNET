@@ -41,6 +41,13 @@ def run_pipe_graph_stage(
 ) -> dict[str, Any]:
     confirmed_ids = {str(item["id"]) for item in confirmed_junctions}
     unresolved_ids = {str(item["id"]) for item in unresolved_junctions}
+    crossing_items = crossing_candidates or []
+    non_connecting_crossings = [
+        item for item in crossing_items if str(item.get("classification", "")) == "non_connecting_crossing"
+    ]
+    unresolved_crossings = [
+        item for item in crossing_items if str(item.get("classification", "")) == "unresolved"
+    ]
 
     nodes = [
         _node_payload(
@@ -159,7 +166,7 @@ def run_pipe_graph_stage(
             "nodes": serialized_nodes,
             "edges": graph_edges,
             "unresolved_junction_ids": sorted(unresolved_ids),
-            "crossings": crossing_candidates or [],
+            "crossings": crossing_items,
             "equipment_attachments": accepted_attachments,
             "text_attachments": accepted_text_attachments,
             "instrument_tag_attachments": accepted_instrument_tag_attachments,
@@ -171,7 +178,9 @@ def run_pipe_graph_stage(
             "edge_count": graph.number_of_edges(),
             "connected_component_count": nx.number_connected_components(graph) if graph.number_of_nodes() else 0,
             "unresolved_junction_count": len(unresolved_ids),
-            "crossing_candidate_count": len(crossing_candidates or []),
+            "crossing_candidate_count": len(crossing_items),
+            "non_connecting_crossing_count": len(non_connecting_crossings),
+            "unresolved_crossing_count": len(unresolved_crossings),
             "accepted_attachment_count": len(accepted_attachments),
             "accepted_text_attachment_count": len(accepted_text_attachments),
             "accepted_instrument_tag_attachment_count": len(accepted_instrument_tag_attachments),

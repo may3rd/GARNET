@@ -32,3 +32,16 @@
     - `review_queue_count = 584`
 - Next step / blocker:
   - Update the tracker and API/frontend review flow so the new graph and QA artifacts are first-class outputs instead of backend-only files.
+
+### 2026-03-11 21:07 ICT
+- Task: `Slice 13 / Crossing-aware QA queue`
+- Action: Extended Stage 13 graph QA so unresolved crossings from Stage 10 are now promoted into the anomaly report and review queue, instead of limiting QA to articulation points and isolated nodes.
+- Evidence:
+  - [`backend/garnet/pipe_graph_qa.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/pipe_graph_qa.py)
+  - QA regression coverage in [`backend/tests/test_pipe_graph_qa.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/tests/test_pipe_graph_qa.py)
+- Verification:
+  - `cd backend && python -m unittest discover -s tests -p 'test_pipe_graph_qa.py' -v` -> pass
+  - anomaly report now includes `unresolved_crossing_count` and `unresolved_crossings`
+  - review queue now emits `category = unresolved_crossing` items
+- Next step / blocker:
+  - the next QA refinement should group or prioritize unresolved crossings by dominant reason (`four_way_tie`, `multi_branch_noise`, `weak_opposite_pairs`) so review can focus on the highest-value topology failures first.

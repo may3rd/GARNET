@@ -13,6 +13,7 @@ def run_pipe_graph_qa_stage(
     graph = nx.Graph()
     nodes = graph_payload.get("nodes", [])
     edges = graph_payload.get("edges", [])
+    crossings = graph_payload.get("crossings", [])
 
     for node in nodes:
         graph.add_node(node["id"], **node)
@@ -54,6 +55,25 @@ def run_pipe_graph_qa_stage(
             }
         )
 
+    unresolved_crossings: list[dict[str, Any]] = []
+    for item in crossings:
+        if str(item.get("classification", "")) != "unresolved":
+            continue
+        unresolved_crossings.append(
+            {
+                "crossing_id": str(item.get("id", "")),
+                "branch_count": int(item.get("branch_count", 0)),
+                "reasons": list(item.get("unresolved_reasons", [])),
+            }
+        )
+        review_queue.append(
+            {
+                "category": "unresolved_crossing",
+                "crossing_id": str(item.get("id", "")),
+                "priority": "high",
+            }
+        )
+
     anomaly_report = {
         "image_id": image_id,
         "pass_type": "sheet",
@@ -61,8 +81,10 @@ def run_pipe_graph_qa_stage(
         "largest_component_size": max((len(component) for component in components), default=0),
         "articulation_point_count": len(articulation_points),
         "isolated_node_count": len(low_degree_nodes),
+        "unresolved_crossing_count": len(unresolved_crossings),
         "articulation_points": articulation_points,
         "isolated_nodes": low_degree_nodes,
+        "unresolved_crossings": unresolved_crossings,
     }
 
     return {
@@ -78,6 +100,7 @@ def run_pipe_graph_qa_stage(
             "connected_component_count": len(components),
             "articulation_point_count": len(articulation_points),
             "isolated_node_count": len(low_degree_nodes),
+            "unresolved_crossing_count": len(unresolved_crossings),
             "review_queue_count": len(review_queue),
             "source_artifacts": [
                 "stage12_graph.json",
