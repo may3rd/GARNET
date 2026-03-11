@@ -61,3 +61,26 @@
     - per-sheet unresolved counts ranged from `41` to `217`
 - Next step / blocker:
   - The baseline is now conservative enough to avoid silently forcing most 4-way candidates into junctions, but Stage 10 still needs future Stage 4 symbol hooks and a later review pass on high-unresolved sheets such as `Test-00005`.
+
+### 2026-03-11 15:24 ICT
+- Task: `Slice 10 / Stage 4 topology-marker hook`
+- Action: Added a post-Stage-4 topology-marker router and wired its derived artifact into Stage 10 scoring so nearby Stage 4 marker classes can act as secondary evidence during crossing resolution. Kept the integration conservative: `arrow` stays as flow-only evidence for later work, strong near-center `node` markers can promote a 4-way candidate toward `confirmed_junction`, and the raw `connection` class is explicitly excluded from the topology-marker artifact.
+- Evidence:
+  - [`backend/garnet/topology_markers.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/topology_markers.py)
+  - [`backend/garnet/pipe_crossings.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/pipe_crossings.py)
+  - [`backend/garnet/pid_extractor.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/pid_extractor.py)
+  - [`backend/output/ppcl_crossing_with_markers_20260311`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/ppcl_crossing_with_markers_20260311)
+- Verification:
+  - `cd backend && python -m py_compile api.py garnet/*.py garnet/utils/*.py tests/*.py` -> pass
+  - `cd backend && python -m unittest discover -s tests -p 'test_topology_markers.py' -v` -> pass
+  - `cd backend && python -m unittest discover -s tests -p 'test_pipe_crossings.py' -v` -> pass
+  - `cd backend && python -m unittest discover -s tests -p 'test_pid_extractor_cli.py' -v` -> pass
+  - `cd backend && for img in test/ppcl/Test-*.jpg; do python -m garnet.pid_extractor --image "$img" --ocr-route ocrmac --stop-after 11 --out "output/ppcl_crossing_with_markers_20260311/$(basename "${img%.jpg}")"; done` -> pass
+  - Marker-aware 9-image PPCL rerun summary:
+    - `topology_marker_count = 451`
+    - `candidate_count = 6748`
+    - `confirmed_junction_count = 5374`
+    - `non_connecting_crossing_count = 623`
+    - `unresolved_candidate_count = 751`
+- Next step / blocker:
+  - If future OD work adds stronger topology-specific classes, keep them as routed evidence first; do not let Stage 4 markers bypass the geometry-first rule.

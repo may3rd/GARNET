@@ -66,6 +66,14 @@
   - detection baseline uses `postprocess_match_metric = IOS`
   - detection baseline uses `postprocess_match_threshold = 0.1`
   - Stage 4 artifacts are `stage4_objects.json`, `stage4_objects_summary.json`, and `stage4_objects_overlay.png`
+  - Stage 4 also emits a derived topology-marker bundle for downstream topology scoring:
+    - `stage4_topology_markers.json`
+    - `stage4_topology_marker_summary.json`
+  - current accepted Stage 4 topology-marker routing:
+    - `arrow` -> `flow_marker`
+    - `node` -> `junction_marker`
+    - `page connection` and `utility connection` -> `connection_marker`
+    - raw `connection` class is excluded from the topology-marker artifact
 - Current Stage 5 pipe-mask baseline:
   - stage name is `stage5_pipe_mask`
   - Stage 5 is provisional geometry evidence only; do not add morphology, skeletonization, or graph logic here
@@ -78,12 +86,14 @@
   - keep public stage numbering stable even though the roadmap conceptually separates crossing resolution from tracing
   - Stage 10 now runs explicit crossing-vs-junction resolution before final edge tracing
   - crossing classes are `confirmed_junction`, `non_connecting_crossing`, and `unresolved`
+  - Stage 10 may use the Stage 4 topology-marker bundle as secondary evidence only; geometry remains the primary signal
   - accepted Stage 10 tuning values are:
     - `branch_stub_length_px = 8`
     - `branch_merge_angle_tolerance_deg = 18.0`
     - `opposite_angle_tolerance_deg = 35.0`
     - `center_blob_radius_px = 4`
     - `center_blob_threshold = 0.5`
+    - `stage4_marker_match_distance_px = 24.0`
   - Stage 10 artifacts are `stage10_crossing_resolution.json`, `stage10_crossing_resolution_summary.json`, `stage10_crossing_resolution_overlay.png`, `stage10_pipe_edges.json`, `stage10_pipe_edge_summary.json`, and `stage10_pipe_edges_overlay.png`
 - If you tune OCR parameters, record the accepted values in `docs/plans/2026-03-08-slice-2-ocr-sahi-design.md` and log the reason in `SLICE_2_PROGRESS.md`.
 - If you tune Stage 5 suppression parameters, update `PipelineConfig`, log the reason in `SLICE_5_PROGRESS.md`, and keep the Stage 5 design docs aligned with the accepted baseline.

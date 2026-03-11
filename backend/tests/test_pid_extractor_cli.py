@@ -261,7 +261,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                         "objects": [
                             {
                                 "id": "obj_000001",
-                                "class_name": "valve",
+                                "class_name": "arrow",
                                 "confidence": 0.91,
                                 "bbox": {"x_min": 1, "y_min": 2, "x_max": 11, "y_max": 12},
                                 "source_model": "ultralytics",
@@ -284,8 +284,12 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "stage4_objects.json").exists())
             self.assertTrue((Path(tmp) / "stage4_objects_summary.json").exists())
             self.assertTrue((Path(tmp) / "stage4_objects_overlay.png").exists())
+            self.assertTrue((Path(tmp) / "stage4_topology_markers.json").exists())
+            self.assertTrue((Path(tmp) / "stage4_topology_marker_summary.json").exists())
             summary = json.loads((Path(tmp) / "stage4_objects_summary.json").read_text())
+            topology_summary = json.loads((Path(tmp) / "stage4_topology_marker_summary.json").read_text())
             self.assertEqual(summary["source_weight"], "yolo_weights/yolo26n_PPCL_640_20260227.pt")
+            self.assertEqual(topology_summary["topology_marker_count"], 1)
 
     def test_stage4_line_number_fusion_writes_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -476,6 +480,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             pipe._save_img("stage6_pipe_mask_sealed", np.zeros((20, 20), dtype=np.uint8))
             pipe._save_img("stage7_pipe_skeleton", np.zeros((20, 20), dtype=np.uint8))
             pipe._save_json("stage9_node_clusters", {"clusters": []})
+            pipe._save_json("stage4_topology_markers", {"topology_markers": [{"id": "topology_marker::obj_1"}]})
 
             with patch("garnet.pid_extractor.run_pipe_crossing_stage") as mock_crossings, patch(
                 "garnet.pid_extractor.run_pipe_edge_stage"
@@ -502,6 +507,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                 pipe.stage10_edge_tracing()
 
             mock_crossings.assert_called_once()
+            self.assertEqual(mock_crossings.call_args.kwargs["topology_markers"], [{"id": "topology_marker::obj_1"}])
             mock_pipe_edges.assert_called_once()
             self.assertTrue((Path(tmp) / "stage10_crossing_resolution_overlay.png").exists())
             self.assertTrue((Path(tmp) / "stage10_crossing_resolution.json").exists())

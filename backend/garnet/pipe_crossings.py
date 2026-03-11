@@ -174,6 +174,51 @@ def _center_blob_score(sealed_mask: np.ndarray, cluster: dict[str, Any], radius_
     return float(np.count_nonzero(window)) / float(window.size)
 
 
+def _bbox_center(bbox: dict[str, Any]) -> tuple[float, float]:
+    return (
+        (float(bbox["x_min"]) + float(bbox["x_max"])) / 2.0,
+        (float(bbox["y_min"]) + float(bbox["y_max"])) / 2.0,
+    )
+
+
+def _collect_stage4_marker_evidence(
+    cluster: dict[str, Any],
+    topology_markers: list[dict[str, Any]],
+    max_distance_px: float,
+) -> dict[str, Any]:
+    center_x = float(cluster["centroid"]["x"])
+    center_y = float(cluster["centroid"]["y"])
+    matched: list[dict[str, Any]] = []
+    for marker in topology_markers:
+        bbox = marker.get("bbox")
+        if not isinstance(bbox, dict):
+            continue
+        marker_x, marker_y = _bbox_center(bbox)
+        distance = math.hypot(marker_x - center_x, marker_y - center_y)
+        if distance > max_distance_px:
+            continue
+        matched.append(
+            {
+                "id": str(marker.get("id", "")),
+                "source_object_id": str(marker.get("source_object_id", "")),
+                "role": str(marker.get("role", "")),
+                "class_name": str(marker.get("class_name", "")),
+                "confidence": float(marker.get("confidence", 0.0)),
+                "distance_px": round(distance, 3),
+            }
+        )
+    role_counts = {
+        role: len([item for item in matched if item["role"] == role])
+        for role in {"junction_marker", "connection_marker", "flow_marker"}
+    }
+    return {
+        "supported": bool(matched),
+        "matched_object_ids": [item["source_object_id"] for item in matched if item["source_object_id"]],
+        "matched_markers": matched,
+        "role_counts": role_counts,
+    }
+
+
 def _pair_opposites(branches: list[dict[str, Any]], tolerance_deg: float) -> list[list[str]]:
     unmatched = list(range(len(branches)))
     pairs: list[list[str]] = []
@@ -197,6 +242,7 @@ def _classify_candidate(
     cluster: dict[str, Any],
     branches: list[dict[str, Any]],
     sealed_mask: np.ndarray,
+    stage4_marker_evidence: dict[str, Any],
     opposite_angle_tolerance_deg: float,
     blob_radius_px: int,
     blob_threshold: float,
@@ -207,18 +253,35 @@ def _classify_candidate(
     pair_count = len(routing_pairs)
     crossing_score = 0.0
     junction_score = 0.0
+    junction_marker_hits = int(stage4_marker_evidence.get("role_counts", {}).get("junction_marker", 0))
+    connection_marker_hits = int(stage4_marker_evidence.get("role_counts", {}).get("connection_marker", 0))
+    strong_junction_marker = any(
+        item.get("role") == "junction_marker" and float(item.get("confidence", 0.0)) >= 0.85 and float(item.get("distance_px", 999.0)) <= 4.0
+        for item in stage4_marker_evidence.get("matched_markers", [])
+    )
+
+    if junction_marker_hits > 0:
+        junction_score += 0.35
+    if connection_marker_hits > 0:
+        junction_score += 0.2
 
     if branch_count == 3:
         junction_score = 0.9
         return "confirmed_junction", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}
 
     if branch_count == 4:
+        if strong_junction_marker:
+            junction_score += 0.6
         if pair_count == 2:
             crossing_score += 0.75
         if blob_score >= blob_threshold + 0.15:
             junction_score += 0.75
         elif blob_score >= blob_threshold:
             junction_score += 0.45
+        if strong_junction_marker:
+            return "confirmed_junction", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}
+        if junction_marker_hits > 0 and blob_score >= max(0.6, blob_threshold - 0.1):
+            return "confirmed_junction", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}
         if pair_count == 2 and blob_score < blob_threshold + 0.15:
             return "non_connecting_crossing", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}
         if blob_score >= blob_threshold + 0.15 and pair_count < 2:
@@ -258,12 +321,14 @@ def run_pipe_crossing_stage(
     sealed_mask: np.ndarray,
     skeleton_mask: np.ndarray,
     node_clusters: list[dict[str, Any]],
+    topology_markers: list[dict[str, Any]] | None = None,
     image_id: str,
     branch_stub_length_px: int = 8,
     branch_merge_angle_tolerance_deg: float = 18.0,
     opposite_angle_tolerance_deg: float = 35.0,
     center_blob_radius_px: int = 4,
     center_blob_threshold: float = 0.5,
+    stage4_marker_match_distance_px: float = 24.0,
 ) -> dict[str, Any]:
     candidates: list[dict[str, Any]] = []
     confirmed_junctions: list[dict[str, Any]] = []
@@ -275,10 +340,16 @@ def run_pipe_crossing_stage(
             continue
         raw_branches = _extract_branches(cluster, skeleton_mask, stub_length_px=branch_stub_length_px)
         branches = _merge_branches_by_angle(raw_branches, merge_tolerance_deg=branch_merge_angle_tolerance_deg)
+        stage4_marker_evidence = _collect_stage4_marker_evidence(
+            cluster,
+            topology_markers or [],
+            max_distance_px=stage4_marker_match_distance_px,
+        )
         classification, routing_pairs, scores = _classify_candidate(
             cluster,
             branches,
             sealed_mask=sealed_mask,
+            stage4_marker_evidence=stage4_marker_evidence,
             opposite_angle_tolerance_deg=opposite_angle_tolerance_deg,
             blob_radius_px=center_blob_radius_px,
             blob_threshold=center_blob_threshold,
@@ -294,10 +365,7 @@ def run_pipe_crossing_stage(
                 "routing_pairs": routing_pairs,
                 "scores": scores,
                 "center_blob_score": round(_center_blob_score(sealed_mask, cluster, radius_px=center_blob_radius_px), 4),
-                "stage4_object_evidence": {
-                    "supported": False,
-                    "matched_object_ids": [],
-                },
+                "stage4_object_evidence": stage4_marker_evidence,
             }
         )
         candidates.append(candidate)
@@ -330,7 +398,9 @@ def run_pipe_crossing_stage(
             "opposite_angle_tolerance_deg": opposite_angle_tolerance_deg,
             "center_blob_radius_px": center_blob_radius_px,
             "center_blob_threshold": center_blob_threshold,
+            "stage4_marker_match_distance_px": stage4_marker_match_distance_px,
             "source_artifacts": [
+                "stage4_topology_markers.json",
                 "stage6_pipe_mask_sealed.png",
                 "stage7_pipe_skeleton.png",
                 "stage9_node_clusters.json",

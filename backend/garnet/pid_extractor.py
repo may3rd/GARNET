@@ -40,6 +40,7 @@ from garnet.pipe_node_clusters import run_pipe_node_cluster_stage
 from garnet.pipe_nodes import run_pipe_node_stage
 from garnet.pipe_seal import run_pipe_seal_stage
 from garnet.pipe_skeleton import run_pipe_skeleton_stage
+from garnet.topology_markers import run_topology_marker_router
 
 try:
     import cv2  # type: ignore
@@ -111,6 +112,7 @@ class PipelineConfig:
     crossing_opposite_angle_tolerance_deg: float = 35.0
     crossing_center_blob_radius_px: int = 4
     crossing_center_blob_threshold: float = 0.5
+    crossing_stage4_marker_match_distance_px: float = 24.0
     equipment_attachment_classes: tuple[str, ...] = (
         "pump",
         "heat exchanger",
@@ -416,6 +418,12 @@ class PIDPipeline:
         self._save_json("stage4_objects", detection_result["objects_payload"])
         self._save_json("stage4_objects_summary", detection_result["summary"])
         self._save_img("stage4_objects_overlay", detection_result["overlay_image"])
+        topology_marker_result = run_topology_marker_router(
+            image_id=Path(self.image_path).name,
+            objects=detection_result["objects_payload"].get("objects", []),
+        )
+        self._save_json("stage4_topology_markers", topology_marker_result["topology_markers_payload"])
+        self._save_json("stage4_topology_marker_summary", topology_marker_result["summary"])
 
     def stage4_line_number_fusion(self) -> None:
         object_payload = self._load_json_artifact("stage4_objects")
@@ -590,17 +598,23 @@ class PIDPipeline:
             raise RuntimeError("Failed to load Stage 6 sealed mask or Stage 7 skeleton")
 
         clusters_payload = self._load_json_artifact("stage9_node_clusters")
+        topology_markers_path = self.out_dir / "stage4_topology_markers.json"
+        topology_markers_payload = {"topology_markers": []}
+        if topology_markers_path.exists():
+            topology_markers_payload = self._load_json_artifact("stage4_topology_markers")
         crossing_result = run_pipe_crossing_stage(
             image_bgr=self._ensure_image_loaded(),
             sealed_mask=sealed_mask,
             skeleton_mask=skeleton_mask,
             node_clusters=clusters_payload.get("clusters", []),
+            topology_markers=topology_markers_payload.get("topology_markers", []),
             image_id=Path(self.image_path).name,
             branch_stub_length_px=self.cfg.crossing_branch_stub_length_px,
             branch_merge_angle_tolerance_deg=self.cfg.crossing_branch_merge_angle_tolerance_deg,
             opposite_angle_tolerance_deg=self.cfg.crossing_opposite_angle_tolerance_deg,
             center_blob_radius_px=self.cfg.crossing_center_blob_radius_px,
             center_blob_threshold=self.cfg.crossing_center_blob_threshold,
+            stage4_marker_match_distance_px=self.cfg.crossing_stage4_marker_match_distance_px,
         )
         edge_result = run_pipe_edge_stage(
             image_bgr=self._ensure_image_loaded(),
