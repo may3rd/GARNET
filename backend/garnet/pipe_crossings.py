@@ -209,7 +209,7 @@ def _collect_stage4_marker_evidence(
         )
     role_counts = {
         role: len([item for item in matched if item["role"] == role])
-        for role in {"junction_marker", "connection_marker", "flow_marker"}
+        for role in {"junction_marker", "flow_marker"}
     }
     return {
         "supported": bool(matched),
@@ -254,7 +254,6 @@ def _classify_candidate(
     crossing_score = 0.0
     junction_score = 0.0
     junction_marker_hits = int(stage4_marker_evidence.get("role_counts", {}).get("junction_marker", 0))
-    connection_marker_hits = int(stage4_marker_evidence.get("role_counts", {}).get("connection_marker", 0))
     strong_junction_marker = any(
         item.get("role") == "junction_marker" and float(item.get("confidence", 0.0)) >= 0.85 and float(item.get("distance_px", 999.0)) <= 4.0
         for item in stage4_marker_evidence.get("matched_markers", [])
@@ -262,8 +261,6 @@ def _classify_candidate(
 
     if junction_marker_hits > 0:
         junction_score += 0.35
-    if connection_marker_hits > 0:
-        junction_score += 0.2
 
     if branch_count == 3:
         junction_score = 0.9

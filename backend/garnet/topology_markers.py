@@ -15,8 +15,6 @@ def _marker_role(class_name: str) -> str | None:
     normalized = _normalize_class_name(class_name)
     if normalized in {"arrow", "flow arrow", "direction arrow"}:
         return "flow_marker"
-    if normalized in {"page connection", "utility connection"}:
-        return "connection_marker"
     if normalized in {"node", "junction node", "junction marker"}:
         return "junction_marker"
     return None

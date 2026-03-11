@@ -64,7 +64,7 @@
 
 ### 2026-03-11 15:24 ICT
 - Task: `Slice 10 / Stage 4 topology-marker hook`
-- Action: Added a post-Stage-4 topology-marker router and wired its derived artifact into Stage 10 scoring so nearby Stage 4 marker classes can act as secondary evidence during crossing resolution. Kept the integration conservative: `arrow` stays as flow-only evidence for later work, strong near-center `node` markers can promote a 4-way candidate toward `confirmed_junction`, and the raw `connection` class is explicitly excluded from the topology-marker artifact.
+- Action: Added a post-Stage-4 topology-marker router and wired its derived artifact into Stage 10 scoring so nearby Stage 4 marker classes can act as secondary evidence during crossing resolution. Kept the integration conservative: `arrow` stays as flow-only evidence for later work, strong near-center `node` markers can promote a 4-way candidate toward `confirmed_junction`, and `connection`, `page connection`, and `utility connection` are all excluded from the topology-marker artifact.
 - Evidence:
   - [`backend/garnet/topology_markers.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/topology_markers.py)
   - [`backend/garnet/pipe_crossings.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/pipe_crossings.py)

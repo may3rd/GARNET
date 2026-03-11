@@ -72,8 +72,7 @@
   - current accepted Stage 4 topology-marker routing:
     - `arrow` -> `flow_marker`
     - `node` -> `junction_marker`
-    - `page connection` and `utility connection` -> `connection_marker`
-    - raw `connection` class is excluded from the topology-marker artifact
+    - `connection`, `page connection`, and `utility connection` are excluded from the topology-marker artifact
 - Current Stage 5 pipe-mask baseline:
   - stage name is `stage5_pipe_mask`
   - Stage 5 is provisional geometry evidence only; do not add morphology, skeletonization, or graph logic here
