@@ -362,6 +362,10 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                 pipe.stage5_pipe_mask()
 
             mock_pipe_mask.assert_called_once()
+            self.assertEqual(
+                mock_pipe_mask.call_args.kwargs["preserve_object_classes"],
+                pipe.cfg.pipe_mask_preserve_object_classes,
+            )
             self.assertTrue((Path(tmp) / "stage5_pipe_mask.png").exists())
             self.assertTrue((Path(tmp) / "stage5_pipe_mask_overlay.png").exists())
             self.assertTrue((Path(tmp) / "stage5_pipe_mask_summary.json").exists())
