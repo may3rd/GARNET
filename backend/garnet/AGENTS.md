@@ -74,6 +74,17 @@
   - object suppression uses Stage 4 object boxes with conservative interior suppression
   - keep the output reviewable rather than aggressively repaired
   - Stage 5 artifacts are `stage5_pipe_mask.png`, `stage5_pipe_mask_overlay.png`, and `stage5_pipe_mask_summary.json`
+- Current Stage 10 edge-tracing baseline:
+  - keep public stage numbering stable even though the roadmap conceptually separates crossing resolution from tracing
+  - Stage 10 now runs explicit crossing-vs-junction resolution before final edge tracing
+  - crossing classes are `confirmed_junction`, `non_connecting_crossing`, and `unresolved`
+  - accepted Stage 10 tuning values are:
+    - `branch_stub_length_px = 8`
+    - `branch_merge_angle_tolerance_deg = 18.0`
+    - `opposite_angle_tolerance_deg = 35.0`
+    - `center_blob_radius_px = 4`
+    - `center_blob_threshold = 0.5`
+  - Stage 10 artifacts are `stage10_crossing_resolution.json`, `stage10_crossing_resolution_summary.json`, `stage10_crossing_resolution_overlay.png`, `stage10_pipe_edges.json`, `stage10_pipe_edge_summary.json`, and `stage10_pipe_edges_overlay.png`
 - If you tune OCR parameters, record the accepted values in `docs/plans/2026-03-08-slice-2-ocr-sahi-design.md` and log the reason in `SLICE_2_PROGRESS.md`.
 - If you tune Stage 5 suppression parameters, update `PipelineConfig`, log the reason in `SLICE_5_PROGRESS.md`, and keep the Stage 5 design docs aligned with the accepted baseline.
 

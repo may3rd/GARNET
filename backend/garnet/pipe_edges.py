@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import cv2
@@ -36,16 +37,81 @@ def _build_node_pixel_map(clusters: list[dict[str, Any]]) -> dict[Point, str]:
     return mapping
 
 
+def _crossing_maps(crossing_resolution: list[dict[str, Any]] | None) -> tuple[dict[str, dict[str, Any]], dict[Point, str]]:
+    by_id: dict[str, dict[str, Any]] = {}
+    pixel_map: dict[Point, str] = {}
+    for item in crossing_resolution or []:
+        classification = str(item.get("classification", ""))
+        if classification not in {"non_connecting_crossing", "unresolved"}:
+            continue
+        cluster_id = str(item["id"])
+        by_id[cluster_id] = item
+        for member in item.get("members", []):
+            pixel_map[(int(member["row"]), int(member["col"]))] = cluster_id
+    return by_id, pixel_map
+
+
+def _entry_points(branch: dict[str, Any]) -> list[Point]:
+    return [(int(pixel["row"]), int(pixel["col"])) for pixel in branch.get("entry_pixels", [])]
+
+
+def _paired_branch_id(crossing: dict[str, Any], branch_id: str) -> str | None:
+    for left_id, right_id in crossing.get("routing_pairs", []):
+        if branch_id == left_id:
+            return str(right_id)
+        if branch_id == right_id:
+            return str(left_id)
+    return None
+
+
+def _nearest_branch_id(crossing: dict[str, Any], pixel: Point) -> str | None:
+    best_branch_id = None
+    best_distance = None
+    for branch in crossing.get("branches", []):
+        entry_points = _entry_points(branch)
+        if not entry_points:
+            continue
+        distance = min(math.hypot(pixel[0] - row, pixel[1] - col) for row, col in entry_points)
+        if best_distance is None or distance < best_distance:
+            best_distance = distance
+            best_branch_id = str(branch["branch_id"])
+    return best_branch_id
+
+
+def _branch_centroid(crossing: dict[str, Any], branch_id: str) -> Point | None:
+    for branch in crossing.get("branches", []):
+        if str(branch.get("branch_id")) != branch_id:
+            continue
+        centroid = branch.get("entry_centroid", {})
+        return (int(round(float(centroid.get("y", 0.0)))), int(round(float(centroid.get("x", 0.0)))))
+    return None
+
+
+def _candidate_priority(previous: Point, current: Point, candidate: Point) -> tuple[int, float]:
+    step_manhattan = abs(candidate[0] - current[0]) + abs(candidate[1] - current[1])
+    incoming = (current[0] - previous[0], current[1] - previous[1])
+    outgoing = (candidate[0] - current[0], candidate[1] - current[1])
+    turn_penalty = abs(incoming[0] - outgoing[0]) + abs(incoming[1] - outgoing[1])
+    return step_manhattan, float(turn_penalty)
+
+
 def _trace_edges(
     skeleton: np.ndarray,
     clusters: list[dict[str, Any]],
     min_edge_length_px: int,
+    crossing_resolution: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    node_pixel_map = _build_node_pixel_map(clusters)
+    crossing_by_id, crossing_pixel_map = _crossing_maps(crossing_resolution)
+    active_clusters = [
+        cluster
+        for cluster in clusters
+        if str(cluster.get("id")) not in crossing_by_id
+    ]
+    node_pixel_map = _build_node_pixel_map(active_clusters)
     visited_transitions: set[tuple[Point, Point]] = set()
     edges: list[dict[str, Any]] = []
 
-    for cluster in clusters:
+    for cluster in active_clusters:
         origin_node_id = str(cluster["id"])
         cluster_pixels = [
             (int(member["row"]), int(member["col"]))
@@ -62,6 +128,8 @@ def _trace_edges(
                     next_pixel=neighbor,
                     skeleton=skeleton,
                     node_pixel_map=node_pixel_map,
+                    crossing_by_id=crossing_by_id,
+                    crossing_pixel_map=crossing_pixel_map,
                     visited_transitions=visited_transitions,
                     min_edge_length_px=min_edge_length_px,
                 )
@@ -77,6 +145,8 @@ def _trace_from_pixel(
     next_pixel: Point,
     skeleton: np.ndarray,
     node_pixel_map: dict[Point, str],
+    crossing_by_id: dict[str, dict[str, Any]],
+    crossing_pixel_map: dict[Point, str],
     visited_transitions: set[tuple[Point, Point]],
     min_edge_length_px: int,
 ) -> dict[str, Any] | None:
@@ -101,9 +171,40 @@ def _trace_from_pixel(
                 "pixel_length": len(polyline),
             }
 
-        candidates = [pixel for pixel in _neighbors(current, skeleton) if pixel != previous]
+        candidates = [
+            pixel
+            for pixel in _neighbors(current, skeleton)
+            if pixel != previous and (current, pixel) not in visited_transitions
+        ]
         if not candidates:
             return None
+        candidates = sorted(candidates, key=lambda pixel: _candidate_priority(previous, current, pixel))
+
+        crossing_id = crossing_pixel_map.get(current)
+        if crossing_id is not None:
+            crossing = crossing_by_id[crossing_id]
+            incoming_branch_id = _nearest_branch_id(crossing, previous)
+            target_branch_id = _paired_branch_id(crossing, incoming_branch_id) if incoming_branch_id is not None else None
+            target_centroid = _branch_centroid(crossing, target_branch_id) if target_branch_id is not None else None
+            if target_centroid is not None:
+                candidates = sorted(
+                    candidates,
+                    key=lambda pixel: (
+                        0 if crossing_pixel_map.get(pixel) == crossing_id or pixel == target_centroid else 1,
+                        *_candidate_priority(previous, current, pixel),
+                        math.hypot(pixel[0] - target_centroid[0], pixel[1] - target_centroid[1]),
+                    ),
+                )
+            else:
+                candidates = sorted(
+                    candidates,
+                    key=lambda pixel: (
+                        0 if crossing_pixel_map.get(pixel) == crossing_id else 1,
+                        *_candidate_priority(previous, current, pixel),
+                        pixel[0],
+                        pixel[1],
+                    ),
+                )
 
         if len(candidates) > 1:
             node_at_current = node_pixel_map.get(current)
@@ -137,8 +238,14 @@ def run_pipe_edge_stage(
     node_clusters: list[dict[str, Any]],
     image_id: str,
     min_edge_length_px: int = 2,
+    crossing_resolution: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    edges = _trace_edges(skeleton_mask, node_clusters, min_edge_length_px=min_edge_length_px)
+    edges = _trace_edges(
+        skeleton_mask,
+        node_clusters,
+        min_edge_length_px=min_edge_length_px,
+        crossing_resolution=crossing_resolution,
+    )
     return {
         "overlay_image": _draw_overlay(image_bgr, edges),
         "edges_payload": {

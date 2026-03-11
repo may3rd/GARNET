@@ -31,6 +31,7 @@ from garnet.pipe_edges import run_pipe_edge_stage
 from garnet.pipe_equipment_attachment import run_pipe_equipment_attachment_stage
 from garnet.pipe_graph import run_pipe_graph_stage
 from garnet.pipe_graph_qa import run_pipe_graph_qa_stage
+from garnet.pipe_crossings import run_pipe_crossing_stage
 from garnet.pipe_junctions import run_pipe_junction_stage
 from garnet.pipe_text_attachment import render_text_attachment_overlay, run_pipe_text_attachment_stage
 from garnet.paddle_ocr_sahi import PaddleOcrSahiConfig, run_paddle_ocr_sahi
@@ -105,6 +106,11 @@ class PipelineConfig:
     node_cluster_eps: float = 6.0
     node_cluster_min_samples: int = 1
     min_edge_length_px: int = 2
+    crossing_branch_stub_length_px: int = 8
+    crossing_branch_merge_angle_tolerance_deg: float = 18.0
+    crossing_opposite_angle_tolerance_deg: float = 35.0
+    crossing_center_blob_radius_px: int = 4
+    crossing_center_blob_threshold: float = 0.5
     equipment_attachment_classes: tuple[str, ...] = (
         "pump",
         "heat exchanger",
@@ -570,47 +576,58 @@ class PIDPipeline:
 
     # ---------- Stage 10 ----------
     def stage10_edge_tracing(self) -> None:
+        sealed_mask_path = self.out_dir / "stage6_pipe_mask_sealed.png"
         skeleton_path = self.out_dir / "stage7_pipe_skeleton.png"
         node_clusters_path = self.out_dir / "stage9_node_clusters.json"
-        if not skeleton_path.exists() or not node_clusters_path.exists():
-            raise FileNotFoundError("Stage 10 requires Stage 7 skeleton and Stage 9 clustered nodes")
+        if not sealed_mask_path.exists() or not skeleton_path.exists() or not node_clusters_path.exists():
+            raise FileNotFoundError("Stage 10 requires Stage 6 sealed mask, Stage 7 skeleton, and Stage 9 clustered nodes")
         if cv2 is None:
             raise RuntimeError("cv2 is required for Stage 10 edge tracing")
 
+        sealed_mask = cv2.imread(str(sealed_mask_path), cv2.IMREAD_GRAYSCALE)
         skeleton_mask = cv2.imread(str(skeleton_path), cv2.IMREAD_GRAYSCALE)
-        if skeleton_mask is None:
-            raise RuntimeError(f"Failed to load Stage 7 skeleton: {skeleton_path}")
+        if sealed_mask is None or skeleton_mask is None:
+            raise RuntimeError("Failed to load Stage 6 sealed mask or Stage 7 skeleton")
 
         clusters_payload = self._load_json_artifact("stage9_node_clusters")
+        crossing_result = run_pipe_crossing_stage(
+            image_bgr=self._ensure_image_loaded(),
+            sealed_mask=sealed_mask,
+            skeleton_mask=skeleton_mask,
+            node_clusters=clusters_payload.get("clusters", []),
+            image_id=Path(self.image_path).name,
+            branch_stub_length_px=self.cfg.crossing_branch_stub_length_px,
+            branch_merge_angle_tolerance_deg=self.cfg.crossing_branch_merge_angle_tolerance_deg,
+            opposite_angle_tolerance_deg=self.cfg.crossing_opposite_angle_tolerance_deg,
+            center_blob_radius_px=self.cfg.crossing_center_blob_radius_px,
+            center_blob_threshold=self.cfg.crossing_center_blob_threshold,
+        )
         edge_result = run_pipe_edge_stage(
             image_bgr=self._ensure_image_loaded(),
             skeleton_mask=skeleton_mask,
             node_clusters=clusters_payload.get("clusters", []),
             image_id=Path(self.image_path).name,
             min_edge_length_px=self.cfg.min_edge_length_px,
+            crossing_resolution=crossing_result["crossings_payload"].get("candidates", []),
         )
+        self._save_img("stage10_crossing_resolution_overlay", crossing_result["overlay_image"])
+        self._save_json("stage10_crossing_resolution", crossing_result["crossings_payload"])
+        self._save_json("stage10_crossing_resolution_summary", crossing_result["summary"])
         self._save_img("stage10_pipe_edges_overlay", edge_result["overlay_image"])
         self._save_json("stage10_pipe_edges", edge_result["edges_payload"])
         self._save_json("stage10_pipe_edge_summary", edge_result["summary"])
 
     # ---------- Stage 11 ----------
     def stage11_junction_review(self) -> None:
-        skeleton_path = self.out_dir / "stage7_pipe_skeleton.png"
-        node_clusters_path = self.out_dir / "stage9_node_clusters.json"
-        if not skeleton_path.exists() or not node_clusters_path.exists():
-            raise FileNotFoundError("Stage 11 requires Stage 7 skeleton and Stage 9 clustered nodes")
+        crossing_payload_path = self.out_dir / "stage10_crossing_resolution.json"
+        if not crossing_payload_path.exists():
+            raise FileNotFoundError("Stage 11 requires Stage 10 crossing resolution artifacts")
         if cv2 is None:
             raise RuntimeError("cv2 is required for Stage 11 junction review")
 
-        skeleton_mask = cv2.imread(str(skeleton_path), cv2.IMREAD_GRAYSCALE)
-        if skeleton_mask is None:
-            raise RuntimeError(f"Failed to load Stage 7 skeleton: {skeleton_path}")
-
-        clusters_payload = self._load_json_artifact("stage9_node_clusters")
         junction_result = run_pipe_junction_stage(
             image_bgr=self._ensure_image_loaded(),
-            skeleton_mask=skeleton_mask,
-            node_clusters=clusters_payload.get("clusters", []),
+            crossing_candidates=self._load_json_artifact("stage10_crossing_resolution").get("candidates", []),
             image_id=Path(self.image_path).name,
         )
         self._save_img("stage11_confirmed_junctions", junction_result["confirmed_junction_image"])
@@ -626,6 +643,7 @@ class PIDPipeline:
         instrument_tag_payload = self._load_json_artifact("stage4_instrument_tags")
         node_clusters_payload = self._load_json_artifact("stage9_node_clusters")
         edges_payload = self._load_json_artifact("stage10_pipe_edges")
+        crossing_payload = self._load_json_artifact("stage10_crossing_resolution")
         junctions_payload = self._load_json_artifact("stage11_junctions")
         attachment_result = run_pipe_equipment_attachment_stage(
             image_id=Path(self.image_path).name,
@@ -665,6 +683,7 @@ class PIDPipeline:
             edges=edges_payload.get("edges", []),
             confirmed_junctions=junctions_payload.get("confirmed_junctions", []),
             unresolved_junctions=junctions_payload.get("unresolved_junctions", []),
+            crossing_candidates=crossing_payload.get("candidates", []),
             equipment_attachments=attachment_result["attachments_payload"].get("accepted", []),
             text_attachments=text_attachment_result["attachments_payload"].get("accepted", []),
             instrument_tag_attachments=instrument_tag_attachment_result["attachments_payload"].get("accepted", []),

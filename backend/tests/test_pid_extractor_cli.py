@@ -473,10 +473,22 @@ class PIDPipelineRunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
             pipe.image_bgr = np.zeros((20, 20, 3), dtype=np.uint8)
+            pipe._save_img("stage6_pipe_mask_sealed", np.zeros((20, 20), dtype=np.uint8))
             pipe._save_img("stage7_pipe_skeleton", np.zeros((20, 20), dtype=np.uint8))
             pipe._save_json("stage9_node_clusters", {"clusters": []})
 
-            with patch("garnet.pid_extractor.run_pipe_edge_stage") as mock_pipe_edges:
+            with patch("garnet.pid_extractor.run_pipe_crossing_stage") as mock_crossings, patch(
+                "garnet.pid_extractor.run_pipe_edge_stage"
+            ) as mock_pipe_edges:
+                mock_crossings.return_value = {
+                    "overlay_image": np.zeros((20, 20, 3), dtype=np.uint8),
+                    "crossings_payload": {"candidates": []},
+                    "summary": {
+                        "image_id": "image.png",
+                        "pass_type": "sheet",
+                        "candidate_count": 0,
+                    },
+                }
                 mock_pipe_edges.return_value = {
                     "overlay_image": np.zeros((20, 20, 3), dtype=np.uint8),
                     "edges_payload": {"edges": []},
@@ -489,7 +501,11 @@ class PIDPipelineRunnerTests(unittest.TestCase):
 
                 pipe.stage10_edge_tracing()
 
+            mock_crossings.assert_called_once()
             mock_pipe_edges.assert_called_once()
+            self.assertTrue((Path(tmp) / "stage10_crossing_resolution_overlay.png").exists())
+            self.assertTrue((Path(tmp) / "stage10_crossing_resolution.json").exists())
+            self.assertTrue((Path(tmp) / "stage10_crossing_resolution_summary.json").exists())
             self.assertTrue((Path(tmp) / "stage10_pipe_edges_overlay.png").exists())
             self.assertTrue((Path(tmp) / "stage10_pipe_edges.json").exists())
             self.assertTrue((Path(tmp) / "stage10_pipe_edge_summary.json").exists())
@@ -498,8 +514,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
             pipe.image_bgr = np.zeros((20, 20, 3), dtype=np.uint8)
-            pipe._save_img("stage7_pipe_skeleton", np.zeros((20, 20), dtype=np.uint8))
-            pipe._save_json("stage9_node_clusters", {"clusters": []})
+            pipe._save_json("stage10_crossing_resolution", {"candidates": []})
 
             with patch("garnet.pid_extractor.run_pipe_junction_stage") as mock_pipe_junctions:
                 mock_pipe_junctions.return_value = {
@@ -533,6 +548,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             pipe._save_json("stage4_line_numbers", {"line_numbers": []})
             pipe._save_json("stage4_instrument_tags", {"instrument_tags": []})
             pipe._save_json("stage9_node_clusters", {"clusters": []})
+            pipe._save_json("stage10_crossing_resolution", {"candidates": []})
             pipe._save_json("stage10_pipe_edges", {"edges": []})
             pipe._save_json("stage11_junctions", {"confirmed_junctions": [], "unresolved_junctions": []})
 

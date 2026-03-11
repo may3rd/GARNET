@@ -54,3 +54,11 @@
 - Old stage names like `stage4_linework`, `stage5_graph`, and `stage6_line_graph` are gone.
 - The sample run completes with the new 13-stage manifest.
 - Regression tests validate the new stage runner contract.
+
+## Current live implementation note
+- The master-plan target keeps crossing/junction disambiguation logically ahead of final edge tracing.
+- The current live rebuild keeps public stage numbering stable, so the explicit crossing-resolution prepass is implemented inside the existing Stage 10 flow instead of introducing a new public stage number.
+- Current Stage 10 therefore writes both:
+  - `stage10_crossing_resolution.json`
+  - `stage10_pipe_edges.json`
+- This is an implementation constraint for the active rebuild, not a contradiction of the roadmap.
