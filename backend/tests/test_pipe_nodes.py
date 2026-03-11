@@ -35,6 +35,20 @@ class PipeNodeTests(unittest.TestCase):
         self.assertEqual(result["summary"]["endpoint_count"], 4)
         self.assertGreaterEqual(result["summary"]["junction_count"], 1)
 
+    def test_run_pipe_node_stage_filters_false_junctions_on_straight_run(self) -> None:
+        image = np.zeros((9, 9, 3), dtype=np.uint8)
+        skeleton = np.zeros((9, 9), dtype=np.uint8)
+        skeleton[4, 1:8] = 255
+
+        result = run_pipe_node_stage(
+            image_bgr=image,
+            skeleton_mask=skeleton,
+            image_id="sample.png",
+        )
+
+        self.assertEqual(result["summary"]["junction_count"], 0)
+        self.assertEqual(result["summary"]["endpoint_count"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()

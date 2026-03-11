@@ -84,6 +84,126 @@ class PipeEdgeTests(unittest.TestCase):
         self.assertIn(frozenset(("endpoint_left", "endpoint_right")), endpoints)
         self.assertIn(frozenset(("endpoint_top", "endpoint_bottom")), endpoints)
 
+    def test_run_pipe_edge_stage_ignores_tiny_passthrough_cluster_on_straight_run(self) -> None:
+        image = np.zeros((12, 12, 3), dtype=np.uint8)
+        skeleton = np.zeros((12, 12), dtype=np.uint8)
+        skeleton[6, 2:10] = 255
+
+        clusters = [
+            {
+                "id": "endpoint_0",
+                "kind": "endpoint",
+                "centroid": {"x": 2.0, "y": 6.0},
+                "member_count": 1,
+                "members": [{"row": 6, "col": 2}],
+            },
+            {
+                "id": "artifact_mid",
+                "kind": "junction",
+                "centroid": {"x": 5.0, "y": 6.0},
+                "member_count": 1,
+                "members": [{"row": 6, "col": 5}],
+            },
+            {
+                "id": "endpoint_1",
+                "kind": "endpoint",
+                "centroid": {"x": 9.0, "y": 6.0},
+                "member_count": 1,
+                "members": [{"row": 6, "col": 9}],
+            },
+        ]
+
+        result = run_pipe_edge_stage(
+            image_bgr=image,
+            skeleton_mask=skeleton,
+            node_clusters=clusters,
+            image_id="sample.png",
+            min_edge_length_px=2,
+        )
+
+        edges = result["edges_payload"]["edges"]
+        self.assertEqual(len(edges), 1)
+        self.assertEqual(edges[0]["source"], "endpoint_0")
+        self.assertEqual(edges[0]["target"], "endpoint_1")
+
+    def test_run_pipe_edge_stage_ignores_larger_straight_run_cluster(self) -> None:
+        image = np.zeros((14, 14, 3), dtype=np.uint8)
+        skeleton = np.zeros((14, 14), dtype=np.uint8)
+        skeleton[7, 2:12] = 255
+
+        clusters = [
+            {
+                "id": "endpoint_0",
+                "kind": "endpoint",
+                "centroid": {"x": 2.0, "y": 7.0},
+                "member_count": 1,
+                "members": [{"row": 7, "col": 2}],
+            },
+            {
+                "id": "artifact_mid",
+                "kind": "junction",
+                "centroid": {"x": 6.5, "y": 7.0},
+                "member_count": 3,
+                "members": [{"row": 7, "col": 6}, {"row": 7, "col": 7}, {"row": 7, "col": 8}],
+            },
+            {
+                "id": "endpoint_1",
+                "kind": "endpoint",
+                "centroid": {"x": 11.0, "y": 7.0},
+                "member_count": 1,
+                "members": [{"row": 7, "col": 11}],
+            },
+        ]
+
+        result = run_pipe_edge_stage(
+            image_bgr=image,
+            skeleton_mask=skeleton,
+            node_clusters=clusters,
+            image_id="sample.png",
+            min_edge_length_px=2,
+        )
+
+        edges = result["edges_payload"]["edges"]
+        self.assertEqual(len(edges), 1)
+        self.assertEqual(edges[0]["source"], "endpoint_0")
+        self.assertEqual(edges[0]["target"], "endpoint_1")
+
+    def test_run_pipe_edge_stage_bridges_unmatched_straight_corridor(self) -> None:
+        image = np.zeros((12, 60, 3), dtype=np.uint8)
+        skeleton = np.zeros((12, 60), dtype=np.uint8)
+        skeleton[6, 5:55] = 255
+
+        clusters = [
+            {
+                "id": "endpoint_0",
+                "kind": "endpoint",
+                "centroid": {"x": 5.0, "y": 6.0},
+                "member_count": 1,
+                "members": [{"row": 6, "col": 5}],
+            },
+            {
+                "id": "endpoint_1",
+                "kind": "endpoint",
+                "centroid": {"x": 54.0, "y": 6.0},
+                "member_count": 1,
+                "members": [{"row": 6, "col": 54}],
+            },
+        ]
+
+        result = run_pipe_edge_stage(
+            image_bgr=image,
+            skeleton_mask=skeleton,
+            node_clusters=clusters,
+            image_id="sample.png",
+            min_edge_length_px=2,
+        )
+
+        edges = result["edges_payload"]["edges"]
+        self.assertEqual(len(edges), 1)
+        self.assertEqual(edges[0]["source"], "endpoint_0")
+        self.assertEqual(edges[0]["target"], "endpoint_1")
+        self.assertGreaterEqual(edges[0]["pixel_length"], 45)
+
 
 if __name__ == "__main__":
     unittest.main()

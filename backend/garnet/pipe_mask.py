@@ -30,6 +30,27 @@ def _suppress_boxes(mask: np.ndarray, boxes: list[dict[str, Any]], padding: int 
     return suppressed, removed
 
 
+def _select_ocr_regions_for_suppression(
+    ocr_regions: list[dict[str, Any]],
+    *,
+    preserve_classes: tuple[str, ...],
+) -> tuple[list[dict[str, Any]], dict[str, int], dict[str, int]]:
+    preserved_names = {_normalize_class_name(name) for name in preserve_classes}
+    selected: list[dict[str, Any]] = []
+    suppressed_counts: Counter[str] = Counter()
+    preserved_counts: Counter[str] = Counter()
+
+    for item in ocr_regions:
+        normalized_class = _normalize_class_name(str(item.get("class", "")))
+        if normalized_class in preserved_names:
+            preserved_counts[normalized_class] += 1
+            continue
+        selected.append(item)
+        suppressed_counts[normalized_class or "unknown"] += 1
+
+    return selected, dict(sorted(suppressed_counts.items())), dict(sorted(preserved_counts.items()))
+
+
 def _suppress_object_interiors(mask: np.ndarray, boxes: list[dict[str, Any]], inset: int = 1) -> tuple[np.ndarray, int]:
     suppressed = mask.copy()
     removed = 0
@@ -105,13 +126,18 @@ def run_pipe_mask_stage(
     ocr_padding: int = 1,
     object_inset: int = 1,
     min_component_area: int = 16,
+    preserve_ocr_classes: tuple[str, ...] = (),
     preserve_object_classes: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     del gray_image
     candidate_mask = cv2.bitwise_or(adaptive_mask, otsu_mask)
     candidate_mask = np.where(candidate_mask > 0, 255, 0).astype(np.uint8)
 
-    ocr_suppressed, ocr_removed = _suppress_boxes(candidate_mask, ocr_regions, padding=ocr_padding)
+    suppressible_ocr_regions, suppressed_ocr_class_counts, preserved_ocr_class_counts = _select_ocr_regions_for_suppression(
+        ocr_regions,
+        preserve_classes=preserve_ocr_classes,
+    )
+    ocr_suppressed, ocr_removed = _suppress_boxes(candidate_mask, suppressible_ocr_regions, padding=ocr_padding)
     suppressible_object_regions, suppressed_object_class_counts, preserved_object_class_counts = _select_object_regions_for_suppression(
         object_regions,
         preserve_classes=preserve_object_classes,
@@ -133,6 +159,10 @@ def run_pipe_mask_stage(
             "connected_component_count": int(cv2.connectedComponents((filtered_mask > 0).astype(np.uint8), connectivity=8)[0] - 1),
             "small_component_removals": small_component_removals,
             "ocr_suppression_pixel_count": ocr_removed,
+            "suppressed_ocr_count": len(suppressible_ocr_regions),
+            "preserved_ocr_count": len(ocr_regions) - len(suppressible_ocr_regions),
+            "suppressed_ocr_class_counts": suppressed_ocr_class_counts,
+            "preserved_ocr_class_counts": preserved_ocr_class_counts,
             "object_suppression_pixel_count": object_removed,
             "suppressed_object_count": len(suppressible_object_regions),
             "preserved_object_count": len(object_regions) - len(suppressible_object_regions),
@@ -148,6 +178,7 @@ def run_pipe_mask_stage(
             "ocr_padding": ocr_padding,
             "object_inset": object_inset,
             "min_component_area": min_component_area,
+            "preserve_ocr_classes": list(preserve_ocr_classes),
             "preserve_object_classes": list(preserve_object_classes),
         },
     }

@@ -25,6 +25,9 @@ class OcrMacSahiConfig:
     overlap_height_ratio: float = 0.2
     overlap_width_ratio: float = 0.2
     enable_rotated_ocr: bool = True
+    tighten_bboxes: bool = True
+    tighten_padding_px: int = 1
+    tighten_dark_threshold: int = 200
     postprocess_match_metric: str = "IOS"
     postprocess_match_threshold: float = 0.1
 
@@ -245,6 +248,91 @@ def _draw_overlay(image_bgr: np.ndarray, detections: list[dict[str, Any]]) -> np
     return overlay
 
 
+def _tighten_bbox_to_text_ink(
+    image_gray: np.ndarray,
+    bbox: dict[str, int],
+    *,
+    dark_threshold: int,
+    padding_px: int,
+) -> dict[str, int]:
+    height, width = image_gray.shape[:2]
+    x_min = max(0, int(bbox["x_min"]))
+    y_min = max(0, int(bbox["y_min"]))
+    x_max = min(width - 1, int(bbox["x_max"]))
+    y_max = min(height - 1, int(bbox["y_max"]))
+    if x_max <= x_min or y_max <= y_min:
+        return bbox
+
+    crop = image_gray[y_min : y_max + 1, x_min : x_max + 1]
+    if crop.size == 0:
+        return bbox
+
+    ink_mask = (crop <= dark_threshold).astype(np.uint8)
+    if not np.any(ink_mask):
+        _, ink_mask = cv2.threshold(crop, 0, 1, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    if not np.any(ink_mask):
+        return bbox
+
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(ink_mask, connectivity=8)
+    kept_components: list[tuple[int, int, int, int]] = []
+    fallback_components: list[tuple[int, int, int, int]] = []
+    crop_h, crop_w = ink_mask.shape[:2]
+
+    for label_idx in range(1, num_labels):
+        left = int(stats[label_idx, cv2.CC_STAT_LEFT])
+        top = int(stats[label_idx, cv2.CC_STAT_TOP])
+        comp_w = int(stats[label_idx, cv2.CC_STAT_WIDTH])
+        comp_h = int(stats[label_idx, cv2.CC_STAT_HEIGHT])
+        area = int(stats[label_idx, cv2.CC_STAT_AREA])
+        if area <= 0:
+            continue
+        right = left + comp_w - 1
+        bottom = top + comp_h - 1
+        touches_boundary = (
+            left <= 0 or top <= 0 or right >= crop_w - 1 or bottom >= crop_h - 1
+        )
+        component = (left, top, right, bottom)
+        fallback_components.append(component)
+        if not touches_boundary:
+            kept_components.append(component)
+
+    components = kept_components or fallback_components
+    if not components:
+        return bbox
+
+    tight_left = min(item[0] for item in components)
+    tight_top = min(item[1] for item in components)
+    tight_right = max(item[2] for item in components)
+    tight_bottom = max(item[3] for item in components)
+
+    return {
+        "x_min": max(0, x_min + tight_left - padding_px),
+        "y_min": max(0, y_min + tight_top - padding_px),
+        "x_max": min(width - 1, x_min + tight_right + padding_px),
+        "y_max": min(height - 1, y_min + tight_bottom + padding_px),
+    }
+
+
+def _tighten_region_bboxes(
+    image_gray: np.ndarray,
+    regions: list[dict[str, Any]],
+    cfg: OcrMacSahiConfig,
+) -> list[dict[str, Any]]:
+    if not cfg.tighten_bboxes:
+        return regions
+    tightened: list[dict[str, Any]] = []
+    for region in regions:
+        next_region = dict(region)
+        next_region["bbox"] = _tighten_bbox_to_text_ink(
+            image_gray,
+            region["bbox"],
+            dark_threshold=cfg.tighten_dark_threshold,
+            padding_px=cfg.tighten_padding_px,
+        )
+        tightened.append(next_region)
+    return tightened
+
+
 def run_ocrmac_sahi(
     image_path: str | Path,
     *,
@@ -256,6 +344,7 @@ def run_ocrmac_sahi(
     image_bgr = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
     if image_bgr is None:
         raise FileNotFoundError(f"Cannot load image: {image_path}")
+    image_gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
     image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
     h, w = image_rgb.shape[:2]
 
@@ -303,6 +392,7 @@ def run_ocrmac_sahi(
                 raw_detections.append(det)
 
     deduped = _nms_ios(raw_detections, cfg.postprocess_match_threshold)
+    deduped = _tighten_region_bboxes(image_gray, deduped, cfg)
     for idx, region in enumerate(sorted(deduped, key=lambda item: (item["bbox"]["y_min"], item["bbox"]["x_min"], item["text"])), start=1):
         region["id"] = f"ocr_{idx:06d}"
 
@@ -343,6 +433,9 @@ def run_ocrmac_sahi(
             "recognition_level": cfg.recognition_level,
             "language_preference": list(cfg.language_preference),
             "rotated_ocr_enabled": cfg.enable_rotated_ocr,
+            "tighten_bboxes": cfg.tighten_bboxes,
+            "tighten_padding_px": cfg.tighten_padding_px,
+            "tighten_dark_threshold": cfg.tighten_dark_threshold,
             "postprocess_match_metric": cfg.postprocess_match_metric,
             "postprocess_match_threshold": cfg.postprocess_match_threshold,
         },

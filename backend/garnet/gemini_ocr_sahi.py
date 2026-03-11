@@ -51,7 +51,8 @@ class GeminiOcrSahiConfig:
     prompt_dir: Path = PROMPT_DIR
     model_name: str = "google/gemini-3-flash-preview"
     base_url: str = "https://openrouter.ai/api/v1"
-    temperature: float = 0.1
+    temperature: float = 0.0
+    reasoning_effort: str = "none"
     openrouter_api_key: str | None = None
     postprocess_type: str = "GREEDYNMM"
     postprocess_match_metric: str = "IOS"
@@ -289,6 +290,7 @@ def _infer_with_openrouter(
             },
         ],
         temperature=cfg.temperature,
+        extra_body={"reasoning": {"effort": cfg.reasoning_effort}},
         response_format={"type": "json_object"},
     )
     content = response.choices[0].message.content

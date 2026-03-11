@@ -148,6 +148,14 @@
   - this baseline improves OCR quality on the current sample, but it increases CPU runtime because each tile is processed in multiple orientations
   - treat this as the current quality-first baseline, not the final speed-optimized baseline
 
+## Gemini route baseline
+- The current accepted Gemini Stage 2 baseline for OpenRouter-backed OCR uses:
+  - `temperature = 0.0`
+  - `reasoning.effort = none`
+- Rationale:
+  - Stage 2 OCR extraction should behave as a deterministic structured extraction pass, not as an exploratory reasoning step
+  - disabling reasoning effort reduces avoidable deliberation on OCR-only prompts and keeps the route aligned with the shared Stage 2 artifact contract
+
 ## Frontend review impact
 - Pipeline mode should show Stage 2 as OCR discovery over tiles, not as a full-sheet single pass.
 - Results should surface:

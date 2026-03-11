@@ -363,6 +363,10 @@ class PIDPipelineRunnerTests(unittest.TestCase):
 
             mock_pipe_mask.assert_called_once()
             self.assertEqual(
+                mock_pipe_mask.call_args.kwargs["preserve_ocr_classes"],
+                pipe.cfg.pipe_mask_preserve_ocr_classes,
+            )
+            self.assertEqual(
                 mock_pipe_mask.call_args.kwargs["preserve_object_classes"],
                 pipe.cfg.pipe_mask_preserve_object_classes,
             )

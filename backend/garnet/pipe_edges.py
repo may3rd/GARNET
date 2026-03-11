@@ -37,6 +37,59 @@ def _build_node_pixel_map(clusters: list[dict[str, Any]]) -> dict[Point, str]:
     return mapping
 
 
+def _cluster_member_set(cluster: dict[str, Any]) -> set[Point]:
+    return {(int(member["row"]), int(member["col"])) for member in cluster.get("members", [])}
+
+
+def _cluster_exit_angles(cluster: dict[str, Any], skeleton: np.ndarray) -> list[float]:
+    centroid_x = float(cluster["centroid"]["x"])
+    centroid_y = float(cluster["centroid"]["y"])
+    members = _cluster_member_set(cluster)
+    angles: list[float] = []
+    seen_exits: set[Point] = set()
+    for pixel in members:
+        for neighbor in _neighbors(pixel, skeleton):
+            if neighbor in members or neighbor in seen_exits:
+                continue
+            seen_exits.add(neighbor)
+            dy = float(neighbor[0]) - centroid_y
+            dx = float(neighbor[1]) - centroid_x
+            angles.append(math.degrees(math.atan2(dy, dx)) % 360.0)
+    return sorted(angles)
+
+
+def _angle_distance_deg(a: float, b: float) -> float:
+    delta = abs(a - b) % 360.0
+    return min(delta, 360.0 - delta)
+
+
+def _angle_groups(angles: list[float], tolerance_deg: float = 20.0) -> list[float]:
+    if not angles:
+        return []
+    groups: list[float] = []
+    for angle in sorted(angles):
+        if not groups or _angle_distance_deg(angle, groups[-1]) > tolerance_deg:
+            groups.append(angle)
+            continue
+        groups[-1] = (groups[-1] + angle) / 2.0
+    if len(groups) > 1 and _angle_distance_deg(groups[0], groups[-1]) <= tolerance_deg:
+        merged = (groups[0] + groups[-1]) / 2.0
+        groups = [merged] + groups[1:-1]
+    return groups
+
+
+def _passthrough_cluster_ids(clusters: list[dict[str, Any]], skeleton: np.ndarray) -> set[str]:
+    passthrough: set[str] = set()
+    for cluster in clusters:
+        angle_groups = _angle_groups(_cluster_exit_angles(cluster, skeleton))
+        if len(angle_groups) != 2:
+            continue
+        if abs(180.0 - _angle_distance_deg(angle_groups[0], angle_groups[1])) > 20.0:
+            continue
+        passthrough.add(str(cluster["id"]))
+    return passthrough
+
+
 def _crossing_maps(crossing_resolution: list[dict[str, Any]] | None) -> tuple[dict[str, dict[str, Any]], dict[Point, str]]:
     by_id: dict[str, dict[str, Any]] = {}
     pixel_map: dict[Point, str] = {}
@@ -102,10 +155,11 @@ def _trace_edges(
     crossing_resolution: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     crossing_by_id, crossing_pixel_map = _crossing_maps(crossing_resolution)
+    passthrough_ids = _passthrough_cluster_ids(clusters, skeleton)
     active_clusters = [
         cluster
         for cluster in clusters
-        if str(cluster.get("id")) not in crossing_by_id
+        if str(cluster.get("id")) not in crossing_by_id and str(cluster.get("id")) not in passthrough_ids
     ]
     node_pixel_map = _build_node_pixel_map(active_clusters)
     visited_transitions: set[tuple[Point, Point]] = set()
@@ -135,7 +189,119 @@ def _trace_edges(
                 )
                 if edge is not None:
                     edges.append(edge)
-    return edges
+    bridged_edges = _bridge_unmatched_corridors(skeleton, active_clusters, edges, min_edge_length_px=min_edge_length_px)
+    if not bridged_edges:
+        return edges
+
+    best_by_pair: dict[frozenset[str], dict[str, Any]] = {}
+    ordered_pairs: list[frozenset[str]] = []
+    for edge in edges + bridged_edges:
+        pair = frozenset((str(edge["source"]), str(edge["target"])))
+        current = best_by_pair.get(pair)
+        if current is None:
+            best_by_pair[pair] = edge
+            ordered_pairs.append(pair)
+            continue
+        if int(edge.get("pixel_length", 0)) > int(current.get("pixel_length", 0)):
+            best_by_pair[pair] = edge
+
+    return [best_by_pair[pair] for pair in ordered_pairs]
+
+
+def _component_polyline(points: np.ndarray, orientation: str) -> list[Point]:
+    if orientation == "horizontal":
+        ordered = sorted(((int(row), int(col)) for row, col in points), key=lambda item: (item[1], item[0]))
+    else:
+        ordered = sorted(((int(row), int(col)) for row, col in points), key=lambda item: (item[0], item[1]))
+    deduped: list[Point] = []
+    seen: set[Point] = set()
+    for point in ordered:
+        if point in seen:
+            continue
+        seen.add(point)
+        deduped.append(point)
+    return deduped
+
+
+def _nearest_cluster_id(point: Point, clusters: list[dict[str, Any]], max_distance_px: float = 20.0) -> str | None:
+    best_id = None
+    best_distance = None
+    row, col = point
+    for cluster in clusters:
+        cluster_row = float(cluster["centroid"]["y"])
+        cluster_col = float(cluster["centroid"]["x"])
+        distance = math.hypot(cluster_row - row, cluster_col - col)
+        if distance > max_distance_px:
+            continue
+        if best_distance is None or distance < best_distance:
+            best_distance = distance
+            best_id = str(cluster["id"])
+    return best_id
+
+
+def _bridge_unmatched_corridors(
+    skeleton: np.ndarray,
+    clusters: list[dict[str, Any]],
+    edges: list[dict[str, Any]],
+    *,
+    min_edge_length_px: int,
+) -> list[dict[str, Any]]:
+    covered = np.zeros_like(skeleton, dtype=np.uint8)
+    for edge in edges:
+        for point in edge.get("polyline", []):
+            covered[int(point["row"]), int(point["col"])] = 1
+
+    unmatched = ((skeleton > 0) & (covered == 0)).astype(np.uint8)
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(unmatched, connectivity=8)
+    existing_lengths = {
+        frozenset((str(edge["source"]), str(edge["target"]))): int(edge.get("pixel_length", 0))
+        for edge in edges
+    }
+    bridged: list[dict[str, Any]] = []
+
+    for label_idx in range(1, num_labels):
+        area = int(stats[label_idx, cv2.CC_STAT_AREA])
+        if area < max(20, min_edge_length_px * 4):
+            continue
+        left = int(stats[label_idx, cv2.CC_STAT_LEFT])
+        top = int(stats[label_idx, cv2.CC_STAT_TOP])
+        width = int(stats[label_idx, cv2.CC_STAT_WIDTH])
+        height = int(stats[label_idx, cv2.CC_STAT_HEIGHT])
+        orientation = None
+        if width >= max(40, height * 4):
+            orientation = "horizontal"
+        elif height >= max(40, width * 4):
+            orientation = "vertical"
+        if orientation is None:
+            continue
+
+        points = np.argwhere(labels == label_idx)
+        polyline = _component_polyline(points, orientation=orientation)
+        if len(polyline) < max(10, min_edge_length_px * 4):
+            continue
+
+        start_pixel = polyline[0]
+        end_pixel = polyline[-1]
+        source_id = _nearest_cluster_id(start_pixel, clusters)
+        target_id = _nearest_cluster_id(end_pixel, clusters)
+        if source_id is None or target_id is None or source_id == target_id:
+            continue
+        pair = frozenset((source_id, target_id))
+        if len(polyline) <= existing_lengths.get(pair, 0):
+            continue
+        edge_id = f"bridge::{source_id}__{target_id}__{len(polyline)}"
+        bridged.append(
+            {
+                "id": edge_id,
+                "source": source_id,
+                "target": target_id,
+                "polyline": [{"row": int(row), "col": int(col)} for row, col in polyline],
+                "pixel_length": len(polyline),
+            }
+        )
+        existing_lengths[pair] = len(polyline)
+
+    return bridged
 
 
 def _trace_from_pixel(

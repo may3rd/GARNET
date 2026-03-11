@@ -30,6 +30,8 @@ class PipeNodeClusterTests(unittest.TestCase):
         self.assertIn("summary", result)
         self.assertEqual(result["summary"]["endpoint_cluster_count"], 2)
         self.assertEqual(result["summary"]["junction_cluster_count"], 1)
+        self.assertIn("raw_junction_cluster_count", result["summary"])
+        self.assertIn("merged_junction_cluster_count", result["summary"])
 
 
 if __name__ == "__main__":

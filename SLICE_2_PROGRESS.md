@@ -189,3 +189,14 @@
     - two sheets (`Test-00001`, `Test-00009`) reached `0` rejected line numbers
 - Next step / blocker:
   - keep Stage 4 line-number fusion tuning separate; the current Slice 2 result is good enough to move forward without expecting 100 percent recall yet.
+
+### 2026-03-11 13:31 ICT
+- Task: `Slice 2 / Gemini OCR defaults`
+- Action: Updated the Gemini Stage 2 OCR route to default OpenRouter requests to `temperature = 0.0` and `reasoning.effort = none` so OCR extraction runs in the lowest-variance, non-reasoning mode by default.
+- Evidence:
+  - [`backend/garnet/gemini_ocr_sahi.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/gemini_ocr_sahi.py)
+  - [`docs/plans/2026-03-08-slice-2-ocr-sahi-design.md`](/Volumes/Ginnungagap/maetee/Code/GARNET/docs/plans/2026-03-08-slice-2-ocr-sahi-design.md)
+- Verification:
+  - `cd backend && python -m py_compile garnet/gemini_ocr_sahi.py` -> pass
+- Next step / blocker:
+  - run one real Gemini route sample with a valid `OPENROUTER_API_KEY` to confirm the provider accepts the request payload unchanged.

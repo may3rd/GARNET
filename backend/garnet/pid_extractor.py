@@ -101,12 +101,10 @@ class PipelineConfig:
     pipe_mask_ocr_padding: int = 1
     pipe_mask_object_inset: int = 1
     pipe_mask_min_component_area: int = 16
+    pipe_mask_preserve_ocr_classes: tuple[str, ...] = ()
     pipe_mask_preserve_object_classes: tuple[str, ...] = (
         "arrow",
         "node",
-        "connection",
-        "page connection",
-        "utility connection",
     )
     pipe_seal_horizontal_close_kernel: int = 5
     pipe_seal_vertical_close_kernel: int = 5
@@ -489,6 +487,7 @@ class PIDPipeline:
             ocr_padding=self.cfg.pipe_mask_ocr_padding,
             object_inset=self.cfg.pipe_mask_object_inset,
             min_component_area=self.cfg.pipe_mask_min_component_area,
+            preserve_ocr_classes=self.cfg.pipe_mask_preserve_ocr_classes,
             preserve_object_classes=self.cfg.pipe_mask_preserve_object_classes,
         )
         self._save_img("stage5_pipe_mask", pipe_mask_result["mask_image"])

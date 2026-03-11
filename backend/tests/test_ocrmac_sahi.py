@@ -6,10 +6,26 @@ from unittest.mock import patch
 import cv2
 import numpy as np
 
-from garnet.ocrmac_sahi import OcrMacSahiConfig, run_ocrmac_sahi
+from garnet.ocrmac_sahi import OcrMacSahiConfig, _tighten_bbox_to_text_ink, run_ocrmac_sahi
 
 
 class OcrMacSahiTests(unittest.TestCase):
+    def test_tighten_bbox_to_text_ink_prefers_center_text_component(self) -> None:
+        image = np.full((40, 80), 255, dtype=np.uint8)
+        image[14:26, 8:18] = 0
+        image[15:25, 30:62] = 0
+
+        tightened = _tighten_bbox_to_text_ink(
+            image,
+            {"x_min": 5, "y_min": 10, "x_max": 65, "y_max": 30},
+            dark_threshold=200,
+            padding_px=1,
+        )
+
+        self.assertGreaterEqual(tightened["x_min"], 7)
+        self.assertLessEqual(tightened["x_max"], 63)
+        self.assertGreaterEqual(tightened["x_max"] - tightened["x_min"], 40)
+
     @patch("garnet.ocrmac_sahi.platform.system", return_value="Darwin")
     @patch("garnet.ocrmac_sahi._get_ocrmac_module")
     def test_run_ocrmac_sahi_returns_shared_stage2_contract(self, mock_module, _mock_platform) -> None:

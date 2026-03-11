@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from collections import deque
+from collections import Counter, deque
 from typing import Any
 
 import cv2
@@ -241,12 +241,13 @@ def _pair_opposites(branches: list[dict[str, Any]], tolerance_deg: float) -> lis
 def _classify_candidate(
     cluster: dict[str, Any],
     branches: list[dict[str, Any]],
+    raw_branch_count: int,
     sealed_mask: np.ndarray,
     stage4_marker_evidence: dict[str, Any],
     opposite_angle_tolerance_deg: float,
     blob_radius_px: int,
     blob_threshold: float,
-) -> tuple[str, list[list[str]], dict[str, float]]:
+) -> tuple[str, list[list[str]], dict[str, float], list[str]]:
     branch_count = len(branches)
     blob_score = _center_blob_score(sealed_mask, cluster, radius_px=blob_radius_px)
     routing_pairs = _pair_opposites(branches, tolerance_deg=opposite_angle_tolerance_deg)
@@ -264,7 +265,7 @@ def _classify_candidate(
 
     if branch_count == 3:
         junction_score = 0.9
-        return "confirmed_junction", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}
+        return "confirmed_junction", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}, []
 
     if branch_count == 4:
         if strong_junction_marker:
@@ -276,23 +277,48 @@ def _classify_candidate(
         elif blob_score >= blob_threshold:
             junction_score += 0.45
         if strong_junction_marker:
-            return "confirmed_junction", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}
+            return "confirmed_junction", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}, []
         if junction_marker_hits > 0 and blob_score >= max(0.6, blob_threshold - 0.1):
-            return "confirmed_junction", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}
+            return "confirmed_junction", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}, []
+        if pair_count == 2 and raw_branch_count > branch_count and blob_score >= max(0.8, blob_threshold + 0.1):
+            return "confirmed_junction", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}, []
         if pair_count == 2 and blob_score < blob_threshold + 0.15:
-            return "non_connecting_crossing", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}
+            return "non_connecting_crossing", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}, []
         if blob_score >= blob_threshold + 0.15 and pair_count < 2:
-            return "confirmed_junction", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}
-        return "unresolved", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}
+            return "confirmed_junction", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}, []
+        reasons = ["four_way_tie"]
+        if pair_count < 2:
+            reasons.append("weak_opposite_pairs")
+        else:
+            reasons.append("paired_crossing_vs_blob_junction_tie")
+        if blob_score >= blob_threshold:
+            reasons.append("strong_center_blob")
+        if raw_branch_count > branch_count:
+            reasons.append("branch_merge_instability")
+        if strong_junction_marker:
+            reasons.append("junction_marker_present")
+        return "unresolved", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}, reasons
 
     if branch_count > 4:
         crossing_score = 0.35 if pair_count >= 2 else 0.15
         junction_score = 0.75 if blob_score >= blob_threshold + 0.15 else 0.4 if blob_score >= blob_threshold else 0.1
         if junction_score >= 0.75:
-            return "confirmed_junction", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}
-        return "unresolved", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}
+            return "confirmed_junction", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}, []
+        reasons = ["multi_branch_noise"]
+        if pair_count < max(1, branch_count // 3):
+            reasons.append("weak_opposite_pairs")
+        else:
+            reasons.append("multi_branch_conflict")
+        if blob_score >= blob_threshold:
+            reasons.append("strong_center_blob")
+        if strong_junction_marker:
+            reasons.append("junction_marker_present")
+        return "unresolved", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}, reasons
 
-    return "unresolved", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}
+    reasons = ["insufficient_branches"]
+    if junction_marker_hits > 0:
+        reasons.append("junction_marker_present")
+    return "unresolved", routing_pairs, {"crossing": round(crossing_score, 3), "junction": round(junction_score, 3)}, reasons
 
 
 def _draw_overlay(image_bgr: np.ndarray, candidates: list[dict[str, Any]]) -> np.ndarray:
@@ -331,6 +357,7 @@ def run_pipe_crossing_stage(
     confirmed_junctions: list[dict[str, Any]] = []
     non_connecting_crossings: list[dict[str, Any]] = []
     unresolved: list[dict[str, Any]] = []
+    unresolved_reason_counts: Counter[str] = Counter()
 
     for cluster in node_clusters:
         if cluster.get("kind") != "junction":
@@ -342,9 +369,10 @@ def run_pipe_crossing_stage(
             topology_markers or [],
             max_distance_px=stage4_marker_match_distance_px,
         )
-        classification, routing_pairs, scores = _classify_candidate(
+        classification, routing_pairs, scores, unresolved_reasons = _classify_candidate(
             cluster,
             branches,
+            raw_branch_count=len(raw_branches),
             sealed_mask=sealed_mask,
             stage4_marker_evidence=stage4_marker_evidence,
             opposite_angle_tolerance_deg=opposite_angle_tolerance_deg,
@@ -361,6 +389,7 @@ def run_pipe_crossing_stage(
                 "branches": branches,
                 "routing_pairs": routing_pairs,
                 "scores": scores,
+                "unresolved_reasons": unresolved_reasons,
                 "center_blob_score": round(_center_blob_score(sealed_mask, cluster, radius_px=center_blob_radius_px), 4),
                 "stage4_object_evidence": stage4_marker_evidence,
             }
@@ -372,6 +401,8 @@ def run_pipe_crossing_stage(
             non_connecting_crossings.append(candidate)
         else:
             unresolved.append(candidate)
+            for reason in unresolved_reasons:
+                unresolved_reason_counts[reason] += 1
 
     return {
         "overlay_image": _draw_overlay(image_bgr, candidates),
@@ -390,6 +421,7 @@ def run_pipe_crossing_stage(
             "confirmed_junction_count": len(confirmed_junctions),
             "non_connecting_crossing_count": len(non_connecting_crossings),
             "unresolved_candidate_count": len(unresolved),
+            "unresolved_reason_counts": dict(sorted(unresolved_reason_counts.items())),
             "branch_stub_length_px": branch_stub_length_px,
             "branch_merge_angle_tolerance_deg": branch_merge_angle_tolerance_deg,
             "opposite_angle_tolerance_deg": opposite_angle_tolerance_deg,

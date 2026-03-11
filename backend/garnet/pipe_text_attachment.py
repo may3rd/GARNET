@@ -131,7 +131,7 @@ def run_pipe_text_attachment_stage(
                 overlay,
                 (int(start["col"]), int(start["row"])),
                 (int(end["col"]), int(end["row"])),
-                (120, 120, 120),
+                (0, 0, 255),
                 1,
             )
     for item in accepted:
@@ -192,7 +192,7 @@ def render_text_attachment_overlay(
                 overlay,
                 (int(start["col"]), int(start["row"])),
                 (int(end["col"]), int(end["row"])),
-                (120, 120, 120),
+                (0, 0, 255),
                 1,
             )
     for item in attachments:
