@@ -100,3 +100,18 @@
     - `panel_border_like_edge_count = 1`
 - Next step / blocker:
   - widen the structural-edge filter beyond the current right-panel/title-block rule only after validating it on more PPCL sheets; do not delete the raw Stage 10 graph edges until the overlay-only filter proves stable.
+
+### 2026-03-12 09:32 ICT
+- Task: `Slice 12 / Edge terminal validation baseline`
+- Action: Added Stage 12 terminal classification for traced pipe edges and started carrying source/destination terminal metadata into the graph payload. The terminal model now treats equipment-like detections and connection-family classes as valid true terminals, preserves junction-to-junction edges as valid internal topology, and keeps valve/reducer-only ends provisional as in-line pass-through evidence. Stage 12 also now emits a dedicated terminal artifact bundle.
+- Evidence:
+  - [`backend/garnet/pipe_terminals.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/pipe_terminals.py)
+  - [`backend/garnet/pid_extractor.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/pid_extractor.py)
+  - [`backend/garnet/pipe_graph.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/pipe_graph.py)
+- Verification:
+  - `cd backend && python -m unittest discover -s tests -p 'test_pipe_terminals.py' -v` -> pass
+  - `cd backend && python -m unittest discover -s tests -p 'test_pipe_graph.py' -v` -> pass
+  - `cd backend && python -m unittest discover -s tests -p 'test_pid_extractor_cli.py' -v` -> pass
+  - `cd backend && python -m py_compile api.py garnet/*.py garnet/utils/*.py tests/*.py` -> pass
+- Next step / blocker:
+  - make provisional unresolved-terminal edges visually distinct in `stage12_text_attachment_overlay.png` and promote them into Stage 13 QA instead of leaving the new terminal metadata as backend-only structure.

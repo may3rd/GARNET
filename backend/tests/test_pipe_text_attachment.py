@@ -4,7 +4,7 @@ from unittest.mock import patch
 import numpy as np
 
 from garnet.line_number_fusion import run_line_number_fusion_stage
-from garnet.pipe_text_attachment import _filter_border_like_edges, run_pipe_text_attachment_stage
+from garnet.pipe_text_attachment import _filter_border_like_edges, render_text_attachment_overlay, run_pipe_text_attachment_stage
 
 
 class PipeTextAttachmentTests(unittest.TestCase):
@@ -173,6 +173,59 @@ class PipeTextAttachmentTests(unittest.TestCase):
         self.assertEqual(result["summary"]["candidate_count"], 1)
         self.assertEqual(result["summary"]["accepted_attachment_count"], 1)
         self.assertEqual(len(result["attachments_payload"]["accepted"]), 1)
+
+    def test_run_pipe_text_attachment_stage_marks_attachment_on_provisional_edge(self) -> None:
+        text_regions = [
+            {
+                "id": "ocr_1",
+                "text": "3\"-PL-25-002013",
+                "normalized_text": "3\"-PL-25-002013",
+                "class": "line_number",
+                "bbox": {"x_min": 5, "y_min": 5, "x_max": 25, "y_max": 15},
+            }
+        ]
+        edges = [
+            {
+                "id": "edge_1",
+                "source": "n1",
+                "target": "n2",
+                "edge_terminals": {
+                    "provisional_due_to_unresolved_terminal": True,
+                },
+                "polyline": [
+                    {"row": 10, "col": 0},
+                    {"row": 10, "col": 30},
+                ],
+            }
+        ]
+
+        result = run_pipe_text_attachment_stage(
+            image_id="sample.png",
+            image_bgr=np.zeros((30, 40, 3), dtype=np.uint8),
+            text_regions=text_regions,
+            edges=edges,
+            max_distance_px=20.0,
+        )
+
+        self.assertTrue(result["attachments_payload"]["accepted"][0]["attached_to_provisional_edge"])
+        self.assertEqual(result["summary"]["accepted_attachment_on_provisional_edge_count"], 1)
+
+    def test_render_text_attachment_overlay_uses_orange_for_provisional_edges(self) -> None:
+        overlay = render_text_attachment_overlay(
+            image_bgr=np.zeros((20, 20, 3), dtype=np.uint8),
+            edges=[
+                {
+                    "id": "edge_1",
+                    "source": "n1",
+                    "target": "n2",
+                    "edge_terminals": {"provisional_due_to_unresolved_terminal": True},
+                    "polyline": [{"row": 10, "col": 2}, {"row": 10, "col": 17}],
+                }
+            ],
+            attachments=[],
+        )
+
+        self.assertTrue(np.array_equal(overlay[10, 5], np.array([0, 165, 255], dtype=np.uint8)))
 
     def test_run_pipe_text_attachment_stage_uses_bbox_distance_not_center_only(self) -> None:
         text_regions = [

@@ -101,6 +101,7 @@ def run_pipe_graph_stage(
         dst = edge["target"]
         if src == dst:
             continue
+        edge_terminal_info = edge_terminal_map.get(str(edge["id"]), {})
         graph.add_edge(src, dst, id=edge["id"], pixel_length=edge.get("pixel_length", 0))
         graph_edges.append(
             {
@@ -112,7 +113,12 @@ def run_pipe_graph_stage(
                 "review_state": "provisional",
                 "line_texts": edge_texts.get(str(edge["id"]), []),
                 "instrument_tags": edge_instrument_tags.get(str(edge["id"]), []),
-                "edge_terminals": edge_terminal_map.get(str(edge["id"])),
+                "source_terminal": edge_terminal_info.get("source_terminal"),
+                "destination_terminal": edge_terminal_info.get("destination_terminal"),
+                "terminal_status": edge_terminal_info.get("terminal_status"),
+                "provisional_due_to_unresolved_terminal": edge_terminal_info.get("provisional_due_to_unresolved_terminal"),
+                "is_internal_junction_edge": edge_terminal_info.get("is_internal_junction_edge"),
+                "edge_terminals": edge_terminal_info or None,
             }
         )
 

@@ -713,6 +713,18 @@ class PIDPipeline:
             inline_passthrough_classes=self.cfg.terminal_inline_passthrough_classes,
             match_distance_px=self.cfg.terminal_match_distance_px,
         )
+        edge_terminal_map = {
+            str(item.get("edge_id", "")): item
+            for item in edge_terminal_result["edge_terminals"]
+            if item.get("edge_id") is not None
+        }
+        overlay_edges = [
+            {
+                **edge,
+                "edge_terminals": edge_terminal_map.get(str(edge.get("id", ""))),
+            }
+            for edge in overlay_edges
+        ]
         attachment_result = run_pipe_equipment_attachment_stage(
             image_id=Path(self.image_path).name,
             objects=object_payload.get("objects", []),

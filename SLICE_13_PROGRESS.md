@@ -45,3 +45,18 @@
   - review queue now emits `category = unresolved_crossing` items
 - Next step / blocker:
   - the next QA refinement should group or prioritize unresolved crossings by dominant reason (`four_way_tie`, `multi_branch_noise`, `weak_opposite_pairs`) so review can focus on the highest-value topology failures first.
+
+### 2026-03-12 09:34 ICT
+- Task: `Slice 13 / Unresolved terminal edge QA`
+- Action: Extended Stage 13 QA so edges that remain provisional because one or both terminals do not resolve to an accepted source/destination class are now explicit anomaly and review-queue items, alongside unresolved crossings and isolated nodes.
+- Evidence:
+  - [`backend/garnet/pipe_graph_qa.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/pipe_graph_qa.py)
+  - regression coverage in [`backend/tests/test_pipe_graph_qa.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/tests/test_pipe_graph_qa.py)
+- Verification:
+  - `cd backend && python -m unittest discover -s tests -p 'test_pipe_graph_qa.py' -v` -> pass
+  - anomaly report now includes:
+    - `unresolved_terminal_edge_count`
+    - `unresolved_terminal_edges`
+  - review queue now emits `category = unresolved_terminal_edge` items
+- Next step / blocker:
+  - validate the new provisional-terminal overlay and QA signals on PPCL sheets so the new review volume is understood before tightening acceptance rules any further.

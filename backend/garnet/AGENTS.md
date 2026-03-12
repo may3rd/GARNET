@@ -99,6 +99,17 @@
   - Stage 12 attachment matching and `stage12_text_attachment_overlay.png` now use a derived filtered edge set
   - current accepted structural-edge filter removes obvious right-panel/title-block border-like edges from overlay use
   - Stage 12 overlay filter artifacts are `stage12_overlay_edges_filtered.json` and `stage12_overlay_edges_filtered_summary.json`
+  - Stage 12 now also classifies edge terminals and emits:
+    - `stage12_edge_terminals.json`
+    - `stage12_edge_terminal_summary.json`
+  - accepted terminal baseline:
+    - junction-to-junction edges remain valid internal graph edges
+    - `connection`, `page connection`, and `utility connection` are valid true terminals
+    - valves, reducers, and similar in-line elements are pass-through evidence, not final terminals
+    - unresolved terminal edges remain provisional and must stay visually distinct in Stage 12 overlay review
+- Current Stage 13 QA baseline:
+  - unresolved crossings remain explicit QA items
+  - unresolved terminal edges must also be promoted into the anomaly report and review queue instead of being silently dropped
 - If you tune OCR parameters, record the accepted values in `docs/plans/2026-03-08-slice-2-ocr-sahi-design.md` and log the reason in `SLICE_2_PROGRESS.md`.
 - If you tune Stage 5 suppression parameters, update `PipelineConfig`, log the reason in `SLICE_5_PROGRESS.md`, and keep the Stage 5 design docs aligned with the accepted baseline.
 

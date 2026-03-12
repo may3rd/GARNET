@@ -14,6 +14,7 @@ def run_pipe_graph_qa_stage(
     nodes = graph_payload.get("nodes", [])
     edges = graph_payload.get("edges", [])
     crossings = graph_payload.get("crossings", [])
+    edge_terminals = graph_payload.get("edge_terminals", [])
 
     for node in nodes:
         graph.add_node(node["id"], **node)
@@ -74,6 +75,27 @@ def run_pipe_graph_qa_stage(
             }
         )
 
+    unresolved_terminal_edges: list[dict[str, Any]] = []
+    for item in edge_terminals:
+        if not bool(item.get("provisional_due_to_unresolved_terminal")):
+            continue
+        unresolved_terminal_edges.append(
+            {
+                "edge_id": str(item.get("edge_id", "")),
+                "source_node_id": str(item.get("source_node_id", "")),
+                "destination_node_id": str(item.get("destination_node_id", "")),
+                "source_terminal_role": str((item.get("source_terminal") or {}).get("terminal_role", "")),
+                "destination_terminal_role": str((item.get("destination_terminal") or {}).get("terminal_role", "")),
+            }
+        )
+        review_queue.append(
+            {
+                "category": "unresolved_terminal_edge",
+                "edge_id": str(item.get("edge_id", "")),
+                "priority": "high",
+            }
+        )
+
     anomaly_report = {
         "image_id": image_id,
         "pass_type": "sheet",
@@ -82,9 +104,11 @@ def run_pipe_graph_qa_stage(
         "articulation_point_count": len(articulation_points),
         "isolated_node_count": len(low_degree_nodes),
         "unresolved_crossing_count": len(unresolved_crossings),
+        "unresolved_terminal_edge_count": len(unresolved_terminal_edges),
         "articulation_points": articulation_points,
         "isolated_nodes": low_degree_nodes,
         "unresolved_crossings": unresolved_crossings,
+        "unresolved_terminal_edges": unresolved_terminal_edges,
     }
 
     return {
@@ -101,6 +125,7 @@ def run_pipe_graph_qa_stage(
             "articulation_point_count": len(articulation_points),
             "isolated_node_count": len(low_degree_nodes),
             "unresolved_crossing_count": len(unresolved_crossings),
+            "unresolved_terminal_edge_count": len(unresolved_terminal_edges),
             "review_queue_count": len(review_queue),
             "source_artifacts": [
                 "stage12_graph.json",

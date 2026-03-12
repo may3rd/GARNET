@@ -7,6 +7,13 @@ import cv2
 import numpy as np
 
 
+def _edge_draw_color(edge: dict[str, Any]) -> tuple[int, int, int]:
+    edge_terminal_info = edge.get("edge_terminals") or {}
+    if edge_terminal_info.get("provisional_due_to_unresolved_terminal"):
+        return (0, 165, 255)
+    return (0, 0, 255)
+
+
 def _edge_bbox(edge: dict[str, Any]) -> tuple[int, int, int, int] | None:
     polyline = edge.get("polyline", [])
     if len(polyline) < 2:
@@ -191,6 +198,7 @@ def run_pipe_text_attachment_stage(
     line_number_regions = [item for item in line_number_regions if str(item.get("text", "")).strip()]
     accepted: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
+    edge_by_id = {str(edge.get("id", "")): edge for edge in edges}
 
     for region in line_number_regions:
         edge_id, distance_px = _nearest_edge(region["bbox"], edges)
@@ -203,8 +211,12 @@ def run_pipe_text_attachment_stage(
             "edge_id": edge_id,
             "distance_px": None if math.isinf(distance_px) else round(float(distance_px), 3),
             "threshold_px": round(float(threshold_px), 3),
+            "attached_to_provisional_edge": False,
         }
         if edge_id is not None and distance_px <= threshold_px:
+            payload["attached_to_provisional_edge"] = bool(
+                (edge_by_id.get(str(edge_id), {}).get("edge_terminals") or {}).get("provisional_due_to_unresolved_terminal")
+            )
             accepted.append(payload)
         else:
             rejected.append(payload)
@@ -217,7 +229,7 @@ def run_pipe_text_attachment_stage(
                 overlay,
                 (int(start["col"]), int(start["row"])),
                 (int(end["col"]), int(end["row"])),
-                (0, 0, 255),
+                _edge_draw_color(edge),
                 1,
             )
     for item in accepted:
@@ -258,6 +270,9 @@ def run_pipe_text_attachment_stage(
             "candidate_count": len(line_number_regions),
             "accepted_attachment_count": len(accepted),
             "rejected_attachment_count": len(rejected),
+            "accepted_attachment_on_provisional_edge_count": sum(
+                1 for item in accepted if item.get("attached_to_provisional_edge")
+            ),
             "max_distance_px": max_distance_px,
             "text_class": text_class,
         },
@@ -278,7 +293,7 @@ def render_text_attachment_overlay(
                 overlay,
                 (int(start["col"]), int(start["row"])),
                 (int(end["col"]), int(end["row"])),
-                (0, 0, 255),
+                _edge_draw_color(edge),
                 1,
             )
     for item in attachments:
