@@ -22,6 +22,14 @@ class PipeGraphTests(unittest.TestCase):
             confirmed_junctions=confirmed_junctions,
             unresolved_junctions=unresolved_junctions,
             crossing_candidates=[{"id": "junction_0", "classification": "confirmed_junction"}],
+            edge_terminals=[
+                {
+                    "edge_id": "edge_0",
+                    "source_terminal": {"terminal_role": "unresolved_terminal"},
+                    "destination_terminal": {"terminal_role": "junction_terminal"},
+                    "terminal_status": "provisional",
+                }
+            ],
         )
 
         self.assertEqual(result["summary"]["node_count"], 2)
@@ -32,6 +40,8 @@ class PipeGraphTests(unittest.TestCase):
         self.assertEqual(result["summary"]["crossing_candidate_count"], 1)
         self.assertEqual(result["summary"]["non_connecting_crossing_count"], 0)
         self.assertEqual(result["summary"]["unresolved_crossing_count"], 0)
+        self.assertEqual(result["summary"]["edge_terminal_count"], 1)
+        self.assertEqual(result["graph_payload"]["edges"][0]["edge_terminals"]["terminal_status"], "provisional")
 
     def test_run_pipe_graph_stage_includes_equipment_attachment_nodes(self) -> None:
         clusters = [

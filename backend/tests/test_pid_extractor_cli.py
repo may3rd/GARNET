@@ -567,6 +567,8 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             pipe._save_json("stage11_junctions", {"confirmed_junctions": [], "unresolved_junctions": []})
 
             with patch("garnet.pid_extractor.run_pipe_equipment_attachment_stage") as mock_pipe_attachment, patch(
+                "garnet.pid_extractor.classify_pipe_edge_terminals"
+            ) as mock_pipe_terminals, patch(
                 "garnet.pid_extractor.run_pipe_text_attachment_stage"
             ) as mock_pipe_text_attachment, patch(
                 "garnet.pid_extractor.run_pipe_graph_stage"
@@ -574,6 +576,10 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                 mock_pipe_attachment.return_value = {
                     "attachments_payload": {"accepted": [], "rejected": []},
                     "summary": {"accepted_attachment_count": 0},
+                }
+                mock_pipe_terminals.return_value = {
+                    "edge_terminals": [],
+                    "summary": {"edge_count": 0, "validated_edge_count": 0, "provisional_edge_count": 0},
                 }
                 mock_pipe_text_attachment.return_value = {
                     "attachments_payload": {"accepted": [], "rejected": []},
@@ -593,10 +599,13 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                 pipe.stage12_graph_assembly()
 
             mock_pipe_attachment.assert_called_once()
+            mock_pipe_terminals.assert_called_once()
             self.assertEqual(mock_pipe_text_attachment.call_count, 2)
             mock_pipe_graph.assert_called_once()
             self.assertTrue((Path(tmp) / "stage12_equipment_attachments.json").exists())
             self.assertTrue((Path(tmp) / "stage12_equipment_attachment_summary.json").exists())
+            self.assertTrue((Path(tmp) / "stage12_edge_terminals.json").exists())
+            self.assertTrue((Path(tmp) / "stage12_edge_terminal_summary.json").exists())
             self.assertTrue((Path(tmp) / "stage12_text_attachments.json").exists())
             self.assertTrue((Path(tmp) / "stage12_text_attachment_summary.json").exists())
             self.assertTrue((Path(tmp) / "stage12_text_attachment_overlay.png").exists())

@@ -38,6 +38,7 @@ def run_pipe_graph_stage(
     equipment_attachments: list[dict[str, Any]] | None = None,
     text_attachments: list[dict[str, Any]] | None = None,
     instrument_tag_attachments: list[dict[str, Any]] | None = None,
+    edge_terminals: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     confirmed_ids = {str(item["id"]) for item in confirmed_junctions}
     unresolved_ids = {str(item["id"]) for item in unresolved_junctions}
@@ -64,6 +65,11 @@ def run_pipe_graph_stage(
 
     accepted_text_attachments = text_attachments or []
     accepted_instrument_tag_attachments = instrument_tag_attachments or []
+    edge_terminal_map = {
+        str(item.get("edge_id", "")): item
+        for item in (edge_terminals or [])
+        if item.get("edge_id") is not None
+    }
     edge_texts: dict[str, list[dict[str, Any]]] = {}
     for attachment in accepted_text_attachments:
         edge_id = attachment.get("edge_id")
@@ -106,6 +112,7 @@ def run_pipe_graph_stage(
                 "review_state": "provisional",
                 "line_texts": edge_texts.get(str(edge["id"]), []),
                 "instrument_tags": edge_instrument_tags.get(str(edge["id"]), []),
+                "edge_terminals": edge_terminal_map.get(str(edge["id"])),
             }
         )
 
@@ -170,6 +177,7 @@ def run_pipe_graph_stage(
             "equipment_attachments": accepted_attachments,
             "text_attachments": accepted_text_attachments,
             "instrument_tag_attachments": accepted_instrument_tag_attachments,
+            "edge_terminals": edge_terminals or [],
         },
         "summary": {
             "image_id": image_id,
@@ -184,6 +192,7 @@ def run_pipe_graph_stage(
             "accepted_attachment_count": len(accepted_attachments),
             "accepted_text_attachment_count": len(accepted_text_attachments),
             "accepted_instrument_tag_attachment_count": len(accepted_instrument_tag_attachments),
+            "edge_terminal_count": len(edge_terminal_map),
             "source_artifacts": [
                 "stage9_node_clusters.json",
                 "stage10_pipe_edges.json",

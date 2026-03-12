@@ -44,6 +44,7 @@ from garnet.pipe_node_clusters import run_pipe_node_cluster_stage
 from garnet.pipe_nodes import run_pipe_node_stage
 from garnet.pipe_seal import run_pipe_seal_stage
 from garnet.pipe_skeleton import run_pipe_skeleton_stage
+from garnet.pipe_terminals import classify_pipe_edge_terminals
 from garnet.topology_markers import run_topology_marker_router
 
 try:
@@ -703,6 +704,15 @@ class PIDPipeline:
             self._ensure_image_loaded().shape,
         )
         overlay_edges = overlay_edge_filter_result["kept_edges"]
+        edge_terminal_result = classify_pipe_edge_terminals(
+            edges=edges_payload.get("edges", []),
+            node_clusters=node_clusters_payload.get("clusters", []),
+            object_regions=object_payload.get("objects", []),
+            equipment_terminal_classes=self.cfg.terminal_equipment_classes,
+            connection_terminal_classes=self.cfg.terminal_connection_classes,
+            inline_passthrough_classes=self.cfg.terminal_inline_passthrough_classes,
+            match_distance_px=self.cfg.terminal_match_distance_px,
+        )
         attachment_result = run_pipe_equipment_attachment_stage(
             image_id=Path(self.image_path).name,
             objects=object_payload.get("objects", []),
@@ -745,9 +755,12 @@ class PIDPipeline:
             equipment_attachments=attachment_result["attachments_payload"].get("accepted", []),
             text_attachments=text_attachment_result["attachments_payload"].get("accepted", []),
             instrument_tag_attachments=instrument_tag_attachment_result["attachments_payload"].get("accepted", []),
+            edge_terminals=edge_terminal_result["edge_terminals"],
         )
         self._save_json("stage12_equipment_attachments", attachment_result["attachments_payload"])
         self._save_json("stage12_equipment_attachment_summary", attachment_result["summary"])
+        self._save_json("stage12_edge_terminals", {"edge_terminals": edge_terminal_result["edge_terminals"]})
+        self._save_json("stage12_edge_terminal_summary", edge_terminal_result["summary"])
         self._save_json("stage12_text_attachments", text_attachment_result["attachments_payload"])
         self._save_json("stage12_text_attachment_summary", text_attachment_result["summary"])
         self._save_img("stage12_text_attachment_overlay", combined_text_overlay)
