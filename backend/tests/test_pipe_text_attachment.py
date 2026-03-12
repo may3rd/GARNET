@@ -4,10 +4,44 @@ from unittest.mock import patch
 import numpy as np
 
 from garnet.line_number_fusion import run_line_number_fusion_stage
-from garnet.pipe_text_attachment import run_pipe_text_attachment_stage
+from garnet.pipe_text_attachment import _filter_border_like_edges, run_pipe_text_attachment_stage
 
 
 class PipeTextAttachmentTests(unittest.TestCase):
+    def test_filter_border_like_edges_excludes_page_and_title_block_borders(self) -> None:
+        edges = [
+            {
+                "id": "edge_border_top",
+                "source": "n1",
+                "target": "n2",
+                "pixel_length": 300,
+                "polyline": [{"row": 5, "col": 10}, {"row": 5, "col": 390}],
+            },
+            {
+                "id": "edge_title_right",
+                "source": "n3",
+                "target": "n4",
+                "pixel_length": 240,
+                "polyline": [{"row": 30, "col": 360}, {"row": 250, "col": 360}],
+            },
+            {
+                "id": "edge_process",
+                "source": "n5",
+                "target": "n6",
+                "pixel_length": 120,
+                "polyline": [{"row": 150, "col": 100}, {"row": 150, "col": 240}],
+            },
+        ]
+
+        result = _filter_border_like_edges(edges, (300, 400, 3))
+
+        kept_ids = {edge["id"] for edge in result["kept_edges"]}
+        filtered_ids = {item["id"] for item in result["filtered_edges_payload"]["filtered_edges"]}
+        self.assertIn("edge_process", kept_ids)
+        self.assertIn("edge_border_top", filtered_ids)
+        self.assertIn("edge_title_right", filtered_ids)
+        self.assertEqual(result["summary"]["filtered_edge_count"], 2)
+
     def test_run_line_number_fusion_stage_fuses_nearby_fragments(self) -> None:
         object_regions = [
             {

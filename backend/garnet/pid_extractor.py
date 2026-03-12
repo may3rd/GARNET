@@ -33,7 +33,11 @@ from garnet.pipe_graph import run_pipe_graph_stage
 from garnet.pipe_graph_qa import run_pipe_graph_qa_stage
 from garnet.pipe_crossings import run_pipe_crossing_stage
 from garnet.pipe_junctions import run_pipe_junction_stage
-from garnet.pipe_text_attachment import render_text_attachment_overlay, run_pipe_text_attachment_stage
+from garnet.pipe_text_attachment import (
+    _filter_border_like_edges,
+    render_text_attachment_overlay,
+    run_pipe_text_attachment_stage,
+)
 from garnet.paddle_ocr_sahi import PaddleOcrSahiConfig, run_paddle_ocr_sahi
 from garnet.pipe_mask import run_pipe_mask_stage
 from garnet.pipe_node_clusters import run_pipe_node_cluster_stage
@@ -666,6 +670,11 @@ class PIDPipeline:
         edges_payload = self._load_json_artifact("stage10_pipe_edges")
         crossing_payload = self._load_json_artifact("stage10_crossing_resolution")
         junctions_payload = self._load_json_artifact("stage11_junctions")
+        overlay_edge_filter_result = _filter_border_like_edges(
+            edges_payload.get("edges", []),
+            self._ensure_image_loaded().shape,
+        )
+        overlay_edges = overlay_edge_filter_result["kept_edges"]
         attachment_result = run_pipe_equipment_attachment_stage(
             image_id=Path(self.image_path).name,
             objects=object_payload.get("objects", []),
@@ -678,7 +687,7 @@ class PIDPipeline:
             image_id=Path(self.image_path).name,
             image_bgr=self._ensure_image_loaded(),
             text_regions=text_payload.get("line_numbers", []),
-            edges=edges_payload.get("edges", []),
+            edges=overlay_edges,
             max_distance_px=self.cfg.line_text_attachment_max_distance_px,
             text_class="line_number",
         )
@@ -686,13 +695,13 @@ class PIDPipeline:
             image_id=Path(self.image_path).name,
             image_bgr=self._ensure_image_loaded(),
             text_regions=instrument_tag_payload.get("instrument_tags", []),
-            edges=edges_payload.get("edges", []),
+            edges=overlay_edges,
             max_distance_px=self.cfg.line_text_attachment_max_distance_px,
             text_class="instrument_semantic",
         )
         combined_text_overlay = render_text_attachment_overlay(
             image_bgr=self._ensure_image_loaded(),
-            edges=edges_payload.get("edges", []),
+            edges=overlay_edges,
             attachments=
                 text_attachment_result["attachments_payload"].get("accepted", [])
                 + instrument_tag_attachment_result["attachments_payload"].get("accepted", []),
@@ -714,6 +723,8 @@ class PIDPipeline:
         self._save_json("stage12_text_attachments", text_attachment_result["attachments_payload"])
         self._save_json("stage12_text_attachment_summary", text_attachment_result["summary"])
         self._save_img("stage12_text_attachment_overlay", combined_text_overlay)
+        self._save_json("stage12_overlay_edges_filtered", overlay_edge_filter_result["filtered_edges_payload"])
+        self._save_json("stage12_overlay_edges_filtered_summary", overlay_edge_filter_result["summary"])
         self._save_json("stage12_instrument_tag_attachments", instrument_tag_attachment_result["attachments_payload"])
         self._save_json("stage12_instrument_tag_attachment_summary", instrument_tag_attachment_result["summary"])
         self._save_json("stage12_graph", graph_result["graph_payload"])

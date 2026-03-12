@@ -600,6 +600,8 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "stage12_text_attachments.json").exists())
             self.assertTrue((Path(tmp) / "stage12_text_attachment_summary.json").exists())
             self.assertTrue((Path(tmp) / "stage12_text_attachment_overlay.png").exists())
+            self.assertTrue((Path(tmp) / "stage12_overlay_edges_filtered.json").exists())
+            self.assertTrue((Path(tmp) / "stage12_overlay_edges_filtered_summary.json").exists())
             self.assertTrue((Path(tmp) / "stage12_instrument_tag_attachments.json").exists())
             self.assertTrue((Path(tmp) / "stage12_instrument_tag_attachment_summary.json").exists())
             self.assertTrue((Path(tmp) / "stage12_graph.json").exists())

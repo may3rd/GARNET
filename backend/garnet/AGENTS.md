@@ -94,6 +94,11 @@
     - `center_blob_threshold = 0.5`
     - `stage4_marker_match_distance_px = 24.0`
   - Stage 10 artifacts are `stage10_crossing_resolution.json`, `stage10_crossing_resolution_summary.json`, `stage10_crossing_resolution_overlay.png`, `stage10_pipe_edges.json`, `stage10_pipe_edge_summary.json`, and `stage10_pipe_edges_overlay.png`
+- Current Stage 12 overlay baseline:
+  - keep raw Stage 10 edge artifacts unchanged; do not silently delete structural-border candidates from `stage10_pipe_edges.json`
+  - Stage 12 attachment matching and `stage12_text_attachment_overlay.png` now use a derived filtered edge set
+  - current accepted structural-edge filter removes obvious right-panel/title-block border-like edges from overlay use
+  - Stage 12 overlay filter artifacts are `stage12_overlay_edges_filtered.json` and `stage12_overlay_edges_filtered_summary.json`
 - If you tune OCR parameters, record the accepted values in `docs/plans/2026-03-08-slice-2-ocr-sahi-design.md` and log the reason in `SLICE_2_PROGRESS.md`.
 - If you tune Stage 5 suppression parameters, update `PipelineConfig`, log the reason in `SLICE_5_PROGRESS.md`, and keep the Stage 5 design docs aligned with the accepted baseline.
 

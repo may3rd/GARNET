@@ -7,6 +7,92 @@ import cv2
 import numpy as np
 
 
+def _edge_bbox(edge: dict[str, Any]) -> tuple[int, int, int, int] | None:
+    polyline = edge.get("polyline", [])
+    if len(polyline) < 2:
+        return None
+    xs = [int(point["col"]) for point in polyline]
+    ys = [int(point["row"]) for point in polyline]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def _filter_border_like_edges(edges: list[dict[str, Any]], image_shape: tuple[int, ...]) -> dict[str, Any]:
+    height, width = image_shape[:2]
+    kept: list[dict[str, Any]] = []
+    flagged: list[dict[str, Any]] = []
+    margin_x = max(20, int(round(width * 0.02)))
+    margin_y = max(20, int(round(height * 0.02)))
+    right_panel_x = int(round(width * 0.78))
+    bottom_panel_y = int(round(height * 0.82))
+
+    for edge in edges:
+        bbox = _edge_bbox(edge)
+        if bbox is None:
+            kept.append(edge)
+            continue
+        x_min, y_min, x_max, y_max = bbox
+        bbox_w = x_max - x_min
+        bbox_h = y_max - y_min
+        long_dim = max(bbox_w, bbox_h)
+        short_dim = min(bbox_w, bbox_h)
+        is_straight = short_dim <= 4
+        orientation = "horizontal" if bbox_w >= bbox_h else "vertical"
+        reasons: list[str] = []
+
+        if is_straight:
+            if orientation == "horizontal" and long_dim >= int(round(width * 0.25)):
+                if y_min <= margin_y or y_max >= height - margin_y:
+                    reasons.append("page_border")
+                elif x_min >= right_panel_x and y_min <= int(round(height * 0.35)):
+                    reasons.append("right_panel_border")
+                elif y_min >= bottom_panel_y:
+                    reasons.append("bottom_title_block_border")
+            if orientation == "vertical" and long_dim >= int(round(height * 0.25)):
+                if x_min <= margin_x or x_max >= width - margin_x:
+                    reasons.append("page_border")
+                elif x_min >= right_panel_x:
+                    reasons.append("right_panel_border")
+                elif y_min >= bottom_panel_y and bbox_h >= int(round(height * 0.08)):
+                    reasons.append("bottom_title_block_border")
+
+        if reasons:
+            flagged.append(
+                {
+                    "id": edge["id"],
+                    "source": edge.get("source"),
+                    "target": edge.get("target"),
+                    "pixel_length": edge.get("pixel_length", 0),
+                    "bbox": {
+                        "x_min": x_min,
+                        "y_min": y_min,
+                        "x_max": x_max,
+                        "y_max": y_max,
+                    },
+                    "orientation": orientation,
+                    "reasons": reasons,
+                }
+            )
+            continue
+        kept.append(edge)
+
+    return {
+        "kept_edges": kept,
+        "filtered_edges_payload": {
+            "pass_type": "sheet",
+            "kept_edge_ids": [str(edge.get("id")) for edge in kept],
+            "filtered_edges": flagged,
+        },
+        "summary": {
+            "filtered_edge_count": len(flagged),
+            "kept_edge_count": len(kept),
+            "page_border_like_edge_count": len([item for item in flagged if "page_border" in item["reasons"]]),
+            "panel_border_like_edge_count": len(
+                [item for item in flagged if "right_panel_border" in item["reasons"] or "bottom_title_block_border" in item["reasons"]]
+            ),
+        },
+    }
+
+
 def _center_from_bbox(bbox: dict[str, int]) -> tuple[float, float]:
     return (
         (float(bbox["x_min"]) + float(bbox["x_max"])) / 2.0,

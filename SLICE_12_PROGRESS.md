@@ -80,3 +80,23 @@
   - `cd backend && python -m unittest discover -s tests -p 'test_pipe_graph.py' -v` -> pass
 - Next step / blocker:
   - use those crossing totals inside Stage 13 anomaly reporting so unresolved topology ambiguity is visible in the review queue, not just in the raw Stage 10 artifacts.
+
+### 2026-03-12 07:02 ICT
+- Task: `Slice 12 / Structural border overlay filter`
+- Action: Added a Stage 12 overlay-only edge filter that flags long border-like Stage 10 edges near the right-side panel/title-block region and excludes them from text-attachment matching and `stage12_text_attachment_overlay.png`, while leaving the raw Stage 10 edge artifacts unchanged. The filter now emits a dedicated derived artifact bundle for inspection.
+- Evidence:
+  - [`backend/garnet/pipe_text_attachment.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/pipe_text_attachment.py)
+  - [`backend/garnet/pid_extractor.py`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/garnet/pid_extractor.py)
+  - [`backend/output/test00009_stage12_borderfilter_20260312/stage12_overlay_edges_filtered.json`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/test00009_stage12_borderfilter_20260312/stage12_overlay_edges_filtered.json)
+  - [`backend/output/test00002_stage12_borderfilter_20260312/stage12_overlay_edges_filtered.json`](/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/test00002_stage12_borderfilter_20260312/stage12_overlay_edges_filtered.json)
+- Verification:
+  - `cd backend && python -m unittest discover -s tests -p 'test_pipe_text_attachment.py' -v` -> pass
+  - `cd backend && python -m unittest discover -s tests -p 'test_pid_extractor_cli.py' -v` -> pass
+  - `Test-00009` filter summary:
+    - `filtered_edge_count = 1`
+    - `panel_border_like_edge_count = 1`
+  - `Test-00002` filter summary:
+    - `filtered_edge_count = 1`
+    - `panel_border_like_edge_count = 1`
+- Next step / blocker:
+  - widen the structural-edge filter beyond the current right-panel/title-block rule only after validating it on more PPCL sheets; do not delete the raw Stage 10 graph edges until the overlay-only filter proves stable.
