@@ -322,3 +322,82 @@ def render_text_attachment_overlay(
             cv2.LINE_AA,
         )
     return overlay
+
+
+def render_connection_attachment_overlay(
+    *,
+    image_bgr: np.ndarray,
+    edges: list[dict[str, Any]],
+    attachments: list[dict[str, Any]],
+    edge_connections: list[dict[str, Any]] | None = None,
+) -> np.ndarray:
+    overlay = image_bgr.copy()
+    adjacency: dict[str, set[str]] = {}
+    for item in edge_connections or []:
+        source_edge_id = str(item.get("source_edge_id", ""))
+        target_edge_id = str(item.get("target_edge_id", ""))
+        if not source_edge_id or not target_edge_id or source_edge_id == target_edge_id:
+            continue
+        adjacency.setdefault(source_edge_id, set()).add(target_edge_id)
+        adjacency.setdefault(target_edge_id, set()).add(source_edge_id)
+
+    attached_edge_ids = {str(item.get("edge_id", "")) for item in attachments if item.get("edge_id") is not None}
+    highlighted_edge_ids: set[str] = set()
+    for edge_id in attached_edge_ids:
+        if not edge_id:
+            continue
+        stack = [edge_id]
+        while stack:
+            current = stack.pop()
+            if current in highlighted_edge_ids:
+                continue
+            highlighted_edge_ids.add(current)
+            stack.extend(sorted(adjacency.get(current, set()) - highlighted_edge_ids))
+
+    for edge in edges:
+        polyline = edge.get("polyline", [])
+        color = (80, 80, 80)
+        thickness = 1
+        if str(edge.get("id", "")) in highlighted_edge_ids:
+            color = (0, 255, 255)
+            thickness = 2
+        for start, end in zip(polyline, polyline[1:]):
+            cv2.line(
+                overlay,
+                (int(start["col"]), int(start["row"])),
+                (int(end["col"]), int(end["row"])),
+                color,
+                thickness,
+            )
+
+    for item in attachments:
+        x_min, y_min, x_max, y_max = item.get("bbox", (0, 0, 0, 0))
+        stub_xy = item.get("attachment_stub_xy")
+        if isinstance(stub_xy, list) and len(stub_xy) == 2:
+            start_xy, end_xy = stub_xy
+            cv2.line(
+                overlay,
+                (int(round(float(start_xy[0]))), int(round(float(start_xy[1])))),
+                (int(round(float(end_xy[0]))), int(round(float(end_xy[1])))),
+                (255, 255, 0),
+                2,
+            )
+        cv2.rectangle(
+            overlay,
+            (int(x_min), int(y_min)),
+            (int(x_max), int(y_max)),
+            (255, 0, 255),
+            2,
+        )
+        label = str(item.get("class_name", ""))[:32]
+        cv2.putText(
+            overlay,
+            label,
+            (int(x_min) + 4, max(12, int(y_min) - 4)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.35,
+            (255, 0, 255),
+            1,
+            cv2.LINE_AA,
+        )
+    return overlay

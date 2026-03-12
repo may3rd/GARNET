@@ -31,10 +31,12 @@ from garnet.pipe_edges import run_pipe_edge_stage
 from garnet.pipe_equipment_attachment import run_pipe_equipment_attachment_stage
 from garnet.pipe_graph import run_pipe_graph_stage
 from garnet.pipe_graph_qa import run_pipe_graph_qa_stage
+from garnet.pipe_edge_connectivity import build_pipe_edge_connectivity
 from garnet.pipe_crossings import run_pipe_crossing_stage
 from garnet.pipe_junctions import run_pipe_junction_stage
 from garnet.pipe_text_attachment import (
     _filter_border_like_edges,
+    render_connection_attachment_overlay,
     render_text_attachment_overlay,
     run_pipe_text_attachment_stage,
 )
@@ -135,6 +137,13 @@ class PipelineConfig:
     )
     equipment_attachment_max_distance_px: float = 48.0
     equipment_attachment_k_candidate_edges: int = 10
+    connection_attachment_classes: tuple[str, ...] = (
+        "connection",
+        "page connection",
+        "utility connection",
+    )
+    connection_attachment_max_distance_px: float = 48.0
+    connection_attachment_k_candidate_edges: int = 10
     line_text_attachment_max_distance_px: float = 80.0
     terminal_equipment_classes: tuple[str, ...] = (
         "pump",
@@ -152,6 +161,7 @@ class PipelineConfig:
         "utility connection",
     )
     terminal_inline_passthrough_classes: tuple[str, ...] = (
+        "arrow",
         "valve",
         "gate valve",
         "ball valve",
@@ -164,6 +174,20 @@ class PipelineConfig:
         "spectacle blind",
     )
     terminal_match_distance_px: float = 48.0
+    graph_inline_connector_classes: tuple[str, ...] = (
+        "arrow",
+        "valve",
+        "gate valve",
+        "ball valve",
+        "globe valve",
+        "check valve",
+        "butterfly valve",
+        "control valve",
+        "pressure relief valve",
+        "reducer",
+        "spectacle blind",
+    )
+    graph_inline_connector_match_distance_px: float = 36.0
 
 
 class PIDPipeline:
@@ -718,13 +742,6 @@ class PIDPipeline:
             for item in edge_terminal_result["edge_terminals"]
             if item.get("edge_id") is not None
         }
-        overlay_edges = [
-            {
-                **edge,
-                "edge_terminals": edge_terminal_map.get(str(edge.get("id", ""))),
-            }
-            for edge in overlay_edges
-        ]
         attachment_result = run_pipe_equipment_attachment_stage(
             image_id=Path(self.image_path).name,
             objects=object_payload.get("objects", []),
@@ -733,6 +750,33 @@ class PIDPipeline:
             max_distance_px=self.cfg.equipment_attachment_max_distance_px,
             k_candidate_edges=self.cfg.equipment_attachment_k_candidate_edges,
         )
+        connection_attachment_result = run_pipe_equipment_attachment_stage(
+            image_id=Path(self.image_path).name,
+            objects=object_payload.get("objects", []),
+            edges=edges_payload.get("edges", []),
+            attachment_classes=self.cfg.connection_attachment_classes,
+            max_distance_px=self.cfg.connection_attachment_max_distance_px,
+            k_candidate_edges=self.cfg.connection_attachment_k_candidate_edges,
+        )
+        edge_connectivity_result = build_pipe_edge_connectivity(
+            edges=edges_payload.get("edges", []),
+            node_clusters=node_clusters_payload.get("clusters", []),
+            object_regions=object_payload.get("objects", []),
+            inline_connector_classes=self.cfg.graph_inline_connector_classes,
+            inline_match_distance_px=self.cfg.graph_inline_connector_match_distance_px,
+            connection_seed_edge_ids={
+                str(item.get("edge_id", ""))
+                for item in connection_attachment_result["attachments_payload"].get("accepted", [])
+                if item.get("edge_id") is not None
+            },
+        )
+        overlay_edges = [
+            {
+                **edge,
+                "edge_terminals": edge_terminal_map.get(str(edge.get("id", ""))),
+            }
+            for edge in overlay_edges
+        ]
         text_attachment_result = run_pipe_text_attachment_stage(
             image_id=Path(self.image_path).name,
             image_bgr=self._ensure_image_loaded(),
@@ -756,6 +800,12 @@ class PIDPipeline:
                 text_attachment_result["attachments_payload"].get("accepted", [])
                 + instrument_tag_attachment_result["attachments_payload"].get("accepted", []),
         )
+        connection_overlay = render_connection_attachment_overlay(
+            image_bgr=self._ensure_image_loaded(),
+            edges=overlay_edges,
+            attachments=connection_attachment_result["attachments_payload"].get("accepted", []),
+            edge_connections=edge_connectivity_result["connections"],
+        )
 
         graph_result = run_pipe_graph_stage(
             image_id=Path(self.image_path).name,
@@ -765,14 +815,21 @@ class PIDPipeline:
             unresolved_junctions=junctions_payload.get("unresolved_junctions", []),
             crossing_candidates=crossing_payload.get("candidates", []),
             equipment_attachments=attachment_result["attachments_payload"].get("accepted", []),
+            connection_attachments=connection_attachment_result["attachments_payload"].get("accepted", []),
             text_attachments=text_attachment_result["attachments_payload"].get("accepted", []),
             instrument_tag_attachments=instrument_tag_attachment_result["attachments_payload"].get("accepted", []),
             edge_terminals=edge_terminal_result["edge_terminals"],
+            edge_connections=edge_connectivity_result["connections"],
         )
         self._save_json("stage12_equipment_attachments", attachment_result["attachments_payload"])
         self._save_json("stage12_equipment_attachment_summary", attachment_result["summary"])
+        self._save_json("stage12_connection_attachments", connection_attachment_result["attachments_payload"])
+        self._save_json("stage12_connection_attachment_summary", connection_attachment_result["summary"])
+        self._save_img("stage12_connection_attachment_overlay", connection_overlay)
         self._save_json("stage12_edge_terminals", {"edge_terminals": edge_terminal_result["edge_terminals"]})
         self._save_json("stage12_edge_terminal_summary", edge_terminal_result["summary"])
+        self._save_json("stage12_edge_connections", {"edge_connections": edge_connectivity_result["connections"]})
+        self._save_json("stage12_edge_connection_summary", edge_connectivity_result["summary"])
         self._save_json("stage12_text_attachments", text_attachment_result["attachments_payload"])
         self._save_json("stage12_text_attachment_summary", text_attachment_result["summary"])
         self._save_img("stage12_text_attachment_overlay", combined_text_overlay)
@@ -789,8 +846,10 @@ class PIDPipeline:
         qa_result = run_pipe_graph_qa_stage(
             image_id=Path(self.image_path).name,
             graph_payload=graph_payload,
+            image_bgr=self._ensure_image_loaded(),
         )
         self._save_json("stage13_graph_anomalies", qa_result["anomaly_report"])
+        self._save_img("stage13_graph_components_overlay", qa_result["component_overlay_image"])
         self._save_json("stage13_review_queue", qa_result["review_queue"])
         self._save_json("stage13_graph_qa_summary", qa_result["summary"])
 

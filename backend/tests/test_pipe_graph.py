@@ -22,6 +22,7 @@ class PipeGraphTests(unittest.TestCase):
             confirmed_junctions=confirmed_junctions,
             unresolved_junctions=unresolved_junctions,
             crossing_candidates=[{"id": "junction_0", "classification": "confirmed_junction"}],
+            edge_connections=[{"kind": "junction_alignment", "source_edge_id": "edge_0", "target_edge_id": "edge_0"}],
             edge_terminals=[
                 {
                     "edge_id": "edge_0",
@@ -41,8 +42,10 @@ class PipeGraphTests(unittest.TestCase):
         self.assertEqual(result["summary"]["non_connecting_crossing_count"], 0)
         self.assertEqual(result["summary"]["unresolved_crossing_count"], 0)
         self.assertEqual(result["summary"]["edge_terminal_count"], 1)
+        self.assertEqual(result["summary"]["edge_connection_count"], 1)
         self.assertEqual(result["graph_payload"]["edges"][0]["edge_terminals"]["terminal_status"], "provisional")
         self.assertEqual(result["graph_payload"]["edges"][0]["terminal_status"], "provisional")
+        self.assertEqual(len(result["graph_payload"]["edge_connections"]), 1)
 
     def test_run_pipe_graph_stage_includes_equipment_attachment_nodes(self) -> None:
         clusters = [
@@ -71,6 +74,33 @@ class PipeGraphTests(unittest.TestCase):
         self.assertEqual(result["summary"]["node_count"], 3)
         self.assertEqual(result["summary"]["edge_count"], 1)
 
+    def test_run_pipe_graph_stage_includes_connection_attachment_nodes(self) -> None:
+        clusters = [
+            {"id": "endpoint_0", "kind": "endpoint", "centroid": {"x": 1.0, "y": 2.0}, "member_count": 1},
+        ]
+        edges = []
+        attachments = [
+            {
+                "det_id": "obj_1",
+                "class_name": "page connection",
+                "bbox": (10, 10, 20, 20),
+                "nearest_point_xy": (15.0, 12.0),
+            }
+        ]
+
+        result = run_pipe_graph_stage(
+            image_id="sample.png",
+            node_clusters=clusters,
+            edges=edges,
+            confirmed_junctions=[],
+            unresolved_junctions=[],
+            connection_attachments=attachments,
+        )
+
+        self.assertEqual(result["summary"]["accepted_connection_attachment_count"], 1)
+        self.assertEqual(result["summary"]["node_count"], 3)
+        self.assertEqual(result["summary"]["edge_count"], 1)
+
     def test_run_pipe_graph_stage_includes_text_attachments_on_edges(self) -> None:
         clusters = [
             {"id": "endpoint_0", "kind": "endpoint", "centroid": {"x": 1.0, "y": 2.0}, "member_count": 1},
@@ -94,6 +124,38 @@ class PipeGraphTests(unittest.TestCase):
 
         self.assertEqual(result["summary"]["accepted_text_attachment_count"], 1)
         self.assertEqual(result["graph_payload"]["edges"][0]["line_texts"][0]["text"], "LINE-100")
+
+    def test_run_pipe_graph_stage_uses_edge_connections_for_edge_components(self) -> None:
+        clusters = [
+            {"id": "endpoint_0", "kind": "endpoint", "centroid": {"x": 0.0, "y": 0.0}, "member_count": 1},
+            {"id": "junction_0", "kind": "junction", "centroid": {"x": 10.0, "y": 0.0}, "member_count": 1},
+            {"id": "endpoint_1", "kind": "endpoint", "centroid": {"x": 20.0, "y": 0.0}, "member_count": 1},
+            {"id": "endpoint_2", "kind": "endpoint", "centroid": {"x": 10.0, "y": -10.0}, "member_count": 1},
+            {"id": "endpoint_3", "kind": "endpoint", "centroid": {"x": 10.0, "y": 10.0}, "member_count": 1},
+        ]
+        edges = [
+            {"id": "edge_left", "source": "endpoint_0", "target": "junction_0", "pixel_length": 10, "polyline": []},
+            {"id": "edge_right", "source": "junction_0", "target": "endpoint_1", "pixel_length": 10, "polyline": []},
+            {"id": "edge_up", "source": "endpoint_2", "target": "junction_0", "pixel_length": 10, "polyline": []},
+            {"id": "edge_down", "source": "junction_0", "target": "endpoint_3", "pixel_length": 10, "polyline": []},
+        ]
+
+        result = run_pipe_graph_stage(
+            image_id="sample.png",
+            node_clusters=clusters,
+            edges=edges,
+            confirmed_junctions=[{"id": "junction_0"}],
+            unresolved_junctions=[],
+            edge_connections=[
+                {"kind": "junction_alignment", "source_edge_id": "edge_left", "target_edge_id": "edge_right"},
+                {"kind": "junction_alignment", "source_edge_id": "edge_up", "target_edge_id": "edge_down"},
+            ],
+        )
+
+        self.assertEqual(result["summary"]["edge_component_count"], 2)
+        edge_components = [set(component) for component in result["graph_payload"]["edge_components"]]
+        self.assertIn({"edge_left", "edge_right"}, edge_components)
+        self.assertIn({"edge_up", "edge_down"}, edge_components)
 
 
 if __name__ == "__main__":

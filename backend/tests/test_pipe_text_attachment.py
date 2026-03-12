@@ -4,7 +4,12 @@ from unittest.mock import patch
 import numpy as np
 
 from garnet.line_number_fusion import run_line_number_fusion_stage
-from garnet.pipe_text_attachment import _filter_border_like_edges, render_text_attachment_overlay, run_pipe_text_attachment_stage
+from garnet.pipe_text_attachment import (
+    _filter_border_like_edges,
+    render_connection_attachment_overlay,
+    render_text_attachment_overlay,
+    run_pipe_text_attachment_stage,
+)
 
 
 class PipeTextAttachmentTests(unittest.TestCase):
@@ -226,6 +231,36 @@ class PipeTextAttachmentTests(unittest.TestCase):
         )
 
         self.assertTrue(np.array_equal(overlay[10, 5], np.array([0, 165, 255], dtype=np.uint8)))
+
+    def test_render_connection_attachment_overlay_highlights_connected_pipe_edge(self) -> None:
+        overlay = render_connection_attachment_overlay(
+            image_bgr=np.zeros((30, 40, 3), dtype=np.uint8),
+            edges=[
+                {
+                    "id": "edge_1",
+                    "polyline": [{"row": 15, "col": 2}, {"row": 15, "col": 30}],
+                },
+                {
+                    "id": "edge_2",
+                    "polyline": [{"row": 15, "col": 30}, {"row": 15, "col": 38}],
+                }
+            ],
+            attachments=[
+                {
+                    "edge_id": "edge_1",
+                    "bbox": (24, 10, 34, 20),
+                    "class_name": "page connection",
+                    "attachment_stub_xy": [(24.0, 15.0), (29.0, 15.0)],
+                }
+            ],
+            edge_connections=[
+                {"source_edge_id": "edge_1", "target_edge_id": "edge_2"},
+            ],
+        )
+
+        self.assertTrue(np.array_equal(overlay[15, 10], np.array([0, 255, 255], dtype=np.uint8)))
+        self.assertTrue(np.array_equal(overlay[15, 37], np.array([0, 255, 255], dtype=np.uint8)))
+        self.assertTrue(np.array_equal(overlay[15, 26], np.array([255, 255, 0], dtype=np.uint8)))
 
     def test_run_pipe_text_attachment_stage_uses_bbox_distance_not_center_only(self) -> None:
         text_regions = [

@@ -2,13 +2,67 @@ from __future__ import annotations
 
 from typing import Any
 
+import cv2
 import networkx as nx
+
+
+_COMPONENT_COLORS = [
+    (0, 0, 255),
+    (0, 165, 255),
+    (0, 255, 255),
+    (0, 255, 0),
+    (255, 255, 0),
+    (255, 0, 0),
+    (255, 0, 255),
+]
+
+
+def _draw_component_overlay(
+    image_bgr: Any,
+    *,
+    components: list[list[str]],
+    edges: list[dict[str, Any]],
+    nodes: list[dict[str, Any]],
+) -> Any:
+    overlay = image_bgr.copy()
+    edge_by_component: dict[str, int] = {}
+    for idx, component in enumerate(components):
+        for node_id in component:
+            edge_by_component[str(node_id)] = idx
+
+    for edge in edges:
+        component_idx = edge_by_component.get(str(edge.get("source", "")))
+        if component_idx is None:
+            continue
+        color = _COMPONENT_COLORS[component_idx % len(_COMPONENT_COLORS)]
+        polyline = edge.get("polyline", [])
+        for start, end in zip(polyline, polyline[1:]):
+            cv2.line(
+                overlay,
+                (int(start["col"]), int(start["row"])),
+                (int(end["col"]), int(end["row"])),
+                color,
+                2,
+            )
+
+    for node in nodes:
+        position = node.get("position") or {}
+        x = int(round(float(position.get("x", 0.0))))
+        y = int(round(float(position.get("y", 0.0))))
+        component_idx = edge_by_component.get(str(node.get("id", "")))
+        if component_idx is None:
+            color = (255, 255, 255)
+        else:
+            color = _COMPONENT_COLORS[component_idx % len(_COMPONENT_COLORS)]
+        cv2.circle(overlay, (x, y), 3, color, -1)
+    return overlay
 
 
 def run_pipe_graph_qa_stage(
     *,
     image_id: str,
     graph_payload: dict[str, Any],
+    image_bgr: Any,
 ) -> dict[str, Any]:
     graph = nx.Graph()
     nodes = graph_payload.get("nodes", [])
@@ -113,6 +167,12 @@ def run_pipe_graph_qa_stage(
 
     return {
         "anomaly_report": anomaly_report,
+        "component_overlay_image": _draw_component_overlay(
+            image_bgr,
+            components=components,
+            edges=edges,
+            nodes=nodes,
+        ),
         "review_queue": {
             "image_id": image_id,
             "pass_type": "sheet",

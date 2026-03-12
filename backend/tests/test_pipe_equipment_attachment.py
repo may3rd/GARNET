@@ -37,6 +37,9 @@ class PipeEquipmentAttachmentTests(unittest.TestCase):
         self.assertEqual(result["summary"]["equipment_candidates"], 1)
         self.assertEqual(result["summary"]["accepted_attachment_count"], 1)
         self.assertEqual(len(result["attachments_payload"]["accepted"]), 1)
+        attachment = result["attachments_payload"]["accepted"][0]
+        self.assertIsNotNone(attachment["connection_anchor_xy"])
+        self.assertIsNotNone(attachment["attachment_stub_xy"])
 
 
 if __name__ == "__main__":

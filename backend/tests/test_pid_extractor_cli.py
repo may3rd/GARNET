@@ -598,14 +598,19 @@ class PIDPipelineRunnerTests(unittest.TestCase):
 
                 pipe.stage12_graph_assembly()
 
-            mock_pipe_attachment.assert_called_once()
+            self.assertEqual(mock_pipe_attachment.call_count, 2)
             mock_pipe_terminals.assert_called_once()
             self.assertEqual(mock_pipe_text_attachment.call_count, 2)
             mock_pipe_graph.assert_called_once()
             self.assertTrue((Path(tmp) / "stage12_equipment_attachments.json").exists())
             self.assertTrue((Path(tmp) / "stage12_equipment_attachment_summary.json").exists())
+            self.assertTrue((Path(tmp) / "stage12_connection_attachments.json").exists())
+            self.assertTrue((Path(tmp) / "stage12_connection_attachment_summary.json").exists())
+            self.assertTrue((Path(tmp) / "stage12_connection_attachment_overlay.png").exists())
             self.assertTrue((Path(tmp) / "stage12_edge_terminals.json").exists())
             self.assertTrue((Path(tmp) / "stage12_edge_terminal_summary.json").exists())
+            self.assertTrue((Path(tmp) / "stage12_edge_connections.json").exists())
+            self.assertTrue((Path(tmp) / "stage12_edge_connection_summary.json").exists())
             self.assertTrue((Path(tmp) / "stage12_text_attachments.json").exists())
             self.assertTrue((Path(tmp) / "stage12_text_attachment_summary.json").exists())
             self.assertTrue((Path(tmp) / "stage12_text_attachment_overlay.png").exists())
@@ -619,11 +624,13 @@ class PIDPipelineRunnerTests(unittest.TestCase):
     def test_stage13_writes_graph_qa_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
+            pipe.image_bgr = np.zeros((20, 20, 3), dtype=np.uint8)
             pipe._save_json("stage12_graph", {"nodes": [], "edges": []})
 
             with patch("garnet.pid_extractor.run_pipe_graph_qa_stage") as mock_pipe_graph_qa:
                 mock_pipe_graph_qa.return_value = {
                     "anomaly_report": {"connected_component_count": 0},
+                    "component_overlay_image": np.zeros((20, 20, 3), dtype=np.uint8),
                     "review_queue": {"items": []},
                     "summary": {
                         "image_id": "image.png",
@@ -636,6 +643,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
 
             mock_pipe_graph_qa.assert_called_once()
             self.assertTrue((Path(tmp) / "stage13_graph_anomalies.json").exists())
+            self.assertTrue((Path(tmp) / "stage13_graph_components_overlay.png").exists())
             self.assertTrue((Path(tmp) / "stage13_review_queue.json").exists())
             self.assertTrue((Path(tmp) / "stage13_graph_qa_summary.json").exists())
 

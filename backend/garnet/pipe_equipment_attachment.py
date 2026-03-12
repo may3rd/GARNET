@@ -11,6 +11,20 @@ from garnet.equipment_pipe_association import (
 )
 
 
+def _nearest_anchor_on_bbox(bbox: tuple[int, int, int, int], point_xy: tuple[float, float] | None) -> tuple[float, float] | None:
+    if point_xy is None:
+        return None
+    x_min, y_min, x_max, y_max = bbox
+    px, py = float(point_xy[0]), float(point_xy[1])
+    side_points = [
+        (float(x_min), (float(y_min) + float(y_max)) / 2.0),
+        (float(x_max), (float(y_min) + float(y_max)) / 2.0),
+        ((float(x_min) + float(x_max)) / 2.0, float(y_min)),
+        ((float(x_min) + float(x_max)) / 2.0, float(y_max)),
+    ]
+    return min(side_points, key=lambda item: (item[0] - px) ** 2 + (item[1] - py) ** 2)
+
+
 def _to_detection(obj: dict[str, Any]) -> Detection:
     bbox = obj["bbox"]
     return Detection(
@@ -80,6 +94,7 @@ def run_pipe_equipment_attachment_stage(
     rejected = [result for result in results if not result.accepted]
 
     def _serialize(result: AssociationResult) -> dict[str, Any]:
+        connection_anchor_xy = _nearest_anchor_on_bbox(result.bbox, result.nearest_point_xy)
         return {
             "det_id": result.det_id,
             "class_name": result.class_name,
@@ -90,6 +105,10 @@ def run_pipe_equipment_attachment_stage(
             "anchor_xy": result.anchor_xy,
             "edge_id": result.edge_id,
             "nearest_point_xy": result.nearest_point_xy,
+            "connection_anchor_xy": connection_anchor_xy,
+            "attachment_stub_xy": None
+            if result.nearest_point_xy is None or connection_anchor_xy is None
+            else [result.nearest_point_xy, connection_anchor_xy],
             "distance_px": result.distance_px,
             "score": result.score,
             "segment_index": result.segment_index,
