@@ -135,6 +135,34 @@ class PipelineConfig:
     equipment_attachment_max_distance_px: float = 48.0
     equipment_attachment_k_candidate_edges: int = 10
     line_text_attachment_max_distance_px: float = 80.0
+    terminal_equipment_classes: tuple[str, ...] = (
+        "pump",
+        "heat exchanger",
+        "tank",
+        "vessel",
+        "column",
+        "compressor",
+        "blower",
+        "fan",
+    )
+    terminal_connection_classes: tuple[str, ...] = (
+        "connection",
+        "page connection",
+        "utility connection",
+    )
+    terminal_inline_passthrough_classes: tuple[str, ...] = (
+        "valve",
+        "gate valve",
+        "ball valve",
+        "globe valve",
+        "check valve",
+        "butterfly valve",
+        "control valve",
+        "pressure relief valve",
+        "reducer",
+        "spectacle blind",
+    )
+    terminal_match_distance_px: float = 48.0
 
 
 class PIDPipeline:
