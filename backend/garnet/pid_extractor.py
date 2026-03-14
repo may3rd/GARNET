@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -75,6 +76,14 @@ def load_pipeline_env() -> None:
 
 
 load_pipeline_env()
+
+
+def normalize_for_save(img: np.ndarray) -> np.ndarray:
+    if img.dtype == bool:
+        return img.astype(np.uint8) * 255
+    if img.dtype != np.uint8:
+        return np.clip(img, 0, 255).astype(np.uint8)
+    return img
 
 
 @dataclass
@@ -197,22 +206,27 @@ class PIDPipeline:
         out_dir: str | Path = DEFAULT_OUT,
         cfg: PipelineConfig | None = None,
         stage_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
-        **_: Any,
+        **kwargs: Any,
     ) -> None:
         self.image_path = str(image_path)
         self.out_dir = Path(out_dir)
-        self.out_dir.mkdir(parents=True, exist_ok=True)
         self.cfg = cfg or PipelineConfig()
         self.stage_callback = stage_callback
+        if kwargs:
+            logger.warning("Ignoring unexpected PIDPipeline kwargs: %s", sorted(kwargs))
 
         self.image_bgr: Optional[np.ndarray] = None
         self.stage_manifest: Dict[str, Any] = {}
+        self._current_stage_artifacts: list[str] = []
 
     # ---------- Stage runner ----------
     def _stage_definitions(self) -> List[Tuple[int, str, Callable[[], None]]]:
+        """Return the ordered stage list executed by the pipeline."""
         return [
             (1, "stage1_input_normalization", self.stage1_input_normalization),
             (2, "stage2_ocr_discovery", self.stage2_ocr_discovery),
+            # Stage 4 sub-stages share the same number intentionally.
+            # They all depend on Stage 4 object detection output and run together when stop_after=4.
             (4, "stage4_object_detection", self.stage4_object_detection),
             (4, "stage4_line_number_fusion", self.stage4_line_number_fusion),
             (4, "stage4_instrument_tag_fusion", self.stage4_instrument_tag_fusion),
@@ -223,8 +237,10 @@ class PIDPipeline:
             (9, "stage9_node_clustering", self.stage9_node_clustering),
             (10, "stage10_edge_tracing", self.stage10_edge_tracing),
             (11, "stage11_junction_review", self.stage11_junction_review),
-            (12, "stage12_graph_assembly", self.stage12_graph_assembly),
-            (13, "stage13_graph_qa", self.stage13_graph_qa),
+            (12, "stage12_edge_topology", self.stage12_edge_topology),
+            (13, "stage13_text_attachment", self.stage13_text_attachment),
+            (14, "stage14_graph_assembly", self.stage14_graph_assembly),
+            (15, "stage15_graph_qa", self.stage15_graph_qa),
         ]
 
     def _manifest_path(self) -> Path:
@@ -236,10 +252,12 @@ class PIDPipeline:
         logger.info(f"saved {self._manifest_path()}")
 
     def _notify_stage_callback(self, payload: Dict[str, Any]) -> None:
+        """Forward stage lifecycle events to the optional callback."""
         if self.stage_callback is not None:
             self.stage_callback(payload)
 
     def _reset_stage_manifest(self, stop_after: int) -> None:
+        """Initialize a fresh stage manifest for the current run."""
         self.stage_manifest = {
             "image_path": self.image_path,
             "out_dir": str(self.out_dir),
@@ -251,16 +269,11 @@ class PIDPipeline:
         }
         self._write_stage_manifest()
 
-    def _stage_artifacts_since(self, started_at: float) -> List[str]:
-        artifacts: List[str] = []
-        for path in self.out_dir.iterdir():
-            if not path.is_file() or path.name == "stage_manifest.json":
-                continue
-            if path.stat().st_mtime >= started_at:
-                artifacts.append(path.name)
-        return sorted(artifacts)
+    def _register_artifact(self, name: str) -> None:
+        self._current_stage_artifacts.append(name)
 
     def _run_stage(self, stage_num: int, stage_name: str, stage_fn: Callable[[], None]) -> None:
+        """Execute one stage and persist manifest status, timing, and artifacts."""
         started_at = time.time()
         entry = {
             "num": stage_num,
@@ -272,13 +285,14 @@ class PIDPipeline:
         self.stage_manifest["stages"].append(entry)
         self._write_stage_manifest()
         self._notify_stage_callback({"event": "stage_started", "stage": entry.copy(), "manifest": self.stage_manifest})
+        self._current_stage_artifacts = []
         try:
             stage_fn()
         except Exception as exc:
             entry["status"] = "failed"
             entry["ended_at"] = time.time()
             entry["duration_sec"] = round(entry["ended_at"] - started_at, 6)
-            entry["artifacts"] = self._stage_artifacts_since(started_at)
+            entry["artifacts"] = list(self._current_stage_artifacts)
             entry["error"] = str(exc)
             self._write_stage_manifest()
             self._notify_stage_callback({"event": "stage_failed", "stage": entry.copy(), "manifest": self.stage_manifest})
@@ -286,44 +300,101 @@ class PIDPipeline:
         entry["status"] = "completed"
         entry["ended_at"] = time.time()
         entry["duration_sec"] = round(entry["ended_at"] - started_at, 6)
-        entry["artifacts"] = self._stage_artifacts_since(started_at)
+        entry["artifacts"] = list(self._current_stage_artifacts)
         self._write_stage_manifest()
         self._notify_stage_callback({"event": "stage_completed", "stage": entry.copy(), "manifest": self.stage_manifest})
 
-    def run(self, stop_after: int = 1) -> None:
+    def run(self, stop_after: int = 1, resume: bool = False) -> None:
         stages = self._stage_definitions()
         valid_stop_after = {num for num, _, _ in stages}
         if stop_after not in valid_stop_after:
             raise ValueError(f"stop_after must be one of {sorted(valid_stop_after)}, got {stop_after}")
-        self._reset_stage_manifest(stop_after)
+
+        if not os.path.isfile(self.image_path):
+            raise FileNotFoundError(f"Input image does not exist or is not a file: {self.image_path}")
+        if self.out_dir.exists() and not self.out_dir.is_dir():
+            raise NotADirectoryError(f"Output path is not a directory: {self.out_dir}")
+        try:
+            self.out_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise OSError(f"Output directory cannot be created: {self.out_dir}") from exc
+        write_probe = self.out_dir / f".pid_pipeline_write_test_{time.time_ns()}"
+        try:
+            with open(write_probe, "w", encoding="utf-8"):
+                pass
+        except OSError as exc:
+            raise PermissionError(f"Output directory is not writable: {self.out_dir}") from exc
+        finally:
+            if write_probe.exists():
+                write_probe.unlink()
+
+        completed_stage_names: set[str] = set()
+        manifest_path = self._manifest_path()
+        if resume and manifest_path.exists():
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                self.stage_manifest = json.load(f)
+            self.stage_manifest.setdefault("stages", [])
+            manifest_image_path = self.stage_manifest.get("image_path")
+            if manifest_image_path not in (None, self.image_path):
+                raise ValueError(
+                    f"Cannot resume from manifest for different image: {manifest_image_path} != {self.image_path}"
+                )
+            manifest_out_dir = self.stage_manifest.get("out_dir")
+            if manifest_out_dir not in (None, str(self.out_dir)):
+                raise ValueError(
+                    f"Cannot resume from manifest for different output directory: {manifest_out_dir} != {self.out_dir}"
+                )
+            self.stage_manifest["image_path"] = self.image_path
+            self.stage_manifest["out_dir"] = str(self.out_dir)
+            self.stage_manifest["stop_after"] = stop_after
+            self.stage_manifest["ocr_route"] = self.cfg.ocr_route
+            self.stage_manifest["detection_weight_path"] = self.cfg.detection_weight_path
+            self.stage_manifest["stage_numbering_note"] = (
+                "Stage numbering is intentionally sparse: Stage 3 is not implemented yet."
+            )
+            last_completed_stage: str | None = None
+            for entry in self.stage_manifest.get("stages", []):
+                if entry.get("status") == "completed" and isinstance(entry.get("name"), str):
+                    completed_stage_names.add(entry["name"])
+                    last_completed_stage = entry["name"]
+            if last_completed_stage is not None:
+                logger.info("Resuming pipeline from %s after %s", manifest_path, last_completed_stage)
+            self._write_stage_manifest()
+        else:
+            self._reset_stage_manifest(stop_after)
+
         for stage_num, stage_name, stage_fn in stages:
             if stage_num > stop_after:
                 break
+            if resume and stage_name in completed_stage_names:
+                logger.info("Skipping completed stage during resume: %s", stage_name)
+                continue
             self._run_stage(stage_num, stage_name, stage_fn)
 
     # ---------- Persistence ----------
     def _save_img(self, name: str, img: np.ndarray) -> None:
+        """Persist an image artifact to the output directory and register it."""
         path = self.out_dir / f"{name}.png"
-        out = img
-        if out.dtype == bool:
-            out = out.astype(np.uint8) * 255
-        elif out.dtype != np.uint8:
-            out = np.clip(out, 0, 255).astype(np.uint8)
+        out = normalize_for_save(img)
         if cv2 is not None:
             cv2.imwrite(str(path), out)
         elif Image is not None:
             Image.fromarray(out).save(str(path))
         else:  # pragma: no cover
             raise RuntimeError("No image backend available")
+        self._register_artifact(path.name)
         logger.info(f"saved {path}")
 
     def _save_json(self, name: str, data: Any) -> None:
+        """Persist a JSON artifact to the output directory and register it."""
         path = self.out_dir / f"{name}.json"
         with open(path, "w") as f:
             json.dump(data, f, indent=2)
+        self._register_artifact(path.name)
         logger.info(f"saved {path}")
 
     def _load_json_artifact(self, name: str) -> Any:
+        """Load a required JSON artifact from the output directory."""
         path = self.out_dir / f"{name}.json"
         if not path.exists():
             raise FileNotFoundError(f"Required artifact missing: {path}")
@@ -332,6 +403,7 @@ class PIDPipeline:
 
     # ---------- Stage 1 ----------
     def _ensure_image_loaded(self) -> np.ndarray:
+        """Load and cache the source image as BGR for downstream stages."""
         if self.image_bgr is not None:
             return self.image_bgr
         if cv2 is not None:
@@ -347,6 +419,7 @@ class PIDPipeline:
         raise RuntimeError("No image backend available")  # pragma: no cover
 
     def stage1_input_normalization(self) -> None:
+        """Generate grayscale, adaptive/Otsu binary, and histogram-equalized views of the input image."""
         image = self._ensure_image_loaded()
         if cv2 is not None:
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -394,6 +467,7 @@ class PIDPipeline:
 
     # ---------- Stage 2 ----------
     def stage2_ocr_discovery(self) -> None:
+        """Run the configured OCR route on Stage 1 grayscale to discover text regions."""
         stage1_input = self.out_dir / "stage1_gray.png"
         if not stage1_input.exists():
             raise FileNotFoundError(f"Stage 2 requires Stage 1 artifact: {stage1_input}")
@@ -465,6 +539,7 @@ class PIDPipeline:
 
     # ---------- Stage 4 ----------
     def stage4_object_detection(self) -> None:
+        """Run YOLO+SAHI object detection and derive topology markers from arrow/node classes."""
         detection_result = run_object_detection_sahi(
             self.image_path,
             image_id=Path(self.image_path).name,
@@ -488,6 +563,7 @@ class PIDPipeline:
         self._save_json("stage4_topology_marker_summary", topology_marker_result["summary"])
 
     def stage4_line_number_fusion(self) -> None:
+        """Fuse OCR text regions with detected objects to identify pipe line numbers."""
         object_payload = self._load_json_artifact("stage4_objects")
         ocr_payload = self._load_json_artifact("stage2_ocr_regions")
         fusion_result = run_line_number_fusion_stage(
@@ -502,6 +578,7 @@ class PIDPipeline:
         self._save_img("stage4_line_number_overlay", fusion_result["overlay_image"])
 
     def stage4_instrument_tag_fusion(self) -> None:
+        """Fuse OCR text regions with detected objects to identify instrument tags."""
         object_payload = self._load_json_artifact("stage4_objects")
         ocr_payload = self._load_json_artifact("stage2_ocr_regions")
         fusion_result = run_instrument_tag_fusion_stage(
@@ -517,6 +594,7 @@ class PIDPipeline:
 
     # ---------- Stage 5 ----------
     def stage5_pipe_mask(self) -> None:
+        """Generate provisional pipe-only binary mask by suppressing OCR text and detected objects."""
         gray_path = self.out_dir / "stage1_gray.png"
         adaptive_path = self.out_dir / "stage1_binary_adaptive.png"
         otsu_path = self.out_dir / "stage1_binary_otsu.png"
@@ -553,6 +631,7 @@ class PIDPipeline:
 
     # ---------- Stage 6 ----------
     def stage6_morphological_sealing(self) -> None:
+        """Apply morphological closing to seal gaps in the pipe mask."""
         pipe_mask_path = self.out_dir / "stage5_pipe_mask.png"
         if not pipe_mask_path.exists():
             raise FileNotFoundError(f"Stage 6 requires Stage 5 artifact: {pipe_mask_path}")
@@ -577,6 +656,7 @@ class PIDPipeline:
 
     # ---------- Stage 7 ----------
     def stage7_skeleton_generation(self) -> None:
+        """Compute medial-axis skeleton from the sealed pipe mask."""
         sealed_mask_path = self.out_dir / "stage6_pipe_mask_sealed.png"
         if not sealed_mask_path.exists():
             raise FileNotFoundError(f"Stage 7 requires Stage 6 artifact: {sealed_mask_path}")
@@ -598,6 +678,7 @@ class PIDPipeline:
 
     # ---------- Stage 8 ----------
     def stage8_skeleton_node_detection(self) -> None:
+        """Detect skeleton endpoints and junctions from the skeleton image."""
         skeleton_path = self.out_dir / "stage7_pipe_skeleton.png"
         if not skeleton_path.exists():
             raise FileNotFoundError(f"Stage 8 requires Stage 7 artifact: {skeleton_path}")
@@ -620,6 +701,7 @@ class PIDPipeline:
 
     # ---------- Stage 9 ----------
     def stage9_node_clustering(self) -> None:
+        """Cluster nearby skeleton nodes using DBSCAN into consolidated graph nodes."""
         endpoints_path = self.out_dir / "stage8_endpoints.png"
         junctions_path = self.out_dir / "stage8_junctions.png"
         if not endpoints_path.exists() or not junctions_path.exists():
@@ -648,6 +730,7 @@ class PIDPipeline:
 
     # ---------- Stage 10 ----------
     def stage10_edge_tracing(self) -> None:
+        """Resolve crossings, then trace pipe edges between clustered nodes."""
         sealed_mask_path = self.out_dir / "stage6_pipe_mask_sealed.png"
         skeleton_path = self.out_dir / "stage7_pipe_skeleton.png"
         node_clusters_path = self.out_dir / "stage9_node_clusters.json"
@@ -697,6 +780,7 @@ class PIDPipeline:
 
     # ---------- Stage 11 ----------
     def stage11_junction_review(self) -> None:
+        """Review crossing candidates and classify as confirmed junctions or unresolved."""
         crossing_payload_path = self.out_dir / "stage10_crossing_resolution.json"
         if not crossing_payload_path.exists():
             raise FileNotFoundError("Stage 11 requires Stage 10 crossing resolution artifacts")
@@ -715,14 +799,11 @@ class PIDPipeline:
         self._save_json("stage11_junction_review_summary", junction_result["summary"])
 
     # ---------- Stage 12 ----------
-    def stage12_graph_assembly(self) -> None:
+    def stage12_edge_topology(self) -> None:
+        """Classify edge terminals, attach equipment/connections, and build edge connectivity."""
         object_payload = self._load_json_artifact("stage4_objects")
-        text_payload = self._load_json_artifact("stage4_line_numbers")
-        instrument_tag_payload = self._load_json_artifact("stage4_instrument_tags")
         node_clusters_payload = self._load_json_artifact("stage9_node_clusters")
         edges_payload = self._load_json_artifact("stage10_pipe_edges")
-        crossing_payload = self._load_json_artifact("stage10_crossing_resolution")
-        junctions_payload = self._load_json_artifact("stage11_junctions")
         overlay_edge_filter_result = _filter_border_like_edges(
             edges_payload.get("edges", []),
             self._ensure_image_loaded().shape,
@@ -777,6 +858,37 @@ class PIDPipeline:
             }
             for edge in overlay_edges
         ]
+        connection_overlay = render_connection_attachment_overlay(
+            image_bgr=self._ensure_image_loaded(),
+            edges=overlay_edges,
+            attachments=connection_attachment_result["attachments_payload"].get("accepted", []),
+            edge_connections=edge_connectivity_result["connections"],
+        )
+        filtered_edges_payload = {
+            **overlay_edge_filter_result["filtered_edges_payload"],
+            "edges": overlay_edges,
+        }
+
+        self._save_json("stage12_filtered_edges", filtered_edges_payload)
+        self._save_json("stage12_filtered_edges_summary", overlay_edge_filter_result["summary"])
+        self._save_json("stage12_edge_terminals", {"edge_terminals": edge_terminal_result["edge_terminals"]})
+        self._save_json("stage12_edge_terminal_summary", edge_terminal_result["summary"])
+        self._save_json("stage12_equipment_attachments", attachment_result["attachments_payload"])
+        self._save_json("stage12_equipment_attachment_summary", attachment_result["summary"])
+        self._save_json("stage12_connection_attachments", connection_attachment_result["attachments_payload"])
+        self._save_json("stage12_connection_attachment_summary", connection_attachment_result["summary"])
+        self._save_img("stage12_connection_attachment_overlay", connection_overlay)
+        self._save_json("stage12_edge_connections", {"edge_connections": edge_connectivity_result["connections"]})
+        self._save_json("stage12_edge_connection_summary", edge_connectivity_result["summary"])
+
+    # ---------- Stage 13 ----------
+    def stage13_text_attachment(self) -> None:
+        """Attach line numbers and instrument tags to pipe edges."""
+        text_payload = self._load_json_artifact("stage4_line_numbers")
+        instrument_tag_payload = self._load_json_artifact("stage4_instrument_tags")
+        filtered_edges_payload = self._load_json_artifact("stage12_filtered_edges")
+        overlay_edges = filtered_edges_payload.get("edges", [])
+
         text_attachment_result = run_pipe_text_attachment_stage(
             image_id=Path(self.image_path).name,
             image_bgr=self._ensure_image_loaded(),
@@ -800,12 +912,25 @@ class PIDPipeline:
                 text_attachment_result["attachments_payload"].get("accepted", [])
                 + instrument_tag_attachment_result["attachments_payload"].get("accepted", []),
         )
-        connection_overlay = render_connection_attachment_overlay(
-            image_bgr=self._ensure_image_loaded(),
-            edges=overlay_edges,
-            attachments=connection_attachment_result["attachments_payload"].get("accepted", []),
-            edge_connections=edge_connectivity_result["connections"],
-        )
+        self._save_json("stage13_text_attachments", text_attachment_result["attachments_payload"])
+        self._save_json("stage13_text_attachment_summary", text_attachment_result["summary"])
+        self._save_json("stage13_instrument_tag_attachments", instrument_tag_attachment_result["attachments_payload"])
+        self._save_json("stage13_instrument_tag_attachment_summary", instrument_tag_attachment_result["summary"])
+        self._save_img("stage13_text_attachment_overlay", combined_text_overlay)
+
+    # ---------- Stage 14 ----------
+    def stage14_graph_assembly(self) -> None:
+        """Build the final graph from all topology, attachment, and text evidence."""
+        node_clusters_payload = self._load_json_artifact("stage9_node_clusters")
+        edges_payload = self._load_json_artifact("stage10_pipe_edges")
+        crossing_payload = self._load_json_artifact("stage10_crossing_resolution")
+        junctions_payload = self._load_json_artifact("stage11_junctions")
+        attachment_payload = self._load_json_artifact("stage12_equipment_attachments")
+        connection_attachment_payload = self._load_json_artifact("stage12_connection_attachments")
+        edge_terminal_payload = self._load_json_artifact("stage12_edge_terminals")
+        edge_connections_payload = self._load_json_artifact("stage12_edge_connections")
+        text_attachment_payload = self._load_json_artifact("stage13_text_attachments")
+        instrument_tag_attachment_payload = self._load_json_artifact("stage13_instrument_tag_attachments")
 
         graph_result = run_pipe_graph_stage(
             image_id=Path(self.image_path).name,
@@ -814,44 +939,29 @@ class PIDPipeline:
             confirmed_junctions=junctions_payload.get("confirmed_junctions", []),
             unresolved_junctions=junctions_payload.get("unresolved_junctions", []),
             crossing_candidates=crossing_payload.get("candidates", []),
-            equipment_attachments=attachment_result["attachments_payload"].get("accepted", []),
-            connection_attachments=connection_attachment_result["attachments_payload"].get("accepted", []),
-            text_attachments=text_attachment_result["attachments_payload"].get("accepted", []),
-            instrument_tag_attachments=instrument_tag_attachment_result["attachments_payload"].get("accepted", []),
-            edge_terminals=edge_terminal_result["edge_terminals"],
-            edge_connections=edge_connectivity_result["connections"],
+            equipment_attachments=attachment_payload.get("accepted", []),
+            connection_attachments=connection_attachment_payload.get("accepted", []),
+            text_attachments=text_attachment_payload.get("accepted", []),
+            instrument_tag_attachments=instrument_tag_attachment_payload.get("accepted", []),
+            edge_terminals=edge_terminal_payload.get("edge_terminals", []),
+            edge_connections=edge_connections_payload.get("edge_connections", []),
         )
-        self._save_json("stage12_equipment_attachments", attachment_result["attachments_payload"])
-        self._save_json("stage12_equipment_attachment_summary", attachment_result["summary"])
-        self._save_json("stage12_connection_attachments", connection_attachment_result["attachments_payload"])
-        self._save_json("stage12_connection_attachment_summary", connection_attachment_result["summary"])
-        self._save_img("stage12_connection_attachment_overlay", connection_overlay)
-        self._save_json("stage12_edge_terminals", {"edge_terminals": edge_terminal_result["edge_terminals"]})
-        self._save_json("stage12_edge_terminal_summary", edge_terminal_result["summary"])
-        self._save_json("stage12_edge_connections", {"edge_connections": edge_connectivity_result["connections"]})
-        self._save_json("stage12_edge_connection_summary", edge_connectivity_result["summary"])
-        self._save_json("stage12_text_attachments", text_attachment_result["attachments_payload"])
-        self._save_json("stage12_text_attachment_summary", text_attachment_result["summary"])
-        self._save_img("stage12_text_attachment_overlay", combined_text_overlay)
-        self._save_json("stage12_overlay_edges_filtered", overlay_edge_filter_result["filtered_edges_payload"])
-        self._save_json("stage12_overlay_edges_filtered_summary", overlay_edge_filter_result["summary"])
-        self._save_json("stage12_instrument_tag_attachments", instrument_tag_attachment_result["attachments_payload"])
-        self._save_json("stage12_instrument_tag_attachment_summary", instrument_tag_attachment_result["summary"])
-        self._save_json("stage12_graph", graph_result["graph_payload"])
-        self._save_json("stage12_graph_summary", graph_result["summary"])
+        self._save_json("stage14_graph", graph_result["graph_payload"])
+        self._save_json("stage14_graph_summary", graph_result["summary"])
 
-    # ---------- Stage 13 ----------
-    def stage13_graph_qa(self) -> None:
-        graph_payload = self._load_json_artifact("stage12_graph")
+    # ---------- Stage 15 ----------
+    def stage15_graph_qa(self) -> None:
+        """Run graph QA checks and produce anomaly report and review queue."""
+        graph_payload = self._load_json_artifact("stage14_graph")
         qa_result = run_pipe_graph_qa_stage(
             image_id=Path(self.image_path).name,
             graph_payload=graph_payload,
             image_bgr=self._ensure_image_loaded(),
         )
-        self._save_json("stage13_graph_anomalies", qa_result["anomaly_report"])
-        self._save_img("stage13_graph_components_overlay", qa_result["component_overlay_image"])
-        self._save_json("stage13_review_queue", qa_result["review_queue"])
-        self._save_json("stage13_graph_qa_summary", qa_result["summary"])
+        self._save_json("stage15_graph_anomalies", qa_result["anomaly_report"])
+        self._save_img("stage15_graph_components_overlay", qa_result["component_overlay_image"])
+        self._save_json("stage15_review_queue", qa_result["review_queue"])
+        self._save_json("stage15_graph_qa_summary", qa_result["summary"])
 
 
 def main() -> None:
@@ -859,7 +969,7 @@ def main() -> None:
     parser.add_argument("--image", required=True)
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     parser.add_argument("--ocr-route", choices=["easyocr", "gemini", "paddleocr", "ocrmac"], default="ocrmac")
-    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, or 13)")
+    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, or 15)")
     args = parser.parse_args()
     pipe = PIDPipeline(args.image, out_dir=args.out, cfg=PipelineConfig(ocr_route=args.ocr_route))
     pipe.run(stop_after=args.stop_after)
