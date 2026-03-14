@@ -114,6 +114,50 @@ def _draw_overlay(image_bgr: np.ndarray, mask: np.ndarray) -> np.ndarray:
     return overlay
 
 
+def generate_continuity_mask(
+    *,
+    adaptive_mask: np.ndarray,
+    otsu_mask: np.ndarray,
+    ocr_regions: list[dict[str, Any]],
+    ocr_padding: int = 1,
+    min_component_area: int = 16,
+    preserve_ocr_classes: tuple[str, ...] = (),
+) -> tuple[np.ndarray, dict[str, Any]]:
+    """Generate pipe continuity mask with OCR-only suppression.
+
+    Unlike run_pipe_mask_stage, this does NOT suppress detected objects.
+    Pipes flow through valves, instruments, and connections uninterrupted.
+    This mask is used for skeleton generation and edge tracing to ensure
+    pipe network continuity across object regions.
+    """
+    candidate_mask = cv2.bitwise_or(adaptive_mask, otsu_mask)
+    candidate_mask = np.where(candidate_mask > 0, 255, 0).astype(np.uint8)
+
+    suppressible_ocr_regions, suppressed_ocr_class_counts, preserved_ocr_class_counts = _select_ocr_regions_for_suppression(
+        ocr_regions,
+        preserve_classes=preserve_ocr_classes,
+    )
+    ocr_suppressed, ocr_removed = _suppress_boxes(candidate_mask, suppressible_ocr_regions, padding=ocr_padding)
+    filtered_mask, small_component_removals = _filter_small_components(ocr_suppressed, min_component_area)
+
+    summary = {
+        "mask_type": "continuity",
+        "mask_pixel_count": int(np.count_nonzero(filtered_mask)),
+        "connected_component_count": int(cv2.connectedComponents((filtered_mask > 0).astype(np.uint8), connectivity=8)[0] - 1),
+        "small_component_removals": small_component_removals,
+        "ocr_suppression_pixel_count": ocr_removed,
+        "suppressed_ocr_count": len(suppressible_ocr_regions),
+        "preserved_ocr_count": len(ocr_regions) - len(suppressible_ocr_regions),
+        "suppressed_ocr_class_counts": suppressed_ocr_class_counts,
+        "preserved_ocr_class_counts": preserved_ocr_class_counts,
+        "object_suppression": "none",
+        "ocr_padding": ocr_padding,
+        "min_component_area": min_component_area,
+        "preserve_ocr_classes": list(preserve_ocr_classes),
+    }
+    return filtered_mask, summary
+
+
 def run_pipe_mask_stage(
     *,
     image_bgr: np.ndarray,

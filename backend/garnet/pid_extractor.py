@@ -42,7 +42,7 @@ from garnet.pipe_text_attachment import (
     run_pipe_text_attachment_stage,
 )
 from garnet.paddle_ocr_sahi import PaddleOcrSahiConfig, run_paddle_ocr_sahi
-from garnet.pipe_mask import run_pipe_mask_stage
+from garnet.pipe_mask import generate_continuity_mask, run_pipe_mask_stage
 from garnet.pipe_node_clusters import run_pipe_node_cluster_stage
 from garnet.pipe_nodes import run_pipe_node_stage
 from garnet.pipe_seal import run_pipe_seal_stage
@@ -122,6 +122,8 @@ class PipelineConfig:
         "arrow",
         "node",
     )
+    pipe_mask_continuity_ocr_padding: int = 1
+    pipe_mask_continuity_min_component_area: int = 16
     pipe_seal_horizontal_close_kernel: int = 5
     pipe_seal_vertical_close_kernel: int = 5
     pipe_seal_min_component_area: int = 16
@@ -594,7 +596,7 @@ class PIDPipeline:
 
     # ---------- Stage 5 ----------
     def stage5_pipe_mask(self) -> None:
-        """Generate provisional pipe-only binary mask by suppressing OCR text and detected objects."""
+        """Generate analysis and continuity pipe masks from OCR/object-suppressed candidates."""
         gray_path = self.out_dir / "stage1_gray.png"
         adaptive_path = self.out_dir / "stage1_binary_adaptive.png"
         otsu_path = self.out_dir / "stage1_binary_otsu.png"
@@ -629,12 +631,28 @@ class PIDPipeline:
         self._save_img("stage5_pipe_mask_overlay", pipe_mask_result["overlay_image"])
         self._save_json("stage5_pipe_mask_summary", pipe_mask_result["summary"])
 
+        continuity_mask, continuity_summary = generate_continuity_mask(
+            adaptive_mask=adaptive_mask,
+            otsu_mask=otsu_mask,
+            ocr_regions=ocr_regions,
+            ocr_padding=self.cfg.pipe_mask_continuity_ocr_padding,
+            min_component_area=self.cfg.pipe_mask_continuity_min_component_area,
+            preserve_ocr_classes=self.cfg.pipe_mask_preserve_ocr_classes,
+        )
+        continuity_overlay = self._ensure_image_loaded().copy()
+        if continuity_overlay.ndim == 2 and cv2 is not None:
+            continuity_overlay = cv2.cvtColor(continuity_overlay, cv2.COLOR_GRAY2BGR)
+        continuity_overlay[continuity_mask > 0] = np.array([255, 0, 0], dtype=np.uint8)
+        self._save_img("stage5_pipe_continuity_mask", continuity_mask)
+        self._save_img("stage5_pipe_continuity_mask_overlay", continuity_overlay)
+        self._save_json("stage5_pipe_continuity_mask_summary", continuity_summary)
+
     # ---------- Stage 6 ----------
     def stage6_morphological_sealing(self) -> None:
-        """Apply morphological closing to seal gaps in the pipe mask."""
-        pipe_mask_path = self.out_dir / "stage5_pipe_mask.png"
+        """Apply morphological closing to the continuity mask for unbroken topology extraction."""
+        pipe_mask_path = self.out_dir / "stage5_pipe_continuity_mask.png"
         if not pipe_mask_path.exists():
-            raise FileNotFoundError(f"Stage 6 requires Stage 5 artifact: {pipe_mask_path}")
+            raise FileNotFoundError("Stage 6 requires Stage 5 continuity mask artifact")
         if cv2 is None:
             raise RuntimeError("cv2 is required for Stage 6 morphological sealing")
 
@@ -656,7 +674,7 @@ class PIDPipeline:
 
     # ---------- Stage 7 ----------
     def stage7_skeleton_generation(self) -> None:
-        """Compute medial-axis skeleton from the sealed pipe mask."""
+        """Compute medial-axis skeleton from the continuity-sealed pipe mask."""
         sealed_mask_path = self.out_dir / "stage6_pipe_mask_sealed.png"
         if not sealed_mask_path.exists():
             raise FileNotFoundError(f"Stage 7 requires Stage 6 artifact: {sealed_mask_path}")
@@ -800,7 +818,7 @@ class PIDPipeline:
 
     # ---------- Stage 12 ----------
     def stage12_edge_topology(self) -> None:
-        """Classify edge terminals, attach equipment/connections, and build edge connectivity."""
+        """Classify terminals, attach objects, and bridge connectivity across connection objects."""
         object_payload = self._load_json_artifact("stage4_objects")
         node_clusters_payload = self._load_json_artifact("stage9_node_clusters")
         edges_payload = self._load_json_artifact("stage10_pipe_edges")
@@ -851,6 +869,58 @@ class PIDPipeline:
                 if item.get("edge_id") is not None
             },
         )
+
+        connection_bridges = []
+        connection_bridge_distance_px = 120.0
+        connection_classes = {"connection", "page connection", "utility connection"}
+        for obj in object_payload.get("objects", []):
+            class_name = str(obj.get("class_name", "")).strip().lower()
+            if class_name not in connection_classes:
+                continue
+            bbox = obj.get("bbox", {})
+            if not bbox:
+                continue
+            conn_center = (
+                (float(bbox["x_min"]) + float(bbox["x_max"])) / 2.0,
+                (float(bbox["y_min"]) + float(bbox["y_max"])) / 2.0,
+            )
+            nearby_endpoints = []
+            for edge in edges_payload.get("edges", []):
+                edge_id = str(edge.get("id", ""))
+                polyline = edge.get("polyline", [])
+                if len(polyline) < 2:
+                    continue
+                for endpoint_name, point in (("start", polyline[0]), ("end", polyline[-1])):
+                    dist = (
+                        (float(point["col"]) - conn_center[0]) ** 2
+                        + (float(point["row"]) - conn_center[1]) ** 2
+                    ) ** 0.5
+                    if dist <= connection_bridge_distance_px:
+                        nearby_endpoints.append((edge_id, endpoint_name, dist))
+
+            if len(nearby_endpoints) < 2:
+                continue
+            nearby_endpoints.sort(key=lambda item: item[2])
+            endpoint_a, endpoint_b = nearby_endpoints[0], nearby_endpoints[1]
+            if endpoint_a[0] == endpoint_b[0]:
+                continue
+            connection_bridges.append(
+                {
+                    "kind": "connection_object_bridge",
+                    "connection_class": class_name,
+                    "connection_id": str(obj.get("id", "")),
+                    "source_edge_id": endpoint_a[0],
+                    "source_endpoint": endpoint_a[1],
+                    "target_edge_id": endpoint_b[0],
+                    "target_endpoint": endpoint_b[1],
+                    "gap_px": round((endpoint_a[2] + endpoint_b[2]) / 2, 2),
+                }
+            )
+
+        edge_connectivity_result["connections"].extend(connection_bridges)
+        edge_connectivity_result["summary"]["connection_object_bridge_count"] = len(connection_bridges)
+        edge_connectivity_result["summary"]["edge_connection_count"] = len(edge_connectivity_result["connections"])
+
         overlay_edges = [
             {
                 **edge,
@@ -878,6 +948,7 @@ class PIDPipeline:
         self._save_json("stage12_connection_attachments", connection_attachment_result["attachments_payload"])
         self._save_json("stage12_connection_attachment_summary", connection_attachment_result["summary"])
         self._save_img("stage12_connection_attachment_overlay", connection_overlay)
+        self._save_json("stage12_connection_bridges", {"bridges": connection_bridges})
         self._save_json("stage12_edge_connections", {"edge_connections": edge_connectivity_result["connections"]})
         self._save_json("stage12_edge_connection_summary", edge_connectivity_result["summary"])
 
@@ -932,6 +1003,23 @@ class PIDPipeline:
         text_attachment_payload = self._load_json_artifact("stage13_text_attachments")
         instrument_tag_attachment_payload = self._load_json_artifact("stage13_instrument_tag_attachments")
 
+        offsheet_nodes = []
+        for attachment in connection_attachment_payload.get("accepted", []):
+            connection_class = str(attachment.get("class_name", "")).strip().lower()
+            if connection_class not in {"connection", "page connection", "utility connection"}:
+                continue
+            det_id = str(attachment.get("det_id", attachment.get("object_id", "unknown")))
+            offsheet_nodes.append(
+                {
+                    "id": f"offsheet::{det_id}",
+                    "type": "off_sheet_connector",
+                    "connection_class": connection_class,
+                    "position": attachment.get("anchor", attachment.get("nearest_point", {"x": 0, "y": 0})),
+                    "edge_id": attachment.get("edge_id"),
+                    "det_id": det_id,
+                }
+            )
+
         graph_result = run_pipe_graph_stage(
             image_id=Path(self.image_path).name,
             node_clusters=node_clusters_payload.get("clusters", []),
@@ -946,6 +1034,7 @@ class PIDPipeline:
             edge_terminals=edge_terminal_payload.get("edge_terminals", []),
             edge_connections=edge_connections_payload.get("edge_connections", []),
         )
+        self._save_json("stage14_offsheet_connectors", {"nodes": offsheet_nodes})
         self._save_json("stage14_graph", graph_result["graph_payload"])
         self._save_json("stage14_graph_summary", graph_result["summary"])
 
