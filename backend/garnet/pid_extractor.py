@@ -116,7 +116,7 @@ class PipelineConfig:
     pipe_seal_horizontal_close_kernel: int = 5
     pipe_seal_vertical_close_kernel: int = 5
     pipe_seal_min_component_area: int = 16
-    node_cluster_eps: float = 6.0
+    node_cluster_eps: float = 12.0
     node_cluster_min_samples: int = 1
     min_edge_length_px: int = 2
     crossing_branch_stub_length_px: int = 8
