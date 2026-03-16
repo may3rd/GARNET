@@ -121,7 +121,7 @@ class PipelineConfig:
     min_edge_length_px: int = 2
     crossing_branch_stub_length_px: int = 8
     crossing_branch_merge_angle_tolerance_deg: float = 18.0
-    crossing_opposite_angle_tolerance_deg: float = 35.0
+    crossing_opposite_angle_tolerance_deg: float = 50.0
     crossing_center_blob_radius_px: int = 4
     crossing_center_blob_threshold: float = 0.5
     crossing_stage4_marker_match_distance_px: float = 24.0
