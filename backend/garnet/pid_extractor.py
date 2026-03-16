@@ -113,8 +113,8 @@ class PipelineConfig:
         "arrow",
         "node",
     )
-    pipe_seal_horizontal_close_kernel: int = 5
-    pipe_seal_vertical_close_kernel: int = 5
+    pipe_seal_horizontal_close_kernel: int = 9
+    pipe_seal_vertical_close_kernel: int = 9
     pipe_seal_min_component_area: int = 32
     node_cluster_eps: float = 12.0
     node_cluster_min_samples: int = 1
