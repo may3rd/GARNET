@@ -173,7 +173,7 @@ class PipelineConfig:
         "reducer",
         "spectacle blind",
     )
-    terminal_match_distance_px: float = 48.0
+    terminal_match_distance_px: float = 72.0
     graph_inline_connector_classes: tuple[str, ...] = (
         "arrow",
         "valve",
