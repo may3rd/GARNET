@@ -16,6 +16,9 @@ class PipeGraphQaTests(unittest.TestCase):
             "edges": [
                 {"id": "e1", "source": "n1", "target": "n2"},
             ],
+            "edge_components": [
+                ["e1"],
+            ],
             "crossings": [
                 {"id": "junction_1", "classification": "unresolved", "branch_count": 4, "unresolved_reasons": ["four_way_tie"]},
             ],
@@ -37,7 +40,7 @@ class PipeGraphQaTests(unittest.TestCase):
             image_bgr=np.zeros((20, 20, 3), dtype=np.uint8),
         )
 
-        self.assertEqual(result["anomaly_report"]["connected_component_count"], 2)
+        self.assertEqual(result["anomaly_report"]["connected_component_count"], 1)
         self.assertEqual(result["anomaly_report"]["isolated_node_count"], 1)
         self.assertEqual(result["anomaly_report"]["unresolved_crossing_count"], 1)
         self.assertEqual(result["anomaly_report"]["unresolved_terminal_edge_count"], 1)

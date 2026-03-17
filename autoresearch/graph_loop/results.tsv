@@ -1,0 +1,2 @@
+commit	avg_score	total_seconds	status	description	key_metrics
+105542d	1665.78	145.1	keep	baseline with current rule-aware stage12/stage13 graph loop	edge_comp[298,319,386,393]; unresolved_term[416,404,478,493]; conn_seed[18,6,20,9]

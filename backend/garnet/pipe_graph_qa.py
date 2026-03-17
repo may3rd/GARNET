@@ -26,12 +26,20 @@ def _draw_component_overlay(
 ) -> Any:
     overlay = image_bgr.copy()
     edge_by_component: dict[str, int] = {}
+    node_by_component: dict[str, int] = {}
+    edge_lookup = {str(edge.get("id", "")): edge for edge in edges}
     for idx, component in enumerate(components):
-        for node_id in component:
-            edge_by_component[str(node_id)] = idx
+        for item_id in component:
+            edge = edge_lookup.get(str(item_id))
+            if edge is not None:
+                edge_by_component[str(item_id)] = idx
+                node_by_component[str(edge.get("source", ""))] = idx
+                node_by_component[str(edge.get("target", ""))] = idx
+                continue
+            node_by_component[str(item_id)] = idx
 
     for edge in edges:
-        component_idx = edge_by_component.get(str(edge.get("source", "")))
+        component_idx = edge_by_component.get(str(edge.get("id", "")))
         if component_idx is None:
             continue
         color = _COMPONENT_COLORS[component_idx % len(_COMPONENT_COLORS)]
@@ -49,7 +57,7 @@ def _draw_component_overlay(
         position = node.get("position") or {}
         x = int(round(float(position.get("x", 0.0))))
         y = int(round(float(position.get("y", 0.0))))
-        component_idx = edge_by_component.get(str(node.get("id", "")))
+        component_idx = node_by_component.get(str(node.get("id", "")))
         if component_idx is None:
             color = (255, 255, 255)
         else:
@@ -69,13 +77,15 @@ def run_pipe_graph_qa_stage(
     edges = graph_payload.get("edges", [])
     crossings = graph_payload.get("crossings", [])
     edge_terminals = graph_payload.get("edge_terminals", [])
+    edge_components = graph_payload.get("edge_components", [])
 
     for node in nodes:
         graph.add_node(node["id"], **node)
     for edge in edges:
         graph.add_edge(edge["source"], edge["target"], **edge)
 
-    components = [sorted(component) for component in nx.connected_components(graph)] if graph.number_of_nodes() else []
+    raw_components = [sorted(component) for component in nx.connected_components(graph)] if graph.number_of_nodes() else []
+    components = [list(map(str, component)) for component in edge_components] if edge_components else raw_components
     articulation_points = sorted(nx.articulation_points(graph)) if graph.number_of_nodes() else []
 
     low_degree_nodes: list[dict[str, Any]] = []
