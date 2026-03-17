@@ -1,3 +1,6 @@
 commit	avg_score	total_seconds	status	description	key_metrics
 105542d	1665.78	145.1	keep	baseline with current rule-aware stage12/stage13 graph loop	edge_comp[298,319,386,393]; unresolved_term[416,404,478,493]; conn_seed[18,6,20,9]
 146b42f	1637.88	140.0	keep	group unresolved terminal review items by edge component	review[698,726,847,837]; unresolved_term[416,404,478,493]
+04069ed	1619.97	139.5	keep	group articulation review items by edge component	review[633,640,734,743]; unresolved_term[416,404,478,493]
+8cf40b8	1619.97	140.2	discard	group unresolved crossings by edge component	no score change; review stayed effectively flat
+c5b83cb	1602.08	139.5	keep	group unresolved crossings by edge component (edge-aware grouping fix)	review[561,550,636,645]; unresolved_term[416,404,478,493]
