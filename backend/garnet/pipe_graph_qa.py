@@ -155,14 +155,25 @@ def run_pipe_graph_qa_stage(
         )
         group["node_ids"].append(node_id)
     review_queue.extend(articulation_groups.values())
+    isolated_groups: dict[str, dict[str, Any]] = {}
     for item in low_degree_nodes:
-        review_queue.append(
+        node_id = str(item["node_id"])
+        group_key = (
+            f"edge_component::{node_component_index[node_id]}"
+            if node_id in node_component_index
+            else f"type::{item['type']}"
+        )
+        group = isolated_groups.setdefault(
+            group_key,
             {
                 "category": "isolated_node",
-                "node_id": item["node_id"],
+                "group_key": group_key,
                 "priority": "high",
-            }
+                "node_ids": [],
+            },
         )
+        group["node_ids"].append(node_id)
+    review_queue.extend(isolated_groups.values())
 
     unresolved_crossings: list[dict[str, Any]] = []
     for item in crossings:
