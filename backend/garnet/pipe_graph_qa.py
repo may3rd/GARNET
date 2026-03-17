@@ -78,6 +78,17 @@ def run_pipe_graph_qa_stage(
     crossings = graph_payload.get("crossings", [])
     edge_terminals = graph_payload.get("edge_terminals", [])
     edge_components = graph_payload.get("edge_components", [])
+    edge_connections = graph_payload.get("edge_connections", [])
+    node_component_index: dict[str, int] = {}
+    edge_lookup = {str(edge.get("id", "")): edge for edge in edges}
+    for idx, component in enumerate(edge_components):
+        for item_id in component:
+            edge = edge_lookup.get(str(item_id))
+            if edge is None:
+                node_component_index[str(item_id)] = idx
+                continue
+            node_component_index[str(edge.get("source", ""))] = idx
+            node_component_index[str(edge.get("target", ""))] = idx
     edge_component_index: dict[str, int] = {}
     for idx, component in enumerate(edge_components):
         for edge_id in component:
@@ -88,9 +99,24 @@ def run_pipe_graph_qa_stage(
     for edge in edges:
         graph.add_edge(edge["source"], edge["target"], **edge)
 
+    edge_graph = nx.Graph()
+    for edge in edges:
+        edge_id = str(edge.get("id", ""))
+        if edge_id.startswith("attach_edge::"):
+            continue
+        edge_graph.add_node(edge_id, **edge)
+    for item in edge_connections:
+        source_edge_id = str(item.get("source_edge_id", ""))
+        target_edge_id = str(item.get("target_edge_id", ""))
+        if source_edge_id in edge_graph and target_edge_id in edge_graph and source_edge_id != target_edge_id:
+            edge_graph.add_edge(source_edge_id, target_edge_id, **item)
+
     raw_components = [sorted(component) for component in nx.connected_components(graph)] if graph.number_of_nodes() else []
     components = [list(map(str, component)) for component in edge_components] if edge_components else raw_components
-    articulation_points = sorted(nx.articulation_points(graph)) if graph.number_of_nodes() else []
+    if edge_connections and edge_graph.number_of_nodes():
+        articulation_points = sorted(nx.articulation_points(edge_graph))
+    else:
+        articulation_points = sorted(nx.articulation_points(graph)) if graph.number_of_nodes() else []
 
     low_degree_nodes: list[dict[str, Any]] = []
     for node_id, attrs in graph.nodes(data=True):
@@ -107,14 +133,28 @@ def run_pipe_graph_qa_stage(
             )
 
     review_queue: list[dict[str, Any]] = []
+    articulation_groups: dict[str, dict[str, Any]] = {}
     for node_id in articulation_points[:]:
-        review_queue.append(
+        group_key = (
+            f"edge_component::{edge_component_index[node_id]}"
+            if node_id in edge_component_index
+            else (
+                f"edge_component::{node_component_index[node_id]}"
+                if node_id in node_component_index
+                else f"node::{node_id}"
+            )
+        )
+        group = articulation_groups.setdefault(
+            group_key,
             {
                 "category": "articulation_point",
-                "node_id": node_id,
+                "group_key": group_key,
                 "priority": "medium",
-            }
+                "node_ids": [],
+            },
         )
+        group["node_ids"].append(node_id)
+    review_queue.extend(articulation_groups.values())
     for item in low_degree_nodes:
         review_queue.append(
             {
