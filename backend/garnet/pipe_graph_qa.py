@@ -79,6 +79,7 @@ def run_pipe_graph_qa_stage(
     edge_terminals = graph_payload.get("edge_terminals", [])
     edge_components = graph_payload.get("edge_components", [])
     edge_connections = graph_payload.get("edge_connections", [])
+    edge_terminals = graph_payload.get("edge_terminals", [])
     node_component_index: dict[str, int] = {}
     edge_lookup = {str(edge.get("id", "")): edge for edge in edges}
     for idx, component in enumerate(edge_components):
@@ -194,24 +195,40 @@ def run_pipe_graph_qa_stage(
             }
         )
 
+    terminal_exposed_components: set[int] = set()
+    for item in edge_terminals:
+        edge_id = str(item.get("edge_id", ""))
+        component_idx = edge_component_index.get(edge_id)
+        if component_idx is None:
+            continue
+        roles = [
+            str((item.get("source_terminal") or {}).get("terminal_role", "")),
+            str((item.get("destination_terminal") or {}).get("terminal_role", "")),
+        ]
+        if any(role in {"equipment_terminal", "connection_terminal", "unresolved_terminal"} for role in roles):
+            terminal_exposed_components.add(component_idx)
+
     unresolved_terminal_edges: list[dict[str, Any]] = []
     unresolved_terminal_groups: dict[str, dict[str, Any]] = {}
     for item in edge_terminals:
         if not bool(item.get("provisional_due_to_unresolved_terminal")):
             continue
         edge_id = str(item.get("edge_id", ""))
+        component_idx = edge_component_index.get(edge_id)
+        if component_idx is not None and component_idx not in terminal_exposed_components:
+            continue
         payload = {
             "edge_id": edge_id,
             "source_node_id": str(item.get("source_node_id", "")),
             "destination_node_id": str(item.get("destination_node_id", "")),
             "source_terminal_role": str((item.get("source_terminal") or {}).get("terminal_role", "")),
             "destination_terminal_role": str((item.get("destination_terminal") or {}).get("terminal_role", "")),
-            "edge_component_index": edge_component_index.get(edge_id),
+            "edge_component_index": component_idx,
         }
         unresolved_terminal_edges.append(payload)
         group_key = (
-            f"edge_component::{edge_component_index[edge_id]}"
-            if edge_id in edge_component_index
+            f"edge_component::{component_idx}"
+            if component_idx is not None
             else f"edge::{edge_id}"
         )
         group = unresolved_terminal_groups.setdefault(
