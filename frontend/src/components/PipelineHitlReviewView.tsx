@@ -379,7 +379,7 @@ export function PipelineHitlReviewView({
 
   return (
     <div className="flex h-full flex-col bg-[var(--bg-primary)]">
-      <div className="flex items-center justify-between border-b border-[var(--border-muted)] bg-[var(--bg-secondary)] px-6 py-4">
+      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border-muted)] bg-[var(--bg-secondary)] px-6 py-4">
         <div>
           <div className="text-lg font-semibold">Pipeline HITL Review</div>
           <div className="text-xs text-[var(--text-secondary)]">Dedicated review workspace with the detection-mode layout.</div>
@@ -424,7 +424,7 @@ export function PipelineHitlReviewView({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 border-b border-[var(--border-muted)] bg-[var(--bg-secondary)] px-6 py-3">
+      <div className="sticky top-[73px] z-10 flex flex-wrap gap-2 border-b border-[var(--border-muted)] bg-[var(--bg-secondary)] px-6 py-3">
         {([
           ['stage4_line_number', 'Stage 4 Line Numbers'],
           ['stage4_instrument', 'Stage 4 Instruments'],
