@@ -133,12 +133,28 @@ def run_pipe_graph_qa_stage(
                 }
             )
 
+    terminal_exposed_components: set[int] = set()
+    for item in edge_terminals:
+        edge_id = str(item.get("edge_id", ""))
+        component_idx = edge_component_index.get(edge_id)
+        if component_idx is None:
+            continue
+        roles = [
+            str((item.get("source_terminal") or {}).get("terminal_role", "")),
+            str((item.get("destination_terminal") or {}).get("terminal_role", "")),
+        ]
+        if any(role in {"equipment_terminal", "connection_terminal", "unresolved_terminal"} for role in roles):
+            terminal_exposed_components.add(component_idx)
+
     review_queue: list[dict[str, Any]] = []
     articulation_groups: dict[str, dict[str, Any]] = {}
     for node_id in articulation_points[:]:
+        component_idx = edge_component_index.get(str(node_id))
+        if component_idx is not None and component_idx not in terminal_exposed_components:
+            continue
         group_key = (
-            f"edge_component::{edge_component_index[node_id]}"
-            if node_id in edge_component_index
+            f"edge_component::{component_idx}"
+            if component_idx is not None
             else (
                 f"edge_component::{node_component_index[node_id]}"
                 if node_id in node_component_index
@@ -194,19 +210,6 @@ def run_pipe_graph_qa_stage(
                 "priority": "high",
             }
         )
-
-    terminal_exposed_components: set[int] = set()
-    for item in edge_terminals:
-        edge_id = str(item.get("edge_id", ""))
-        component_idx = edge_component_index.get(edge_id)
-        if component_idx is None:
-            continue
-        roles = [
-            str((item.get("source_terminal") or {}).get("terminal_role", "")),
-            str((item.get("destination_terminal") or {}).get("terminal_role", "")),
-        ]
-        if any(role in {"equipment_terminal", "connection_terminal", "unresolved_terminal"} for role in roles):
-            terminal_exposed_components.add(component_idx)
 
     unresolved_terminal_edges: list[dict[str, Any]] = []
     unresolved_terminal_groups: dict[str, dict[str, Any]] = {}
