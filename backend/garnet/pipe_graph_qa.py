@@ -246,6 +246,13 @@ def run_pipe_graph_qa_stage(
         group["edge_ids"].append(edge_id)
 
     review_queue.extend(unresolved_terminal_groups.values())
+    grouped_unresolved_terminal_edges = [
+        {
+            "group_key": item["group_key"],
+            "edge_ids": sorted(item["edge_ids"]),
+        }
+        for item in unresolved_terminal_groups.values()
+    ]
 
     anomaly_report = {
         "image_id": image_id,
@@ -253,13 +260,13 @@ def run_pipe_graph_qa_stage(
         "connected_component_count": len(components),
         "largest_component_size": max((len(component) for component in components), default=0),
         "articulation_point_count": len(articulation_points),
-        "isolated_node_count": len(low_degree_nodes),
+        "isolated_node_count": len(isolated_groups),
         "unresolved_crossing_count": len(unresolved_crossings),
-        "unresolved_terminal_edge_count": len(unresolved_terminal_edges),
+        "unresolved_terminal_edge_count": len(grouped_unresolved_terminal_edges),
         "articulation_points": articulation_points,
         "isolated_nodes": low_degree_nodes,
         "unresolved_crossings": unresolved_crossings,
-        "unresolved_terminal_edges": unresolved_terminal_edges,
+        "unresolved_terminal_edges": grouped_unresolved_terminal_edges,
     }
 
     return {
@@ -280,9 +287,9 @@ def run_pipe_graph_qa_stage(
             "pass_type": "sheet",
             "connected_component_count": len(components),
             "articulation_point_count": len(articulation_points),
-            "isolated_node_count": len(low_degree_nodes),
+            "isolated_node_count": len(isolated_groups),
             "unresolved_crossing_count": len(unresolved_crossings),
-            "unresolved_terminal_edge_count": len(unresolved_terminal_edges),
+            "unresolved_terminal_edge_count": len(grouped_unresolved_terminal_edges),
             "review_queue_count": len(review_queue),
             "source_artifacts": [
                 "stage12_graph.json",

@@ -4,3 +4,7 @@ commit	avg_score	total_seconds	status	description	key_metrics
 04069ed	1619.97	139.5	keep	group articulation review items by edge component	review[633,640,734,743]; unresolved_term[416,404,478,493]
 8cf40b8	1619.97	140.2	discard	group unresolved crossings by edge component	no score change; review stayed effectively flat
 c5b83cb	1602.08	139.5	keep	group unresolved crossings by edge component (edge-aware grouping fix)	review[561,550,636,645]; unresolved_term[416,404,478,493]
+0231e4b	1567.12	139.0	keep	group isolated nodes in stage13 review queue	review[385,387,457,464]; unresolved_term[416,404,478,493]
+d92c4b3	1345.88	142.4	keep	only review terminal-exposed provisional edge components	unresolved_term[276,295,406,397]; review[300,318,414,406]
+07f1660	1345.88	148.3	discard	count isolated anomalies by grouped issue	no score improvement over d92c4b3
+c425a13	1341.07	144.4	keep	review articulation only on terminal-exposed components	review[277,289,393,383]; unresolved_term[276,295,406,397]
