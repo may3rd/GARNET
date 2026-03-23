@@ -143,7 +143,7 @@ def run_pipe_graph_qa_stage(
             str((item.get("source_terminal") or {}).get("terminal_role", "")),
             str((item.get("destination_terminal") or {}).get("terminal_role", "")),
         ]
-        if any(role in {"equipment_terminal", "connection_terminal", "unresolved_terminal"} for role in roles):
+        if any(role in {"equipment_terminal", "connection_terminal"} for role in roles):
             terminal_exposed_components.add(component_idx)
 
     review_queue: list[dict[str, Any]] = []

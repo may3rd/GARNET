@@ -43,14 +43,13 @@ class PipeGraphQaTests(unittest.TestCase):
         self.assertEqual(result["anomaly_report"]["connected_component_count"], 1)
         self.assertEqual(result["anomaly_report"]["isolated_node_count"], 1)
         self.assertEqual(result["anomaly_report"]["unresolved_crossing_count"], 1)
-        self.assertEqual(result["anomaly_report"]["unresolved_terminal_edge_count"], 1)
-        self.assertEqual(result["summary"]["review_queue_count"], 3)
+        self.assertEqual(result["anomaly_report"]["unresolved_terminal_edge_count"], 0)
+        self.assertEqual(result["summary"]["review_queue_count"], 2)
         self.assertEqual(result["component_overlay_image"].shape, (20, 20, 3))
         unresolved_terminal_items = [
             item for item in result["review_queue"]["items"] if item["category"] == "unresolved_terminal_edge"
         ]
-        self.assertEqual(len(unresolved_terminal_items), 1)
-        self.assertEqual(unresolved_terminal_items[0]["edge_ids"], ["e1"])
+        self.assertEqual(len(unresolved_terminal_items), 0)
 
 
 if __name__ == "__main__":
