@@ -17,6 +17,33 @@ _COMPONENT_COLORS = [
 ]
 
 
+def _nearest_node_component_index(
+    point_xy: tuple[float, float],
+    nodes: list[dict[str, Any]],
+    node_component_index: dict[str, int],
+    *,
+    max_distance_px: float = 24.0,
+) -> int | None:
+    best_component = None
+    best_distance = None
+    px, py = point_xy
+    for node in nodes:
+        node_id = str(node.get("id", ""))
+        component_idx = node_component_index.get(node_id)
+        if component_idx is None:
+            continue
+        position = node.get("position") or {}
+        dx = float(position.get("x", 0.0)) - px
+        dy = float(position.get("y", 0.0)) - py
+        distance = (dx * dx + dy * dy) ** 0.5
+        if distance > max_distance_px:
+            continue
+        if best_distance is None or distance < best_distance:
+            best_distance = distance
+            best_component = component_idx
+    return best_component
+
+
 def _draw_component_overlay(
     image_bgr: Any,
     *,
@@ -198,6 +225,13 @@ def run_pipe_graph_qa_stage(
             continue
         crossing_id = str(item.get("id", ""))
         component_idx = node_component_index.get(crossing_id)
+        if component_idx is None:
+            centroid = item.get("centroid") or {}
+            component_idx = _nearest_node_component_index(
+                (float(centroid.get("x", 0.0)), float(centroid.get("y", 0.0))),
+                nodes,
+                node_component_index,
+            )
         if component_idx is not None and component_idx not in terminal_exposed_components:
             continue
         unresolved_crossings.append(
