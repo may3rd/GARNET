@@ -12,3 +12,4 @@ c425a13	1341.07	144.4	keep	review articulation only on terminal-exposed componen
 f5bcc29	1105.72	144.3	keep	widen generic continuation gap	edge_comp[290,305,373,376]; unresolved_term[183,200,287,277]; conn_seed[21,9,20,13]
 7c8faca	1038.45	142.2	keep	widen generic continuation gap further	edge_comp[276,288,350,349]; unresolved_term[176,184,265,252]
 1637b70	1038.45	141.1	discard	relax continuation opposite-direction tolerance	no score improvement over 7c8faca
+cd7ac30	553.1	139.7	keep	review unresolved crossings only on terminal-exposed components	review[63,42,52,53]; unresolved_term[5,1,2,5]

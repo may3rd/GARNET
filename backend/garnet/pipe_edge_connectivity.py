@@ -221,7 +221,7 @@ def _opposite_error(a: tuple[float, float], b: tuple[float, float]) -> float:
 def _continuation_connections(
     edges: list[dict[str, Any]],
     *,
-    max_gap_px: float = 28.0,
+    max_gap_px: float = 32.0,
     connection_seed_edge_ids: set[str] | None = None,
     seeded_max_gap_px: float = 100.0,
     max_opposite_error: float = 0.35,
