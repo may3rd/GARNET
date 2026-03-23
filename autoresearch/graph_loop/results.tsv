@@ -9,3 +9,6 @@ d92c4b3	1345.88	142.4	keep	only review terminal-exposed provisional edge compone
 07f1660	1345.88	148.3	discard	count isolated anomalies by grouped issue	no score improvement over d92c4b3
 c425a13	1341.07	144.4	keep	review articulation only on terminal-exposed components	review[277,289,393,383]; unresolved_term[276,295,406,397]
 56332b6	1143.08	140.8	keep	score unresolved terminal issues by component	unresolved_term[185,209,296,288]; review[277,289,393,383]
+f5bcc29	1105.72	144.3	keep	widen generic continuation gap	edge_comp[290,305,373,376]; unresolved_term[183,200,287,277]; conn_seed[21,9,20,13]
+7c8faca	1038.45	142.2	keep	widen generic continuation gap further	edge_comp[276,288,350,349]; unresolved_term[176,184,265,252]
+1637b70	1038.45	141.1	discard	relax continuation opposite-direction tolerance	no score improvement over 7c8faca
