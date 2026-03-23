@@ -224,6 +224,7 @@ def _continuation_connections(
     max_gap_px: float = 36.0,
     connection_seed_edge_ids: set[str] | None = None,
     seeded_max_gap_px: float = 140.0,
+    seeded_vertical_max_gap_px: float = 160.0,
     max_opposite_error: float = 0.35,
 ) -> list[dict[str, Any]]:
     endpoint_candidates: list[tuple[str, str, tuple[float, float], tuple[float, float]]] = []
@@ -246,7 +247,10 @@ def _continuation_connections(
                 if _vector_alignment(other_vector) != alignment:
                     continue
                 gap_px = math.hypot(other_point[0] - point[0], other_point[1] - point[1])
-                gap_limit = seeded_max_gap_px if edge_id in active_seed_edges or other_edge_id in active_seed_edges else max_gap_px
+                if edge_id in active_seed_edges or other_edge_id in active_seed_edges:
+                    gap_limit = seeded_vertical_max_gap_px if alignment == "vertical" else seeded_max_gap_px
+                else:
+                    gap_limit = max_gap_px
                 if gap_px > gap_limit:
                     continue
                 opposite_error = _opposite_error(vector, other_vector)
