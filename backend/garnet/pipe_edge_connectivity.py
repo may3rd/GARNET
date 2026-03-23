@@ -223,7 +223,7 @@ def _continuation_connections(
     *,
     max_gap_px: float = 36.0,
     connection_seed_edge_ids: set[str] | None = None,
-    seeded_max_gap_px: float = 100.0,
+    seeded_max_gap_px: float = 120.0,
     max_opposite_error: float = 0.35,
 ) -> list[dict[str, Any]]:
     endpoint_candidates: list[tuple[str, str, tuple[float, float], tuple[float, float]]] = []
