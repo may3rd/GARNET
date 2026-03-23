@@ -196,9 +196,13 @@ def run_pipe_graph_qa_stage(
     for item in crossings:
         if str(item.get("classification", "")) != "unresolved":
             continue
+        crossing_id = str(item.get("id", ""))
+        component_idx = node_component_index.get(crossing_id)
+        if component_idx is not None and component_idx not in terminal_exposed_components:
+            continue
         unresolved_crossings.append(
             {
-                "crossing_id": str(item.get("id", "")),
+                "crossing_id": crossing_id,
                 "branch_count": int(item.get("branch_count", 0)),
                 "reasons": list(item.get("unresolved_reasons", [])),
             }
@@ -206,7 +210,7 @@ def run_pipe_graph_qa_stage(
         review_queue.append(
             {
                 "category": "unresolved_crossing",
-                "crossing_id": str(item.get("id", "")),
+                "crossing_id": crossing_id,
                 "priority": "high",
             }
         )
