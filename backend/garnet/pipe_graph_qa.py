@@ -22,7 +22,7 @@ def _nearest_node_component_index(
     nodes: list[dict[str, Any]],
     node_component_index: dict[str, int],
     *,
-    max_distance_px: float = 24.0,
+    max_distance_px: float = 32.0,
 ) -> int | None:
     best_component = None
     best_distance = None
