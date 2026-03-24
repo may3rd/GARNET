@@ -227,6 +227,7 @@ def _continuation_connections(
     seeded_vertical_max_gap_px: float = 160.0,
     max_opposite_error: float = 0.35,
 ) -> list[dict[str, Any]]:
+    edge_length_map = {str(edge.get("id", "")): float(edge.get("pixel_length", 0.0)) for edge in edges}
     endpoint_candidates: list[tuple[str, str, tuple[float, float], tuple[float, float]]] = []
     for edge in edges:
         edge_id = str(edge.get("id", ""))
@@ -238,7 +239,7 @@ def _continuation_connections(
     expanded = True
     while expanded:
         expanded = False
-        best_by_endpoint: dict[tuple[str, str], tuple[float, float, str, str]] = {}
+        best_by_endpoint: dict[tuple[str, str], tuple[float, float, float, str, str]] = {}
         for idx, (edge_id, endpoint_name, point, vector) in enumerate(endpoint_candidates):
             alignment = _vector_alignment(vector)
             for other_edge_id, other_endpoint_name, other_point, other_vector in endpoint_candidates[idx + 1 :]:
@@ -258,18 +259,18 @@ def _continuation_connections(
                     continue
                 key_a = (edge_id, endpoint_name)
                 key_b = (other_edge_id, other_endpoint_name)
-                candidate = (gap_px, opposite_error, other_edge_id, other_endpoint_name)
-                reverse_candidate = (gap_px, opposite_error, edge_id, endpoint_name)
+                candidate = (gap_px, opposite_error, -edge_length_map.get(other_edge_id, 0.0), other_edge_id, other_endpoint_name)
+                reverse_candidate = (gap_px, opposite_error, -edge_length_map.get(edge_id, 0.0), edge_id, endpoint_name)
                 current_a = best_by_endpoint.get(key_a)
                 current_b = best_by_endpoint.get(key_b)
-                if current_a is None or candidate[:2] < current_a[:2]:
+                if current_a is None or candidate[:3] < current_a[:3]:
                     best_by_endpoint[key_a] = candidate
-                if current_b is None or reverse_candidate[:2] < current_b[:2]:
+                if current_b is None or reverse_candidate[:3] < current_b[:3]:
                     best_by_endpoint[key_b] = reverse_candidate
 
-        for (edge_id, endpoint_name), (gap_px, opposite_error, other_edge_id, other_endpoint_name) in best_by_endpoint.items():
+        for (edge_id, endpoint_name), (gap_px, opposite_error, _neg_len, other_edge_id, other_endpoint_name) in best_by_endpoint.items():
             reciprocal = best_by_endpoint.get((other_edge_id, other_endpoint_name))
-            if reciprocal is None or reciprocal[2] != edge_id or reciprocal[3] != endpoint_name:
+            if reciprocal is None or reciprocal[3] != edge_id or reciprocal[4] != endpoint_name:
                 continue
             pair = tuple(sorted((edge_id, other_edge_id)))
             if pair in seen_pairs:
