@@ -394,7 +394,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   },
 
   runPipeline: async () => {
-    const { imageFile, pipelineOcrRoute, pipelineGeminiPostprocessMatchThreshold } = get()
+    const { imageFile, pipelineOcrRoute, pipelineGeminiPostprocessMatchThreshold, options } = get()
     if (!imageFile) return
 
     if (progressTimer) {
@@ -422,6 +422,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
           stopAfter: 13,
           ocrRoute: pipelineOcrRoute,
           geminiPostprocessMatchThreshold: pipelineGeminiPostprocessMatchThreshold,
+          weightFile: options.weightFile,
         },
         activeAbortController.signal
       )

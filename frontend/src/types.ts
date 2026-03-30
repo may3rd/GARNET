@@ -57,6 +57,7 @@ export type PipelineManifest = {
   out_dir: string
   stop_after: number
   ocr_route: OcrRoute
+  detection_weight_path?: string
   stages: PipelineStageManifest[]
 }
 
@@ -69,6 +70,7 @@ export type PipelineJob = {
   created_at: number
   stop_after: number
   ocr_route: OcrRoute
+  weight_file?: string
   gemini_postprocess_match_threshold?: number
   manifest: PipelineManifest | null
   artifacts: PipelineArtifact[]

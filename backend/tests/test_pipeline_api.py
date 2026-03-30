@@ -317,6 +317,74 @@ class PipelineApiTests(unittest.TestCase):
             self.assertIn("stage4_instrument_tag_summary.json", artifact_names)
             self.assertIn("stage4_instrument_tag_overlay.png", artifact_names)
 
+    def test_pipeline_job_uses_selected_weight_file(self) -> None:
+        client = TestClient(app)
+        sample_path = Path(__file__).resolve().parents[1] / "sample.png"
+        selected_weight = "yolo_weights/custom-selected.pt"
+
+        fake_ocr_result = {
+            "regions_payload": {"image_id": "sample.png", "pass_type": "sheet", "text_regions": []},
+            "summary": {"image_id": "sample.png", "pass_type": "sheet"},
+            "exception_candidates": [],
+            "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
+        }
+        fake_detection_result = {
+            "objects_payload": {"image_id": "sample.png", "pass_type": "sheet", "objects": []},
+            "summary": {
+                "image_id": "sample.png",
+                "pass_type": "sheet",
+                "route": "ultralytics",
+                "object_count": 0,
+                "source_weight": selected_weight,
+            },
+            "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
+        }
+        fake_line_number_fusion_result = {
+            "line_numbers_payload": {"line_numbers": [], "rejected": []},
+            "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
+            "summary": {"matched_line_number_count": 0},
+        }
+        fake_instrument_tag_fusion_result = {
+            "instrument_tags_payload": {"instrument_tags": [], "rejected": []},
+            "overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
+            "summary": {"matched_instrument_tag_count": 0},
+        }
+
+        with patch("api.resolve_pipeline_weight_file", return_value=selected_weight), patch(
+            "garnet.pid_extractor.run_easyocr_sahi", return_value=fake_ocr_result
+        ), patch(
+            "garnet.pid_extractor.run_object_detection_sahi", return_value=fake_detection_result
+        ), patch(
+            "garnet.pid_extractor.run_line_number_fusion_stage", return_value=fake_line_number_fusion_result
+        ), patch(
+            "garnet.pid_extractor.run_instrument_tag_fusion_stage", return_value=fake_instrument_tag_fusion_result
+        ):
+            with sample_path.open("rb") as f:
+                response = client.post(
+                    "/api/pipeline/jobs",
+                    files={"file_input": ("sample.png", f, "image/png")},
+                    data={"stop_after": "4", "ocr_route": "easyocr", "weight_file": selected_weight},
+                )
+
+            self.assertEqual(response.status_code, 200)
+            job_id = response.json()["job_id"]
+
+            deadline = time.time() + 10
+            job_payload = None
+            while time.time() < deadline:
+                poll = client.get(f"/api/pipeline/jobs/{job_id}")
+                self.assertEqual(poll.status_code, 200)
+                job_payload = poll.json()
+                if job_payload["status"] in {"completed", "failed"}:
+                    break
+                time.sleep(0.1)
+
+            self.assertIsNotNone(job_payload)
+            assert job_payload is not None
+            self.assertEqual(job_payload["status"], "completed")
+            self.assertEqual(job_payload["weight_file"], selected_weight)
+            self.assertEqual(job_payload["manifest"]["detection_weight_path"], selected_weight)
+
     def test_pipeline_job_runs_stage5_and_reports_pipe_mask_artifacts(self) -> None:
         client = TestClient(app)
         sample_path = Path(__file__).resolve().parents[1] / "sample.png"

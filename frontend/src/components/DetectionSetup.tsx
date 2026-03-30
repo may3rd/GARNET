@@ -264,6 +264,26 @@ export function DetectionSetup() {
         {isPipelineMode && (
           <div className="space-y-4">
             <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
+              YOLO weight file
+              <Select
+                value={options.weightFile || '_default'}
+                onValueChange={(value) => setOptions({ weightFile: value === '_default' ? '' : value })}
+                disabled={isLocked}
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Select weight file" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_default">Default</SelectItem>
+                  {weights.map((weight) => (
+                    <SelectItem key={weight} value={weight}>
+                      {weight}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+            <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
               OCR route
               <Select value={pipelineOcrRoute} onValueChange={(value) => setPipelineOcrRoute(value as OcrRoute)} disabled={isLocked}>
                 <SelectTrigger className="mt-2">

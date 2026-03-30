@@ -260,15 +260,7 @@ class DetectRequest(BaseModel):
     @field_validator("weight_file")
     @classmethod
     def validate_weight_file(cls, v: str) -> str:
-        if not v or not v.strip():
-            return v
-        resolved = os.path.realpath(v)
-        allowed_dir = os.path.realpath(Settings.Settings().MODEL_PATH)
-        if not resolved.startswith(allowed_dir + os.sep) and resolved != allowed_dir:
-            raise ValueError(f"Weight file must be inside {allowed_dir}")
-        if not os.path.exists(resolved):
-            raise ValueError(f"Weight file not found: {v}")
-        return v
+        return validate_weight_file_path(v)
 
     @field_validator("config_file")
     @classmethod
@@ -597,6 +589,30 @@ def list_config_files() -> list:
     return config_files
 
 
+def validate_weight_file_path(weight_file: str) -> str:
+    if not weight_file or not weight_file.strip():
+        return weight_file
+    resolved = os.path.realpath(weight_file)
+    allowed_dir = os.path.realpath(Settings.Settings().MODEL_PATH)
+    if not resolved.startswith(allowed_dir + os.sep) and resolved != allowed_dir:
+        raise ValueError(f"Weight file must be inside {allowed_dir}")
+    if not os.path.exists(resolved):
+        raise ValueError(f"Weight file not found: {weight_file}")
+    return weight_file
+
+
+def resolve_pipeline_weight_file(weight_file: str) -> str:
+    validated_weight_file = validate_weight_file_path(weight_file)
+    if validated_weight_file:
+        return validated_weight_file
+    default_weight_file = pick_default_weight_file("ultralytics") or ""
+    if not default_weight_file:
+        raise ValueError(
+            "No weight file available. Add a model under yolo_weights or select a weight file."
+        )
+    return validate_weight_file_path(default_weight_file)
+
+
 def extract_item_list(items: list, key: str = "item") -> list[str]:
     result: list[str] = []
     for entry in items:
@@ -756,6 +772,7 @@ def _run_pipeline_job(
     stop_after: int,
     ocr_route: str,
     gemini_postprocess_match_threshold: float,
+    weight_file: str,
 ) -> None:
     def stage_callback(event: dict[str, Any]) -> None:
         with PIPELINE_JOBS_LOCK:
@@ -780,6 +797,7 @@ def _run_pipeline_job(
             cfg=PipelineConfig(
                 ocr_route=ocr_route,
                 gemini_postprocess_match_threshold=gemini_postprocess_match_threshold,
+                detection_weight_path=weight_file,
             ),
         )
         pipe.run(stop_after=stop_after)
@@ -1009,6 +1027,7 @@ async def create_pipeline_job(
     stop_after: int = Form(1),
     ocr_route: str = Form(...),
     gemini_postprocess_match_threshold: float = Form(0.1),
+    weight_file: str = Form(""),
 ):
     validate_image_file(file_input)
     if stop_after not in {1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}:
@@ -1020,6 +1039,10 @@ async def create_pipeline_job(
         raise HTTPException(status_code=400, detail="Invalid ocr_route. Expected 'easyocr', 'gemini', 'paddleocr', or 'ocrmac'")
     if not 0 <= gemini_postprocess_match_threshold <= 1:
         raise HTTPException(status_code=400, detail="gemini_postprocess_match_threshold must be between 0 and 1")
+    try:
+        resolved_weight_file = resolve_pipeline_weight_file(weight_file)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     input_bytes = await file_input.read()
     if len(input_bytes) > config.MAX_FILE_SIZE_BYTES:
@@ -1048,11 +1071,12 @@ async def create_pipeline_job(
             "stop_after": stop_after,
             "ocr_route": ocr_route,
             "gemini_postprocess_match_threshold": gemini_postprocess_match_threshold,
+            "weight_file": resolved_weight_file,
         }
 
     worker = threading.Thread(
         target=_run_pipeline_job,
-        args=(job_id, image_path, job_dir, stop_after, ocr_route, gemini_postprocess_match_threshold),
+        args=(job_id, image_path, job_dir, stop_after, ocr_route, gemini_postprocess_match_threshold, resolved_weight_file),
         daemon=True,
     )
     worker.start()
