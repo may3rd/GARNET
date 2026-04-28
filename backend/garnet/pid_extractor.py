@@ -31,7 +31,7 @@ from garnet.pipe_edges import run_pipe_edge_stage
 from garnet.pipe_equipment_attachment import run_pipe_equipment_attachment_stage
 from garnet.pipe_graph import run_pipe_graph_stage
 from garnet.pipe_graph_qa import run_pipe_graph_qa_stage
-from garnet.pipe_edge_connectivity import build_pipe_edge_connectivity
+from garnet.pipe_edge_connectivity import build_pipe_edge_connectivity, render_junction_decision_overlay
 from garnet.pipe_crossings import run_pipe_crossing_stage
 from garnet.pipe_junctions import run_pipe_junction_stage
 from garnet.pipe_text_attachment import (
@@ -806,6 +806,12 @@ class PIDPipeline:
             attachments=connection_attachment_result["attachments_payload"].get("accepted", []),
             edge_connections=edge_connectivity_result["connections"],
         )
+        junction_decision_overlay = render_junction_decision_overlay(
+            image_bgr=self._ensure_image_loaded(),
+            edges=edges_payload.get("edges", []),
+            edge_connections=edge_connectivity_result["connections"],
+            rejected_junction_connections=edge_connectivity_result.get("rejected_junction_connections", []),
+        )
 
         graph_result = run_pipe_graph_stage(
             image_id=Path(self.image_path).name,
@@ -826,10 +832,34 @@ class PIDPipeline:
         self._save_json("stage12_connection_attachments", connection_attachment_result["attachments_payload"])
         self._save_json("stage12_connection_attachment_summary", connection_attachment_result["summary"])
         self._save_img("stage12_connection_attachment_overlay", connection_overlay)
+        self._save_img("stage12_junction_decision_overlay", junction_decision_overlay)
         self._save_json("stage12_edge_terminals", {"edge_terminals": edge_terminal_result["edge_terminals"]})
         self._save_json("stage12_edge_terminal_summary", edge_terminal_result["summary"])
         self._save_json("stage12_edge_connections", {"edge_connections": edge_connectivity_result["connections"]})
         self._save_json("stage12_edge_connection_summary", edge_connectivity_result["summary"])
+        self._save_json(
+            "stage12_rejected_junction_connections",
+            {"rejected_junction_connections": edge_connectivity_result.get("rejected_junction_connections", [])},
+        )
+        self._save_json(
+            "stage12_rejected_junction_connection_summary",
+            {
+                "image_id": Path(self.image_path).name,
+                "pass_type": "sheet",
+                "rejected_junction_alignment_connection_count": edge_connectivity_result["summary"].get(
+                    "rejected_junction_alignment_connection_count", 0
+                ),
+                "rejected_junction_alignment_reason_counts": edge_connectivity_result["summary"].get(
+                    "rejected_junction_alignment_reason_counts", {}
+                ),
+                "invalid_shared_junction_fallback_candidate_count": edge_connectivity_result["summary"].get(
+                    "invalid_shared_junction_fallback_candidate_count", 0
+                ),
+                "accepted_junction_straight_through_count": edge_connectivity_result["summary"].get(
+                    "accepted_junction_straight_through_count", 0
+                ),
+            },
+        )
         self._save_json("stage12_text_attachments", text_attachment_result["attachments_payload"])
         self._save_json("stage12_text_attachment_summary", text_attachment_result["summary"])
         self._save_img("stage12_text_attachment_overlay", combined_text_overlay)

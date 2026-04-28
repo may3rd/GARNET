@@ -169,6 +169,121 @@ class PipeEdgeConnectivityTests(unittest.TestCase):
         self.assertIn(("edge_down", "edge_up"), pairs)
         self.assertNotIn(("edge_left", "edge_up"), pairs)
         self.assertEqual(result["summary"]["junction_alignment_connection_count"], 2)
+        self.assertEqual(result["summary"]["accepted_junction_straight_through_count"], 2)
+        junction_items = [item for item in result["connections"] if item["kind"] == "junction_alignment"]
+        self.assertTrue(all("opposite_error" in item for item in junction_items))
+        self.assertTrue(all("centerline_error_px" in item for item in junction_items))
+        self.assertTrue(all("side_dot" in item for item in junction_items))
+
+    def test_build_pipe_edge_connectivity_ends_line_that_hits_junction_without_straight_continuation(self) -> None:
+        result = build_pipe_edge_connectivity(
+            edges=[
+                {
+                    "id": "edge_left",
+                    "source": "endpoint_l",
+                    "target": "junction_0",
+                    "polyline": [{"row": 10, "col": 0}, {"row": 10, "col": 20}],
+                },
+                {
+                    "id": "edge_right",
+                    "source": "junction_0",
+                    "target": "endpoint_r",
+                    "polyline": [{"row": 10, "col": 20}, {"row": 10, "col": 40}],
+                },
+                {
+                    "id": "edge_down_hit",
+                    "source": "junction_0",
+                    "target": "endpoint_d",
+                    "polyline": [{"row": 10, "col": 20}, {"row": 30, "col": 20}],
+                },
+            ],
+            node_clusters=[
+                {"id": "junction_0", "kind": "junction", "centroid": {"x": 20.0, "y": 10.0}},
+            ],
+            object_regions=[],
+            inline_connector_classes=("arrow", "valve", "reducer"),
+            inline_match_distance_px=8.0,
+        )
+
+        junction_pairs = {
+            tuple(sorted((item["source_edge_id"], item["target_edge_id"])))
+            for item in result["connections"]
+            if item["kind"] == "junction_alignment"
+        }
+        self.assertEqual(junction_pairs, {("edge_left", "edge_right")})
+        self.assertNotIn(("edge_down_hit", "edge_left"), junction_pairs)
+        self.assertNotIn(("edge_down_hit", "edge_right"), junction_pairs)
+
+    def test_build_pipe_edge_connectivity_rejects_offset_same_axis_edges_at_junction(self) -> None:
+        result = build_pipe_edge_connectivity(
+            edges=[
+                {
+                    "id": "edge_left_offset",
+                    "source": "endpoint_l",
+                    "target": "junction_0",
+                    "polyline": [{"row": 20, "col": -100}, {"row": 10, "col": 20}],
+                },
+                {
+                    "id": "edge_right_offset",
+                    "source": "junction_0",
+                    "target": "endpoint_r",
+                    "polyline": [{"row": 10, "col": 20}, {"row": 20, "col": 140}],
+                },
+            ],
+            node_clusters=[
+                {"id": "junction_0", "kind": "junction", "centroid": {"x": 20.0, "y": 10.0}},
+            ],
+            object_regions=[],
+            inline_connector_classes=("arrow", "valve", "reducer"),
+            inline_match_distance_px=8.0,
+        )
+
+        junction_pairs = {
+            tuple(sorted((item["source_edge_id"], item["target_edge_id"])))
+            for item in result["connections"]
+            if item["kind"] == "junction_alignment"
+        }
+        self.assertNotIn(("edge_left_offset", "edge_right_offset"), junction_pairs)
+        self.assertEqual(result["summary"]["junction_alignment_connection_count"], 0)
+        self.assertEqual(result["summary"]["gap_continuation_connection_count"], 0)
+        self.assertGreaterEqual(result["summary"]["invalid_shared_junction_fallback_candidate_count"], 1)
+        self.assertEqual(result["summary"]["rejected_junction_alignment_connection_count"], 1)
+        self.assertEqual(result["summary"]["rejected_junction_alignment_reason_counts"], {"misses_junction_centerline": 1})
+        self.assertEqual(
+            result["rejected_junction_connections"][0]["rejection_reason"],
+            "misses_junction_centerline",
+        )
+
+    def test_build_pipe_edge_connectivity_allows_straight_pair_when_cluster_centroid_is_offset(self) -> None:
+        result = build_pipe_edge_connectivity(
+            edges=[
+                {
+                    "id": "edge_left",
+                    "source": "endpoint_l",
+                    "target": "junction_0",
+                    "polyline": [{"row": 10, "col": 0}, {"row": 10, "col": 20}],
+                },
+                {
+                    "id": "edge_right",
+                    "source": "junction_0",
+                    "target": "endpoint_r",
+                    "polyline": [{"row": 10, "col": 20}, {"row": 10, "col": 40}],
+                },
+            ],
+            node_clusters=[
+                {"id": "junction_0", "kind": "junction", "centroid": {"x": 20.0, "y": 18.0}},
+            ],
+            object_regions=[],
+            inline_connector_classes=("arrow", "valve", "reducer"),
+            inline_match_distance_px=8.0,
+        )
+
+        junction_pairs = {
+            tuple(sorted((item["source_edge_id"], item["target_edge_id"])))
+            for item in result["connections"]
+            if item["kind"] == "junction_alignment"
+        }
+        self.assertIn(("edge_left", "edge_right"), junction_pairs)
 
     def test_build_pipe_edge_connectivity_at_junction_keeps_only_best_opposite_pair_per_axis(self) -> None:
         result = build_pipe_edge_connectivity(
@@ -208,6 +323,7 @@ class PipeEdgeConnectivityTests(unittest.TestCase):
         self.assertEqual(len(vertical_pairs), 1)
         self.assertIn(("edge_down", "edge_up"), vertical_pairs)
         self.assertNotIn(("edge_down_offset", "edge_up"), vertical_pairs)
+        self.assertGreaterEqual(result["summary"]["invalid_shared_junction_fallback_candidate_count"], 1)
 
     def test_build_pipe_edge_connectivity_adds_gap_continuation_for_broken_straight_run(self) -> None:
         result = build_pipe_edge_connectivity(
@@ -238,6 +354,7 @@ class PipeEdgeConnectivityTests(unittest.TestCase):
         }
         self.assertIn(("edge_left", "edge_right"), gap_pairs)
         self.assertEqual(result["summary"]["gap_continuation_connection_count"], 1)
+        self.assertEqual(result["summary"]["invalid_shared_junction_fallback_candidate_count"], 0)
 
     def test_build_pipe_edge_connectivity_allows_longer_gap_for_connection_seeded_edges(self) -> None:
         result = build_pipe_edge_connectivity(

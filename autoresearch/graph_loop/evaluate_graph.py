@@ -34,13 +34,23 @@ def graph_loop_score(stage12: dict, stage13: dict, connection_summary: dict) -> 
     provisional_edges = float(stage12.get("edge_count", 0) - stage12.get("accepted_attachment_count", 0))
     connection_attachment_count = float(stage12.get("accepted_connection_attachment_count", 0))
     seeded_continuations = float(connection_summary.get("connection_seeded_continuation_count", 0))
+    accepted_junctions = float(connection_summary.get("accepted_junction_straight_through_count", 0))
+    rejected_junctions = float(connection_summary.get("rejected_junction_alignment_connection_count", 0))
+    invalid_shared_junction_fallback = float(
+        connection_summary.get("invalid_shared_junction_fallback_candidate_count", 0)
+    )
+    junction_touching_continuations = float(connection_summary.get("junction_touching_continuation_count", 0))
 
     score = (
-        edge_components * 1.5
+        edge_components * 0.6
         + unresolved_terminals * 2.0
         + review_queue * 0.2
         + provisional_edges * 0.1
         - seeded_continuations * 0.5
+        - accepted_junctions * 0.25
+        - rejected_junctions * 0.05
+        - junction_touching_continuations * 0.1
+        + invalid_shared_junction_fallback * 0.2
     )
     if connection_attachment_count > 0:
         score -= min(connection_attachment_count, seeded_continuations) * 0.25
@@ -68,6 +78,16 @@ def evaluate_one(img_path: Path, cfg: PipelineConfig, out_root: Path) -> dict:
         "unresolved_terminals": stage13.get("unresolved_terminal_edge_count", -1),
         "review_queue": stage13.get("review_queue_count", -1),
         "connection_seeded_continuation_count": connection_summary.get("connection_seeded_continuation_count", -1),
+        "accepted_junction_straight_through_count": connection_summary.get(
+            "accepted_junction_straight_through_count", -1
+        ),
+        "rejected_junction_alignment_connection_count": connection_summary.get(
+            "rejected_junction_alignment_connection_count", -1
+        ),
+        "invalid_shared_junction_fallback_candidate_count": connection_summary.get(
+            "invalid_shared_junction_fallback_candidate_count", -1
+        ),
+        "junction_touching_continuation_count": connection_summary.get("junction_touching_continuation_count", -1),
         "time_sec": elapsed,
     }
 
@@ -91,6 +111,10 @@ def main() -> None:
             f"term={item['unresolved_terminals']:5d} "
             f"review={item['review_queue']:5d} "
             f"conn_seed={item['connection_seeded_continuation_count']:4d} "
+            f"junction_ok={item['accepted_junction_straight_through_count']:4d} "
+            f"junction_reject={item['rejected_junction_alignment_connection_count']:4d} "
+            f"blocked_shared_junction={item['invalid_shared_junction_fallback_candidate_count']:4d} "
+            f"junction_touch={item['junction_touching_continuation_count']:4d} "
             f"time={item['time_sec']:.1f}s"
         )
 

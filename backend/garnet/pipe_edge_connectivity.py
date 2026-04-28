@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 import math
+from collections import Counter
 from typing import Any
+
+try:
+    import cv2  # type: ignore
+except Exception:  # pragma: no cover
+    cv2 = None
 
 
 def _normalize_class_name(value: str) -> str:
@@ -144,37 +150,166 @@ def _incident_edges(edges: list[dict[str, Any]]) -> dict[str, list[dict[str, Any
     return mapping
 
 
+def _cluster_centroid(cluster: dict[str, Any]) -> tuple[float, float] | None:
+    centroid = cluster.get("centroid") or {}
+    if "x" not in centroid or "y" not in centroid:
+        return None
+    return (float(centroid["x"]), float(centroid["y"]))
+
+
+def _edge_junction_geometry(
+    edge: dict[str, Any], node_id: str
+) -> tuple[tuple[float, float], tuple[float, float], tuple[float, float]] | None:
+    polyline = edge.get("polyline", [])
+    if len(polyline) < 2:
+        return None
+    if str(edge.get("source", "")) == node_id:
+        junction = polyline[0]
+        for sample in polyline[1:]:
+            vector = (float(sample["col"]) - float(junction["col"]), float(sample["row"]) - float(junction["row"]))
+            if vector != (0.0, 0.0):
+                return (
+                    (float(junction["col"]), float(junction["row"])),
+                    (float(sample["col"]), float(sample["row"])),
+                    vector,
+                )
+    if str(edge.get("target", "")) == node_id:
+        junction = polyline[-1]
+        for sample in reversed(polyline[:-1]):
+            vector = (float(sample["col"]) - float(junction["col"]), float(sample["row"]) - float(junction["row"]))
+            if vector != (0.0, 0.0):
+                return (
+                    (float(junction["col"]), float(junction["row"])),
+                    (float(sample["col"]), float(sample["row"])),
+                    vector,
+                )
+    return None
+
+
+def _unit_vector(vector: tuple[float, float]) -> tuple[float, float] | None:
+    length = math.hypot(vector[0], vector[1])
+    if length == 0:
+        return None
+    return (vector[0] / length, vector[1] / length)
+
+
+def _junction_pair_metrics(
+    *,
+    cluster_center: tuple[float, float],
+    left_anchor: tuple[float, float],
+    left_sample: tuple[float, float],
+    left_vector: tuple[float, float],
+    right_anchor: tuple[float, float],
+    right_sample: tuple[float, float],
+    right_vector: tuple[float, float],
+) -> dict[str, float] | None:
+    left_unit = _unit_vector(left_vector)
+    right_unit = _unit_vector(right_vector)
+    if left_unit is None or right_unit is None:
+        return None
+    opposite_error = abs(-1.0 - (left_unit[0] * right_unit[0] + left_unit[1] * right_unit[1]))
+
+    anchor_center = ((left_anchor[0] + right_anchor[0]) / 2.0, (left_anchor[1] + right_anchor[1]) / 2.0)
+    if math.hypot(cluster_center[0] - anchor_center[0], cluster_center[1] - anchor_center[1]) <= 6.0:
+        center = cluster_center
+    else:
+        center = anchor_center
+
+    left_side = _unit_vector((left_sample[0] - center[0], left_sample[1] - center[1]))
+    right_side = _unit_vector((right_sample[0] - center[0], right_sample[1] - center[1]))
+    if left_side is None or right_side is None:
+        return None
+    side_dot = left_side[0] * right_side[0] + left_side[1] * right_side[1]
+
+    _projection, centerline_error_px = _project_point_to_segment(center, left_sample, right_sample)
+    return {
+        "opposite_error": opposite_error,
+        "centerline_error_px": centerline_error_px,
+        "side_dot": side_dot,
+        "center_x": center[0],
+        "center_y": center[1],
+    }
+
+
 def _junction_connections(edges: list[dict[str, Any]], node_clusters: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    result = _junction_connection_decisions(edges, node_clusters)
+    return result["accepted"]
+
+
+def _junction_connection_decisions(edges: list[dict[str, Any]], node_clusters: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    max_junction_opposite_error = 0.20
+    max_junction_centerline_error_px = 6.0
+    max_junction_side_dot = -0.75
     cluster_map = _cluster_by_id(node_clusters)
     incident = _incident_edges(edges)
     connections: list[dict[str, Any]] = []
+    rejected: list[dict[str, Any]] = []
     for node_id, cluster in cluster_map.items():
         if str(cluster.get("kind", "")) != "junction":
             continue
+        center = _cluster_centroid(cluster)
+        if center is None:
+            continue
         edge_list = incident.get(node_id, [])
-        grouped: dict[str, list[tuple[str, float]]] = {"horizontal": [], "vertical": []}
+        grouped: dict[str, list[tuple[str, tuple[float, float], tuple[float, float], tuple[float, float]]]] = {
+            "horizontal": [],
+            "vertical": [],
+        }
         for edge in edge_list:
             alignment = _edge_alignment(edge, node_id)
             if alignment in grouped:
-                vector = _edge_endpoint_vector(edge, node_id)
-                if vector is None:
+                geometry = _edge_junction_geometry(edge, node_id)
+                if geometry is None:
                     continue
-                angle_deg = math.degrees(math.atan2(vector[1], vector[0])) % 360.0
-                grouped[alignment].append((str(edge.get("id", "")), angle_deg))
+                anchor_point, sample_point, vector = geometry
+                grouped[alignment].append((str(edge.get("id", "")), anchor_point, sample_point, vector))
         for alignment, edge_items in grouped.items():
-            best_pair: tuple[str, str, float] | None = None
+            best_pair: tuple[str, str, float, float, float] | None = None
             unique_items = []
             seen_ids: set[str] = set()
-            for edge_id, angle_deg in edge_items:
+            for edge_id, anchor_point, sample_point, vector in edge_items:
                 if edge_id in seen_ids:
                     continue
                 seen_ids.add(edge_id)
-                unique_items.append((edge_id, angle_deg))
-            for idx, (left_id, left_angle) in enumerate(unique_items):
-                for right_id, right_angle in unique_items[idx + 1 :]:
-                    opposite_error = abs(180.0 - abs((left_angle - right_angle + 180.0) % 360.0 - 180.0))
-                    if best_pair is None or opposite_error < best_pair[2]:
-                        best_pair = (left_id, right_id, opposite_error)
+                unique_items.append((edge_id, anchor_point, sample_point, vector))
+            for idx, (left_id, left_anchor, left_sample, left_vector) in enumerate(unique_items):
+                for right_id, right_anchor, right_sample, right_vector in unique_items[idx + 1 :]:
+                    metrics = _junction_pair_metrics(
+                        cluster_center=center,
+                        left_anchor=left_anchor,
+                        left_sample=left_sample,
+                        left_vector=left_vector,
+                        right_anchor=right_anchor,
+                        right_sample=right_sample,
+                        right_vector=right_vector,
+                    )
+                    if metrics is None:
+                        continue
+                    opposite_error = metrics["opposite_error"]
+                    centerline_error_px = metrics["centerline_error_px"]
+                    side_dot = metrics["side_dot"]
+                    base_decision = {
+                        "kind": "junction_alignment",
+                        "connector_id": node_id,
+                        "alignment": alignment,
+                        "source_edge_id": left_id,
+                        "target_edge_id": right_id,
+                        "opposite_error": round(float(opposite_error), 4),
+                        "centerline_error_px": round(float(centerline_error_px), 3),
+                        "side_dot": round(float(side_dot), 4),
+                    }
+                    if opposite_error > max_junction_opposite_error:
+                        rejected.append({**base_decision, "rejection_reason": "not_opposite_direction"})
+                        continue
+                    if centerline_error_px > max_junction_centerline_error_px:
+                        rejected.append({**base_decision, "rejection_reason": "misses_junction_centerline"})
+                        continue
+                    if side_dot > max_junction_side_dot:
+                        rejected.append({**base_decision, "rejection_reason": "not_opposite_sides"})
+                        continue
+                    score = (centerline_error_px, opposite_error, side_dot)
+                    if best_pair is None or score < (best_pair[3], best_pair[2], best_pair[4]):
+                        best_pair = (left_id, right_id, opposite_error, centerline_error_px, side_dot)
             if best_pair is None:
                 continue
             connections.append(
@@ -184,12 +319,33 @@ def _junction_connections(edges: list[dict[str, Any]], node_clusters: list[dict[
                     "alignment": alignment,
                     "source_edge_id": best_pair[0],
                     "target_edge_id": best_pair[1],
+                    "opposite_error": round(float(best_pair[2]), 4),
+                    "centerline_error_px": round(float(best_pair[3]), 3),
+                    "side_dot": round(float(best_pair[4]), 4),
                 }
             )
-    return connections
+    accepted_pairs = {
+        (
+            str(item["connector_id"]),
+            str(item["alignment"]),
+            tuple(sorted((str(item["source_edge_id"]), str(item["target_edge_id"])))),
+        )
+        for item in connections
+    }
+    rejected = [
+        item
+        for item in rejected
+        if (
+            str(item["connector_id"]),
+            str(item["alignment"]),
+            tuple(sorted((str(item["source_edge_id"]), str(item["target_edge_id"])))),
+        )
+        not in accepted_pairs
+    ]
+    return {"accepted": connections, "rejected": rejected}
 
 
-def _edge_endpoints(edge: dict[str, Any]) -> list[tuple[str, tuple[float, float], tuple[float, float]]]:
+def _edge_endpoints(edge: dict[str, Any]) -> list[tuple[str, str, tuple[float, float], tuple[float, float]]]:
     polyline = edge.get("polyline", [])
     if len(polyline) < 2:
         return []
@@ -198,8 +354,8 @@ def _edge_endpoints(edge: dict[str, Any]) -> list[tuple[str, tuple[float, float]
     end = (float(polyline[-1]["col"]), float(polyline[-1]["row"]))
     end_prev = (float(polyline[-2]["col"]), float(polyline[-2]["row"]))
     return [
-        ("start", start, (start_next[0] - start[0], start_next[1] - start[1])),
-        ("end", end, (end_prev[0] - end[0], end_prev[1] - end[1])),
+        ("start", str(edge.get("source", "")), start, (start_next[0] - start[0], start_next[1] - start[1])),
+        ("end", str(edge.get("target", "")), end, (end_prev[0] - end[0], end_prev[1] - end[1])),
     ]
 
 
@@ -223,27 +379,44 @@ def _continuation_connections(
     *,
     max_gap_px: float = 36.0,
     connection_seed_edge_ids: set[str] | None = None,
+    junction_node_ids: set[str] | None = None,
     seeded_max_gap_px: float = 180.0,
     seeded_vertical_max_gap_px: float = 160.0,
     max_opposite_error: float = 0.35,
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     edge_length_map = {str(edge.get("id", "")): float(edge.get("pixel_length", 0.0)) for edge in edges}
-    endpoint_candidates: list[tuple[str, str, tuple[float, float], tuple[float, float]]] = []
+    endpoint_candidates: list[tuple[str, str, str, tuple[float, float], tuple[float, float]]] = []
     for edge in edges:
         edge_id = str(edge.get("id", ""))
-        for endpoint_name, point, vector in _edge_endpoints(edge):
-            endpoint_candidates.append((edge_id, endpoint_name, point, vector))
+        for endpoint_name, node_id, point, vector in _edge_endpoints(edge):
+            endpoint_candidates.append((edge_id, endpoint_name, node_id, point, vector))
     connections: list[dict[str, Any]] = []
+    invalid_shared_junction_fallback_candidate_keys: set[tuple[str, str, str]] = set()
     seen_pairs: set[tuple[str, str]] = set()
     active_seed_edges = set(connection_seed_edge_ids or set())
+    blocked_junction_node_ids = set(junction_node_ids or set())
+    edge_junction_node_ids = {
+        str(edge.get("id", "")): {
+            str(edge.get("source", "")),
+            str(edge.get("target", "")),
+        }
+        & blocked_junction_node_ids
+        for edge in edges
+    }
     expanded = True
     while expanded:
         expanded = False
         best_by_endpoint: dict[tuple[str, str], tuple[float, float, int, float, str, str]] = {}
-        for idx, (edge_id, endpoint_name, point, vector) in enumerate(endpoint_candidates):
+        for idx, (edge_id, endpoint_name, node_id, point, vector) in enumerate(endpoint_candidates):
             alignment = _vector_alignment(vector)
-            for other_edge_id, other_endpoint_name, other_point, other_vector in endpoint_candidates[idx + 1 :]:
+            for other_edge_id, other_endpoint_name, other_node_id, other_point, other_vector in endpoint_candidates[idx + 1 :]:
                 if edge_id == other_edge_id:
+                    continue
+                shared_junctions = edge_junction_node_ids.get(edge_id, set()) & edge_junction_node_ids.get(other_edge_id, set())
+                if shared_junctions:
+                    for shared_junction in shared_junctions:
+                        sorted_pair = tuple(sorted((edge_id, other_edge_id)))
+                        invalid_shared_junction_fallback_candidate_keys.add((shared_junction, sorted_pair[0], sorted_pair[1]))
                     continue
                 if _vector_alignment(other_vector) != alignment:
                     continue
@@ -299,15 +472,107 @@ def _continuation_connections(
                 {
                     "kind": "connection_seeded_continuation" if seeded else "gap_continuation",
                     "alignment": _vector_alignment(
-                        next(v for e_id, ep_name, _, v in endpoint_candidates if e_id == edge_id and ep_name == endpoint_name)
+                        next(v for e_id, ep_name, _, _, v in endpoint_candidates if e_id == edge_id and ep_name == endpoint_name)
                     ),
                     "source_edge_id": pair[0],
                     "target_edge_id": pair[1],
                     "gap_px": round(float(gap_px), 3),
                     "opposite_error": round(float(opposite_error), 4),
+                    "touches_junction_owned_edge": bool(
+                        edge_junction_node_ids.get(pair[0], set()) or edge_junction_node_ids.get(pair[1], set())
+                    ),
                 }
             )
-    return connections
+    return {
+        "connections": connections,
+        "summary": {
+            "invalid_shared_junction_fallback_candidate_count": len(invalid_shared_junction_fallback_candidate_keys),
+            "junction_touching_continuation_count": len(
+                [item for item in connections if item.get("touches_junction_owned_edge")]
+            ),
+            "junction_touching_gap_continuation_count": len(
+                [
+                    item
+                    for item in connections
+                    if item.get("touches_junction_owned_edge") and item.get("kind") == "gap_continuation"
+                ]
+            ),
+            "junction_touching_seeded_continuation_count": len(
+                [
+                    item
+                    for item in connections
+                    if item.get("touches_junction_owned_edge") and item.get("kind") == "connection_seeded_continuation"
+                ]
+            ),
+        },
+    }
+
+
+def _polyline_points(edge: dict[str, Any]) -> list[tuple[int, int]]:
+    points: list[tuple[int, int]] = []
+    for point in edge.get("polyline", []):
+        points.append((int(round(float(point["col"]))), int(round(float(point["row"])))))
+    return points
+
+
+def _draw_edge_polyline(image_bgr: Any, edge: dict[str, Any], color: tuple[int, int, int], thickness: int) -> None:
+    if cv2 is None:
+        return
+    points = _polyline_points(edge)
+    if len(points) < 2:
+        return
+    for start, end in zip(points, points[1:]):
+        cv2.line(image_bgr, start, end, color, thickness, lineType=cv2.LINE_AA)
+
+
+def _edge_midpoint(edge: dict[str, Any]) -> tuple[int, int] | None:
+    points = _polyline_points(edge)
+    if not points:
+        return None
+    mid = points[len(points) // 2]
+    return mid
+
+
+def render_junction_decision_overlay(
+    *,
+    image_bgr: Any,
+    edges: list[dict[str, Any]],
+    edge_connections: list[dict[str, Any]],
+    rejected_junction_connections: list[dict[str, Any]],
+) -> Any:
+    overlay = image_bgr.copy()
+    if cv2 is None:
+        return overlay
+    edge_by_id = {str(edge.get("id", "")): edge for edge in edges}
+
+    for item in rejected_junction_connections:
+        for edge_id in (str(item.get("source_edge_id", "")), str(item.get("target_edge_id", ""))):
+            edge = edge_by_id.get(edge_id)
+            if edge is not None:
+                _draw_edge_polyline(overlay, edge, (0, 0, 255), 2)
+        source_edge = edge_by_id.get(str(item.get("source_edge_id", "")))
+        target_edge = edge_by_id.get(str(item.get("target_edge_id", "")))
+        label_point = _edge_midpoint(source_edge or target_edge or {})
+        if label_point is not None:
+            cv2.putText(
+                overlay,
+                str(item.get("rejection_reason", "rejected"))[:32],
+                label_point,
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.35,
+                (0, 0, 255),
+                1,
+                cv2.LINE_AA,
+            )
+
+    for item in edge_connections:
+        if item.get("kind") != "junction_alignment":
+            continue
+        for edge_id in (str(item.get("source_edge_id", "")), str(item.get("target_edge_id", ""))):
+            edge = edge_by_id.get(edge_id)
+            if edge is not None:
+                _draw_edge_polyline(overlay, edge, (0, 180, 0), 3)
+    return overlay
 
 
 def _inline_connections(
@@ -371,11 +636,20 @@ def build_pipe_edge_connectivity(
         inline_connector_classes=inline_connector_classes,
         inline_match_distance_px=inline_match_distance_px,
     )
-    junction_connections = _junction_connections(edges, node_clusters)
-    continuation_connections = _continuation_connections(
+    junction_decision_result = _junction_connection_decisions(edges, node_clusters)
+    junction_connections = junction_decision_result["accepted"]
+    rejected_junction_connections = junction_decision_result["rejected"]
+    continuation_result = _continuation_connections(
         edges,
         connection_seed_edge_ids=connection_seed_edge_ids,
+        junction_node_ids={
+            str(cluster.get("id", ""))
+            for cluster in node_clusters
+            if str(cluster.get("kind", "")) == "junction"
+        },
     )
+    continuation_connections = continuation_result["connections"]
+    continuation_summary = continuation_result["summary"]
     seen: set[tuple[str, str, str, str]] = set()
     all_connections: list[dict[str, Any]] = []
     for item in inline_connections + junction_connections + continuation_connections:
@@ -385,12 +659,24 @@ def build_pipe_edge_connectivity(
             continue
         seen.add(key)
         all_connections.append(item)
+    rejection_reason_counts = dict(Counter(str(item.get("rejection_reason", "unknown")) for item in rejected_junction_connections))
     return {
         "connections": all_connections,
         "summary": {
             "edge_connection_count": len(all_connections),
+            "accepted_junction_straight_through_count": len(junction_connections),
             "inline_element_connection_count": len(inline_connections),
             "junction_alignment_connection_count": len(junction_connections),
+            "rejected_junction_alignment_connection_count": len(rejected_junction_connections),
+            "rejected_junction_alignment_reason_counts": rejection_reason_counts,
+            "invalid_shared_junction_fallback_candidate_count": continuation_summary[
+                "invalid_shared_junction_fallback_candidate_count"
+            ],
+            "junction_touching_continuation_count": continuation_summary["junction_touching_continuation_count"],
+            "junction_touching_gap_continuation_count": continuation_summary["junction_touching_gap_continuation_count"],
+            "junction_touching_seeded_continuation_count": continuation_summary[
+                "junction_touching_seeded_continuation_count"
+            ],
             "gap_continuation_connection_count": len(
                 [item for item in continuation_connections if item["kind"] == "gap_continuation"]
             ),
@@ -399,4 +685,5 @@ def build_pipe_edge_connectivity(
             ),
             "inline_match_distance_px": inline_match_distance_px,
         },
+        "rejected_junction_connections": rejected_junction_connections,
     }
