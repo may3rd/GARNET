@@ -845,13 +845,16 @@ class PipelineApiTests(unittest.TestCase):
             self.assertIsNotNone(job_payload)
             assert job_payload is not None
             self.assertEqual(job_payload["status"], "completed")
-            self.assertEqual(job_payload["current_stage"], "stage10b_polyline_simplification")
+            self.assertEqual(job_payload["current_stage"], "stage10c_edge_direction")
             artifact_names = {item["name"] for item in job_payload["artifacts"]}
             self.assertIn("stage10_pipe_edges_overlay.png", artifact_names)
             self.assertIn("stage10_pipe_edges.json", artifact_names)
             self.assertIn("stage10_pipe_edge_summary.json", artifact_names)
             self.assertIn("stage10b_pipe_edges_simplified.json", artifact_names)
             self.assertIn("stage10b_polyline_simplification_summary.json", artifact_names)
+            self.assertIn("stage10c_edge_direction.json", artifact_names)
+            self.assertIn("stage10c_arrow_assignments.json", artifact_names)
+            self.assertIn("stage10c_edge_direction_summary.json", artifact_names)
 
     def test_pipeline_job_runs_stage11_and_reports_junction_review_artifacts(self) -> None:
         client = TestClient(app)
@@ -1083,6 +1086,7 @@ class PipelineApiTests(unittest.TestCase):
             self.assertIn("stage12_text_attachment_overlay.png", artifact_names)
             self.assertIn("stage12_instrument_tag_attachments.json", artifact_names)
             self.assertIn("stage12_instrument_tag_attachment_summary.json", artifact_names)
+            self.assertIn("stage12_arrow_assignments.json", artifact_names)
             self.assertIn("stage12_graph.json", artifact_names)
             self.assertIn("stage12_graph_summary.json", artifact_names)
 

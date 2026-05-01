@@ -21,6 +21,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import numpy as np
 from dotenv import load_dotenv
 from garnet.easyocr_sahi import EasyOcrSahiConfig, run_easyocr_sahi
+from garnet.edge_direction import run_edge_direction_stage
 from garnet.gemini_ocr_sahi import GeminiOcrSahiConfig, run_gemini_ocr_sahi
 from garnet.instrument_tag_fusion import run_instrument_tag_fusion_stage
 from garnet.line_number_fusion import run_line_number_fusion_stage
@@ -127,6 +128,7 @@ class PipelineConfig:
     crossing_center_blob_threshold: float = 0.5
     crossing_stage4_marker_match_distance_px: float = 24.0
     polyline_simplify_epsilon: float = 2.0
+    arrow_proximity_px: float = 40.0
     equipment_attachment_classes: tuple[str, ...] = (
         "pump",
         "heat exchanger",
@@ -225,6 +227,7 @@ class PIDPipeline:
             (9, "stage9_node_clustering", self.stage9_node_clustering),
             (10, "stage10_edge_tracing", self.stage10_edge_tracing),
             (10, "stage10b_polyline_simplification", self.stage10b_polyline_simplification),
+            (10, "stage10c_edge_direction", self.stage10c_edge_direction),
             (11, "stage11_junction_review", self.stage11_junction_review),
             (12, "stage12_graph_assembly", self.stage12_graph_assembly),
             (13, "stage13_graph_qa", self.stage13_graph_qa),
@@ -711,6 +714,19 @@ class PIDPipeline:
         self._save_json("stage10b_pipe_edges_simplified", simplification_result["edges_payload"])
         self._save_json("stage10b_polyline_simplification_summary", simplification_result["summary"])
 
+    def stage10c_edge_direction(self) -> None:
+        edges_payload = self._load_json_artifact("stage10b_pipe_edges_simplified")
+        object_payload = self._load_json_artifact("stage4_objects")
+        direction_result = run_edge_direction_stage(
+            edges=edges_payload.get("edges", []),
+            objects=object_payload.get("objects", []),
+            image_id=Path(self.image_path).name,
+            arrow_proximity_px=self.cfg.arrow_proximity_px,
+        )
+        self._save_json("stage10c_edge_direction", direction_result["edges_payload"])
+        self._save_json("stage10c_arrow_assignments", {"arrow_assignments": direction_result["arrow_assignments"]})
+        self._save_json("stage10c_edge_direction_summary", direction_result["summary"])
+
     # ---------- Stage 11 ----------
     def stage11_junction_review(self) -> None:
         crossing_payload_path = self.out_dir / "stage10_crossing_resolution.json"
@@ -736,8 +752,9 @@ class PIDPipeline:
         text_payload = self._load_json_artifact("stage4_line_numbers")
         instrument_tag_payload = self._load_json_artifact("stage4_instrument_tags")
         node_clusters_payload = self._load_json_artifact("stage9_node_clusters")
-        edges_payload = self._load_json_artifact("stage10b_pipe_edges_simplified")
+        edges_payload = self._load_json_artifact("stage10c_edge_direction")
         polyline_simplification_summary = self._load_json_artifact("stage10b_polyline_simplification_summary")
+        edge_direction_summary = self._load_json_artifact("stage10c_edge_direction_summary")
         crossing_payload = self._load_json_artifact("stage10_crossing_resolution")
         junctions_payload = self._load_json_artifact("stage11_junctions")
         overlay_edge_filter_result = _filter_border_like_edges(
@@ -845,6 +862,7 @@ class PIDPipeline:
             edge_connections=edge_connectivity_result["connections"],
         )
         graph_result["summary"]["polyline_simplification"] = polyline_simplification_summary
+        graph_result["summary"]["edge_direction"] = edge_direction_summary
         graph_result["summary"]["source_artifacts"] = [
             artifact
             for artifact in graph_result["summary"].get("source_artifacts", [])
@@ -852,6 +870,8 @@ class PIDPipeline:
         ] + [
             "stage10b_pipe_edges_simplified.json",
             "stage10b_polyline_simplification_summary.json",
+            "stage10c_edge_direction.json",
+            "stage10c_edge_direction_summary.json",
         ]
         self._save_json("stage12_equipment_attachments", attachment_result["attachments_payload"])
         self._save_json("stage12_equipment_attachment_summary", attachment_result["summary"])
@@ -861,6 +881,7 @@ class PIDPipeline:
         self._save_img("stage12_junction_decision_overlay", junction_decision_overlay)
         self._save_json("stage12_edge_terminals", {"edge_terminals": edge_terminal_result["edge_terminals"]})
         self._save_json("stage12_edge_terminal_summary", edge_terminal_result["summary"])
+        self._save_json("stage12_arrow_assignments", self._load_json_artifact("stage10c_arrow_assignments"))
         self._save_json("stage12_edge_connections", {"edge_connections": edge_connectivity_result["connections"]})
         self._save_json("stage12_edge_connection_summary", edge_connectivity_result["summary"])
         self._save_json(

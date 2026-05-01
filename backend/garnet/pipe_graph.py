@@ -111,6 +111,9 @@ def run_pipe_graph_stage(
             id=edge["id"],
             pixel_length=edge.get("pixel_length", 0),
             simplified_pixel_length=edge.get("simplified_pixel_length", edge.get("pixel_length", 0)),
+            flow_direction=edge.get("flow_direction"),
+            flow_direction_confidence=edge.get("flow_direction_confidence", 0.0),
+            assigned_arrow_id=edge.get("assigned_arrow_id"),
         )
         edge_graph.add_node(
             str(edge["id"]),
@@ -126,6 +129,9 @@ def run_pipe_graph_stage(
                 "pixel_length": edge.get("pixel_length", 0),
                 "simplified_pixel_length": edge.get("simplified_pixel_length", edge.get("pixel_length", 0)),
                 "polyline": edge.get("polyline", []),
+                "flow_direction": edge.get("flow_direction"),
+                "flow_direction_confidence": edge.get("flow_direction_confidence", 0.0),
+                "assigned_arrow_id": edge.get("assigned_arrow_id"),
                 "review_state": "provisional",
                 "line_texts": edge_texts.get(str(edge["id"]), []),
                 "instrument_tags": edge_instrument_tags.get(str(edge["id"]), []),
