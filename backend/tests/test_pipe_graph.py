@@ -10,7 +10,14 @@ class PipeGraphTests(unittest.TestCase):
             {"id": "junction_0", "kind": "junction", "centroid": {"x": 5.0, "y": 6.0}, "member_count": 3},
         ]
         edges = [
-            {"id": "edge_0", "source": "endpoint_0", "target": "junction_0", "pixel_length": 10, "polyline": []},
+            {
+                "id": "edge_0",
+                "source": "endpoint_0",
+                "target": "junction_0",
+                "pixel_length": 10,
+                "simplified_pixel_length": 2,
+                "polyline": [],
+            },
         ]
         confirmed_junctions = [{"id": "junction_0"}]
         unresolved_junctions = []
@@ -45,6 +52,7 @@ class PipeGraphTests(unittest.TestCase):
         self.assertEqual(result["summary"]["edge_connection_count"], 1)
         self.assertEqual(result["graph_payload"]["edges"][0]["edge_terminals"]["terminal_status"], "provisional")
         self.assertEqual(result["graph_payload"]["edges"][0]["terminal_status"], "provisional")
+        self.assertEqual(result["graph_payload"]["edges"][0]["simplified_pixel_length"], 2)
         self.assertEqual(len(result["graph_payload"]["edge_connections"]), 1)
 
     def test_run_pipe_graph_stage_includes_equipment_attachment_nodes(self) -> None:

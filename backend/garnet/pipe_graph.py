@@ -105,7 +105,13 @@ def run_pipe_graph_stage(
         if src == dst:
             continue
         edge_terminal_info = edge_terminal_map.get(str(edge["id"]), {})
-        graph.add_edge(src, dst, id=edge["id"], pixel_length=edge.get("pixel_length", 0))
+        graph.add_edge(
+            src,
+            dst,
+            id=edge["id"],
+            pixel_length=edge.get("pixel_length", 0),
+            simplified_pixel_length=edge.get("simplified_pixel_length", edge.get("pixel_length", 0)),
+        )
         edge_graph.add_node(
             str(edge["id"]),
             id=str(edge["id"]),
@@ -118,6 +124,7 @@ def run_pipe_graph_stage(
                 "source": src,
                 "target": dst,
                 "pixel_length": edge.get("pixel_length", 0),
+                "simplified_pixel_length": edge.get("simplified_pixel_length", edge.get("pixel_length", 0)),
                 "polyline": edge.get("polyline", []),
                 "review_state": "provisional",
                 "line_texts": edge_texts.get(str(edge["id"]), []),

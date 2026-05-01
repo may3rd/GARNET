@@ -845,11 +845,13 @@ class PipelineApiTests(unittest.TestCase):
             self.assertIsNotNone(job_payload)
             assert job_payload is not None
             self.assertEqual(job_payload["status"], "completed")
-            self.assertEqual(job_payload["current_stage"], "stage10_edge_tracing")
+            self.assertEqual(job_payload["current_stage"], "stage10b_polyline_simplification")
             artifact_names = {item["name"] for item in job_payload["artifacts"]}
             self.assertIn("stage10_pipe_edges_overlay.png", artifact_names)
             self.assertIn("stage10_pipe_edges.json", artifact_names)
             self.assertIn("stage10_pipe_edge_summary.json", artifact_names)
+            self.assertIn("stage10b_pipe_edges_simplified.json", artifact_names)
+            self.assertIn("stage10b_polyline_simplification_summary.json", artifact_names)
 
     def test_pipeline_job_runs_stage11_and_reports_junction_review_artifacts(self) -> None:
         client = TestClient(app)
@@ -1151,6 +1153,7 @@ class PipelineApiTests(unittest.TestCase):
         }
         fake_qa_result = {
             "anomaly_report": {"connected_component_count": 0},
+            "component_overlay_image": np.zeros((50, 100, 3), dtype=np.uint8),
             "review_queue": {"items": []},
             "summary": {"image_id": "sample.png", "pass_type": "sheet", "review_queue_count": 0},
         }

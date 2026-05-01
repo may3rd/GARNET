@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from garnet.pipe_graph_qa import run_pipe_graph_qa_stage
 
 
@@ -117,6 +119,7 @@ def generate_reviewed_outputs(job_dir: str | Path) -> dict[str, Any]:
     reviewed_qa = run_pipe_graph_qa_stage(
         image_id=str(reviewed_graph.get("image_id", "")),
         graph_payload=reviewed_graph,
+        image_bgr=np.zeros((1, 1, 3), dtype=np.uint8),
     )
 
     (base / "stage12_graph_reviewed.json").write_text(json.dumps(reviewed_graph, indent=2), encoding="utf-8")

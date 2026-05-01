@@ -44,6 +44,7 @@ from garnet.paddle_ocr_sahi import PaddleOcrSahiConfig, run_paddle_ocr_sahi
 from garnet.pipe_mask import run_pipe_mask_stage
 from garnet.pipe_node_clusters import run_pipe_node_cluster_stage
 from garnet.pipe_nodes import run_pipe_node_stage
+from garnet.polyline_simplify import run_polyline_simplification_stage
 from garnet.pipe_seal import run_pipe_seal_stage
 from garnet.pipe_skeleton import run_pipe_skeleton_stage
 from garnet.pipe_terminals import classify_pipe_edge_terminals
@@ -125,6 +126,7 @@ class PipelineConfig:
     crossing_center_blob_radius_px: int = 4
     crossing_center_blob_threshold: float = 0.5
     crossing_stage4_marker_match_distance_px: float = 24.0
+    polyline_simplify_epsilon: float = 2.0
     equipment_attachment_classes: tuple[str, ...] = (
         "pump",
         "heat exchanger",
@@ -222,6 +224,7 @@ class PIDPipeline:
             (8, "stage8_skeleton_node_detection", self.stage8_skeleton_node_detection),
             (9, "stage9_node_clustering", self.stage9_node_clustering),
             (10, "stage10_edge_tracing", self.stage10_edge_tracing),
+            (10, "stage10b_polyline_simplification", self.stage10b_polyline_simplification),
             (11, "stage11_junction_review", self.stage11_junction_review),
             (12, "stage12_graph_assembly", self.stage12_graph_assembly),
             (13, "stage13_graph_qa", self.stage13_graph_qa),
@@ -231,9 +234,12 @@ class PIDPipeline:
         return self.out_dir / "stage_manifest.json"
 
     def _write_stage_manifest(self) -> None:
-        with open(self._manifest_path(), "w") as f:
+        path = self._manifest_path()
+        tmp_path = path.with_name(f".{path.name}.tmp")
+        with open(tmp_path, "w") as f:
             json.dump(self.stage_manifest, f, indent=2)
-        logger.info(f"saved {self._manifest_path()}")
+        tmp_path.replace(path)
+        logger.info(f"saved {path}")
 
     def _notify_stage_callback(self, payload: Dict[str, Any]) -> None:
         if self.stage_callback is not None:
@@ -695,6 +701,16 @@ class PIDPipeline:
         self._save_json("stage10_pipe_edges", edge_result["edges_payload"])
         self._save_json("stage10_pipe_edge_summary", edge_result["summary"])
 
+    def stage10b_polyline_simplification(self) -> None:
+        edges_payload = self._load_json_artifact("stage10_pipe_edges")
+        simplification_result = run_polyline_simplification_stage(
+            edges=edges_payload.get("edges", []),
+            image_id=Path(self.image_path).name,
+            epsilon=self.cfg.polyline_simplify_epsilon,
+        )
+        self._save_json("stage10b_pipe_edges_simplified", simplification_result["edges_payload"])
+        self._save_json("stage10b_polyline_simplification_summary", simplification_result["summary"])
+
     # ---------- Stage 11 ----------
     def stage11_junction_review(self) -> None:
         crossing_payload_path = self.out_dir / "stage10_crossing_resolution.json"
@@ -720,7 +736,8 @@ class PIDPipeline:
         text_payload = self._load_json_artifact("stage4_line_numbers")
         instrument_tag_payload = self._load_json_artifact("stage4_instrument_tags")
         node_clusters_payload = self._load_json_artifact("stage9_node_clusters")
-        edges_payload = self._load_json_artifact("stage10_pipe_edges")
+        edges_payload = self._load_json_artifact("stage10b_pipe_edges_simplified")
+        polyline_simplification_summary = self._load_json_artifact("stage10b_polyline_simplification_summary")
         crossing_payload = self._load_json_artifact("stage10_crossing_resolution")
         junctions_payload = self._load_json_artifact("stage11_junctions")
         overlay_edge_filter_result = _filter_border_like_edges(
@@ -827,6 +844,15 @@ class PIDPipeline:
             edge_terminals=edge_terminal_result["edge_terminals"],
             edge_connections=edge_connectivity_result["connections"],
         )
+        graph_result["summary"]["polyline_simplification"] = polyline_simplification_summary
+        graph_result["summary"]["source_artifacts"] = [
+            artifact
+            for artifact in graph_result["summary"].get("source_artifacts", [])
+            if artifact != "stage10_pipe_edges.json"
+        ] + [
+            "stage10b_pipe_edges_simplified.json",
+            "stage10b_polyline_simplification_summary.json",
+        ]
         self._save_json("stage12_equipment_attachments", attachment_result["attachments_payload"])
         self._save_json("stage12_equipment_attachment_summary", attachment_result["summary"])
         self._save_json("stage12_connection_attachments", connection_attachment_result["attachments_payload"])

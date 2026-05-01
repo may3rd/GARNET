@@ -54,6 +54,9 @@ class FakePipeline(pid_extractor.PIDPipeline):
     def stage10_edge_tracing(self) -> None:
         self._record("stage10")
 
+    def stage10b_polyline_simplification(self) -> None:
+        self._record("stage10b")
+
     def stage11_junction_review(self) -> None:
         self._record("stage11")
 
@@ -83,6 +86,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                 "stage8_skeleton_node_detection",
                 "stage9_node_clustering",
                 "stage10_edge_tracing",
+                "stage10b_polyline_simplification",
                 "stage11_junction_review",
                 "stage12_graph_assembly",
                 "stage13_graph_qa",
@@ -95,7 +99,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
 
             pipe.run(stop_after=13)
 
-            self.assertEqual(pipe.called, ["stage1", "stage2", "stage4", "stage4", "stage4", "stage5", "stage6", "stage7", "stage8", "stage9", "stage10", "stage11", "stage12", "stage13"])
+            self.assertEqual(pipe.called, ["stage1", "stage2", "stage4", "stage4", "stage4", "stage5", "stage6", "stage7", "stage8", "stage9", "stage10", "stage10b", "stage11", "stage12", "stage13"])
             manifest = json.loads((Path(tmp) / "stage_manifest.json").read_text())
             self.assertEqual(manifest["stop_after"], 13)
             self.assertEqual(
@@ -112,6 +116,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                     "stage8_skeleton_node_detection",
                     "stage9_node_clustering",
                     "stage10_edge_tracing",
+                    "stage10b_polyline_simplification",
                     "stage11_junction_review",
                     "stage12_graph_assembly",
                     "stage13_graph_qa",
@@ -165,6 +170,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
 
         self.assertEqual(cfg.ocr_route, "ocrmac")
         self.assertEqual(cfg.gemini_postprocess_match_threshold, 0.1)
+        self.assertEqual(cfg.polyline_simplify_epsilon, 2.0)
 
     def test_load_pipeline_env_reads_root_then_backend_env(self) -> None:
         with patch("garnet.pid_extractor.load_dotenv") as mock_load_dotenv:
@@ -524,6 +530,34 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "stage10_pipe_edges.json").exists())
             self.assertTrue((Path(tmp) / "stage10_pipe_edge_summary.json").exists())
 
+    def test_stage10b_writes_simplified_edge_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
+            pipe._save_json(
+                "stage10_pipe_edges",
+                {
+                    "edges": [
+                        {
+                            "id": "edge_0",
+                            "source": "endpoint_0",
+                            "target": "endpoint_1",
+                            "polyline": [{"row": 5, "col": col} for col in range(10)],
+                            "pixel_length": 10,
+                        }
+                    ]
+                },
+            )
+
+            pipe.stage10b_polyline_simplification()
+
+            simplified_payload = json.loads((Path(tmp) / "stage10b_pipe_edges_simplified.json").read_text())
+            summary = json.loads((Path(tmp) / "stage10b_polyline_simplification_summary.json").read_text())
+            self.assertEqual(len(simplified_payload["edges"][0]["polyline"]), 2)
+            self.assertEqual(simplified_payload["edges"][0]["pixel_length"], 10)
+            self.assertEqual(simplified_payload["edges"][0]["simplified_pixel_length"], 2)
+            self.assertEqual(summary["total_original_point_count"], 10)
+            self.assertEqual(summary["total_simplified_point_count"], 2)
+
     def test_stage11_writes_junction_review_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
@@ -563,7 +597,11 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             pipe._save_json("stage4_instrument_tags", {"instrument_tags": []})
             pipe._save_json("stage9_node_clusters", {"clusters": []})
             pipe._save_json("stage10_crossing_resolution", {"candidates": []})
-            pipe._save_json("stage10_pipe_edges", {"edges": []})
+            pipe._save_json("stage10b_pipe_edges_simplified", {"edges": []})
+            pipe._save_json(
+                "stage10b_polyline_simplification_summary",
+                {"total_original_point_count": 0, "total_simplified_point_count": 0, "compression_ratio": 1.0},
+            )
             pipe._save_json("stage11_junctions", {"confirmed_junctions": [], "unresolved_junctions": []})
 
             with patch("garnet.pid_extractor.run_pipe_equipment_attachment_stage") as mock_pipe_attachment, patch(
@@ -623,6 +661,8 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "stage12_instrument_tag_attachment_summary.json").exists())
             self.assertTrue((Path(tmp) / "stage12_graph.json").exists())
             self.assertTrue((Path(tmp) / "stage12_graph_summary.json").exists())
+            graph_summary = json.loads((Path(tmp) / "stage12_graph_summary.json").read_text())
+            self.assertIn("polyline_simplification", graph_summary)
 
     def test_stage13_writes_graph_qa_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

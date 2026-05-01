@@ -141,7 +141,7 @@
 | S4-01 | Unify node and edge schema across in-memory graph, JSON export, and export adapter | D1-D2 | `backend/garnet/pid_extractor.py`, export helper to be created if needed, `backend/schema/graph_v1.json` | Export validation confirms required fields exist for nodes and edges | TODO |
 | S4-02 | Add graph-native QA primitives for connected components, degree anomalies, articulation points, and orphan terminals | D3, E1 | `backend/garnet/pid_extractor.py`, `backend/garnet/pipe_graph_qa.py` | QA report JSON lists anomaly counts and affected node/edge ids | DONE |
 | S4-03 | Generate an anomaly report and retry queue instead of only overlays | E1-E2 | `backend/garnet/pid_extractor.py`, `backend/garnet/pipe_graph_qa.py` | Output includes machine-readable anomaly and retry files | DONE |
-| S4-04 | Add polyline simplification before export with configurable tolerance and compression metrics | D4 | graph/export helper modules to be created if needed | Compare export payload size before/after simplification | TODO |
+| S4-04 | Add polyline simplification before export with configurable tolerance and compression metrics | D4 | `backend/garnet/polyline_simplify.py`, `backend/garnet/pid_extractor.py`; branch/commit: TBD; evidence: `stage10b_pipe_edges_simplified.json`, `stage10b_polyline_simplification_summary.json`, `backend/tests/test_polyline_simplify.py` | Compare export payload size before/after simplification | DONE |
 | S4-05 | Expose graph QA and export outputs through the backend service where needed for later review tooling | D1-E1 | `backend/api.py`, `backend/schema/graph_v1.json` | API returns graph/QA artifacts for a sample run | TODO |
 
 ## Sprint 5 - Recovery loop and review boundary
