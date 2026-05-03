@@ -165,6 +165,56 @@ class PipeGraphTests(unittest.TestCase):
         self.assertIn({"edge_left", "edge_right"}, edge_components)
         self.assertIn({"edge_up", "edge_down"}, edge_components)
 
+    def test_run_pipe_graph_stage_includes_split_inline_nodes(self) -> None:
+        result = run_pipe_graph_stage(
+            image_id="sample.png",
+            node_clusters=[
+                {"id": "endpoint_0", "kind": "endpoint", "centroid": {"x": 0.0, "y": 0.0}, "member_count": 1},
+                {"id": "endpoint_1", "kind": "endpoint", "centroid": {"x": 20.0, "y": 0.0}, "member_count": 1},
+            ],
+            edges=[
+                {
+                    "id": "edge_0::split::valve_0::upstream",
+                    "source": "endpoint_0",
+                    "target": "inline::valve_0",
+                    "pixel_length": 10,
+                    "polyline": [],
+                    "is_split_edge": True,
+                    "split_parent_edge_id": "edge_0",
+                    "split_position": "upstream",
+                    "inline_node_id": "inline::valve_0",
+                },
+                {
+                    "id": "edge_0::split::valve_0::downstream",
+                    "source": "inline::valve_0",
+                    "target": "endpoint_1",
+                    "pixel_length": 10,
+                    "polyline": [],
+                    "is_split_edge": True,
+                    "split_parent_edge_id": "edge_0",
+                    "split_position": "downstream",
+                    "inline_node_id": "inline::valve_0",
+                },
+            ],
+            confirmed_junctions=[],
+            unresolved_junctions=[],
+            split_nodes=[
+                {
+                    "id": "inline::valve_0",
+                    "kind": "inline",
+                    "type": "valve",
+                    "position": {"x": 10.0, "y": 0.0},
+                    "inline_element_id": "valve_0",
+                    "review_state": "provisional",
+                }
+            ],
+        )
+
+        inline_nodes = [node for node in result["graph_payload"]["nodes"] if node.get("kind") == "inline"]
+        self.assertEqual(len(inline_nodes), 1)
+        self.assertEqual(result["summary"]["inline_node_count"], 1)
+        self.assertTrue(all(edge["is_split_edge"] for edge in result["graph_payload"]["edges"]))
+
 
 if __name__ == "__main__":
     unittest.main()

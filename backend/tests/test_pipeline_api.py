@@ -845,7 +845,7 @@ class PipelineApiTests(unittest.TestCase):
             self.assertIsNotNone(job_payload)
             assert job_payload is not None
             self.assertEqual(job_payload["status"], "completed")
-            self.assertEqual(job_payload["current_stage"], "stage10c_edge_direction")
+            self.assertEqual(job_payload["current_stage"], "stage10d_edge_split")
             artifact_names = {item["name"] for item in job_payload["artifacts"]}
             self.assertIn("stage10_pipe_edges_overlay.png", artifact_names)
             self.assertIn("stage10_pipe_edges.json", artifact_names)
@@ -855,6 +855,10 @@ class PipelineApiTests(unittest.TestCase):
             self.assertIn("stage10c_edge_direction.json", artifact_names)
             self.assertIn("stage10c_arrow_assignments.json", artifact_names)
             self.assertIn("stage10c_edge_direction_summary.json", artifact_names)
+            self.assertIn("stage10d_split_edges.json", artifact_names)
+            self.assertIn("stage10d_split_nodes.json", artifact_names)
+            self.assertIn("stage10d_split_report.json", artifact_names)
+            self.assertIn("stage10d_split_summary.json", artifact_names)
 
     def test_pipeline_job_runs_stage11_and_reports_junction_review_artifacts(self) -> None:
         client = TestClient(app)
@@ -1077,7 +1081,7 @@ class PipelineApiTests(unittest.TestCase):
             self.assertIsNotNone(job_payload)
             assert job_payload is not None
             self.assertEqual(job_payload["status"], "completed")
-            self.assertEqual(job_payload["current_stage"], "stage12_graph_assembly")
+            self.assertEqual(job_payload["current_stage"], "stage12b_graph_export")
             artifact_names = {item["name"] for item in job_payload["artifacts"]}
             self.assertIn("stage12_equipment_attachments.json", artifact_names)
             self.assertIn("stage12_equipment_attachment_summary.json", artifact_names)
@@ -1089,6 +1093,11 @@ class PipelineApiTests(unittest.TestCase):
             self.assertIn("stage12_arrow_assignments.json", artifact_names)
             self.assertIn("stage12_graph.json", artifact_names)
             self.assertIn("stage12_graph_summary.json", artifact_names)
+            self.assertIn("stage12b_graph_v1.json", artifact_names)
+            with open(Path(job_payload["job_dir"]) / "stage12b_graph_v1.json", "r", encoding="utf-8") as f:
+                expected_graph_v1 = json.load(f)
+            self.assertIn("graph_v1", job_payload)
+            self.assertEqual(job_payload["graph_v1"], expected_graph_v1)
 
     def test_pipeline_job_runs_stage13_and_reports_qa_artifacts(self) -> None:
         client = TestClient(app)

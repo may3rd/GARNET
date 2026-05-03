@@ -121,10 +121,10 @@
 | ID | Task | Master-plan refs | Repo targets | Verification | Status |
 |----|------|------------------|--------------|--------------|--------|
 | S3-01 | Replace simple equipment snapping with multi-signal attachment scoring | C1 | `backend/garnet/pid_extractor.py`, `backend/garnet/pipe_equipment_attachment.py` | Attachment report includes scores, chosen edge, and ambiguous candidates | DONE (provisional via Stage 4 detections; dedicated equipment detection still planned as `Stage 4.1`) |
-| S3-02 | Formalize inline-object association rules and edge-splitting thresholds | C2 | `backend/garnet/pid_extractor.py`, helper module to be created if needed | Inline association report shows confident splits vs unresolved items | TODO |
+| S3-02 | Formalize inline-object association rules and edge-splitting thresholds | C2 | `backend/garnet/edge_split.py`, `backend/garnet/pid_extractor.py`; evidence: `stage10d_split_edges.json`, `stage10d_split_nodes.json`, `stage10d_split_report.json`, `stage10d_split_summary.json`, `backend/tests/test_edge_split.py` | Inline association report shows confident splits vs unresolved items | DONE |
 | S3-03 | Convert flow-arrow handling from visual overlay to edge-direction assignment and local propagation | C3 | `backend/garnet/edge_direction.py`, `backend/garnet/pid_extractor.py`; branch/commit: TBD; evidence: `stage10c_edge_direction.json`, `stage10c_arrow_assignments.json`, `stage10c_edge_direction_summary.json`, `backend/tests/test_edge_direction.py` | Directed-edge metrics show assigned, propagated, and unresolved arrow-edge matches | DONE |
-| S3-04 | Associate text to equipment, edges, inline objects, and off-page connectors using more than distance alone | C4 | `backend/garnet/text_ocr.py`, `backend/garnet/pid_extractor.py`, `backend/garnet/line_number_fusion.py`, `backend/garnet/pipe_text_attachment.py` | Text-link report shows target type, confidence, and unresolved text queue | DONE for line-number-to-edge attachment; other text classes still TODO |
-| S3-05 | Represent off-page connectors as explicit graph nodes with labels and page-reference fields | C5 | `backend/garnet/pid_extractor.py`, `backend/schema/graph_v1.json`, export helper to be created if needed | Export contains connector nodes with attachment metadata | TODO |
+| S3-04 | Associate text to equipment, edges, inline objects, and off-page connectors using more than distance alone | C4 | `backend/garnet/text_ocr.py`, `backend/garnet/pid_extractor.py`, `backend/garnet/line_number_fusion.py`, `backend/garnet/pipe_text_attachment.py` | Text-link report shows target type, confidence, and unresolved text queue | DONE: line-number→edge + instrument-tag→edge (pre-existing); equipment-tag→node (this sprint) |
+| S3-05 | Represent off-page connectors as explicit graph nodes with labels and page-reference fields | C5 | `backend/garnet/pid_extractor.py`, `backend/schema/graph_v1.json`, export helper to be created if needed | Export contains connector nodes with attachment metadata | DONE |
 
 ## Sprint 4 - Graph, QA, and export
 
@@ -138,11 +138,11 @@
 
 | ID | Task | Master-plan refs | Repo targets | Verification | Status |
 |----|------|------------------|--------------|--------------|--------|
-| S4-01 | Unify node and edge schema across in-memory graph, JSON export, and export adapter | D1-D2 | `backend/garnet/pid_extractor.py`, export helper to be created if needed, `backend/schema/graph_v1.json` | Export validation confirms required fields exist for nodes and edges | TODO |
+| S4-01 | Unify node and edge schema across in-memory graph, JSON export, and export adapter | D1-D2 | `backend/garnet/pid_extractor.py`, export helper to be created if needed, `backend/schema/graph_v1.json` | Export validation confirms required fields exist for nodes and edges | DONE (stage12b_graph_v1.json + graph_export_adapter.py)
 | S4-02 | Add graph-native QA primitives for connected components, degree anomalies, articulation points, and orphan terminals | D3, E1 | `backend/garnet/pid_extractor.py`, `backend/garnet/pipe_graph_qa.py` | QA report JSON lists anomaly counts and affected node/edge ids | DONE |
 | S4-03 | Generate an anomaly report and retry queue instead of only overlays | E1-E2 | `backend/garnet/pid_extractor.py`, `backend/garnet/pipe_graph_qa.py` | Output includes machine-readable anomaly and retry files | DONE |
 | S4-04 | Add polyline simplification before export with configurable tolerance and compression metrics | D4 | `backend/garnet/polyline_simplify.py`, `backend/garnet/pid_extractor.py`; branch/commit: TBD; evidence: `stage10b_pipe_edges_simplified.json`, `stage10b_polyline_simplification_summary.json`, `backend/tests/test_polyline_simplify.py` | Compare export payload size before/after simplification | DONE |
-| S4-05 | Expose graph QA and export outputs through the backend service where needed for later review tooling | D1-E1 | `backend/api.py`, `backend/schema/graph_v1.json` | API returns graph/QA artifacts for a sample run | TODO |
+| S4-05 | Expose graph QA and export outputs through the backend service where needed for later review tooling | D1-E1 | `backend/api.py`, `backend/schema/graph_v1.json` | API returns graph/QA artifacts for a sample run | DONE |
 
 ## Sprint 5 - Recovery loop and review boundary
 

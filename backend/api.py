@@ -754,6 +754,10 @@ def _serialize_pipeline_job(job_id: str) -> dict[str, Any]:
             manifest = json.load(f)
     payload["manifest"] = manifest
     payload["artifacts"] = _pipeline_job_artifacts(job_id, payload["job_dir"])
+    graph_v1_path = os.path.join(payload["job_dir"], "stage12b_graph_v1.json")
+    if os.path.exists(graph_v1_path):
+        with open(graph_v1_path, "r", encoding="utf-8") as f:
+            payload["graph_v1"] = json.load(f)
     return payload
 
 

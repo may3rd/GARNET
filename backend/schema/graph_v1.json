@@ -87,7 +87,15 @@
             "tags": {
                 "pid_tag": "string",
                 "line_tag": "string",
-                "service": "string"
+                "service": "string",
+                "page_reference": {
+                    "type": ["object", "null"],
+                    "properties": {
+                        "reference_type": {"enum": ["sheet", "pid", "drawing", "figure"]},
+                        "reference_value": {"type": "string"},
+                        "matched_text": {"type": "string"}
+                    }
+                }
             }
         }
     ],
@@ -104,6 +112,14 @@
                 "annotated_at": "ISO-8601 datetime string",
                 "source": "manual|auto|imported",
                 "notes": "string"
+            },
+            "geometry": {
+                "polyline": [
+                    {
+                        "x": "number",
+                        "y": "number"
+                    }
+                ]
             }
         }
     ],

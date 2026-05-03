@@ -22,7 +22,10 @@ import numpy as np
 from dotenv import load_dotenv
 from garnet.easyocr_sahi import EasyOcrSahiConfig, run_easyocr_sahi
 from garnet.edge_direction import run_edge_direction_stage
+from garnet.edge_split import split_edges_at_inline_elements
+from garnet.equipment_tag_fusion import run_equipment_tag_fusion_stage
 from garnet.gemini_ocr_sahi import GeminiOcrSahiConfig, run_gemini_ocr_sahi
+from garnet.graph_export_adapter import build_graph_v1_payload
 from garnet.instrument_tag_fusion import run_instrument_tag_fusion_stage
 from garnet.line_number_fusion import run_line_number_fusion_stage
 from garnet.model_defaults import pick_default_weight_file
@@ -32,13 +35,18 @@ from garnet.pipe_edges import run_pipe_edge_stage
 from garnet.pipe_equipment_attachment import run_pipe_equipment_attachment_stage
 from garnet.pipe_graph import run_pipe_graph_stage
 from garnet.pipe_graph_qa import run_pipe_graph_qa_stage
-from garnet.pipe_edge_connectivity import build_pipe_edge_connectivity, render_junction_decision_overlay
+from garnet.pipe_edge_connectivity import (
+    build_pipe_edge_connectivity,
+    render_candidate_link_overlay,
+    render_junction_decision_overlay,
+)
 from garnet.pipe_crossings import run_pipe_crossing_stage
 from garnet.pipe_junctions import run_pipe_junction_stage
 from garnet.pipe_text_attachment import (
     _filter_border_like_edges,
     render_connection_attachment_overlay,
     render_text_attachment_overlay,
+    run_node_text_attachment_stage,
     run_pipe_text_attachment_stage,
 )
 from garnet.paddle_ocr_sahi import PaddleOcrSahiConfig, run_paddle_ocr_sahi
@@ -107,6 +115,8 @@ class PipelineConfig:
     detection_postprocess_match_threshold: float = 0.1
     line_number_fusion_max_distance_px: float = 80.0
     instrument_tag_fusion_max_distance_px: float = 60.0
+    equipment_tag_fusion_max_distance_px: float = 60.0
+    equipment_tag_attachment_max_distance_px: float = 80.0
     pipe_mask_ocr_padding: int = 1
     pipe_mask_object_inset: int = 1
     pipe_mask_min_component_area: int = 16
@@ -129,6 +139,7 @@ class PipelineConfig:
     crossing_stage4_marker_match_distance_px: float = 24.0
     polyline_simplify_epsilon: float = 2.0
     arrow_proximity_px: float = 40.0
+    inline_split_confidence_threshold: float = 0.5
     equipment_attachment_classes: tuple[str, ...] = (
         "pump",
         "heat exchanger",
@@ -220,6 +231,7 @@ class PIDPipeline:
             (4, "stage4_object_detection", self.stage4_object_detection),
             (4, "stage4_line_number_fusion", self.stage4_line_number_fusion),
             (4, "stage4_instrument_tag_fusion", self.stage4_instrument_tag_fusion),
+            (4, "stage4_equipment_tag_fusion", self.stage4_equipment_tag_fusion),
             (5, "stage5_pipe_mask", self.stage5_pipe_mask),
             (6, "stage6_morphological_sealing", self.stage6_morphological_sealing),
             (7, "stage7_skeleton_generation", self.stage7_skeleton_generation),
@@ -228,8 +240,11 @@ class PIDPipeline:
             (10, "stage10_edge_tracing", self.stage10_edge_tracing),
             (10, "stage10b_polyline_simplification", self.stage10b_polyline_simplification),
             (10, "stage10c_edge_direction", self.stage10c_edge_direction),
+            (10, "stage10d_edge_split", self.stage10d_edge_split),
             (11, "stage11_junction_review", self.stage11_junction_review),
             (12, "stage12_graph_assembly", self.stage12_graph_assembly),
+            (12, "stage12c_page_connector_labeling", self.stage12c_page_connector_labeling),
+            (12, "stage12b_graph_export", self.stage12b_graph_export),
             (13, "stage13_graph_qa", self.stage13_graph_qa),
         ]
 
@@ -336,6 +351,13 @@ class PIDPipeline:
         path = self.out_dir / f"{name}.json"
         if not path.exists():
             raise FileNotFoundError(f"Required artifact missing: {path}")
+        with open(path, "r") as f:
+            return json.load(f)
+
+    def _load_json_artifact_or_default(self, name: str, default: Any) -> Any:
+        path = self.out_dir / f"{name}.json"
+        if not path.exists():
+            return default
         with open(path, "r") as f:
             return json.load(f)
 
@@ -523,6 +545,19 @@ class PIDPipeline:
         self._save_json("stage4_instrument_tags", fusion_result["instrument_tags_payload"])
         self._save_json("stage4_instrument_tag_summary", fusion_result["summary"])
         self._save_img("stage4_instrument_tag_overlay", fusion_result["overlay_image"])
+
+    def stage4_equipment_tag_fusion(self) -> None:
+        ocr_payload = self._load_json_artifact_or_default("stage2_ocr_regions", {"text_regions": []})
+        text_regions = ocr_payload.get("text_regions", [])
+        fusion_result = run_equipment_tag_fusion_stage(
+            image_id=Path(self.image_path).name,
+            image_bgr=self._ensure_image_loaded() if text_regions else self.image_bgr,
+            object_regions=text_regions,
+            max_distance_px=self.cfg.equipment_tag_fusion_max_distance_px,
+        )
+        self._save_json("stage4_equipment_tags", fusion_result["equipment_tags_payload"])
+        self._save_json("stage4_equipment_tag_summary", fusion_result["summary"])
+        self._save_img("stage4_equipment_tag_overlay", fusion_result["overlay_image"])
 
     # ---------- Stage 5 ----------
     def stage5_pipe_mask(self) -> None:
@@ -727,6 +762,44 @@ class PIDPipeline:
         self._save_json("stage10c_arrow_assignments", {"arrow_assignments": direction_result["arrow_assignments"]})
         self._save_json("stage10c_edge_direction_summary", direction_result["summary"])
 
+    def stage10d_edge_split(self) -> None:
+        edges_payload = self._load_json_artifact("stage10c_edge_direction")
+        object_payload = self._load_json_artifact("stage4_objects")
+        connections_path = self.out_dir / "stage12_edge_connections.json"
+        if connections_path.exists():
+            connections_payload = self._load_json_artifact("stage12_edge_connections")
+            edge_connections = connections_payload.get("edge_connections", [])
+        else:
+            node_clusters_payload = self._load_json_artifact("stage9_node_clusters")
+            connectivity_result = build_pipe_edge_connectivity(
+                edges=edges_payload.get("edges", []),
+                node_clusters=node_clusters_payload.get("clusters", []),
+                object_regions=object_payload.get("objects", []),
+                inline_connector_classes=self.cfg.graph_inline_connector_classes,
+                inline_match_distance_px=self.cfg.graph_inline_connector_match_distance_px,
+            )
+            edge_connections = connectivity_result["connections"]
+        inline_connections = [
+            {
+                **connection,
+                "inline_match_distance_px": self.cfg.graph_inline_connector_match_distance_px,
+            }
+            for connection in edge_connections
+            if str(connection.get("kind", "")) == "inline_element"
+        ]
+        split_result = split_edges_at_inline_elements(
+            edges=edges_payload.get("edges", []),
+            inline_connections=inline_connections,
+            objects=object_payload.get("objects", []),
+            confidence_threshold=self.cfg.inline_split_confidence_threshold,
+        )
+        split_result["edges_payload"]["image_id"] = Path(self.image_path).name
+        split_result["summary"]["image_id"] = Path(self.image_path).name
+        self._save_json("stage10d_split_edges", split_result["edges_payload"])
+        self._save_json("stage10d_split_nodes", {"nodes": split_result["split_nodes"]})
+        self._save_json("stage10d_split_report", split_result["split_report"])
+        self._save_json("stage10d_split_summary", split_result["summary"])
+
     # ---------- Stage 11 ----------
     def stage11_junction_review(self) -> None:
         crossing_payload_path = self.out_dir / "stage10_crossing_resolution.json"
@@ -751,10 +824,13 @@ class PIDPipeline:
         object_payload = self._load_json_artifact("stage4_objects")
         text_payload = self._load_json_artifact("stage4_line_numbers")
         instrument_tag_payload = self._load_json_artifact("stage4_instrument_tags")
+        equipment_tag_payload = self._load_json_artifact_or_default("stage4_equipment_tags", {"equipment_tags": []})
         node_clusters_payload = self._load_json_artifact("stage9_node_clusters")
-        edges_payload = self._load_json_artifact("stage10c_edge_direction")
+        edges_payload = self._load_json_artifact("stage10d_split_edges")
+        split_nodes_payload = self._load_json_artifact("stage10d_split_nodes")
         polyline_simplification_summary = self._load_json_artifact("stage10b_polyline_simplification_summary")
         edge_direction_summary = self._load_json_artifact("stage10c_edge_direction_summary")
+        edge_split_summary = self._load_json_artifact("stage10d_split_summary")
         crossing_payload = self._load_json_artifact("stage10_crossing_resolution")
         junctions_payload = self._load_json_artifact("stage11_junctions")
         overlay_edge_filter_result = _filter_border_like_edges(
@@ -827,6 +903,30 @@ class PIDPipeline:
             max_distance_px=self.cfg.line_text_attachment_max_distance_px,
             text_class="instrument_semantic",
         )
+        equipment_nodes = []
+        for attachment in attachment_result["attachments_payload"].get("accepted", []):
+            bbox = attachment.get("bbox")
+            if not isinstance(bbox, (list, tuple)) or len(bbox) < 4:
+                continue
+            equipment_nodes.append(
+                {
+                    "id": f"equipment::{attachment['det_id']}",
+                    "type": attachment.get("class_name", "equipment"),
+                    "position": {
+                        "x": float((bbox[0] + bbox[2]) / 2),
+                        "y": float((bbox[1] + bbox[3]) / 2),
+                    },
+                    "bbox": bbox,
+                }
+            )
+        equipment_tag_attachment_result = run_node_text_attachment_stage(
+            image_id=Path(self.image_path).name,
+            image_bgr=self._ensure_image_loaded(),
+            text_regions=equipment_tag_payload.get("equipment_tags", []),
+            nodes=equipment_nodes,
+            max_distance_px=self.cfg.equipment_tag_attachment_max_distance_px,
+            text_class="equipment_tag",
+        )
         combined_text_overlay = render_text_attachment_overlay(
             image_bgr=self._ensure_image_loaded(),
             edges=overlay_edges,
@@ -846,6 +946,11 @@ class PIDPipeline:
             edge_connections=edge_connectivity_result["connections"],
             rejected_junction_connections=edge_connectivity_result.get("rejected_junction_connections", []),
         )
+        candidate_link_overlay = render_candidate_link_overlay(
+            image_bgr=self._ensure_image_loaded(),
+            edges=edges_payload.get("edges", []),
+            candidate_links=edge_connectivity_result.get("candidate_link_graph", {}).get("links", []),
+        )
 
         graph_result = run_pipe_graph_stage(
             image_id=Path(self.image_path).name,
@@ -853,16 +958,19 @@ class PIDPipeline:
             edges=edges_payload.get("edges", []),
             confirmed_junctions=junctions_payload.get("confirmed_junctions", []),
             unresolved_junctions=junctions_payload.get("unresolved_junctions", []),
+            split_nodes=split_nodes_payload.get("nodes", []),
             crossing_candidates=crossing_payload.get("candidates", []),
             equipment_attachments=attachment_result["attachments_payload"].get("accepted", []),
             connection_attachments=connection_attachment_result["attachments_payload"].get("accepted", []),
             text_attachments=text_attachment_result["attachments_payload"].get("accepted", []),
             instrument_tag_attachments=instrument_tag_attachment_result["attachments_payload"].get("accepted", []),
+            equipment_tag_attachments=equipment_tag_attachment_result["attachments_payload"].get("accepted", []),
             edge_terminals=edge_terminal_result["edge_terminals"],
             edge_connections=edge_connectivity_result["connections"],
         )
         graph_result["summary"]["polyline_simplification"] = polyline_simplification_summary
         graph_result["summary"]["edge_direction"] = edge_direction_summary
+        graph_result["summary"]["edge_split"] = edge_split_summary
         graph_result["summary"]["source_artifacts"] = [
             artifact
             for artifact in graph_result["summary"].get("source_artifacts", [])
@@ -872,6 +980,9 @@ class PIDPipeline:
             "stage10b_polyline_simplification_summary.json",
             "stage10c_edge_direction.json",
             "stage10c_edge_direction_summary.json",
+            "stage10d_split_edges.json",
+            "stage10d_split_nodes.json",
+            "stage10d_split_summary.json",
         ]
         self._save_json("stage12_equipment_attachments", attachment_result["attachments_payload"])
         self._save_json("stage12_equipment_attachment_summary", attachment_result["summary"])
@@ -884,6 +995,21 @@ class PIDPipeline:
         self._save_json("stage12_arrow_assignments", self._load_json_artifact("stage10c_arrow_assignments"))
         self._save_json("stage12_edge_connections", {"edge_connections": edge_connectivity_result["connections"]})
         self._save_json("stage12_edge_connection_summary", edge_connectivity_result["summary"])
+        self._save_json("stage12_candidate_links", edge_connectivity_result.get("candidate_link_graph", {}))
+        self._save_json(
+            "stage12_candidate_link_summary",
+            edge_connectivity_result.get("candidate_link_graph", {}).get("summary", {}),
+        )
+        self._save_json(
+            "stage12_selected_candidate_links",
+            edge_connectivity_result.get("selected_candidate_links", {}),
+        )
+        self._save_json("stage12_candidate_link_diff", edge_connectivity_result.get("candidate_link_diff", {}))
+        self._save_json(
+            "stage12_candidate_link_selection_summary",
+            edge_connectivity_result.get("candidate_link_selection_summary", {}),
+        )
+        self._save_img("stage12_candidate_link_overlay", candidate_link_overlay)
         self._save_json(
             "stage12_rejected_junction_connections",
             {"rejected_junction_connections": edge_connectivity_result.get("rejected_junction_connections", [])},
@@ -914,8 +1040,57 @@ class PIDPipeline:
         self._save_json("stage12_overlay_edges_filtered_summary", overlay_edge_filter_result["summary"])
         self._save_json("stage12_instrument_tag_attachments", instrument_tag_attachment_result["attachments_payload"])
         self._save_json("stage12_instrument_tag_attachment_summary", instrument_tag_attachment_result["summary"])
+        self._save_json("stage12_equipment_tag_attachments", equipment_tag_attachment_result["attachments_payload"])
+        self._save_json("stage12_equipment_tag_attachment_summary", equipment_tag_attachment_result["summary"])
+        self._save_img("stage12_equipment_tag_attachment_overlay", equipment_tag_attachment_result["overlay_image"])
         self._save_json("stage12_graph", graph_result["graph_payload"])
         self._save_json("stage12_graph_summary", graph_result["summary"])
+
+    def stage12c_page_connector_labeling(self) -> None:
+        from garnet.page_connector import find_nearby_text
+
+        connection_payload = self._load_json_artifact_or_default("stage12_connection_attachments", {"accepted": []})
+        equipment_payload = self._load_json_artifact_or_default("stage12_equipment_attachments", {"accepted": []})
+        accepted = [
+            a
+            for a in connection_payload.get("accepted", []) + equipment_payload.get("accepted", [])
+            if a.get("class_name") == "page connection"
+        ]
+        ocr_payload = self._load_json_artifact("stage2_ocr_regions")
+        text_regions = ocr_payload.get("text_regions", [])
+        all_labels = []
+        for att in accepted:
+            bbox = att.get("bbox", {})
+            labels = find_nearby_text(bbox, text_regions, max_distance_px=80.0)
+            all_labels.append({"object_id": att.get("object_id") or att.get("det_id"), "labels": labels})
+        self._save_json("stage12_page_connector_labels", {"connectors": all_labels})
+        self._save_json(
+            "stage12_page_connector_labels_summary",
+            {
+                "total_connectors": len(accepted),
+                "total_labels": sum(len(l["labels"]) for l in all_labels),
+            },
+        )
+
+    def stage12b_graph_export(self) -> None:
+        graph_payload = self._load_json_artifact("stage12_graph")
+        object_payload = self._load_json_artifact("stage4_objects")
+        line_number_payload = self._load_json_artifact("stage4_line_numbers")
+        instrument_tag_payload = self._load_json_artifact("stage4_instrument_tags")
+        page_connector_labels_payload = self._load_json_artifact_or_default(
+            "stage12_page_connector_labels",
+            {"connectors": []},
+        )
+        normalization_summary = self._load_json_artifact("stage1_normalization_summary")
+        graph_v1_payload = build_graph_v1_payload(
+            stage12_graph=graph_payload,
+            objects_payload=object_payload,
+            line_numbers_payload=line_number_payload,
+            instrument_tags_payload=instrument_tag_payload,
+            page_connector_labels_payload=page_connector_labels_payload,
+            image_dimensions=normalization_summary.get("dimensions", {}),
+        )
+        self._save_json("stage12b_graph_v1", graph_v1_payload)
 
     # ---------- Stage 13 ----------
     def stage13_graph_qa(self) -> None:

@@ -34,11 +34,13 @@ def run_pipe_graph_stage(
     edges: list[dict[str, Any]],
     confirmed_junctions: list[dict[str, Any]],
     unresolved_junctions: list[dict[str, Any]],
+    split_nodes: list[dict[str, Any]] | None = None,
     crossing_candidates: list[dict[str, Any]] | None = None,
     equipment_attachments: list[dict[str, Any]] | None = None,
     connection_attachments: list[dict[str, Any]] | None = None,
     text_attachments: list[dict[str, Any]] | None = None,
     instrument_tag_attachments: list[dict[str, Any]] | None = None,
+    equipment_tag_attachments: list[dict[str, Any]] | None = None,
     edge_terminals: list[dict[str, Any]] | None = None,
     edge_connections: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
@@ -64,10 +66,13 @@ def run_pipe_graph_stage(
     graph = nx.Graph()
     for node in nodes:
         graph.add_node(node["id"], **node)
+    for split_node in split_nodes or []:
+        graph.add_node(split_node["id"], **split_node)
     edge_graph = nx.Graph()
 
     accepted_text_attachments = text_attachments or []
     accepted_instrument_tag_attachments = instrument_tag_attachments or []
+    accepted_equipment_tag_attachments = equipment_tag_attachments or []
     edge_terminal_map = {
         str(item.get("edge_id", "")): item
         for item in (edge_terminals or [])
@@ -97,6 +102,19 @@ def run_pipe_graph_stage(
                 "normalized_text": attachment.get("normalized_text", ""),
             }
         )
+    node_equipment_tags: dict[str, list[dict[str, Any]]] = {}
+    for attachment in accepted_equipment_tag_attachments:
+        node_id = attachment.get("node_id")
+        if node_id is None:
+            continue
+        node_equipment_tags.setdefault(str(node_id), []).append(
+            {
+                "region_id": attachment["region_id"],
+                "text": attachment["text"],
+                "normalized_text": attachment.get("normalized_text", ""),
+                "semantic_class": attachment.get("semantic_class", "equipment_tag"),
+            }
+        )
 
     graph_edges: list[dict[str, Any]] = []
     for edge in edges:
@@ -114,6 +132,10 @@ def run_pipe_graph_stage(
             flow_direction=edge.get("flow_direction"),
             flow_direction_confidence=edge.get("flow_direction_confidence", 0.0),
             assigned_arrow_id=edge.get("assigned_arrow_id"),
+            is_split_edge=edge.get("is_split_edge", False),
+            split_parent_edge_id=edge.get("split_parent_edge_id"),
+            split_position=edge.get("split_position"),
+            inline_node_id=edge.get("inline_node_id"),
         )
         edge_graph.add_node(
             str(edge["id"]),
@@ -132,6 +154,10 @@ def run_pipe_graph_stage(
                 "flow_direction": edge.get("flow_direction"),
                 "flow_direction_confidence": edge.get("flow_direction_confidence", 0.0),
                 "assigned_arrow_id": edge.get("assigned_arrow_id"),
+                "is_split_edge": edge.get("is_split_edge", False),
+                "split_parent_edge_id": edge.get("split_parent_edge_id"),
+                "split_position": edge.get("split_position"),
+                "inline_node_id": edge.get("inline_node_id"),
                 "review_state": "provisional",
                 "line_texts": edge_texts.get(str(edge["id"]), []),
                 "instrument_tags": edge_instrument_tags.get(str(edge["id"]), []),
@@ -199,16 +225,23 @@ def run_pipe_graph_stage(
     for attachment in accepted_connection_attachments:
         _add_attachment_nodes(attachment, prefix="connection", node_type=attachment["class_name"])
 
-    serialized_nodes = [
-        {
+    serialized_nodes = []
+    for node_id, attrs in graph.nodes(data=True):
+        item = {
             "id": node_id,
             "type": attrs.get("type", "unknown"),
+            "kind": attrs.get("kind", attrs.get("type", "unknown")),
             "position": attrs.get("position"),
             "member_count": attrs.get("member_count", 0),
             "review_state": attrs.get("review_state", "provisional"),
         }
-        for node_id, attrs in graph.nodes(data=True)
-    ]
+        for key in ("bbox", "inline_element_id", "source_edge_id"):
+            if key in attrs:
+                item[key] = attrs[key]
+        equipment_tags = node_equipment_tags.get(str(node_id), [])
+        if equipment_tags:
+            item["equipment_tags"] = equipment_tags
+        serialized_nodes.append(item)
 
     return {
         "graph_payload": {
@@ -222,6 +255,7 @@ def run_pipe_graph_stage(
             "connection_attachments": accepted_connection_attachments,
             "text_attachments": accepted_text_attachments,
             "instrument_tag_attachments": accepted_instrument_tag_attachments,
+            "equipment_tag_attachments": accepted_equipment_tag_attachments,
             "edge_terminals": edge_terminals or [],
             "edge_connections": edge_connections or [],
             "edge_components": [sorted(component) for component in nx.connected_components(edge_graph)] if edge_graph.number_of_nodes() else [],
@@ -241,11 +275,14 @@ def run_pipe_graph_stage(
             "accepted_connection_attachment_count": len(accepted_connection_attachments),
             "accepted_text_attachment_count": len(accepted_text_attachments),
             "accepted_instrument_tag_attachment_count": len(accepted_instrument_tag_attachments),
+            "accepted_equipment_tag_attachment_count": len(accepted_equipment_tag_attachments),
             "edge_terminal_count": len(edge_terminal_map),
             "edge_connection_count": len(edge_connections or []),
+            "inline_node_count": len(split_nodes or []),
             "source_artifacts": [
                 "stage9_node_clusters.json",
-                "stage10_pipe_edges.json",
+                "stage10c_edge_direction.json",
+                "stage10d_split_edges.json",
                 "stage10_crossing_resolution.json",
                 "stage11_junctions.json",
             ],

@@ -179,6 +179,117 @@ def _nearest_edge(bbox: dict[str, int], edges: list[dict[str, Any]]) -> tuple[st
     return best_edge_id, best_dist
 
 
+def _node_position(node: dict[str, Any]) -> tuple[float, float] | None:
+    position = node.get("position") or {}
+    if not isinstance(position, dict):
+        return None
+    if "x" not in position or "y" not in position:
+        return None
+    return float(position["x"]), float(position["y"])
+
+
+def _nearest_node(bbox: dict[str, int], nodes: list[dict[str, Any]]) -> tuple[str | None, float]:
+    best_node_id = None
+    best_dist = float("inf")
+    region_center = _center_from_bbox(bbox)
+    sample_points = _sample_bbox_points(bbox)
+    for node in nodes:
+        position = _node_position(node)
+        if position is None:
+            continue
+        distances = [math.hypot(point[0] - position[0], point[1] - position[1]) for point in sample_points]
+        distances.append(math.hypot(region_center[0] - position[0], region_center[1] - position[1]))
+        dist = min(distances)
+        if dist < best_dist:
+            best_dist = dist
+            best_node_id = str(node["id"])
+    return best_node_id, best_dist
+
+
+def run_node_text_attachment_stage(
+    *,
+    image_id: str,
+    image_bgr: np.ndarray,
+    text_regions: list[dict[str, Any]],
+    nodes: list[dict[str, Any]],
+    max_distance_px: float = 80.0,
+    text_class: str = "equipment_tag",
+) -> dict[str, Any]:
+    candidate_regions = [
+        item
+        for item in text_regions
+        if item.get("class") == text_class or item.get("semantic_class") == text_class
+    ]
+    candidate_regions = [item for item in candidate_regions if str(item.get("text", "")).strip() and item.get("bbox")]
+    accepted: list[dict[str, Any]] = []
+    rejected: list[dict[str, Any]] = []
+
+    for region in candidate_regions:
+        node_id, distance_px = _nearest_node(region["bbox"], nodes)
+        payload = {
+            "region_id": region.get("id", region.get("source_region_id")),
+            "text": region["text"],
+            "normalized_text": region.get("normalized_text", ""),
+            "semantic_class": region.get("semantic_class", text_class),
+            "bbox": region["bbox"],
+            "node_id": node_id,
+            "distance_px": None if math.isinf(distance_px) else round(float(distance_px), 3),
+            "threshold_px": round(float(max_distance_px), 3),
+        }
+        if node_id is not None and distance_px <= max_distance_px:
+            accepted.append(payload)
+        else:
+            rejected.append(payload)
+
+    overlay = image_bgr.copy()
+    for node in nodes:
+        position = _node_position(node)
+        if position is None:
+            continue
+        cv2.circle(overlay, (int(round(position[0])), int(round(position[1]))), 4, (0, 200, 0), 1)
+    for item in accepted:
+        bbox = item["bbox"]
+        cv2.rectangle(
+            overlay,
+            (int(bbox["x_min"]), int(bbox["y_min"])),
+            (int(bbox["x_max"]), int(bbox["y_max"])),
+            (0, 200, 0),
+            2,
+        )
+        label = str(item.get("text", ""))[:32]
+        cv2.putText(
+            overlay,
+            label,
+            (int(bbox["x_min"]) + 4, max(12, int(bbox["y_min"]) - 4)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.35,
+            (0, 200, 0),
+            1,
+            cv2.LINE_AA,
+        )
+
+    return {
+        "attachments_payload": {
+            "image_id": image_id,
+            "pass_type": "sheet",
+            "accepted": accepted,
+            "rejected": rejected,
+            "text_class": text_class,
+        },
+        "overlay_image": overlay,
+        "summary": {
+            "image_id": image_id,
+            "pass_type": "sheet",
+            "candidate_count": len(candidate_regions),
+            "node_candidate_count": len(nodes),
+            "accepted_attachment_count": len(accepted),
+            "rejected_attachment_count": len(rejected),
+            "max_distance_px": max_distance_px,
+            "text_class": text_class,
+        },
+    }
+
+
 def run_pipe_text_attachment_stage(
     *,
     image_id: str,

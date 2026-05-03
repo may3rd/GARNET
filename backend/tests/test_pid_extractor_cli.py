@@ -1,8 +1,11 @@
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import numpy as np
 
@@ -60,11 +63,20 @@ class FakePipeline(pid_extractor.PIDPipeline):
     def stage10c_edge_direction(self) -> None:
         self._record("stage10c")
 
+    def stage10d_edge_split(self) -> None:
+        self._record("stage10d")
+
     def stage11_junction_review(self) -> None:
         self._record("stage11")
 
     def stage12_graph_assembly(self) -> None:
         self._record("stage12")
+
+    def stage12c_page_connector_labeling(self) -> None:
+        self._record("stage12c")
+
+    def stage12b_graph_export(self) -> None:
+        self._record("stage12b")
 
     def stage13_graph_qa(self) -> None:
         self._record("stage13")
@@ -83,6 +95,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                 "stage4_object_detection",
                 "stage4_line_number_fusion",
                 "stage4_instrument_tag_fusion",
+                "stage4_equipment_tag_fusion",
                 "stage5_pipe_mask",
                 "stage6_morphological_sealing",
                 "stage7_skeleton_generation",
@@ -91,8 +104,11 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                 "stage10_edge_tracing",
                 "stage10b_polyline_simplification",
                 "stage10c_edge_direction",
+                "stage10d_edge_split",
                 "stage11_junction_review",
                 "stage12_graph_assembly",
+                "stage12c_page_connector_labeling",
+                "stage12b_graph_export",
                 "stage13_graph_qa",
             ],
         )
@@ -103,7 +119,30 @@ class PIDPipelineRunnerTests(unittest.TestCase):
 
             pipe.run(stop_after=13)
 
-            self.assertEqual(pipe.called, ["stage1", "stage2", "stage4", "stage4", "stage4", "stage5", "stage6", "stage7", "stage8", "stage9", "stage10", "stage10b", "stage10c", "stage11", "stage12", "stage13"])
+            self.assertEqual(
+                pipe.called,
+                [
+                    "stage1",
+                    "stage2",
+                    "stage4",
+                    "stage4",
+                    "stage4",
+                    "stage5",
+                    "stage6",
+                    "stage7",
+                    "stage8",
+                    "stage9",
+                    "stage10",
+                    "stage10b",
+                    "stage10c",
+                    "stage10d",
+                    "stage11",
+                    "stage12",
+                    "stage12c",
+                    "stage12b",
+                    "stage13",
+                ],
+            )
             manifest = json.loads((Path(tmp) / "stage_manifest.json").read_text())
             self.assertEqual(manifest["stop_after"], 13)
             self.assertEqual(
@@ -114,6 +153,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                     "stage4_object_detection",
                     "stage4_line_number_fusion",
                     "stage4_instrument_tag_fusion",
+                    "stage4_equipment_tag_fusion",
                     "stage5_pipe_mask",
                     "stage6_morphological_sealing",
                     "stage7_skeleton_generation",
@@ -122,8 +162,11 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                     "stage10_edge_tracing",
                     "stage10b_polyline_simplification",
                     "stage10c_edge_direction",
+                    "stage10d_edge_split",
                     "stage11_junction_review",
                     "stage12_graph_assembly",
+                    "stage12c_page_connector_labeling",
+                    "stage12b_graph_export",
                     "stage13_graph_qa",
                 ],
             )
@@ -177,6 +220,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
         self.assertEqual(cfg.gemini_postprocess_match_threshold, 0.1)
         self.assertEqual(cfg.polyline_simplify_epsilon, 2.0)
         self.assertEqual(cfg.arrow_proximity_px, 40.0)
+        self.assertEqual(cfg.inline_split_confidence_threshold, 0.5)
 
     def test_load_pipeline_env_reads_root_then_backend_env(self) -> None:
         with patch("garnet.pid_extractor.load_dotenv") as mock_load_dotenv:
@@ -344,6 +388,38 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "stage4_instrument_tags.json").exists())
             self.assertTrue((Path(tmp) / "stage4_instrument_tag_summary.json").exists())
             self.assertTrue((Path(tmp) / "stage4_instrument_tag_overlay.png").exists())
+
+    def test_stage4_equipment_tag_fusion_writes_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
+            pipe.image_bgr = np.zeros((20, 20, 3), dtype=np.uint8)
+            pipe._save_json(
+                "stage2_ocr_regions",
+                {
+                    "text_regions": [
+                        {
+                            "id": "ocr_1",
+                            "text": "V-101",
+                            "bbox": {"x_min": 10, "y_min": 10, "x_max": 50, "y_max": 30},
+                            "confidence": 0.9,
+                        }
+                    ]
+                },
+            )
+
+            with patch("garnet.pid_extractor.run_equipment_tag_fusion_stage") as mock_tag_fusion:
+                mock_tag_fusion.return_value = {
+                    "equipment_tags_payload": {"equipment_tags": [], "rejected": []},
+                    "overlay_image": np.zeros((20, 20, 3), dtype=np.uint8),
+                    "summary": {"matched_equipment_tag_count": 0},
+                }
+
+                pipe.stage4_equipment_tag_fusion()
+
+            mock_tag_fusion.assert_called_once()
+            self.assertTrue((Path(tmp) / "stage4_equipment_tags.json").exists())
+            self.assertTrue((Path(tmp) / "stage4_equipment_tag_summary.json").exists())
+            self.assertTrue((Path(tmp) / "stage4_equipment_tag_overlay.png").exists())
 
     def test_stage5_writes_pipe_mask_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -606,6 +682,63 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             self.assertEqual(assignments["arrow_assignments"][0]["edge_id"], "edge_0")
             self.assertEqual(summary["edges_with_forward_direction"], 1)
 
+    def test_stage10d_writes_split_edge_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
+            pipe._save_json(
+                "stage10c_edge_direction",
+                {
+                    "edges": [
+                        {
+                            "id": "edge_0",
+                            "source": "endpoint_0",
+                            "target": "endpoint_1",
+                            "polyline": [{"row": 5, "col": col} for col in range(0, 100, 10)],
+                            "pixel_length": 10,
+                            "flow_direction": "forward",
+                        }
+                    ]
+                },
+            )
+            pipe._save_json(
+                "stage12_edge_connections",
+                {
+                    "edge_connections": [
+                        {
+                            "kind": "inline_element",
+                            "connector_id": "valve_0",
+                            "connector_class": "valve",
+                            "source_edge_id": "edge_0",
+                            "target_edge_id": "edge_0",
+                            "distance_px": 4.0,
+                        }
+                    ]
+                },
+            )
+            pipe._save_json(
+                "stage4_objects",
+                {
+                    "objects": [
+                        {
+                            "id": "valve_0",
+                            "class_name": "valve",
+                            "bbox": {"x_min": 45, "y_min": 0, "x_max": 55, "y_max": 10},
+                        }
+                    ]
+                },
+            )
+
+            pipe.stage10d_edge_split()
+
+            split_edges = json.loads((Path(tmp) / "stage10d_split_edges.json").read_text())
+            split_nodes = json.loads((Path(tmp) / "stage10d_split_nodes.json").read_text())
+            split_report = json.loads((Path(tmp) / "stage10d_split_report.json").read_text())
+            split_summary = json.loads((Path(tmp) / "stage10d_split_summary.json").read_text())
+            self.assertEqual(len(split_edges["edges"]), 2)
+            self.assertEqual(split_nodes["nodes"][0]["id"], "inline::valve_0")
+            self.assertEqual(split_report[0]["status"], "split")
+            self.assertEqual(split_summary["edges_split"], 1)
+
     def test_stage11_writes_junction_review_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
@@ -643,9 +776,11 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             pipe._save_json("stage2_ocr_regions", {"text_regions": []})
             pipe._save_json("stage4_line_numbers", {"line_numbers": []})
             pipe._save_json("stage4_instrument_tags", {"instrument_tags": []})
+            pipe._save_json("stage4_equipment_tags", {"equipment_tags": []})
             pipe._save_json("stage9_node_clusters", {"clusters": []})
             pipe._save_json("stage10_crossing_resolution", {"candidates": []})
-            pipe._save_json("stage10c_edge_direction", {"edges": []})
+            pipe._save_json("stage10d_split_edges", {"edges": []})
+            pipe._save_json("stage10d_split_nodes", {"nodes": []})
             pipe._save_json(
                 "stage10b_polyline_simplification_summary",
                 {"total_original_point_count": 0, "total_simplified_point_count": 0, "compression_ratio": 1.0},
@@ -653,6 +788,10 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             pipe._save_json(
                 "stage10c_edge_direction_summary",
                 {"total_edges": 0, "edges_without_direction": 0, "arrows_assigned_to_edge": 0},
+            )
+            pipe._save_json(
+                "stage10d_split_summary",
+                {"total_inline_connections": 0, "edges_split": 0, "nodes_created": 0},
             )
             pipe._save_json("stage10c_arrow_assignments", {"arrow_assignments": []})
             pipe._save_json("stage11_junctions", {"confirmed_junctions": [], "unresolved_junctions": []})
@@ -704,6 +843,12 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "stage12_arrow_assignments.json").exists())
             self.assertTrue((Path(tmp) / "stage12_edge_connections.json").exists())
             self.assertTrue((Path(tmp) / "stage12_edge_connection_summary.json").exists())
+            self.assertTrue((Path(tmp) / "stage12_candidate_links.json").exists())
+            self.assertTrue((Path(tmp) / "stage12_candidate_link_summary.json").exists())
+            self.assertTrue((Path(tmp) / "stage12_selected_candidate_links.json").exists())
+            self.assertTrue((Path(tmp) / "stage12_candidate_link_diff.json").exists())
+            self.assertTrue((Path(tmp) / "stage12_candidate_link_selection_summary.json").exists())
+            self.assertTrue((Path(tmp) / "stage12_candidate_link_overlay.png").exists())
             self.assertTrue((Path(tmp) / "stage12_rejected_junction_connections.json").exists())
             self.assertTrue((Path(tmp) / "stage12_rejected_junction_connection_summary.json").exists())
             self.assertTrue((Path(tmp) / "stage12_text_attachments.json").exists())
@@ -713,11 +858,52 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "stage12_overlay_edges_filtered_summary.json").exists())
             self.assertTrue((Path(tmp) / "stage12_instrument_tag_attachments.json").exists())
             self.assertTrue((Path(tmp) / "stage12_instrument_tag_attachment_summary.json").exists())
+            self.assertTrue((Path(tmp) / "stage12_equipment_tag_attachments.json").exists())
+            self.assertTrue((Path(tmp) / "stage12_equipment_tag_attachment_summary.json").exists())
+            self.assertTrue((Path(tmp) / "stage12_equipment_tag_attachment_overlay.png").exists())
             self.assertTrue((Path(tmp) / "stage12_graph.json").exists())
             self.assertTrue((Path(tmp) / "stage12_graph_summary.json").exists())
             graph_summary = json.loads((Path(tmp) / "stage12_graph_summary.json").read_text())
             self.assertIn("polyline_simplification", graph_summary)
             self.assertIn("edge_direction", graph_summary)
+            self.assertIn("edge_split", graph_summary)
+
+    def test_stage12c_page_connector_labeling_writes_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline("image.png", out_dir=tmp)
+            pipe._save_json(
+                "stage12_connection_attachments",
+                {
+                    "accepted": [
+                        {
+                            "det_id": "obj_1",
+                            "class_name": "page connection",
+                            "bbox": [100, 100, 120, 120],
+                        }
+                    ]
+                },
+            )
+            pipe._save_json("stage12_equipment_attachments", {"accepted": []})
+            pipe._save_json(
+                "stage2_ocr_regions",
+                {
+                    "text_regions": [
+                        {
+                            "id": "ocr_1",
+                            "text": "SHEET P-101",
+                            "bbox": {"x_min": 115, "y_min": 100, "x_max": 135, "y_max": 120},
+                        }
+                    ]
+                },
+            )
+
+            pipe.stage12c_page_connector_labeling()
+
+            labels = json.loads((Path(tmp) / "stage12_page_connector_labels.json").read_text())
+            summary = json.loads((Path(tmp) / "stage12_page_connector_labels_summary.json").read_text())
+            self.assertEqual(labels["connectors"][0]["object_id"], "obj_1")
+            self.assertEqual(labels["connectors"][0]["labels"][0]["page_reference"]["reference_value"], "P-101")
+            self.assertEqual(summary["total_connectors"], 1)
 
     def test_stage13_writes_graph_qa_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
