@@ -197,3 +197,6 @@ backend/output/ppcl_validate_best_20260330/
 backend/output/*
 !backend/output/pipeline_jobs/
 !backend/output/ppcl_validate_best_20260330/
+
+# Completely ignore all pipeline output — managed locally, never push
+backend/output/
