@@ -15,7 +15,8 @@
         }
     },
     "document": {
-        "doc_id": "string",
+        "doc_id": "string (required for multi-sheet merge — used as sheet identity in cross-sheet edge pairing. Must be globally unique. Example: 'SHEET-001')",
+        "sheet_index": "integer (optional — numeric order of this sheet in the drawing set. Used for directional inference when direction is unspecified.)",
         "source": {
             "file_name": "string",
             "file_type": "pdf|png|jpg|tif|other",
@@ -120,6 +121,30 @@
                         "y": "number"
                     }
                 ]
+            },
+            "off_page_connector": {
+                "type": "object",
+                "nullable": true,
+                "description": "Present only on edges that terminate at a sheet boundary and reference another sheet. Global merge key for multi-sheet P&ID assembly. See multi_sheet_merge_contract.md.",
+                "properties": {
+                    "reference_type": {
+                        "enum": ["sheet", "pid", "drawing", "figure"],
+                        "description": "Category of the referenced document"
+                    },
+                    "reference_value": {
+                        "type": "string",
+                        "description": "Global merge key. Stable across sheets. Example: 'A-3'. All off-page connectors with the same (reference_type, reference_value) pair are candidates for cross-sheet merging."
+                    },
+                    "direction": {
+                        "enum": ["output", "input", "bidirectional"],
+                        "description": "output=signal/pipe leaves this sheet boundary; input=enters this sheet; bidirectional=no directional arrow visible"
+                    },
+                    "exit_terminal": {
+                        "enum": ["source", "destination"],
+                        "description": "Which edge terminal is the off-page junction point"
+                    }
+                },
+                "required": ["reference_type", "reference_value", "direction", "exit_terminal"]
             }
         }
     ],
