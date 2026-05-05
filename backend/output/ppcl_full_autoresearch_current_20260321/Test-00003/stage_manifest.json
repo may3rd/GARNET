@@ -1,0 +1,221 @@
+{
+  "image_path": "test/ppcl/Test-00003.jpg",
+  "out_dir": "/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/ppcl_full_autoresearch_current_20260321/Test-00003",
+  "stop_after": 13,
+  "ocr_route": "ocrmac",
+  "detection_weight_path": "yolo_weights/yolo26n_PPCL_640_20260227.pt",
+  "stage_numbering_note": "Stage numbering is intentionally sparse: Stage 3 is not implemented yet.",
+  "stages": [
+    {
+      "num": 1,
+      "name": "stage1_input_normalization",
+      "status": "completed",
+      "started_at": 1774060193.498393,
+      "artifacts": [
+        "stage1_binary_adaptive.png",
+        "stage1_binary_otsu.png",
+        "stage1_gray.png",
+        "stage1_gray_equalized.png",
+        "stage1_normalization_summary.json"
+      ],
+      "ended_at": 1774060193.722902,
+      "duration_sec": 0.224509
+    },
+    {
+      "num": 2,
+      "name": "stage2_ocr_discovery",
+      "status": "completed",
+      "started_at": 1774060193.723315,
+      "artifacts": [
+        "stage2_ocr_exception_candidates.json",
+        "stage2_ocr_overlay.png",
+        "stage2_ocr_regions.json",
+        "stage2_ocr_summary.json"
+      ],
+      "ended_at": 1774060202.7554939,
+      "duration_sec": 9.032179
+    },
+    {
+      "num": 4,
+      "name": "stage4_object_detection",
+      "status": "completed",
+      "started_at": 1774060202.755841,
+      "artifacts": [
+        "stage4_objects.json",
+        "stage4_objects_overlay.png",
+        "stage4_objects_summary.json",
+        "stage4_topology_marker_summary.json",
+        "stage4_topology_markers.json"
+      ],
+      "ended_at": 1774060206.707337,
+      "duration_sec": 3.951496
+    },
+    {
+      "num": 4,
+      "name": "stage4_line_number_fusion",
+      "status": "completed",
+      "started_at": 1774060206.707597,
+      "artifacts": [
+        "stage4_line_number_overlay.png",
+        "stage4_line_number_summary.json",
+        "stage4_line_numbers.json"
+      ],
+      "ended_at": 1774060207.906545,
+      "duration_sec": 1.198948
+    },
+    {
+      "num": 4,
+      "name": "stage4_instrument_tag_fusion",
+      "status": "completed",
+      "started_at": 1774060207.906997,
+      "artifacts": [
+        "stage4_instrument_tag_overlay.png",
+        "stage4_instrument_tag_summary.json",
+        "stage4_instrument_tags.json"
+      ],
+      "ended_at": 1774060208.2055948,
+      "duration_sec": 0.298598
+    },
+    {
+      "num": 5,
+      "name": "stage5_pipe_mask",
+      "status": "completed",
+      "started_at": 1774060208.2060978,
+      "artifacts": [
+        "stage5_pipe_mask.png",
+        "stage5_pipe_mask_overlay.png",
+        "stage5_pipe_mask_summary.json"
+      ],
+      "ended_at": 1774060213.156373,
+      "duration_sec": 4.950275
+    },
+    {
+      "num": 6,
+      "name": "stage6_morphological_sealing",
+      "status": "completed",
+      "started_at": 1774060213.1567209,
+      "artifacts": [
+        "stage6_pipe_mask_sealed.png",
+        "stage6_pipe_mask_sealed_overlay.png",
+        "stage6_pipe_mask_sealed_summary.json"
+      ],
+      "ended_at": 1774060214.3252711,
+      "duration_sec": 1.16855
+    },
+    {
+      "num": 7,
+      "name": "stage7_skeleton_generation",
+      "status": "completed",
+      "started_at": 1774060214.325684,
+      "artifacts": [
+        "stage7_pipe_skeleton.png",
+        "stage7_pipe_skeleton_overlay.png",
+        "stage7_pipe_skeleton_summary.json"
+      ],
+      "ended_at": 1774060214.9651241,
+      "duration_sec": 0.63944
+    },
+    {
+      "num": 8,
+      "name": "stage8_skeleton_node_detection",
+      "status": "completed",
+      "started_at": 1774060214.965569,
+      "artifacts": [
+        "stage8_endpoints.png",
+        "stage8_junctions.png",
+        "stage8_node_summary.json",
+        "stage8_nodes_overlay.png"
+      ],
+      "ended_at": 1774060215.276382,
+      "duration_sec": 0.310813
+    },
+    {
+      "num": 9,
+      "name": "stage9_node_clustering",
+      "status": "completed",
+      "started_at": 1774060215.276818,
+      "artifacts": [
+        "stage9_endpoint_clusters.png",
+        "stage9_junction_clusters.png",
+        "stage9_node_cluster_summary.json",
+        "stage9_node_clusters.json",
+        "stage9_node_clusters_overlay.png"
+      ],
+      "ended_at": 1774060215.602448,
+      "duration_sec": 0.32563
+    },
+    {
+      "num": 10,
+      "name": "stage10_edge_tracing",
+      "status": "completed",
+      "started_at": 1774060215.602866,
+      "artifacts": [
+        "stage10_crossing_resolution.json",
+        "stage10_crossing_resolution_overlay.png",
+        "stage10_crossing_resolution_summary.json",
+        "stage10_pipe_edge_summary.json",
+        "stage10_pipe_edges.json",
+        "stage10_pipe_edges_overlay.png"
+      ],
+      "ended_at": 1774060216.978355,
+      "duration_sec": 1.375489
+    },
+    {
+      "num": 11,
+      "name": "stage11_junction_review",
+      "status": "completed",
+      "started_at": 1774060216.979017,
+      "artifacts": [
+        "stage11_confirmed_junctions.png",
+        "stage11_junction_review_overlay.png",
+        "stage11_junction_review_summary.json",
+        "stage11_junctions.json",
+        "stage11_unresolved_junctions.png"
+      ],
+      "ended_at": 1774060217.1219819,
+      "duration_sec": 0.142965
+    },
+    {
+      "num": 12,
+      "name": "stage12_graph_assembly",
+      "status": "completed",
+      "started_at": 1774060217.122483,
+      "artifacts": [
+        "stage12_connection_attachment_overlay.png",
+        "stage12_connection_attachment_summary.json",
+        "stage12_connection_attachments.json",
+        "stage12_edge_connection_summary.json",
+        "stage12_edge_connections.json",
+        "stage12_edge_terminal_summary.json",
+        "stage12_edge_terminals.json",
+        "stage12_equipment_attachment_summary.json",
+        "stage12_equipment_attachments.json",
+        "stage12_graph.json",
+        "stage12_graph_summary.json",
+        "stage12_instrument_tag_attachment_summary.json",
+        "stage12_instrument_tag_attachments.json",
+        "stage12_overlay_edges_filtered.json",
+        "stage12_overlay_edges_filtered_summary.json",
+        "stage12_text_attachment_overlay.png",
+        "stage12_text_attachment_summary.json",
+        "stage12_text_attachments.json"
+      ],
+      "ended_at": 1774060227.178272,
+      "duration_sec": 10.055789
+    },
+    {
+      "num": 13,
+      "name": "stage13_graph_qa",
+      "status": "completed",
+      "started_at": 1774060227.179111,
+      "artifacts": [
+        "stage13_graph_anomalies.json",
+        "stage13_graph_components_overlay.png",
+        "stage13_graph_qa_summary.json",
+        "stage13_review_queue.json"
+      ],
+      "ended_at": 1774060227.357623,
+      "duration_sec": 0.178512
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+{
+  "image_path": "/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/pipeline_jobs/a59b262ad0534c159021163cd352e6f1/input.png",
+  "out_dir": "/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/pipeline_jobs/a59b262ad0534c159021163cd352e6f1",
+  "stop_after": 6,
+  "ocr_route": "easyocr",
+  "detection_weight_path": "yolo_weights/yolo26n_PPCL_640_20260227.pt",
+  "stage_numbering_note": "Stage numbering is intentionally sparse: Stage 3 is not implemented yet.",
+  "stages": [
+    {
+      "num": 1,
+      "name": "stage1_input_normalization",
+      "status": "completed",
+      "started_at": 1777817906.9925,
+      "artifacts": [
+        "stage1_binary_adaptive.png",
+        "stage1_binary_otsu.png",
+        "stage1_gray.png",
+        "stage1_gray_equalized.png",
+        "stage1_normalization_summary.json"
+      ],
+      "ended_at": 1777817907.199305,
+      "duration_sec": 0.206805
+    },
+    {
+      "num": 2,
+      "name": "stage2_ocr_discovery",
+      "status": "completed",
+      "started_at": 1777817907.1996899,
+      "artifacts": [
+        "stage2_ocr_exception_candidates.json",
+        "stage2_ocr_overlay.png",
+        "stage2_ocr_regions.json",
+        "stage2_ocr_summary.json"
+      ],
+      "ended_at": 1777817907.200725,
+      "duration_sec": 0.001035
+    },
+    {
+      "num": 4,
+      "name": "stage4_object_detection",
+      "status": "completed",
+      "started_at": 1777817907.201065,
+      "artifacts": [
+        "stage4_objects.json",
+        "stage4_objects_overlay.png",
+        "stage4_objects_summary.json",
+        "stage4_topology_marker_summary.json",
+        "stage4_topology_markers.json"
+      ],
+      "ended_at": 1777817907.202251,
+      "duration_sec": 0.001186
+    },
+    {
+      "num": 4,
+      "name": "stage4_line_number_fusion",
+      "status": "completed",
+      "started_at": 1777817907.20261,
+      "artifacts": [
+        "stage4_line_number_overlay.png",
+        "stage4_line_number_summary.json",
+        "stage4_line_numbers.json"
+      ],
+      "ended_at": 1777817907.269969,
+      "duration_sec": 0.067359
+    },
+    {
+      "num": 4,
+      "name": "stage4_instrument_tag_fusion",
+      "status": "completed",
+      "started_at": 1777817907.2704158,
+      "artifacts": [
+        "stage4_instrument_tag_overlay.png",
+        "stage4_instrument_tag_summary.json",
+        "stage4_instrument_tags.json"
+      ],
+      "ended_at": 1777817907.337931,
+      "duration_sec": 0.067515
+    },
+    {
+      "num": 5,
+      "name": "stage5_pipe_mask",
+      "status": "completed",
+      "started_at": 1777817907.3383849,
+      "artifacts": [
+        "stage5_pipe_mask.png",
+        "stage5_pipe_mask_overlay.png",
+        "stage5_pipe_mask_summary.json"
+      ],
+      "ended_at": 1777817907.433145,
+      "duration_sec": 0.09476
+    },
+    {
+      "num": 6,
+      "name": "stage6_morphological_sealing",
+      "status": "completed",
+      "started_at": 1777817907.4336262,
+      "artifacts": [
+        "stage6_pipe_mask_sealed.png",
+        "stage6_pipe_mask_sealed_overlay.png",
+        "stage6_pipe_mask_sealed_summary.json"
+      ],
+      "ended_at": 1777817907.4344552,
+      "duration_sec": 0.000829
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "image_id": "Test-00009.jpg",
+  "pass_type": "sheet",
+  "equipment_candidates": 7,
+  "accepted_attachment_count": 6,
+  "rejected_attachment_count": 1,
+  "attachment_classes": [
+    "connection",
+    "page connection",
+    "utility connection"
+  ],
+  "equipment_detection_stage": "stage4 (provisional until Stage 4.1 exists)"
+}

@@ -1,0 +1,17 @@
+{
+  "shadow_selected_candidate_link_count": 473,
+  "shadow_rejected_candidate_link_count": 1223,
+  "shadow_added_link_count": 56,
+  "shadow_removed_link_count": 380,
+  "shadow_selected_kind_counts": {
+    "inline_element": 43,
+    "gap_continuation": 350,
+    "connection_seeded_continuation": 24,
+    "endpoint_continuation_candidate": 56
+  },
+  "shadow_rejection_reason_counts": {
+    "blocked_by_same_junction_rejection": 349,
+    "endpoint_already_claimed": 467,
+    "duplicate_pair_lower_priority": 407
+  }
+}

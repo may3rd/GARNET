@@ -1,0 +1,49 @@
+{
+  "edge_connection_count": 796,
+  "accepted_junction_straight_through_count": 344,
+  "inline_element_connection_count": 48,
+  "junction_alignment_connection_count": 344,
+  "rejected_junction_alignment_connection_count": 510,
+  "rejected_junction_alignment_reason_counts": {
+    "not_opposite_direction": 496,
+    "not_opposite_sides": 5,
+    "misses_junction_centerline": 9
+  },
+  "invalid_shared_junction_fallback_candidate_count": 1949,
+  "junction_touching_continuation_count": 375,
+  "junction_touching_gap_continuation_count": 339,
+  "junction_touching_seeded_continuation_count": 36,
+  "gap_continuation_connection_count": 368,
+  "connection_seeded_continuation_count": 36,
+  "inline_match_distance_px": 36.0,
+  "candidate_link_count": 11360,
+  "selected_candidate_link_count": 1434,
+  "rejected_candidate_link_count": 9272,
+  "rejection_reason_counts": {
+    "not_opposite_direction": 1462,
+    "not_opposite_sides": 5,
+    "misses_junction_centerline": 9,
+    "shares_junction_node": 7796
+  },
+  "selected_kind_counts": {
+    "inline_element": 48,
+    "junction_alignment": 344,
+    "gap_continuation": 906,
+    "connection_seeded_continuation": 136
+  },
+  "shadow_selected_candidate_link_count": 473,
+  "shadow_rejected_candidate_link_count": 1223,
+  "shadow_added_link_count": 56,
+  "shadow_removed_link_count": 380,
+  "shadow_selected_kind_counts": {
+    "inline_element": 43,
+    "gap_continuation": 350,
+    "connection_seeded_continuation": 24,
+    "endpoint_continuation_candidate": 56
+  },
+  "shadow_rejection_reason_counts": {
+    "blocked_by_same_junction_rejection": 349,
+    "endpoint_already_claimed": 467,
+    "duplicate_pair_lower_priority": 407
+  }
+}

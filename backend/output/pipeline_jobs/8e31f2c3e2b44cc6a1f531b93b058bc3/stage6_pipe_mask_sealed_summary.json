@@ -1,0 +1,17 @@
+{
+  "image_id": "input.png",
+  "pass_type": "sheet",
+  "mask_pixel_count": 932872,
+  "connected_component_count_before": 665,
+  "connected_component_count_after": 169,
+  "removed_small_components": 28,
+  "added_pixels": 182461,
+  "removed_pixels": 616,
+  "changed_pixel_count": 183077,
+  "horizontal_close_kernel": 13,
+  "vertical_close_kernel": 13,
+  "min_component_area": 32,
+  "source_artifacts": [
+    "stage5_pipe_mask.png"
+  ]
+}

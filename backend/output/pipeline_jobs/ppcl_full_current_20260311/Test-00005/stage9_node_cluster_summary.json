@@ -1,0 +1,14 @@
+{
+  "image_id": "Test-00005.jpg",
+  "pass_type": "sheet",
+  "endpoint_cluster_count": 2282,
+  "junction_cluster_count": 1498,
+  "raw_endpoint_count": 2386,
+  "raw_junction_count": 6578,
+  "cluster_eps": 6.0,
+  "cluster_min_samples": 1,
+  "source_artifacts": [
+    "stage8_endpoints.png",
+    "stage8_junctions.png"
+  ]
+}

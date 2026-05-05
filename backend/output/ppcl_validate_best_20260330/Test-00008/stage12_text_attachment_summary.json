@@ -1,0 +1,10 @@
+{
+  "image_id": "Test-00008.jpg",
+  "pass_type": "sheet",
+  "candidate_count": 19,
+  "accepted_attachment_count": 19,
+  "rejected_attachment_count": 0,
+  "accepted_attachment_on_provisional_edge_count": 16,
+  "max_distance_px": 80.0,
+  "text_class": "line_number"
+}

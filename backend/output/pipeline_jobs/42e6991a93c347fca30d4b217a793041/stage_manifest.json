@@ -1,0 +1,17 @@
+{
+  "image_path": "/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/pipeline_jobs/42e6991a93c347fca30d4b217a793041/input.png",
+  "out_dir": "/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/pipeline_jobs/42e6991a93c347fca30d4b217a793041",
+  "stop_after": 4,
+  "ocr_route": "easyocr",
+  "detection_weight_path": "yolo_weights/custom-selected.pt",
+  "stage_numbering_note": "Stage numbering is intentionally sparse: Stage 3 is not implemented yet.",
+  "stages": [
+    {
+      "num": 1,
+      "name": "stage1_input_normalization",
+      "status": "started",
+      "started_at": 1777639764.836312,
+      "artifacts": []
+    }
+  ]
+}

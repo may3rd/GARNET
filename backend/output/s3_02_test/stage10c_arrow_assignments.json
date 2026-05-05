@@ -1,0 +1,188 @@
+{
+  "arrow_assignments": [
+    {
+      "arrow_id": "obj_000095",
+      "edge_id": "endpoint_497__junction_169__48",
+      "distance_px": 7.158910531638177,
+      "arrow_direction": "forward",
+      "edge_orientation": "vertical",
+      "assigned_flow_direction": "reverse"
+    },
+    {
+      "arrow_id": "obj_000095",
+      "edge_id": "endpoint_497__junction_187__44",
+      "distance_px": 6.020797289396148,
+      "arrow_direction": "forward",
+      "edge_orientation": "vertical",
+      "assigned_flow_direction": "forward"
+    },
+    {
+      "arrow_id": "obj_000095",
+      "edge_id": "endpoint_503__junction_187__16",
+      "distance_px": 28.692333470807146,
+      "arrow_direction": "forward",
+      "edge_orientation": "vertical",
+      "assigned_flow_direction": "forward"
+    },
+    {
+      "arrow_id": "obj_000082",
+      "edge_id": "endpoint_755__junction_373__28",
+      "distance_px": 4.527692569068709,
+      "arrow_direction": "forward",
+      "edge_orientation": "vertical",
+      "assigned_flow_direction": "forward"
+    },
+    {
+      "arrow_id": "obj_000082",
+      "edge_id": "endpoint_763__junction_379__15",
+      "distance_px": 19.81161275615895,
+      "arrow_direction": "forward",
+      "edge_orientation": "vertical",
+      "assigned_flow_direction": "forward"
+    },
+    {
+      "arrow_id": "obj_000082",
+      "edge_id": "endpoint_767__junction_373__6",
+      "distance_px": 5.522680508593631,
+      "arrow_direction": "forward",
+      "edge_orientation": "horizontal",
+      "assigned_flow_direction": "reverse"
+    },
+    {
+      "arrow_id": "obj_000082",
+      "edge_id": "endpoint_797__junction_379__73",
+      "distance_px": 19.912307751739878,
+      "arrow_direction": "forward",
+      "edge_orientation": "vertical",
+      "assigned_flow_direction": "reverse"
+    },
+    {
+      "arrow_id": "obj_000099",
+      "edge_id": "endpoint_835__junction_413__15",
+      "distance_px": 28.151376520518493,
+      "arrow_direction": "forward",
+      "edge_orientation": "horizontal",
+      "assigned_flow_direction": "reverse"
+    },
+    {
+      "arrow_id": "obj_000099",
+      "edge_id": "endpoint_849__junction_413__104",
+      "distance_px": 32.96209944769902,
+      "arrow_direction": "forward",
+      "edge_orientation": "horizontal",
+      "assigned_flow_direction": "forward"
+    },
+    {
+      "arrow_id": "obj_000099",
+      "edge_id": "endpoint_850__junction_422__7",
+      "distance_px": 4.527692569068709,
+      "arrow_direction": "forward",
+      "edge_orientation": "vertical",
+      "assigned_flow_direction": "reverse"
+    },
+    {
+      "arrow_id": "obj_000086",
+      "edge_id": "endpoint_880__junction_436__34",
+      "distance_px": 16.3783393541592,
+      "arrow_direction": "forward",
+      "edge_orientation": "vertical",
+      "assigned_flow_direction": "reverse"
+    },
+    {
+      "arrow_id": "obj_000097",
+      "edge_id": "endpoint_1037__junction_546__4",
+      "distance_px": 6.670832032063167,
+      "arrow_direction": "forward",
+      "edge_orientation": "horizontal",
+      "assigned_flow_direction": "forward"
+    },
+    {
+      "arrow_id": "obj_000097",
+      "edge_id": "endpoint_1040__junction_549__16",
+      "distance_px": 26.767517628648346,
+      "arrow_direction": "forward",
+      "edge_orientation": "vertical",
+      "assigned_flow_direction": "forward"
+    },
+    {
+      "arrow_id": "obj_000095",
+      "edge_id": "junction_187__junction_189__33",
+      "distance_px": 34.630189141845584,
+      "arrow_direction": "forward",
+      "edge_orientation": "vertical",
+      "assigned_flow_direction": "forward"
+    },
+    {
+      "arrow_id": "obj_000097",
+      "edge_id": "junction_356__junction_546__1093",
+      "distance_px": 7.516648189186454,
+      "arrow_direction": "forward",
+      "edge_orientation": "vertical",
+      "assigned_flow_direction": "forward"
+    },
+    {
+      "arrow_id": "obj_000082",
+      "edge_id": "junction_373__junction_379__13",
+      "distance_px": 4.527692569068709,
+      "arrow_direction": "forward",
+      "edge_orientation": "horizontal",
+      "assigned_flow_direction": "forward"
+    },
+    {
+      "arrow_id": "obj_000099",
+      "edge_id": "junction_413__junction_422__36",
+      "distance_px": 4.527692569068709,
+      "arrow_direction": "forward",
+      "edge_orientation": "horizontal",
+      "assigned_flow_direction": "forward"
+    },
+    {
+      "arrow_id": "obj_000086",
+      "edge_id": "junction_429__junction_436__62",
+      "distance_px": 16.070158679988197,
+      "arrow_direction": "forward",
+      "edge_orientation": "vertical",
+      "assigned_flow_direction": "forward"
+    },
+    {
+      "arrow_id": "obj_000086",
+      "edge_id": "junction_436__junction_452__88",
+      "distance_px": 15.20690632574555,
+      "arrow_direction": "forward",
+      "edge_orientation": "vertical",
+      "assigned_flow_direction": "forward"
+    },
+    {
+      "arrow_id": "obj_000097",
+      "edge_id": "junction_546__junction_549__36",
+      "distance_px": 6.519202405202649,
+      "arrow_direction": "forward",
+      "edge_orientation": "vertical",
+      "assigned_flow_direction": "forward"
+    },
+    {
+      "arrow_id": "obj_000097",
+      "edge_id": "junction_549__junction_556__33",
+      "distance_px": 30.732718721258617,
+      "arrow_direction": "forward",
+      "edge_orientation": "vertical",
+      "assigned_flow_direction": "forward"
+    },
+    {
+      "arrow_id": "obj_000098",
+      "edge_id": "bridge::endpoint_501__junction_177__581",
+      "distance_px": 7.516648189186454,
+      "arrow_direction": "forward",
+      "edge_orientation": "horizontal",
+      "assigned_flow_direction": "forward"
+    },
+    {
+      "arrow_id": "obj_000098",
+      "edge_id": "bridge::endpoint_498__endpoint_501__170",
+      "distance_px": 2.5495097567963922,
+      "arrow_direction": "forward",
+      "edge_orientation": "horizontal",
+      "assigned_flow_direction": "forward"
+    }
+  ]
+}

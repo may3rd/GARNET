@@ -1,0 +1,30 @@
+{
+  "image_id": "input.png",
+  "pass_type": "sheet",
+  "route": "ultralytics",
+  "object_count": 114,
+  "class_counts": {
+    "arrow": 20,
+    "butterfly valve": 2,
+    "check valve": 2,
+    "control valve": 2,
+    "gate valve": 33,
+    "globe valve": 3,
+    "heat exchanger": 1,
+    "instrument dcs": 4,
+    "instrument tag": 9,
+    "line number": 12,
+    "page connection": 9,
+    "reducer": 10,
+    "sampling point": 1,
+    "spectacle blind": 5,
+    "utility connection": 1
+  },
+  "image_size": 640,
+  "overlap_ratio": 0.2,
+  "postprocess_type": "GREEDYNMM",
+  "postprocess_match_metric": "IOS",
+  "postprocess_match_threshold": 0.1,
+  "source_model": "ultralytics",
+  "source_weight": "yolo_weights/yolo26n_OLE2_1024_20260327.pt"
+}

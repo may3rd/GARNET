@@ -1,0 +1,10 @@
+{
+  "image_id": "Test-00006.jpg",
+  "pass_type": "sheet",
+  "confirmed_junction_count": 325,
+  "unresolved_junction_count": 41,
+  "non_connecting_crossing_count": 54,
+  "source_artifacts": [
+    "stage10_crossing_resolution.json"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "image_id": "Test-00005.jpg",
+  "pass_type": "sheet",
+  "endpoint_count": 2386,
+  "junction_count": 6578,
+  "skeleton_pixel_count": 122399,
+  "source_artifacts": [
+    "stage7_pipe_skeleton.png"
+  ]
+}

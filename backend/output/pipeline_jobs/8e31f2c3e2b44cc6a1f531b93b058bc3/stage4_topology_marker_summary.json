@@ -1,0 +1,14 @@
+{
+  "image_id": "input.png",
+  "pass_type": "sheet",
+  "topology_marker_count": 20,
+  "class_counts": {
+    "arrow": 20
+  },
+  "role_counts": {
+    "flow_marker": 20
+  },
+  "source_artifacts": [
+    "stage4_objects.json"
+  ]
+}

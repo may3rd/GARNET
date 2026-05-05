@@ -1,0 +1,2970 @@
+{
+  "image_id": "input.png",
+  "pass_type": "sheet",
+  "objects": [
+    {
+      "id": "obj_000001",
+      "class_name": "instrument tag",
+      "confidence": 0.9765,
+      "bbox": {
+        "x_min": 1171,
+        "y_min": 457,
+        "x_max": 1271,
+        "y_max": 555
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000002",
+      "class_name": "instrument tag",
+      "confidence": 0.9763,
+      "bbox": {
+        "x_min": 3308,
+        "y_min": 1488,
+        "x_max": 3411,
+        "y_max": 1587
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000003",
+      "class_name": "instrument tag",
+      "confidence": 0.9746,
+      "bbox": {
+        "x_min": 2494,
+        "y_min": 1397,
+        "x_max": 2594,
+        "y_max": 1495
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000004",
+      "class_name": "instrument tag",
+      "confidence": 0.9746,
+      "bbox": {
+        "x_min": 2949,
+        "y_min": 1714,
+        "x_max": 3049,
+        "y_max": 1811
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000005",
+      "class_name": "instrument tag",
+      "confidence": 0.9738,
+      "bbox": {
+        "x_min": 1006,
+        "y_min": 1493,
+        "x_max": 1111,
+        "y_max": 1594
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000006",
+      "class_name": "instrument tag",
+      "confidence": 0.9736,
+      "bbox": {
+        "x_min": 2584,
+        "y_min": 1546,
+        "x_max": 2686,
+        "y_max": 1646
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000007",
+      "class_name": "instrument tag",
+      "confidence": 0.9733,
+      "bbox": {
+        "x_min": 3336,
+        "y_min": 1137,
+        "x_max": 3441,
+        "y_max": 1237
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000008",
+      "class_name": "instrument tag",
+      "confidence": 0.973,
+      "bbox": {
+        "x_min": 3028,
+        "y_min": 1595,
+        "x_max": 3131,
+        "y_max": 1695
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000009",
+      "class_name": "instrument tag",
+      "confidence": 0.9725,
+      "bbox": {
+        "x_min": 2726,
+        "y_min": 1545,
+        "x_max": 2826,
+        "y_max": 1645
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000010",
+      "class_name": "instrument tag",
+      "confidence": 0.9725,
+      "bbox": {
+        "x_min": 2947,
+        "y_min": 1813,
+        "x_max": 3054,
+        "y_max": 1909
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000011",
+      "class_name": "instrument tag",
+      "confidence": 0.9723,
+      "bbox": {
+        "x_min": 395,
+        "y_min": 1503,
+        "x_max": 498,
+        "y_max": 1601
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000012",
+      "class_name": "instrument tag",
+      "confidence": 0.9722,
+      "bbox": {
+        "x_min": 2905,
+        "y_min": 715,
+        "x_max": 3005,
+        "y_max": 812
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000013",
+      "class_name": "instrument tag",
+      "confidence": 0.9722,
+      "bbox": {
+        "x_min": 3309,
+        "y_min": 1388,
+        "x_max": 3408,
+        "y_max": 1486
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000014",
+      "class_name": "instrument tag",
+      "confidence": 0.9719,
+      "bbox": {
+        "x_min": 1006,
+        "y_min": 1344,
+        "x_max": 1109,
+        "y_max": 1444
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000015",
+      "class_name": "instrument tag",
+      "confidence": 0.9709,
+      "bbox": {
+        "x_min": 2659,
+        "y_min": 1960,
+        "x_max": 2762,
+        "y_max": 2061
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000016",
+      "class_name": "instrument tag",
+      "confidence": 0.9707,
+      "bbox": {
+        "x_min": 3104,
+        "y_min": 1963,
+        "x_max": 3205,
+        "y_max": 2060
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000017",
+      "class_name": "instrument tag",
+      "confidence": 0.9707,
+      "bbox": {
+        "x_min": 2338,
+        "y_min": 1693,
+        "x_max": 2439,
+        "y_max": 1790
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000018",
+      "class_name": "instrument tag",
+      "confidence": 0.9705,
+      "bbox": {
+        "x_min": 501,
+        "y_min": 1495,
+        "x_max": 605,
+        "y_max": 1594
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000019",
+      "class_name": "instrument tag",
+      "confidence": 0.9704,
+      "bbox": {
+        "x_min": 1378,
+        "y_min": 263,
+        "x_max": 1478,
+        "y_max": 361
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000020",
+      "class_name": "instrument tag",
+      "confidence": 0.9696,
+      "bbox": {
+        "x_min": 720,
+        "y_min": 1779,
+        "x_max": 823,
+        "y_max": 1875
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000021",
+      "class_name": "instrument tag",
+      "confidence": 0.9693,
+      "bbox": {
+        "x_min": 1819,
+        "y_min": 1554,
+        "x_max": 1923,
+        "y_max": 1652
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000022",
+      "class_name": "instrument tag",
+      "confidence": 0.9682,
+      "bbox": {
+        "x_min": 1319,
+        "y_min": 1771,
+        "x_max": 1420,
+        "y_max": 1868
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000023",
+      "class_name": "instrument tag",
+      "confidence": 0.9678,
+      "bbox": {
+        "x_min": 1169,
+        "y_min": 1771,
+        "x_max": 1269,
+        "y_max": 1869
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000024",
+      "class_name": "line number",
+      "confidence": 0.9646,
+      "bbox": {
+        "x_min": 3024,
+        "y_min": 1938,
+        "x_max": 3379,
+        "y_max": 1967
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000025",
+      "class_name": "line number",
+      "confidence": 0.9633,
+      "bbox": {
+        "x_min": 714,
+        "y_min": 491,
+        "x_max": 1039,
+        "y_max": 522
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000026",
+      "class_name": "line number",
+      "confidence": 0.9623,
+      "bbox": {
+        "x_min": 3263,
+        "y_min": 886,
+        "x_max": 3623,
+        "y_max": 918
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000027",
+      "class_name": "line number",
+      "confidence": 0.9566,
+      "bbox": {
+        "x_min": 1009,
+        "y_min": 220,
+        "x_max": 1360,
+        "y_max": 252
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000028",
+      "class_name": "line number",
+      "confidence": 0.9553,
+      "bbox": {
+        "x_min": 2048,
+        "y_min": 1805,
+        "x_max": 2271,
+        "y_max": 1836
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000029",
+      "class_name": "line number",
+      "confidence": 0.9498,
+      "bbox": {
+        "x_min": 2238,
+        "y_min": 1416,
+        "x_max": 2272,
+        "y_max": 1762
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000030",
+      "class_name": "line number",
+      "confidence": 0.9487,
+      "bbox": {
+        "x_min": 2715,
+        "y_min": 2534,
+        "x_max": 3079,
+        "y_max": 2566
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000031",
+      "class_name": "line number",
+      "confidence": 0.9477,
+      "bbox": {
+        "x_min": 295,
+        "y_min": 939,
+        "x_max": 655,
+        "y_max": 972
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000032",
+      "class_name": "line number",
+      "confidence": 0.9466,
+      "bbox": {
+        "x_min": 3168,
+        "y_min": 1677,
+        "x_max": 3538,
+        "y_max": 1712
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000033",
+      "class_name": "line number",
+      "confidence": 0.9436,
+      "bbox": {
+        "x_min": 845,
+        "y_min": 357,
+        "x_max": 1169,
+        "y_max": 390
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000034",
+      "class_name": "line number",
+      "confidence": 0.942,
+      "bbox": {
+        "x_min": 2540,
+        "y_min": 3077,
+        "x_max": 2887,
+        "y_max": 3113
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000035",
+      "class_name": "line number",
+      "confidence": 0.942,
+      "bbox": {
+        "x_min": 1034,
+        "y_min": 864,
+        "x_max": 1392,
+        "y_max": 899
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000036",
+      "class_name": "line number",
+      "confidence": 0.9402,
+      "bbox": {
+        "x_min": 1621,
+        "y_min": 2359,
+        "x_max": 1657,
+        "y_max": 2739
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000037",
+      "class_name": "line number",
+      "confidence": 0.9394,
+      "bbox": {
+        "x_min": 3216,
+        "y_min": 808,
+        "x_max": 3577,
+        "y_max": 839
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000038",
+      "class_name": "line number",
+      "confidence": 0.9388,
+      "bbox": {
+        "x_min": 2153,
+        "y_min": 1121,
+        "x_max": 2508,
+        "y_max": 1155
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000039",
+      "class_name": "line number",
+      "confidence": 0.9388,
+      "bbox": {
+        "x_min": 391,
+        "y_min": 2562,
+        "x_max": 422,
+        "y_max": 2906
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000040",
+      "class_name": "line number",
+      "confidence": 0.9373,
+      "bbox": {
+        "x_min": 1953,
+        "y_min": 2924,
+        "x_max": 2314,
+        "y_max": 2957
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000041",
+      "class_name": "line number",
+      "confidence": 0.9337,
+      "bbox": {
+        "x_min": 461,
+        "y_min": 2292,
+        "x_max": 491,
+        "y_max": 2639
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000042",
+      "class_name": "line number",
+      "confidence": 0.9134,
+      "bbox": {
+        "x_min": 2764,
+        "y_min": 2348,
+        "x_max": 3127,
+        "y_max": 2375
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000043",
+      "class_name": "line number",
+      "confidence": 0.913,
+      "bbox": {
+        "x_min": 2871,
+        "y_min": 2048,
+        "x_max": 2904,
+        "y_max": 2082
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000044",
+      "class_name": "line number",
+      "confidence": 0.9052,
+      "bbox": {
+        "x_min": 841,
+        "y_min": 823,
+        "x_max": 1198,
+        "y_max": 854
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000045",
+      "class_name": "line number",
+      "confidence": 0.8774,
+      "bbox": {
+        "x_min": 587,
+        "y_min": 2241,
+        "x_max": 640,
+        "y_max": 2272
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000046",
+      "class_name": "line number",
+      "confidence": 0.8648,
+      "bbox": {
+        "x_min": 2873,
+        "y_min": 1107,
+        "x_max": 2904,
+        "y_max": 1151
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000047",
+      "class_name": "node",
+      "confidence": 0.9288,
+      "bbox": {
+        "x_min": 1479,
+        "y_min": 786,
+        "x_max": 1495,
+        "y_max": 802
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000048",
+      "class_name": "node",
+      "confidence": 0.9282,
+      "bbox": {
+        "x_min": 2536,
+        "y_min": 1677,
+        "x_max": 2555,
+        "y_max": 1696
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000049",
+      "class_name": "node",
+      "confidence": 0.92,
+      "bbox": {
+        "x_min": 2947,
+        "y_min": 842,
+        "x_max": 2965,
+        "y_max": 864
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000050",
+      "class_name": "node",
+      "confidence": 0.9181,
+      "bbox": {
+        "x_min": 3142,
+        "y_min": 2089,
+        "x_max": 3164,
+        "y_max": 2111
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000051",
+      "class_name": "node",
+      "confidence": 0.9123,
+      "bbox": {
+        "x_min": 1467,
+        "y_min": 2148,
+        "x_max": 1486,
+        "y_max": 2166
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000052",
+      "class_name": "node",
+      "confidence": 0.9109,
+      "bbox": {
+        "x_min": 2535,
+        "y_min": 1242,
+        "x_max": 2555,
+        "y_max": 1261
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000053",
+      "class_name": "node",
+      "confidence": 0.9101,
+      "bbox": {
+        "x_min": 2900,
+        "y_min": 1694,
+        "x_max": 2917,
+        "y_max": 1713
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000054",
+      "class_name": "node",
+      "confidence": 0.9083,
+      "bbox": {
+        "x_min": 782,
+        "y_min": 1623,
+        "x_max": 803,
+        "y_max": 1645
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000055",
+      "class_name": "node",
+      "confidence": 0.9059,
+      "bbox": {
+        "x_min": 2897,
+        "y_min": 2090,
+        "x_max": 2916,
+        "y_max": 2110
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000056",
+      "class_name": "node",
+      "confidence": 0.905,
+      "bbox": {
+        "x_min": 1048,
+        "y_min": 1623,
+        "x_max": 1066,
+        "y_max": 1643
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000057",
+      "class_name": "node",
+      "confidence": 0.9046,
+      "bbox": {
+        "x_min": 3258,
+        "y_min": 1145,
+        "x_max": 3279,
+        "y_max": 1167
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000058",
+      "class_name": "node",
+      "confidence": 0.9042,
+      "bbox": {
+        "x_min": 1062,
+        "y_min": 386,
+        "x_max": 1079,
+        "y_max": 405
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000059",
+      "class_name": "node",
+      "confidence": 0.902,
+      "bbox": {
+        "x_min": 1166,
+        "y_min": 590,
+        "x_max": 1185,
+        "y_max": 608
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000060",
+      "class_name": "node",
+      "confidence": 0.9004,
+      "bbox": {
+        "x_min": 3638,
+        "y_min": 844,
+        "x_max": 3656,
+        "y_max": 864
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000061",
+      "class_name": "node",
+      "confidence": 0.8991,
+      "bbox": {
+        "x_min": 1467,
+        "y_min": 2057,
+        "x_max": 1485,
+        "y_max": 2076
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000062",
+      "class_name": "node",
+      "confidence": 0.8954,
+      "bbox": {
+        "x_min": 1061,
+        "y_min": 590,
+        "x_max": 1080,
+        "y_max": 608
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000063",
+      "class_name": "node",
+      "confidence": 0.8923,
+      "bbox": {
+        "x_min": 489,
+        "y_min": 2675,
+        "x_max": 512,
+        "y_max": 2697
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000064",
+      "class_name": "node",
+      "confidence": 0.8923,
+      "bbox": {
+        "x_min": 1592,
+        "y_min": 679,
+        "x_max": 1612,
+        "y_max": 701
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000065",
+      "class_name": "node",
+      "confidence": 0.8913,
+      "bbox": {
+        "x_min": 783,
+        "y_min": 1548,
+        "x_max": 804,
+        "y_max": 1568
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000066",
+      "class_name": "node",
+      "confidence": 0.8881,
+      "bbox": {
+        "x_min": 1878,
+        "y_min": 1894,
+        "x_max": 1893,
+        "y_max": 1910
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000067",
+      "class_name": "node",
+      "confidence": 0.8851,
+      "bbox": {
+        "x_min": 1407,
+        "y_min": 384,
+        "x_max": 1425,
+        "y_max": 402
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000068",
+      "class_name": "node",
+      "confidence": 0.8831,
+      "bbox": {
+        "x_min": 2900,
+        "y_min": 843,
+        "x_max": 2917,
+        "y_max": 863
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000069",
+      "class_name": "node",
+      "confidence": 0.8802,
+      "bbox": {
+        "x_min": 2898,
+        "y_min": 1925,
+        "x_max": 2916,
+        "y_max": 1945
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000070",
+      "class_name": "node",
+      "confidence": 0.8798,
+      "bbox": {
+        "x_min": 816,
+        "y_min": 386,
+        "x_max": 833,
+        "y_max": 404
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000071",
+      "class_name": "node",
+      "confidence": 0.8785,
+      "bbox": {
+        "x_min": 490,
+        "y_min": 1916,
+        "x_max": 508,
+        "y_max": 1934
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000072",
+      "class_name": "node",
+      "confidence": 0.8759,
+      "bbox": {
+        "x_min": 1252,
+        "y_min": 658,
+        "x_max": 1267,
+        "y_max": 675
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000073",
+      "class_name": "node",
+      "confidence": 0.8723,
+      "bbox": {
+        "x_min": 1062,
+        "y_min": 723,
+        "x_max": 1078,
+        "y_max": 740
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000074",
+      "class_name": "node",
+      "confidence": 0.8698,
+      "bbox": {
+        "x_min": 779,
+        "y_min": 1916,
+        "x_max": 798,
+        "y_max": 1933
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000075",
+      "class_name": "node",
+      "confidence": 0.8655,
+      "bbox": {
+        "x_min": 3147,
+        "y_min": 2520,
+        "x_max": 3166,
+        "y_max": 2539
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000076",
+      "class_name": "node",
+      "confidence": 0.8479,
+      "bbox": {
+        "x_min": 568,
+        "y_min": 1916,
+        "x_max": 585,
+        "y_max": 1933
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000077",
+      "class_name": "node",
+      "confidence": 0.8464,
+      "bbox": {
+        "x_min": 3260,
+        "y_min": 1373,
+        "x_max": 3276,
+        "y_max": 1389
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000078",
+      "class_name": "node",
+      "confidence": 0.8326,
+      "bbox": {
+        "x_min": 489,
+        "y_min": 2645,
+        "x_max": 509,
+        "y_max": 2663
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000079",
+      "class_name": "node",
+      "confidence": 0.8259,
+      "bbox": {
+        "x_min": 2536,
+        "y_min": 1587,
+        "x_max": 2552,
+        "y_max": 1602
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000080",
+      "class_name": "node",
+      "confidence": 0.8196,
+      "bbox": {
+        "x_min": 1480,
+        "y_min": 458,
+        "x_max": 1496,
+        "y_max": 474
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000081",
+      "class_name": "arrow",
+      "confidence": 0.9551,
+      "bbox": {
+        "x_min": 963,
+        "y_min": 2751,
+        "x_max": 988,
+        "y_max": 2788
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000082",
+      "class_name": "arrow",
+      "confidence": 0.9525,
+      "bbox": {
+        "x_min": 2534,
+        "y_min": 1743,
+        "x_max": 2555,
+        "y_max": 1774
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000083",
+      "class_name": "arrow",
+      "confidence": 0.9482,
+      "bbox": {
+        "x_min": 1059,
+        "y_min": 534,
+        "x_max": 1083,
+        "y_max": 567
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000084",
+      "class_name": "arrow",
+      "confidence": 0.9467,
+      "bbox": {
+        "x_min": 1337,
+        "y_min": 2054,
+        "x_max": 1370,
+        "y_max": 2079
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000085",
+      "class_name": "arrow",
+      "confidence": 0.9417,
+      "bbox": {
+        "x_min": 1652,
+        "y_min": 2757,
+        "x_max": 1675,
+        "y_max": 2784
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000086",
+      "class_name": "arrow",
+      "confidence": 0.9388,
+      "bbox": {
+        "x_min": 2899,
+        "y_min": 1992,
+        "x_max": 2919,
+        "y_max": 2027
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000087",
+      "class_name": "arrow",
+      "confidence": 0.9316,
+      "bbox": {
+        "x_min": 2895,
+        "y_min": 1583,
+        "x_max": 2922,
+        "y_max": 1617
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000088",
+      "class_name": "arrow",
+      "confidence": 0.9308,
+      "bbox": {
+        "x_min": 489,
+        "y_min": 1696,
+        "x_max": 510,
+        "y_max": 1730
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000089",
+      "class_name": "arrow",
+      "confidence": 0.9293,
+      "bbox": {
+        "x_min": 782,
+        "y_min": 1239,
+        "x_max": 802,
+        "y_max": 1267
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000090",
+      "class_name": "arrow",
+      "confidence": 0.9251,
+      "bbox": {
+        "x_min": 1193,
+        "y_min": 1621,
+        "x_max": 1225,
+        "y_max": 1644
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000091",
+      "class_name": "arrow",
+      "confidence": 0.9243,
+      "bbox": {
+        "x_min": 3157,
+        "y_min": 841,
+        "x_max": 3190,
+        "y_max": 866
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000092",
+      "class_name": "arrow",
+      "confidence": 0.9207,
+      "bbox": {
+        "x_min": 1046,
+        "y_min": 2757,
+        "x_max": 1069,
+        "y_max": 2788
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000093",
+      "class_name": "arrow",
+      "confidence": 0.92,
+      "bbox": {
+        "x_min": 3542,
+        "y_min": 2518,
+        "x_max": 3574,
+        "y_max": 2541
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000094",
+      "class_name": "arrow",
+      "confidence": 0.9119,
+      "bbox": {
+        "x_min": 1973,
+        "y_min": 842,
+        "x_max": 2000,
+        "y_max": 862
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000095",
+      "class_name": "arrow",
+      "confidence": 0.9113,
+      "bbox": {
+        "x_min": 3635,
+        "y_min": 941,
+        "x_max": 3656,
+        "y_max": 973
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000096",
+      "class_name": "arrow",
+      "confidence": 0.9112,
+      "bbox": {
+        "x_min": 2265,
+        "y_min": 2109,
+        "x_max": 2288,
+        "y_max": 2140
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000097",
+      "class_name": "arrow",
+      "confidence": 0.9109,
+      "bbox": {
+        "x_min": 2572,
+        "y_min": 2756,
+        "x_max": 2593,
+        "y_max": 2787
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000098",
+      "class_name": "arrow",
+      "confidence": 0.9094,
+      "bbox": {
+        "x_min": 1971,
+        "y_min": 940,
+        "x_max": 2010,
+        "y_max": 961
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000099",
+      "class_name": "arrow",
+      "confidence": 0.9087,
+      "bbox": {
+        "x_min": 952,
+        "y_min": 1916,
+        "x_max": 985,
+        "y_max": 1937
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000100",
+      "class_name": "arrow",
+      "confidence": 0.9055,
+      "bbox": {
+        "x_min": 1914,
+        "y_min": 1217,
+        "x_max": 1945,
+        "y_max": 1238
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000101",
+      "class_name": "arrow",
+      "confidence": 0.9043,
+      "bbox": {
+        "x_min": 1916,
+        "y_min": 1149,
+        "x_max": 1946,
+        "y_max": 1171
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000102",
+      "class_name": "arrow",
+      "confidence": 0.9039,
+      "bbox": {
+        "x_min": 2006,
+        "y_min": 1891,
+        "x_max": 2033,
+        "y_max": 1910
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000103",
+      "class_name": "arrow",
+      "confidence": 0.8958,
+      "bbox": {
+        "x_min": 508,
+        "y_min": 1913,
+        "x_max": 534,
+        "y_max": 1935
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000104",
+      "class_name": "arrow",
+      "confidence": 0.8743,
+      "bbox": {
+        "x_min": 701,
+        "y_min": 384,
+        "x_max": 727,
+        "y_max": 403
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000105",
+      "class_name": "arrow",
+      "confidence": 0.8489,
+      "bbox": {
+        "x_min": 487,
+        "y_min": 2062,
+        "x_max": 511,
+        "y_max": 2098
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000106",
+      "class_name": "gate valve",
+      "confidence": 0.9578,
+      "bbox": {
+        "x_min": 1824,
+        "y_min": 1891,
+        "x_max": 1860,
+        "y_max": 1914
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000107",
+      "class_name": "gate valve",
+      "confidence": 0.9561,
+      "bbox": {
+        "x_min": 1465,
+        "y_min": 2208,
+        "x_max": 1488,
+        "y_max": 2252
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000108",
+      "class_name": "gate valve",
+      "confidence": 0.9554,
+      "bbox": {
+        "x_min": 2812,
+        "y_min": 2089,
+        "x_max": 2853,
+        "y_max": 2111
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000109",
+      "class_name": "gate valve",
+      "confidence": 0.9552,
+      "bbox": {
+        "x_min": 2531,
+        "y_min": 1620,
+        "x_max": 2558,
+        "y_max": 1661
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000110",
+      "class_name": "gate valve",
+      "confidence": 0.9522,
+      "bbox": {
+        "x_min": 2991,
+        "y_min": 2087,
+        "x_max": 3029,
+        "y_max": 2111
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000111",
+      "class_name": "gate valve",
+      "confidence": 0.9521,
+      "bbox": {
+        "x_min": 1112,
+        "y_min": 584,
+        "x_max": 1157,
+        "y_max": 612
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000112",
+      "class_name": "gate valve",
+      "confidence": 0.9504,
+      "bbox": {
+        "x_min": 1346,
+        "y_min": 380,
+        "x_max": 1388,
+        "y_max": 407
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000113",
+      "class_name": "gate valve",
+      "confidence": 0.9495,
+      "bbox": {
+        "x_min": 1592,
+        "y_min": 704,
+        "x_max": 1613,
+        "y_max": 742
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000114",
+      "class_name": "gate valve",
+      "confidence": 0.9486,
+      "bbox": {
+        "x_min": 1465,
+        "y_min": 2092,
+        "x_max": 1487,
+        "y_max": 2132
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000115",
+      "class_name": "gate valve",
+      "confidence": 0.9484,
+      "bbox": {
+        "x_min": 1614,
+        "y_min": 680,
+        "x_max": 1652,
+        "y_max": 701
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000116",
+      "class_name": "gate valve",
+      "confidence": 0.9479,
+      "bbox": {
+        "x_min": 2534,
+        "y_min": 1270,
+        "x_max": 2556,
+        "y_max": 1310
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000117",
+      "class_name": "gate valve",
+      "confidence": 0.9474,
+      "bbox": {
+        "x_min": 1472,
+        "y_min": 1719,
+        "x_max": 1510,
+        "y_max": 1741
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000118",
+      "class_name": "gate valve",
+      "confidence": 0.9466,
+      "bbox": {
+        "x_min": 3257,
+        "y_min": 1174,
+        "x_max": 3280,
+        "y_max": 1213
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000119",
+      "class_name": "gate valve",
+      "confidence": 0.946,
+      "bbox": {
+        "x_min": 1164,
+        "y_min": 609,
+        "x_max": 1188,
+        "y_max": 649
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000120",
+      "class_name": "gate valve",
+      "confidence": 0.9442,
+      "bbox": {
+        "x_min": 1877,
+        "y_min": 1914,
+        "x_max": 1895,
+        "y_max": 1951
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000121",
+      "class_name": "gate valve",
+      "confidence": 0.9437,
+      "bbox": {
+        "x_min": 1405,
+        "y_min": 404,
+        "x_max": 1427,
+        "y_max": 444
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000122",
+      "class_name": "gate valve",
+      "confidence": 0.9433,
+      "bbox": {
+        "x_min": 1498,
+        "y_min": 455,
+        "x_max": 1539,
+        "y_max": 476
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000123",
+      "class_name": "gate valve",
+      "confidence": 0.9429,
+      "bbox": {
+        "x_min": 3257,
+        "y_min": 1324,
+        "x_max": 3279,
+        "y_max": 1362
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000124",
+      "class_name": "gate valve",
+      "confidence": 0.9415,
+      "bbox": {
+        "x_min": 1476,
+        "y_min": 474,
+        "x_max": 1499,
+        "y_max": 515
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000125",
+      "class_name": "gate valve",
+      "confidence": 0.9396,
+      "bbox": {
+        "x_min": 1471,
+        "y_min": 1749,
+        "x_max": 1510,
+        "y_max": 1771
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000126",
+      "class_name": "gate valve",
+      "confidence": 0.9396,
+      "bbox": {
+        "x_min": 1248,
+        "y_min": 682,
+        "x_max": 1271,
+        "y_max": 721
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000127",
+      "class_name": "gate valve",
+      "confidence": 0.9391,
+      "bbox": {
+        "x_min": 2374,
+        "y_min": 2213,
+        "x_max": 2399,
+        "y_max": 2254
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000128",
+      "class_name": "gate valve",
+      "confidence": 0.9379,
+      "bbox": {
+        "x_min": 1473,
+        "y_min": 1899,
+        "x_max": 1509,
+        "y_max": 1921
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000129",
+      "class_name": "gate valve",
+      "confidence": 0.9379,
+      "bbox": {
+        "x_min": 1727,
+        "y_min": 690,
+        "x_max": 1749,
+        "y_max": 728
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000130",
+      "class_name": "gate valve",
+      "confidence": 0.9378,
+      "bbox": {
+        "x_min": 744,
+        "y_min": 1547,
+        "x_max": 782,
+        "y_max": 1570
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000131",
+      "class_name": "gate valve",
+      "confidence": 0.9376,
+      "bbox": {
+        "x_min": 780,
+        "y_min": 1575,
+        "x_max": 804,
+        "y_max": 1617
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000132",
+      "class_name": "gate valve",
+      "confidence": 0.9369,
+      "bbox": {
+        "x_min": 1651,
+        "y_min": 2211,
+        "x_max": 1674,
+        "y_max": 2252
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000133",
+      "class_name": "gate valve",
+      "confidence": 0.936,
+      "bbox": {
+        "x_min": 587,
+        "y_min": 1913,
+        "x_max": 628,
+        "y_max": 1938
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000134",
+      "class_name": "gate valve",
+      "confidence": 0.9339,
+      "bbox": {
+        "x_min": 1950,
+        "y_min": 1891,
+        "x_max": 1988,
+        "y_max": 1912
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000135",
+      "class_name": "gate valve",
+      "confidence": 0.9334,
+      "bbox": {
+        "x_min": 737,
+        "y_min": 1912,
+        "x_max": 776,
+        "y_max": 1938
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000136",
+      "class_name": "gate valve",
+      "confidence": 0.9332,
+      "bbox": {
+        "x_min": 3143,
+        "y_min": 2479,
+        "x_max": 3167,
+        "y_max": 2522
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000137",
+      "class_name": "gate valve",
+      "confidence": 0.9304,
+      "bbox": {
+        "x_min": 1020,
+        "y_min": 718,
+        "x_max": 1059,
+        "y_max": 745
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000138",
+      "class_name": "gate valve",
+      "confidence": 0.9299,
+      "bbox": {
+        "x_min": 1269,
+        "y_min": 656,
+        "x_max": 1310,
+        "y_max": 677
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000139",
+      "class_name": "gate valve",
+      "confidence": 0.9281,
+      "bbox": {
+        "x_min": 2465,
+        "y_min": 1820,
+        "x_max": 2505,
+        "y_max": 1844
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000140",
+      "class_name": "gate valve",
+      "confidence": 0.923,
+      "bbox": {
+        "x_min": 2701,
+        "y_min": 2480,
+        "x_max": 2727,
+        "y_max": 2519
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000141",
+      "class_name": "gate valve",
+      "confidence": 0.9209,
+      "bbox": {
+        "x_min": 2495,
+        "y_min": 1314,
+        "x_max": 2534,
+        "y_max": 1339
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000142",
+      "class_name": "gate valve",
+      "confidence": 0.9168,
+      "bbox": {
+        "x_min": 1573,
+        "y_min": 475,
+        "x_max": 1597,
+        "y_max": 520
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000143",
+      "class_name": "gate valve",
+      "confidence": 0.9132,
+      "bbox": {
+        "x_min": 1471,
+        "y_min": 1867,
+        "x_max": 1510,
+        "y_max": 1892
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000144",
+      "class_name": "spectacle blind",
+      "confidence": 0.941,
+      "bbox": {
+        "x_min": 3143,
+        "y_min": 2466,
+        "x_max": 3199,
+        "y_max": 2489
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000145",
+      "class_name": "spectacle blind",
+      "confidence": 0.9398,
+      "bbox": {
+        "x_min": 2669,
+        "y_min": 2464,
+        "x_max": 2727,
+        "y_max": 2488
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000146",
+      "class_name": "spectacle blind",
+      "confidence": 0.9381,
+      "bbox": {
+        "x_min": 2453,
+        "y_min": 1786,
+        "x_max": 2472,
+        "y_max": 1841
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000147",
+      "class_name": "spectacle blind",
+      "confidence": 0.9356,
+      "bbox": {
+        "x_min": 2801,
+        "y_min": 2056,
+        "x_max": 2818,
+        "y_max": 2110
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000148",
+      "class_name": "spectacle blind",
+      "confidence": 0.9346,
+      "bbox": {
+        "x_min": 1508,
+        "y_min": 2020,
+        "x_max": 1536,
+        "y_max": 2081
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000149",
+      "class_name": "spectacle blind",
+      "confidence": 0.9335,
+      "bbox": {
+        "x_min": 3023,
+        "y_min": 2056,
+        "x_max": 3041,
+        "y_max": 2109
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000150",
+      "class_name": "spectacle blind",
+      "confidence": 0.9314,
+      "bbox": {
+        "x_min": 1853,
+        "y_min": 1857,
+        "x_max": 1878,
+        "y_max": 1909
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000151",
+      "class_name": "spectacle blind",
+      "confidence": 0.9267,
+      "bbox": {
+        "x_min": 1616,
+        "y_min": 2195,
+        "x_max": 1679,
+        "y_max": 2220
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000152",
+      "class_name": "spectacle blind",
+      "confidence": 0.9262,
+      "bbox": {
+        "x_min": 2376,
+        "y_min": 2198,
+        "x_max": 2434,
+        "y_max": 2222
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000153",
+      "class_name": "spectacle blind",
+      "confidence": 0.9194,
+      "bbox": {
+        "x_min": 1773,
+        "y_min": 806,
+        "x_max": 1803,
+        "y_max": 868
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000154",
+      "class_name": "spectacle blind",
+      "confidence": 0.8937,
+      "bbox": {
+        "x_min": 1027,
+        "y_min": 697,
+        "x_max": 1089,
+        "y_max": 718
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000155",
+      "class_name": "spectacle blind",
+      "confidence": 0.8895,
+      "bbox": {
+        "x_min": 1552,
+        "y_min": 1585,
+        "x_max": 1580,
+        "y_max": 1645
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000156",
+      "class_name": "spectacle blind",
+      "confidence": 0.8786,
+      "bbox": {
+        "x_min": 1591,
+        "y_min": 598,
+        "x_max": 1646,
+        "y_max": 614
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000157",
+      "class_name": "globe valve",
+      "confidence": 0.9657,
+      "bbox": {
+        "x_min": 662,
+        "y_min": 1985,
+        "x_max": 702,
+        "y_max": 2007
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000158",
+      "class_name": "globe valve",
+      "confidence": 0.9382,
+      "bbox": {
+        "x_min": 1591,
+        "y_min": 566,
+        "x_max": 1614,
+        "y_max": 603
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000159",
+      "class_name": "globe valve",
+      "confidence": 0.9369,
+      "bbox": {
+        "x_min": 3198,
+        "y_min": 1249,
+        "x_max": 3220,
+        "y_max": 1290
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000160",
+      "class_name": "globe valve",
+      "confidence": 0.9304,
+      "bbox": {
+        "x_min": 2532,
+        "y_min": 1514,
+        "x_max": 2558,
+        "y_max": 1557
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000161",
+      "class_name": "globe valve",
+      "confidence": 0.9293,
+      "bbox": {
+        "x_min": 2375,
+        "y_min": 1405,
+        "x_max": 2399,
+        "y_max": 1444
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000162",
+      "class_name": "globe valve",
+      "confidence": 0.9189,
+      "bbox": {
+        "x_min": 1058,
+        "y_min": 667,
+        "x_max": 1084,
+        "y_max": 705
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000163",
+      "class_name": "globe valve",
+      "confidence": 0.8976,
+      "bbox": {
+        "x_min": 2894,
+        "y_min": 1479,
+        "x_max": 2922,
+        "y_max": 1521
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000164",
+      "class_name": "reducer",
+      "confidence": 0.9633,
+      "bbox": {
+        "x_min": 1082,
+        "y_min": 1614,
+        "x_max": 1125,
+        "y_max": 1653
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000165",
+      "class_name": "reducer",
+      "confidence": 0.9582,
+      "bbox": {
+        "x_min": 598,
+        "y_min": 2636,
+        "x_max": 632,
+        "y_max": 2670
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000166",
+      "class_name": "reducer",
+      "confidence": 0.9559,
+      "bbox": {
+        "x_min": 1307,
+        "y_min": 589,
+        "x_max": 1347,
+        "y_max": 628
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000167",
+      "class_name": "reducer",
+      "confidence": 0.9553,
+      "bbox": {
+        "x_min": 2370,
+        "y_min": 1853,
+        "x_max": 2402,
+        "y_max": 1885
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000168",
+      "class_name": "reducer",
+      "confidence": 0.9537,
+      "bbox": {
+        "x_min": 996,
+        "y_min": 1609,
+        "x_max": 1039,
+        "y_max": 1651
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000169",
+      "class_name": "reducer",
+      "confidence": 0.9528,
+      "bbox": {
+        "x_min": 3253,
+        "y_min": 1292,
+        "x_max": 3284,
+        "y_max": 1324
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000170",
+      "class_name": "reducer",
+      "confidence": 0.952,
+      "bbox": {
+        "x_min": 3657,
+        "y_min": 836,
+        "x_max": 3690,
+        "y_max": 868
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000171",
+      "class_name": "reducer",
+      "confidence": 0.951,
+      "bbox": {
+        "x_min": 628,
+        "y_min": 1908,
+        "x_max": 661,
+        "y_max": 1941
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000172",
+      "class_name": "reducer",
+      "confidence": 0.9497,
+      "bbox": {
+        "x_min": 534,
+        "y_min": 1910,
+        "x_max": 566,
+        "y_max": 1940
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000173",
+      "class_name": "reducer",
+      "confidence": 0.9494,
+      "bbox": {
+        "x_min": 2695,
+        "y_min": 2124,
+        "x_max": 2728,
+        "y_max": 2158
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000174",
+      "class_name": "reducer",
+      "confidence": 0.9463,
+      "bbox": {
+        "x_min": 2369,
+        "y_min": 2044,
+        "x_max": 2403,
+        "y_max": 2079
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000175",
+      "class_name": "reducer",
+      "confidence": 0.9463,
+      "bbox": {
+        "x_min": 1191,
+        "y_min": 582,
+        "x_max": 1229,
+        "y_max": 620
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000176",
+      "class_name": "reducer",
+      "confidence": 0.9459,
+      "bbox": {
+        "x_min": 3138,
+        "y_min": 2124,
+        "x_max": 3173,
+        "y_max": 2156
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000177",
+      "class_name": "reducer",
+      "confidence": 0.9457,
+      "bbox": {
+        "x_min": 803,
+        "y_min": 1910,
+        "x_max": 834,
+        "y_max": 1940
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000178",
+      "class_name": "reducer",
+      "confidence": 0.9453,
+      "bbox": {
+        "x_min": 1427,
+        "y_min": 375,
+        "x_max": 1465,
+        "y_max": 413
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000179",
+      "class_name": "reducer",
+      "confidence": 0.945,
+      "bbox": {
+        "x_min": 3254,
+        "y_min": 1214,
+        "x_max": 3284,
+        "y_max": 1246
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000180",
+      "class_name": "reducer",
+      "confidence": 0.9449,
+      "bbox": {
+        "x_min": 2695,
+        "y_min": 2308,
+        "x_max": 2731,
+        "y_max": 2346
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000181",
+      "class_name": "reducer",
+      "confidence": 0.9435,
+      "bbox": {
+        "x_min": 705,
+        "y_min": 1909,
+        "x_max": 739,
+        "y_max": 1942
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000182",
+      "class_name": "reducer",
+      "confidence": 0.9431,
+      "bbox": {
+        "x_min": 2528,
+        "y_min": 1704,
+        "x_max": 2563,
+        "y_max": 1736
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000183",
+      "class_name": "reducer",
+      "confidence": 0.9405,
+      "bbox": {
+        "x_min": 2527,
+        "y_min": 1189,
+        "x_max": 2560,
+        "y_max": 1222
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000184",
+      "class_name": "reducer",
+      "confidence": 0.9403,
+      "bbox": {
+        "x_min": 3139,
+        "y_min": 2310,
+        "x_max": 3175,
+        "y_max": 2347
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000185",
+      "class_name": "reducer",
+      "confidence": 0.9386,
+      "bbox": {
+        "x_min": 3252,
+        "y_min": 1388,
+        "x_max": 3286,
+        "y_max": 1422
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000186",
+      "class_name": "reducer",
+      "confidence": 0.9355,
+      "bbox": {
+        "x_min": 1240,
+        "y_min": 622,
+        "x_max": 1276,
+        "y_max": 656
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000187",
+      "class_name": "reducer",
+      "confidence": 0.9232,
+      "bbox": {
+        "x_min": 1567,
+        "y_min": 383,
+        "x_max": 1601,
+        "y_max": 422
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000188",
+      "class_name": "page connection",
+      "confidence": 0.965,
+      "bbox": {
+        "x_min": 403,
+        "y_min": 2924,
+        "x_max": 448,
+        "y_max": 3129
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000189",
+      "class_name": "page connection",
+      "confidence": 0.9619,
+      "bbox": {
+        "x_min": 6,
+        "y_min": 862,
+        "x_max": 210,
+        "y_max": 903
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000190",
+      "class_name": "page connection",
+      "confidence": 0.9603,
+      "bbox": {
+        "x_min": 3779,
+        "y_min": 2746,
+        "x_max": 3819,
+        "y_max": 2943
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000191",
+      "class_name": "page connection",
+      "confidence": 0.9601,
+      "bbox": {
+        "x_min": 2968,
+        "y_min": 3101,
+        "x_max": 3172,
+        "y_max": 3144
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000192",
+      "class_name": "page connection",
+      "confidence": 0.9584,
+      "bbox": {
+        "x_min": 3,
+        "y_min": 2255,
+        "x_max": 208,
+        "y_max": 2295
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000193",
+      "class_name": "page connection",
+      "confidence": 0.958,
+      "bbox": {
+        "x_min": 3571,
+        "y_min": 1652,
+        "x_max": 3778,
+        "y_max": 1696
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000194",
+      "class_name": "page connection",
+      "confidence": 0.9549,
+      "bbox": {
+        "x_min": 5,
+        "y_min": 959,
+        "x_max": 208,
+        "y_max": 999
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000195",
+      "class_name": "page connection",
+      "confidence": 0.9548,
+      "bbox": {
+        "x_min": 3825,
+        "y_min": 2747,
+        "x_max": 3866,
+        "y_max": 2946
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000196",
+      "class_name": "page connection",
+      "confidence": 0.9522,
+      "bbox": {
+        "x_min": 3745,
+        "y_min": 832,
+        "x_max": 3952,
+        "y_max": 875
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000197",
+      "class_name": "utility connection",
+      "confidence": 0.9537,
+      "bbox": {
+        "x_min": 2048,
+        "y_min": 1866,
+        "x_max": 2114,
+        "y_max": 1937
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000198",
+      "class_name": "utility connection",
+      "confidence": 0.9073,
+      "bbox": {
+        "x_min": 1628,
+        "y_min": 2756,
+        "x_max": 1663,
+        "y_max": 2849
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000199",
+      "class_name": "check valve",
+      "confidence": 0.9627,
+      "bbox": {
+        "x_min": 2531,
+        "y_min": 1345,
+        "x_max": 2556,
+        "y_max": 1383
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000200",
+      "class_name": "check valve",
+      "confidence": 0.9558,
+      "bbox": {
+        "x_min": 1521,
+        "y_min": 1619,
+        "x_max": 1561,
+        "y_max": 1646
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000201",
+      "class_name": "check valve",
+      "confidence": 0.9495,
+      "bbox": {
+        "x_min": 781,
+        "y_min": 1493,
+        "x_max": 804,
+        "y_max": 1534
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000202",
+      "class_name": "check valve",
+      "confidence": 0.9473,
+      "bbox": {
+        "x_min": 1905,
+        "y_min": 1890,
+        "x_max": 1944,
+        "y_max": 1914
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000203",
+      "class_name": "check valve",
+      "confidence": 0.9462,
+      "bbox": {
+        "x_min": 2765,
+        "y_min": 2088,
+        "x_max": 2807,
+        "y_max": 2112
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000204",
+      "class_name": "check valve",
+      "confidence": 0.9449,
+      "bbox": {
+        "x_min": 3036,
+        "y_min": 2088,
+        "x_max": 3077,
+        "y_max": 2113
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000205",
+      "class_name": "check valve",
+      "confidence": 0.9423,
+      "bbox": {
+        "x_min": 2834,
+        "y_min": 1692,
+        "x_max": 2876,
+        "y_max": 1716
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000206",
+      "class_name": "check valve",
+      "confidence": 0.9315,
+      "bbox": {
+        "x_min": 2419,
+        "y_min": 1820,
+        "x_max": 2460,
+        "y_max": 1844
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000207",
+      "class_name": "check valve",
+      "confidence": 0.8969,
+      "bbox": {
+        "x_min": 1787,
+        "y_min": 938,
+        "x_max": 1823,
+        "y_max": 963
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000208",
+      "class_name": "instrument dcs",
+      "confidence": 0.9767,
+      "bbox": {
+        "x_min": 2724,
+        "y_min": 1354,
+        "x_max": 2829,
+        "y_max": 1458
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000209",
+      "class_name": "instrument dcs",
+      "confidence": 0.9748,
+      "bbox": {
+        "x_min": 930,
+        "y_min": 1767,
+        "x_max": 1033,
+        "y_max": 1872
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000210",
+      "class_name": "instrument dcs",
+      "confidence": 0.9728,
+      "bbox": {
+        "x_min": 2468,
+        "y_min": 1981,
+        "x_max": 2572,
+        "y_max": 2086
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000211",
+      "class_name": "instrument dcs",
+      "confidence": 0.9726,
+      "bbox": {
+        "x_min": 497,
+        "y_min": 1310,
+        "x_max": 606,
+        "y_max": 1418
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000212",
+      "class_name": "instrument dcs",
+      "confidence": 0.9688,
+      "bbox": {
+        "x_min": 1003,
+        "y_min": 1193,
+        "x_max": 1108,
+        "y_max": 1298
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000213",
+      "class_name": "instrument dcs",
+      "confidence": 0.9686,
+      "bbox": {
+        "x_min": 293,
+        "y_min": 1312,
+        "x_max": 398,
+        "y_max": 1417
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000214",
+      "class_name": "instrument dcs",
+      "confidence": 0.9646,
+      "bbox": {
+        "x_min": 2889,
+        "y_min": 2186,
+        "x_max": 2995,
+        "y_max": 2286
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000215",
+      "class_name": "pressure relief valve",
+      "confidence": 0.9646,
+      "bbox": {
+        "x_min": 1236,
+        "y_min": 581,
+        "x_max": 1279,
+        "y_max": 622
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000216",
+      "class_name": "pressure relief valve",
+      "confidence": 0.9388,
+      "bbox": {
+        "x_min": 1465,
+        "y_min": 374,
+        "x_max": 1509,
+        "y_max": 418
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000217",
+      "class_name": "connection",
+      "confidence": 0.9796,
+      "bbox": {
+        "x_min": 463,
+        "y_min": 3057,
+        "x_max": 540,
+        "y_max": 3132
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000218",
+      "class_name": "pump",
+      "confidence": 0.9653,
+      "bbox": {
+        "x_min": 3110,
+        "y_min": 2190,
+        "x_max": 3265,
+        "y_max": 2289
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000219",
+      "class_name": "pump",
+      "confidence": 0.961,
+      "bbox": {
+        "x_min": 2282,
+        "y_min": 1926,
+        "x_max": 2433,
+        "y_max": 2012
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000220",
+      "class_name": "pump",
+      "confidence": 0.9586,
+      "bbox": {
+        "x_min": 2607,
+        "y_min": 2194,
+        "x_max": 2763,
+        "y_max": 2286
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000221",
+      "class_name": "strainer",
+      "confidence": 0.9591,
+      "bbox": {
+        "x_min": 2689,
+        "y_min": 2372,
+        "x_max": 2766,
+        "y_max": 2442
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000222",
+      "class_name": "strainer",
+      "confidence": 0.957,
+      "bbox": {
+        "x_min": 3102,
+        "y_min": 2375,
+        "x_max": 3178,
+        "y_max": 2441
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000223",
+      "class_name": "sampling point",
+      "confidence": 0.9765,
+      "bbox": {
+        "x_min": 3316,
+        "y_min": 2005,
+        "x_max": 3513,
+        "y_max": 2077
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000224",
+      "class_name": "control valve",
+      "confidence": 0.9697,
+      "bbox": {
+        "x_min": 654,
+        "y_min": 1870,
+        "x_max": 712,
+        "y_max": 1940
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000225",
+      "class_name": "control valve",
+      "confidence": 0.9614,
+      "bbox": {
+        "x_min": 3256,
+        "y_min": 1241,
+        "x_max": 3326,
+        "y_max": 1294
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000226",
+      "class_name": "instrument logic",
+      "confidence": 0.974,
+      "bbox": {
+        "x_min": 3500,
+        "y_min": 1388,
+        "x_max": 3606,
+        "y_max": 1490
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000227",
+      "class_name": "instrument logic",
+      "confidence": 0.9662,
+      "bbox": {
+        "x_min": 3137,
+        "y_min": 1709,
+        "x_max": 3248,
+        "y_max": 1819
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000228",
+      "class_name": "instrument logic",
+      "confidence": 0.9487,
+      "bbox": {
+        "x_min": 3767,
+        "y_min": 1385,
+        "x_max": 3872,
+        "y_max": 1494
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    }
+  ]
+}

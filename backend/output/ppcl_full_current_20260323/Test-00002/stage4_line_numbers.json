@@ -1,0 +1,365 @@
+{
+  "image_id": "Test-00002.jpg",
+  "pass_type": "sheet",
+  "line_numbers": [
+    {
+      "id": "line_number_000001",
+      "source_object_id": "obj_000017",
+      "bbox": {
+        "x_min": 3148,
+        "y_min": 2484,
+        "x_max": 3180,
+        "y_max": 2843
+      },
+      "text": "1\"_PRW-64-052012-B1A1-NI",
+      "normalized_text": "1\"-PRW-64-052012-B1A1-NI",
+      "ocr_region_id": "ocr_000284",
+      "ocr_source": "sheet_ocr",
+      "score": 3.9375,
+      "distance_px": 5.0,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9679,
+      "fused_confidence": 0.9679,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000002",
+      "source_object_id": "obj_000018",
+      "bbox": {
+        "x_min": 1100,
+        "y_min": 912,
+        "x_max": 1134,
+        "y_max": 1277
+      },
+      "text": "3\"- NAS-25-003006-B2A2-NI",
+      "normalized_text": "3\"-NAS-25-003006-B2A2-NI",
+      "ocr_region_id": "ocr_000085",
+      "ocr_source": "sheet_ocr",
+      "score": 3.9775,
+      "distance_px": 1.803,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9623,
+      "fused_confidence": 0.9623,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000003",
+      "source_object_id": "obj_000019",
+      "bbox": {
+        "x_min": 2244,
+        "y_min": 1052,
+        "x_max": 2571,
+        "y_max": 1085
+      },
+      "text": "6\"-F-25-003010-L1A1-NI -",
+      "normalized_text": "6\"-F-25-003010-L1A1-NI-",
+      "ocr_region_id": "ocr_000101",
+      "ocr_source": "sheet_ocr",
+      "score": 3.9802,
+      "distance_px": 1.581,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9577,
+      "fused_confidence": 0.9577,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000004",
+      "source_object_id": "obj_000020",
+      "bbox": {
+        "x_min": 3262,
+        "y_min": 2468,
+        "x_max": 3294,
+        "y_max": 2841
+      },
+      "text": "1\u00bd\"-PWD-25-003007-L1A1-NI",
+      "normalized_text": "1\u00bd\"-PWD-25-003007-L1A1-NI",
+      "ocr_region_id": "ocr_000282",
+      "ocr_source": "sheet_ocr",
+      "score": 3.9912,
+      "distance_px": 0.707,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9549,
+      "fused_confidence": 0.9549,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000005",
+      "source_object_id": "obj_000021",
+      "bbox": {
+        "x_min": 584,
+        "y_min": 1470,
+        "x_max": 966,
+        "y_max": 1503
+      },
+      "text": "1\u00bd\"-NAS-25-003004-B2A2-NI",
+      "normalized_text": "1\u00bd\"-NAS-25-003004-B2A2-NI",
+      "ocr_region_id": "ocr_000166",
+      "ocr_source": "sheet_ocr",
+      "score": 3.9581,
+      "distance_px": 3.354,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9522,
+      "fused_confidence": 0.9522,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000006",
+      "source_object_id": "obj_000022",
+      "bbox": {
+        "x_min": 3371,
+        "y_min": 1089,
+        "x_max": 3729,
+        "y_max": 1124
+      },
+      "text": "3\u2122-CUL-25-003001-B1A2-NI",
+      "normalized_text": "3\u2122-CUL-25-003001-B1A2-NI",
+      "ocr_region_id": "ocr_000108",
+      "ocr_source": "sheet_ocr",
+      "score": 3.9775,
+      "distance_px": 1.803,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9502,
+      "fused_confidence": 0.9502,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000007",
+      "source_object_id": "obj_000023",
+      "bbox": {
+        "x_min": 2402,
+        "y_min": 3078,
+        "x_max": 2774,
+        "y_max": 3114
+      },
+      "text": "- 1\u00bd\"-NAS-41-007104-B1A2-NI",
+      "normalized_text": "-1\u00bd\"-NAS-41-007104-B1A2-NI",
+      "ocr_region_id": "ocr_000329",
+      "ocr_source": "sheet_ocr",
+      "score": 3.9485,
+      "distance_px": 4.123,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9496,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000008",
+      "source_object_id": "obj_000024",
+      "bbox": {
+        "x_min": 2538,
+        "y_min": 1177,
+        "x_max": 2857,
+        "y_max": 1210
+      },
+      "text": "-6\"-F-25-003011-L1A1-NI",
+      "normalized_text": "-6\"-F-25-003011-L1A1-NI",
+      "ocr_region_id": "ocr_000123",
+      "ocr_source": "sheet_ocr",
+      "score": 3.9742,
+      "distance_px": 2.062,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9489,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000009",
+      "source_object_id": "obj_000025",
+      "bbox": {
+        "x_min": 1988,
+        "y_min": 1159,
+        "x_max": 2019,
+        "y_max": 1525
+      },
+      "text": "4\"- CUL- 25-002007-B1A2-NI",
+      "normalized_text": "4\"-CUL-25-002007-B1A2-NI",
+      "ocr_region_id": "ocr_000120",
+      "ocr_source": "sheet_ocr",
+      "score": 3.9802,
+      "distance_px": 1.581,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9455,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000010",
+      "source_object_id": "obj_000026",
+      "bbox": {
+        "x_min": 1811,
+        "y_min": 2157,
+        "x_max": 2175,
+        "y_max": 2191
+      },
+      "text": "6\"-NAS-25-003002-B1A2-NI",
+      "normalized_text": "6\"-NAS-25-003002-B1A2-NI",
+      "ocr_region_id": "ocr_000265",
+      "ocr_source": "sheet_ocr",
+      "score": 3.9912,
+      "distance_px": 0.707,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9452,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000011",
+      "source_object_id": "obj_000027",
+      "bbox": {
+        "x_min": 1329,
+        "y_min": 2035,
+        "x_max": 1695,
+        "y_max": 2074
+      },
+      "text": "-6\"-NAS-25-003003-B2A2-NI",
+      "normalized_text": "-6\"-NAS-25-003003-B2A2-NI",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "score": 3.3811,
+      "distance_px": 49.51,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9444,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000012",
+      "source_object_id": "obj_000028",
+      "bbox": {
+        "x_min": 484,
+        "y_min": 644,
+        "x_max": 846,
+        "y_max": 676
+      },
+      "text": "3\"-CUL-25-002007-B1A2-NI",
+      "normalized_text": "3\"-CUL-25-002007-B1A2-NI",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "score": 3.9496,
+      "distance_px": 4.031,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.941,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000013",
+      "source_object_id": "obj_000029",
+      "bbox": {
+        "x_min": 1284,
+        "y_min": 1587,
+        "x_max": 1650,
+        "y_max": 1620
+      },
+      "text": "4\"-NAS-25-003005-B2A2-NI",
+      "normalized_text": "4\"-NAS-25-003005-B2A2-NI",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "score": 3.6748,
+      "distance_px": 26.019,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9364,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000014",
+      "source_object_id": "obj_000030",
+      "bbox": {
+        "x_min": 2170,
+        "y_min": 1555,
+        "x_max": 2532,
+        "y_max": 1588
+      },
+      "text": "-6\"-CUL-25-003009-B1A2-NI",
+      "normalized_text": "-6\"-CUL-25-003009-B1A2-NI",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "score": 3.962,
+      "distance_px": 3.041,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9333,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000015",
+      "source_object_id": "obj_000031",
+      "bbox": {
+        "x_min": 1164,
+        "y_min": 1527,
+        "x_max": 1532,
+        "y_max": 1558
+      },
+      "text": "-4\"-NAS-25-003004-B2A2-NI",
+      "normalized_text": "-4\"-NAS-25-003004-B2A2-NI",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "score": 3.9688,
+      "distance_px": 2.5,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9283,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000016",
+      "source_object_id": "obj_000032",
+      "bbox": {
+        "x_min": 2067,
+        "y_min": 1536,
+        "x_max": 2096,
+        "y_max": 1605
+      },
+      "text": "6\"- CUL- 25-003008-B1A2-NI",
+      "normalized_text": "6\"-CUL-25-003008-B1A2-NI",
+      "ocr_region_id": "ocr_000132",
+      "ocr_source": "sheet_ocr",
+      "score": 2.2194,
+      "distance_px": 147.501,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9125,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    }
+  ],
+  "rejected": [
+    {
+      "id": "line_number_000017",
+      "source_object_id": "obj_000033",
+      "bbox": {
+        "x_min": 2,
+        "y_min": 2066,
+        "x_max": 79,
+        "y_max": 3420
+      },
+      "text": "",
+      "normalized_text": "",
+      "ocr_region_id": null,
+      "ocr_source": null,
+      "score": null,
+      "distance_px": null,
+      "ocr_confirmed": false,
+      "detection_confidence": 0.812,
+      "fused_confidence": 0.812,
+      "semantic_class": "line_number",
+      "review_state": "rejected"
+    }
+  ]
+}

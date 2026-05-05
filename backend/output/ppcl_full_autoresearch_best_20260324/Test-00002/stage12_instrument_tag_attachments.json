@@ -1,0 +1,353 @@
+{
+  "image_id": "Test-00002.jpg",
+  "pass_type": "sheet",
+  "accepted": [
+    {
+      "region_id": "instrument_tag_000001",
+      "text": "FTFF-0302",
+      "normalized_text": "FTFF-0302",
+      "bbox": {
+        "x_min": 2371,
+        "y_min": 2816,
+        "x_max": 2476,
+        "y_max": 2913
+      },
+      "edge_id": "endpoint_571__junction_284__56",
+      "distance_px": 1.118,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000002",
+      "text": "PSV 0301A",
+      "normalized_text": "PSV-0301A",
+      "bbox": {
+        "x_min": 2031,
+        "y_min": 951,
+        "x_max": 2132,
+        "y_max": 1050
+      },
+      "edge_id": "junction_114__junction_136__267",
+      "distance_px": 7.0,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": false
+    },
+    {
+      "region_id": "instrument_tag_000003",
+      "text": "PI-0302",
+      "normalized_text": "PI-0302",
+      "bbox": {
+        "x_min": 936,
+        "y_min": 1614,
+        "x_max": 1039,
+        "y_max": 1715
+      },
+      "edge_id": "endpoint_398__junction_200__39",
+      "distance_px": 0.5,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000004",
+      "text": "FT 0301",
+      "normalized_text": "FT-0301",
+      "bbox": {
+        "x_min": 1179,
+        "y_min": 1237,
+        "x_max": 1278,
+        "y_max": 1332
+      },
+      "edge_id": "endpoint_311__endpoint_319__76",
+      "distance_px": 1.414,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000005",
+      "text": "FE-0301",
+      "normalized_text": "FE-0301",
+      "bbox": {
+        "x_min": 1176,
+        "y_min": 1340,
+        "x_max": 1281,
+        "y_max": 1439
+      },
+      "edge_id": "endpoint_311__endpoint_319__76",
+      "distance_px": 5.385,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000006",
+      "text": "PSVB-0301B",
+      "normalized_text": "PSVB-0301B",
+      "bbox": {
+        "x_min": 2260,
+        "y_min": 1128,
+        "x_max": 2362,
+        "y_max": 1224
+      },
+      "edge_id": "endpoint_282__junction_130__58",
+      "distance_px": 2.0,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000007",
+      "text": "LV-0301",
+      "normalized_text": "LV-0301",
+      "bbox": {
+        "x_min": 2388,
+        "y_min": 2329,
+        "x_max": 2489,
+        "y_max": 2427
+      },
+      "edge_id": "endpoint_530__junction_262__8",
+      "distance_px": 18.868,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000008",
+      "text": "TT-0301",
+      "normalized_text": "TT-0301",
+      "bbox": {
+        "x_min": 2040,
+        "y_min": 2691,
+        "x_max": 2147,
+        "y_max": 2789
+      },
+      "edge_id": "endpoint_552__endpoint_554__43",
+      "distance_px": 1.414,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000009",
+      "text": "LGM-0302",
+      "normalized_text": "LGM-0302",
+      "bbox": {
+        "x_min": 3117,
+        "y_min": 1662,
+        "x_max": 3200,
+        "y_max": 1758
+      },
+      "edge_id": "endpoint_412__endpoint_421__85",
+      "distance_px": 7.5,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000010",
+      "text": "PI-0303",
+      "normalized_text": "PI-0303",
+      "bbox": {
+        "x_min": 1235,
+        "y_min": 1616,
+        "x_max": 1337,
+        "y_max": 1712
+      },
+      "edge_id": "endpoint_396__junction_202__42",
+      "distance_px": 0.0,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000011",
+      "text": "TE-0301",
+      "normalized_text": "TE-0301",
+      "bbox": {
+        "x_min": 2192,
+        "y_min": 2689,
+        "x_max": 2294,
+        "y_max": 2790
+      },
+      "edge_id": "endpoint_555__junction_276__31",
+      "distance_px": 1.768,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000012",
+      "text": "PDV-0301",
+      "normalized_text": "PDV-0301",
+      "bbox": {
+        "x_min": 1744,
+        "y_min": 539,
+        "x_max": 1847,
+        "y_max": 637
+      },
+      "edge_id": "endpoint_136__endpoint_173__111",
+      "distance_px": 18.0,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000013",
+      "text": "FI-0301B",
+      "normalized_text": "FI-0301B",
+      "bbox": {
+        "x_min": 1274,
+        "y_min": 1148,
+        "x_max": 1374,
+        "y_max": 1244
+      },
+      "edge_id": "endpoint_302__endpoint_303__20",
+      "distance_px": 7.211,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000014",
+      "text": "FE-0302",
+      "normalized_text": "FE-0302",
+      "bbox": {
+        "x_min": 2373,
+        "y_min": 2710,
+        "x_max": 2475,
+        "y_max": 2807
+      },
+      "edge_id": "endpoint_548__endpoint_549__24",
+      "distance_px": 9.434,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000015",
+      "text": "LG-0301",
+      "normalized_text": "LG-0301",
+      "bbox": {
+        "x_min": 3260,
+        "y_min": 1662,
+        "x_max": 3360,
+        "y_max": 1760
+      },
+      "edge_id": "endpoint_397__junction_197__39",
+      "distance_px": 5.0,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000016",
+      "text": "PDT-0301",
+      "normalized_text": "PDT-0301",
+      "bbox": {
+        "x_min": 1674,
+        "y_min": 273,
+        "x_max": 1778,
+        "y_max": 369
+      },
+      "edge_id": "endpoint_67__junction_83__504",
+      "distance_px": 1.0,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000017",
+      "text": "LIC-0301",
+      "normalized_text": "LIC-0301",
+      "bbox": {
+        "x_min": 3478,
+        "y_min": 1658,
+        "x_max": 3584,
+        "y_max": 1764
+      },
+      "edge_id": "endpoint_416__endpoint_534__1836",
+      "distance_px": 1.0,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000018",
+      "text": "TI-0301",
+      "normalized_text": "TI-0301",
+      "bbox": {
+        "x_min": 1889,
+        "y_min": 2686,
+        "x_max": 1998,
+        "y_max": 2795
+      },
+      "edge_id": "endpoint_551__endpoint_553__40",
+      "distance_px": 1.118,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000019",
+      "text": "XC-2503",
+      "normalized_text": "XC-2503",
+      "bbox": {
+        "x_min": 1082,
+        "y_min": 1832,
+        "x_max": 1187,
+        "y_max": 1935
+      },
+      "edge_id": "endpoint_436__junction_225__10",
+      "distance_px": 18.439,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000020",
+      "text": "PDIC 0301",
+      "normalized_text": "PDIC-0301",
+      "bbox": {
+        "x_min": 1672,
+        "y_min": 407,
+        "x_max": 1780,
+        "y_max": 516
+      },
+      "edge_id": "endpoint_82__endpoint_95__38",
+      "distance_px": 1.0,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000021",
+      "text": "FI-0302",
+      "normalized_text": "FI-0302",
+      "bbox": {
+        "x_min": 2560,
+        "y_min": 2810,
+        "x_max": 2654,
+        "y_max": 2917
+      },
+      "edge_id": "endpoint_569__junction_284__20",
+      "distance_px": 19.474,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000022",
+      "text": "FI-0302",
+      "normalized_text": "FI-0302",
+      "bbox": {
+        "x_min": 2548,
+        "y_min": 2813,
+        "x_max": 2653,
+        "y_max": 2916
+      },
+      "edge_id": "endpoint_573__junction_284__21",
+      "distance_px": 13.537,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000023",
+      "text": "FI-0301A",
+      "normalized_text": "FI-0301A",
+      "bbox": {
+        "x_min": 1413,
+        "y_min": 1232,
+        "x_max": 1518,
+        "y_max": 1338
+      },
+      "edge_id": "endpoint_314__endpoint_315__23",
+      "distance_px": 14.036,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    }
+  ],
+  "rejected": [],
+  "text_class": "instrument_semantic"
+}

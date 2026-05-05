@@ -1,0 +1,203 @@
+{
+  "image_id": "input.png",
+  "pass_type": "sheet",
+  "accepted": [
+    {
+      "region_id": "instrument_tag_000001",
+      "text": "LC-3204",
+      "normalized_text": "LC-3204",
+      "bbox": {
+        "x_min": 4096,
+        "y_min": 2996,
+        "x_max": 4213,
+        "y_max": 3115
+      },
+      "edge_id": "endpoint_495__endpoint_498__17",
+      "distance_px": 0.5,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000002",
+      "text": "LC-3110",
+      "normalized_text": "LC-3110",
+      "bbox": {
+        "x_min": 1567,
+        "y_min": 3094,
+        "x_max": 1684,
+        "y_max": 3212
+      },
+      "edge_id": "endpoint_512__endpoint_536__148",
+      "distance_px": 0.5,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000003",
+      "text": "FI-3205",
+      "normalized_text": "FI-3205",
+      "bbox": {
+        "x_min": 4793,
+        "y_min": 1459,
+        "x_max": 4908,
+        "y_max": 1578
+      },
+      "edge_id": "endpoint_134__endpoint_140__37",
+      "distance_px": 0.5,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000004",
+      "text": "AL-3205",
+      "normalized_text": "AL-3205",
+      "bbox": {
+        "x_min": 4923,
+        "y_min": 2794,
+        "x_max": 5037,
+        "y_max": 2907
+      },
+      "edge_id": "endpoint_468__endpoint_476__74",
+      "distance_px": 0.0,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000005",
+      "text": "TW-3205",
+      "normalized_text": "TW-3205",
+      "bbox": {
+        "x_min": 3300,
+        "y_min": 1664,
+        "x_max": 3415,
+        "y_max": 1775
+      },
+      "edge_id": "endpoint_168__junction_233__50",
+      "distance_px": 2.693,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000006",
+      "text": "LT-3110",
+      "normalized_text": "LT-3110",
+      "bbox": {
+        "x_min": 2279,
+        "y_min": 2329,
+        "x_max": 2395,
+        "y_max": 2441
+      },
+      "edge_id": "endpoint_362__endpoint_483__718",
+      "distance_px": 0.0,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000007",
+      "text": "LG-3110",
+      "normalized_text": "LG-3110",
+      "bbox": {
+        "x_min": 2129,
+        "y_min": 2329,
+        "x_max": 2242,
+        "y_max": 2440
+      },
+      "edge_id": "endpoint_381__endpoint_387__36",
+      "distance_px": 0.5,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000008",
+      "text": "FI-3901",
+      "normalized_text": "FI-3901",
+      "bbox": {
+        "x_min": 4351,
+        "y_min": 1254,
+        "x_max": 4471,
+        "y_max": 1372
+      },
+      "edge_id": "endpoint_106__junction_114__15",
+      "distance_px": 10.607,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000009",
+      "text": "TG-3205",
+      "normalized_text": "TG-3205",
+      "bbox": {
+        "x_min": 3911,
+        "y_min": 2482,
+        "x_max": 4025,
+        "y_max": 2597
+      },
+      "edge_id": "junction_438__junction_458__40",
+      "distance_px": 0.0,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": false
+    },
+    {
+      "region_id": "instrument_tag_000010",
+      "text": "TW-3204",
+      "normalized_text": "TW-3204",
+      "bbox": {
+        "x_min": 3610,
+        "y_min": 1663,
+        "x_max": 3727,
+        "y_max": 1779
+      },
+      "edge_id": "endpoint_171__junction_236__45",
+      "distance_px": 2.693,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000011",
+      "text": "AT-3205",
+      "normalized_text": "AT-3205",
+      "bbox": {
+        "x_min": 4922,
+        "y_min": 2975,
+        "x_max": 5039,
+        "y_max": 3086
+      },
+      "edge_id": "endpoint_490__endpoint_500__64",
+      "distance_px": 0.5,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000012",
+      "text": "FT-3205",
+      "normalized_text": "FT-3205",
+      "bbox": {
+        "x_min": 4794,
+        "y_min": 1616,
+        "x_max": 4907,
+        "y_max": 1731
+      },
+      "edge_id": "endpoint_155__junction_215__65",
+      "distance_px": 0.5,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "instrument_tag_000013",
+      "text": "AE-3205",
+      "normalized_text": "AE-3205",
+      "bbox": {
+        "x_min": 4928,
+        "y_min": 3150,
+        "x_max": 5038,
+        "y_max": 3264
+      },
+      "edge_id": "endpoint_490__endpoint_500__64",
+      "distance_px": 4.123,
+      "threshold_px": 85.0,
+      "attached_to_provisional_edge": true
+    }
+  ],
+  "rejected": [],
+  "text_class": "instrument_semantic"
+}

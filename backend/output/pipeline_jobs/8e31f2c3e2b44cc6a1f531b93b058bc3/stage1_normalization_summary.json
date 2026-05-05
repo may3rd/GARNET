@@ -1,0 +1,18 @@
+{
+  "image_path": "/Volumes/Ginnungagap/maetee/Code/GARNET/backend/output/pipeline_jobs/8e31f2c3e2b44cc6a1f531b93b058bc3/input.png",
+  "dimensions": {
+    "height": 4961,
+    "width": 7016
+  },
+  "artifacts": [
+    "stage1_gray.png",
+    "stage1_gray_equalized.png",
+    "stage1_binary_adaptive.png",
+    "stage1_binary_otsu.png"
+  ],
+  "config": {
+    "adaptive_block_size": 21,
+    "adaptive_c": 5,
+    "blur_kernel": 5
+  }
+}

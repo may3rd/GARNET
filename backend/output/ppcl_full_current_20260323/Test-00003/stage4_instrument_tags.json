@@ -1,0 +1,247 @@
+{
+  "image_id": "Test-00003.jpg",
+  "pass_type": "sheet",
+  "instrument_tags": [
+    {
+      "id": "instrument_tag_000001",
+      "source_object_id": "obj_000001",
+      "bbox": {
+        "x_min": 2998,
+        "y_min": 2300,
+        "x_max": 3095,
+        "y_max": 2397
+      },
+      "text": "FT-0401",
+      "normalized_text": "FT-0401",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9745,
+      "fused_confidence": 0.9745,
+      "semantic_class": "instrument_semantic",
+      "source_object_class": "instrument tag",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "instrument_tag_000002",
+      "source_object_id": "obj_000002",
+      "bbox": {
+        "x_min": 1295,
+        "y_min": 691,
+        "x_max": 1395,
+        "y_max": 787
+      },
+      "text": "PSV-0401B",
+      "normalized_text": "PSV-0401B",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9737,
+      "fused_confidence": 0.9737,
+      "semantic_class": "instrument_semantic",
+      "source_object_class": "instrument tag",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "instrument_tag_000003",
+      "source_object_id": "obj_000003",
+      "bbox": {
+        "x_min": 2078,
+        "y_min": 2281,
+        "x_max": 2184,
+        "y_max": 2379
+      },
+      "text": "LF-0401",
+      "normalized_text": "LF-0401",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9726,
+      "fused_confidence": 0.9726,
+      "semantic_class": "instrument_semantic",
+      "source_object_class": "instrument tag",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "instrument_tag_000004",
+      "source_object_id": "obj_000004",
+      "bbox": {
+        "x_min": 1465,
+        "y_min": 538,
+        "x_max": 1569,
+        "y_max": 636
+      },
+      "text": "GPSV-0401",
+      "normalized_text": "GPSV-0401",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "ocr_confirmed": true,
+      "detection_confidence": 0.972,
+      "fused_confidence": 0.972,
+      "semantic_class": "instrument_semantic",
+      "source_object_class": "instrument tag",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "instrument_tag_000005",
+      "source_object_id": "obj_000005",
+      "bbox": {
+        "x_min": 3000,
+        "y_min": 2159,
+        "x_max": 3101,
+        "y_max": 2258
+      },
+      "text": "FV-0401",
+      "normalized_text": "FV-0401",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9709,
+      "fused_confidence": 0.9709,
+      "semantic_class": "instrument_semantic",
+      "source_object_class": "instrument tag",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "instrument_tag_000006",
+      "source_object_id": "obj_000006",
+      "bbox": {
+        "x_min": 1122,
+        "y_min": 1132,
+        "x_max": 1225,
+        "y_max": 1233
+      },
+      "text": "PL-0403",
+      "normalized_text": "PL-0403",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9709,
+      "fused_confidence": 0.9709,
+      "semantic_class": "instrument_semantic",
+      "source_object_class": "instrument tag",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "instrument_tag_000007",
+      "source_object_id": "obj_000007",
+      "bbox": {
+        "x_min": 2173,
+        "y_min": 1269,
+        "x_max": 2275,
+        "y_max": 1365
+      },
+      "text": "A/B/C 0404 G",
+      "normalized_text": "ABC-0404G",
+      "ocr_region_id": "ocr_000151,ocr_000148,ocr_000140",
+      "ocr_source": "sheet_ocr",
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9703,
+      "fused_confidence": 0.9703,
+      "semantic_class": "instrument_semantic",
+      "source_object_class": "instrument tag",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "instrument_tag_000008",
+      "source_object_id": "obj_000008",
+      "bbox": {
+        "x_min": 2997,
+        "y_min": 2404,
+        "x_max": 3097,
+        "y_max": 2505
+      },
+      "text": "FE-0401",
+      "normalized_text": "FE-0401",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9681,
+      "fused_confidence": 0.9681,
+      "semantic_class": "instrument_semantic",
+      "source_object_class": "instrument tag",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "instrument_tag_000009",
+      "source_object_id": "obj_000009",
+      "bbox": {
+        "x_min": 2371,
+        "y_min": 1538,
+        "x_max": 2473,
+        "y_max": 1637
+      },
+      "text": "FG-0401",
+      "normalized_text": "FG-0401",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9676,
+      "fused_confidence": 0.9676,
+      "semantic_class": "instrument_semantic",
+      "source_object_class": "instrument tag",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "instrument_tag_000010",
+      "source_object_id": "obj_000010",
+      "bbox": {
+        "x_min": 2139,
+        "y_min": 1464,
+        "x_max": 2240,
+        "y_max": 1563
+      },
+      "text": "LE-0404",
+      "normalized_text": "LE-0404",
+      "ocr_region_id": "crop_ocr_tight_preprocessed",
+      "ocr_source": "crop_ocr_tight_preprocessed",
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9673,
+      "fused_confidence": 0.9673,
+      "semantic_class": "instrument_semantic",
+      "source_object_class": "instrument tag",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "instrument_tag_000011",
+      "source_object_id": "obj_000142",
+      "bbox": {
+        "x_min": 2606,
+        "y_min": 1534,
+        "x_max": 2713,
+        "y_max": 1641
+      },
+      "text": "LIC-0401",
+      "normalized_text": "LIC-0401",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9769,
+      "fused_confidence": 0.9769,
+      "semantic_class": "instrument_semantic",
+      "source_object_class": "instrument dcs",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "instrument_tag_000012",
+      "source_object_id": "obj_000149",
+      "bbox": {
+        "x_min": 2821,
+        "y_min": 2296,
+        "x_max": 2928,
+        "y_max": 2402
+      },
+      "text": "FIC-0401",
+      "normalized_text": "FIC-0401",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9594,
+      "fused_confidence": 0.9594,
+      "semantic_class": "instrument_semantic",
+      "source_object_class": "instrument logic",
+      "review_state": "ocr_confirmed"
+    }
+  ],
+  "rejected": []
+}

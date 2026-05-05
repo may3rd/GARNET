@@ -1,0 +1,486 @@
+{
+  "image_id": "Test-00005.jpg",
+  "pass_type": "sheet",
+  "items": [
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::112",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_300__junction_95__18",
+        "endpoint_303__junction_95__7",
+        "endpoint_305__junction_100__54",
+        "endpoint_307__junction_97__80",
+        "endpoint_312__junction_104__8",
+        "endpoint_324__junction_109__15",
+        "endpoint_329__junction_109__12",
+        "endpoint_335__junction_116__8",
+        "junction_116__junction_130__217",
+        "junction_97__junction_101__155",
+        "junction_98__junction_100__36",
+        "junction_98__junction_104__44",
+        "junction_99__junction_101__40",
+        "junction_99__junction_102__20"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::236",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_636__junction_284__16",
+        "junction_284__junction_289__31"
+      ]
+    },
+    {
+      "category": "isolated_node",
+      "group_key": "type::endpoint",
+      "priority": "high",
+      "node_ids": [
+        "endpoint_1",
+        "endpoint_32",
+        "endpoint_33",
+        "endpoint_35",
+        "endpoint_48",
+        "endpoint_63",
+        "endpoint_64",
+        "endpoint_68",
+        "endpoint_85",
+        "endpoint_87",
+        "endpoint_93",
+        "endpoint_105",
+        "endpoint_111",
+        "endpoint_123",
+        "endpoint_131",
+        "endpoint_137",
+        "endpoint_141",
+        "endpoint_142",
+        "endpoint_148",
+        "endpoint_150",
+        "endpoint_151",
+        "endpoint_152",
+        "endpoint_168",
+        "endpoint_181",
+        "endpoint_220",
+        "endpoint_256",
+        "endpoint_257",
+        "endpoint_259",
+        "endpoint_265",
+        "endpoint_270",
+        "endpoint_297",
+        "endpoint_302",
+        "endpoint_308",
+        "endpoint_309",
+        "endpoint_310",
+        "endpoint_311",
+        "endpoint_315",
+        "endpoint_316",
+        "endpoint_320",
+        "endpoint_321",
+        "endpoint_331",
+        "endpoint_342",
+        "endpoint_346",
+        "endpoint_354",
+        "endpoint_356",
+        "endpoint_363",
+        "endpoint_365",
+        "endpoint_405",
+        "endpoint_437",
+        "endpoint_439",
+        "endpoint_440",
+        "endpoint_442",
+        "endpoint_443",
+        "endpoint_446",
+        "endpoint_448",
+        "endpoint_449",
+        "endpoint_455",
+        "endpoint_458",
+        "endpoint_463",
+        "endpoint_465",
+        "endpoint_478",
+        "endpoint_481",
+        "endpoint_505",
+        "endpoint_506",
+        "endpoint_507",
+        "endpoint_540",
+        "endpoint_554",
+        "endpoint_558",
+        "endpoint_564",
+        "endpoint_570",
+        "endpoint_589",
+        "endpoint_612",
+        "endpoint_620",
+        "endpoint_621",
+        "endpoint_625",
+        "endpoint_628",
+        "endpoint_629",
+        "endpoint_631",
+        "endpoint_635",
+        "endpoint_640",
+        "endpoint_643",
+        "endpoint_646",
+        "endpoint_693"
+      ]
+    },
+    {
+      "category": "isolated_node",
+      "group_key": "type::junction",
+      "priority": "high",
+      "node_ids": [
+        "junction_2",
+        "junction_12",
+        "junction_34",
+        "junction_46",
+        "junction_50",
+        "junction_66",
+        "junction_71",
+        "junction_78",
+        "junction_82",
+        "junction_103",
+        "junction_110",
+        "junction_146",
+        "junction_155",
+        "junction_162",
+        "junction_163",
+        "junction_167",
+        "junction_168",
+        "junction_169",
+        "junction_175",
+        "junction_179",
+        "junction_180",
+        "junction_190",
+        "junction_201",
+        "junction_203",
+        "junction_207",
+        "junction_225",
+        "junction_232",
+        "junction_239",
+        "junction_251",
+        "junction_252",
+        "junction_257",
+        "junction_273",
+        "junction_280",
+        "junction_283",
+        "junction_295",
+        "junction_296",
+        "junction_297",
+        "junction_298",
+        "junction_299",
+        "junction_300",
+        "junction_301",
+        "junction_311",
+        "junction_312",
+        "junction_313",
+        "junction_314",
+        "junction_315",
+        "junction_316",
+        "junction_321",
+        "junction_322",
+        "junction_323",
+        "junction_326",
+        "junction_327",
+        "junction_328",
+        "junction_329",
+        "junction_330",
+        "junction_331",
+        "junction_336",
+        "junction_337",
+        "junction_338",
+        "junction_339",
+        "junction_342",
+        "junction_343",
+        "junction_344",
+        "junction_345",
+        "junction_346",
+        "junction_347",
+        "junction_351",
+        "junction_352",
+        "junction_353",
+        "junction_354",
+        "junction_355",
+        "junction_356",
+        "junction_357",
+        "junction_369",
+        "junction_370",
+        "junction_371",
+        "junction_372",
+        "junction_373",
+        "junction_374",
+        "junction_375",
+        "junction_376",
+        "junction_377",
+        "junction_381",
+        "junction_382",
+        "junction_383",
+        "junction_384",
+        "junction_385",
+        "junction_387",
+        "junction_390",
+        "junction_392",
+        "junction_393",
+        "junction_394",
+        "junction_395",
+        "junction_396",
+        "junction_397",
+        "junction_400",
+        "junction_408",
+        "junction_411"
+      ]
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_34",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_46",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_50",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_66",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_78",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_82",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_103",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_110",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_146",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_155",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_162",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_163",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_167",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_168",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_169",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_175",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_179",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_180",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_190",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_201",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_203",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_207",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_225",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_232",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_239",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_252",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_257",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_273",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_283",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_326",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_327",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_329",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_342",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_343",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_345",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_347",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_381",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_383",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_385",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_392",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_393",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_395",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_397",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_400",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_408",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_411",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::17",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_30__junction_17__26"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::112",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_300__junction_95__18",
+        "endpoint_303__junction_95__7",
+        "endpoint_305__junction_100__54",
+        "endpoint_307__junction_97__80",
+        "endpoint_312__junction_104__8",
+        "endpoint_324__junction_109__15",
+        "endpoint_327__junction_109__12",
+        "endpoint_329__junction_109__12",
+        "endpoint_335__junction_116__8",
+        "endpoint_367__junction_130__54"
+      ]
+    }
+  ]
+}

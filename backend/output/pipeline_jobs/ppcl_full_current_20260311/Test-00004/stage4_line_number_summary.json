@@ -1,0 +1,13 @@
+{
+  "image_id": "Test-00004.jpg",
+  "pass_type": "sheet",
+  "line_number_object_count": 15,
+  "matched_line_number_count": 14,
+  "ocr_confirmed_line_number_count": 14,
+  "od_only_line_number_count": 0,
+  "sheet_ocr_line_number_count": 9,
+  "crop_ocr_line_number_count": 5,
+  "rotated_crop_ocr_line_number_count": 0,
+  "rejected_line_number_count": 1,
+  "max_distance_px": 80.0
+}

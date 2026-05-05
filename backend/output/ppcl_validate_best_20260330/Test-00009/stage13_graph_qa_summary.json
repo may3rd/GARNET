@@ -1,0 +1,13 @@
+{
+  "image_id": "Test-00009.jpg",
+  "pass_type": "sheet",
+  "connected_component_count": 309,
+  "articulation_point_count": 287,
+  "isolated_node_count": 2,
+  "unresolved_crossing_count": 35,
+  "unresolved_terminal_edge_count": 3,
+  "review_queue_count": 42,
+  "source_artifacts": [
+    "stage12_graph.json"
+  ]
+}

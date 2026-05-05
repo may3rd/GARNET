@@ -1,0 +1,2377 @@
+{
+  "image_id": "input.png",
+  "pass_type": "sheet",
+  "items": [
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::81",
+      "priority": "medium",
+      "node_ids": [
+        "bridge::junction_63__junction_65__698",
+        "endpoint_189__endpoint_190__14",
+        "endpoint_197__endpoint_202__187",
+        "endpoint_200__junction_65__8",
+        "endpoint_201__endpoint_203__51",
+        "endpoint_204__junction_67__926",
+        "endpoint_218__junction_83__59",
+        "junction_57__junction_59__10",
+        "junction_57__junction_68__63",
+        "junction_63__junction_67__54"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::46",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_110__junction_8__7",
+        "endpoint_113__junction_11__11",
+        "endpoint_114__junction_14__197",
+        "endpoint_115__junction_11__26",
+        "junction_12__junction_13__59",
+        "junction_13__junction_15__67",
+        "junction_14__junction_15__85",
+        "junction_7__junction_8__21"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::67",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_178__junction_48__29",
+        "junction_48__junction_52__23",
+        "junction_50__junction_52__60"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::76",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_179__junction_44__8",
+        "junction_41__junction_44__34",
+        "junction_47__junction_55__38"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::86",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_207__junction_155__1549",
+        "endpoint_208__endpoint_212__61",
+        "endpoint_213__endpoint_215__20",
+        "junction_154__junction_153__40",
+        "junction_154__junction_155__153"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::97",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_232__junction_130__381"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::102",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_237__junction_103__57"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::129",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_312__junction_148__162"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::91",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_349__junction_139__24",
+        "endpoint_354__junction_139__10",
+        "endpoint_358__junction_141__3",
+        "endpoint_359__junction_139__15"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::161",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_362__junction_142__14"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::170",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_381__junction_151__13"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::125",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_384__junction_150__6"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::173",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_389__junction_160__19"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::174",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_395__junction_165__48",
+        "endpoint_396__junction_163__31",
+        "junction_162__junction_165__172",
+        "junction_162__junction_251__1091",
+        "junction_163__junction_174__61",
+        "junction_174__junction_175__17",
+        "junction_251__junction_253__24"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::182",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_405__junction_170__27",
+        "endpoint_416__junction_169__98",
+        "endpoint_432__junction_180__23",
+        "junction_170__junction_180__110"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::195",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_437__junction_179__126",
+        "endpoint_442__junction_180__23",
+        "junction_190__junction_191__74"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::201",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_453__junction_185__10",
+        "endpoint_454__endpoint_472__76",
+        "junction_182__junction_188__21"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::203",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_458__junction_192__137",
+        "junction_192__junction_248__1372",
+        "junction_248__junction_249__30"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::192",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_460__junction_184__31"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::206",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_488__junction_196__286",
+        "junction_195__junction_196__36"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::211",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_504__junction_208__22",
+        "endpoint_514__endpoint_521__27"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::234",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_545__junction_232__59",
+        "junction_232__junction_237__133"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::245",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_568__junction_241__105",
+        "junction_241__junction_242__44",
+        "junction_241__junction_243__75"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::249",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_577__junction_248__98",
+        "endpoint_578__junction_294__1016",
+        "endpoint_603__junction_294__25"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::236",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_581__junction_238__326"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::251",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_596__junction_258__5",
+        "junction_258__junction_261__38",
+        "junction_261__junction_262__93"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::29",
+      "priority": "medium",
+      "node_ids": [
+        "endpoint_70__junction_2__7",
+        "endpoint_76__junction_2__21",
+        "endpoint_77__junction_2__8"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::126",
+      "priority": "medium",
+      "node_ids": [
+        "junction_114__junction_115__16"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::191",
+      "priority": "medium",
+      "node_ids": [
+        "junction_177__junction_176__45"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::194",
+      "priority": "medium",
+      "node_ids": [
+        "junction_189__junction_191__168",
+        "junction_189__junction_193__164",
+        "junction_193__junction_219__229",
+        "junction_219__junction_225__19"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::226",
+      "priority": "medium",
+      "node_ids": [
+        "junction_223__junction_224__15",
+        "junction_224__junction_225__18"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::232",
+      "priority": "medium",
+      "node_ids": [
+        "junction_225__junction_226__26"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::280",
+      "priority": "medium",
+      "node_ids": [
+        "junction_263__junction_270__35"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::283",
+      "priority": "medium",
+      "node_ids": [
+        "junction_279__junction_286__35",
+        "junction_286__junction_296__36",
+        "junction_296__junction_304__35",
+        "junction_304__junction_311__92",
+        "junction_311__junction_312__364",
+        "junction_312__junction_313__71",
+        "junction_313__junction_314__70",
+        "junction_314__junction_315__71",
+        "junction_315__junction_316__71"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::34",
+      "priority": "medium",
+      "node_ids": [
+        "junction_3__junction_4__18"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::84",
+      "priority": "medium",
+      "node_ids": [
+        "junction_51__junction_53__31",
+        "junction_51__junction_56__23"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::85",
+      "priority": "medium",
+      "node_ids": [
+        "junction_59__junction_66__35"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::87",
+      "priority": "medium",
+      "node_ids": [
+        "junction_71__junction_75__20"
+      ]
+    },
+    {
+      "category": "articulation_point",
+      "group_key": "edge_component::104",
+      "priority": "medium",
+      "node_ids": [
+        "junction_84__junction_86__122",
+        "junction_86__junction_92__55",
+        "junction_92__junction_94__17",
+        "junction_94__junction_104__65",
+        "junction_98__junction_104__36"
+      ]
+    },
+    {
+      "category": "isolated_node",
+      "group_key": "type::endpoint",
+      "priority": "high",
+      "node_ids": [
+        "endpoint_1",
+        "endpoint_2",
+        "endpoint_4",
+        "endpoint_5",
+        "endpoint_6",
+        "endpoint_7",
+        "endpoint_8",
+        "endpoint_9",
+        "endpoint_11",
+        "endpoint_57",
+        "endpoint_64",
+        "endpoint_86",
+        "endpoint_97",
+        "endpoint_98",
+        "endpoint_123",
+        "endpoint_124",
+        "endpoint_126",
+        "endpoint_132",
+        "endpoint_136",
+        "endpoint_137",
+        "endpoint_142",
+        "endpoint_146",
+        "endpoint_161",
+        "endpoint_181",
+        "endpoint_198",
+        "endpoint_206",
+        "endpoint_209",
+        "endpoint_214",
+        "endpoint_228",
+        "endpoint_243",
+        "endpoint_246",
+        "endpoint_252",
+        "endpoint_254",
+        "endpoint_255",
+        "endpoint_266",
+        "endpoint_286",
+        "endpoint_287",
+        "endpoint_291",
+        "endpoint_292",
+        "endpoint_306",
+        "endpoint_310",
+        "endpoint_327",
+        "endpoint_337",
+        "endpoint_370",
+        "endpoint_373",
+        "endpoint_377",
+        "endpoint_382",
+        "endpoint_386",
+        "endpoint_400",
+        "endpoint_402",
+        "endpoint_409",
+        "endpoint_422",
+        "endpoint_428",
+        "endpoint_435",
+        "endpoint_449",
+        "endpoint_452",
+        "endpoint_456",
+        "endpoint_463",
+        "endpoint_466",
+        "endpoint_476",
+        "endpoint_477",
+        "endpoint_479",
+        "endpoint_482",
+        "endpoint_485",
+        "endpoint_486",
+        "endpoint_491",
+        "endpoint_494",
+        "endpoint_499",
+        "endpoint_511",
+        "endpoint_513",
+        "endpoint_515",
+        "endpoint_520",
+        "endpoint_525",
+        "endpoint_537",
+        "endpoint_543",
+        "endpoint_544",
+        "endpoint_546",
+        "endpoint_550",
+        "endpoint_567",
+        "endpoint_572",
+        "endpoint_575",
+        "endpoint_576",
+        "endpoint_582",
+        "endpoint_584",
+        "endpoint_585",
+        "endpoint_590",
+        "endpoint_594",
+        "endpoint_595"
+      ]
+    },
+    {
+      "category": "isolated_node",
+      "group_key": "type::junction",
+      "priority": "high",
+      "node_ids": [
+        "junction_17",
+        "junction_26",
+        "junction_27",
+        "junction_37",
+        "junction_54",
+        "junction_62",
+        "junction_64",
+        "junction_61",
+        "junction_77",
+        "junction_78",
+        "junction_85",
+        "junction_97",
+        "junction_101",
+        "junction_117",
+        "junction_133",
+        "junction_135",
+        "junction_136",
+        "junction_137",
+        "junction_140",
+        "junction_144",
+        "junction_149",
+        "junction_152",
+        "junction_156",
+        "junction_157",
+        "junction_159",
+        "junction_166",
+        "junction_167",
+        "junction_173",
+        "junction_183",
+        "junction_186",
+        "junction_200",
+        "junction_201",
+        "junction_203",
+        "junction_204",
+        "junction_206",
+        "junction_213",
+        "junction_220",
+        "junction_221",
+        "junction_228",
+        "junction_229",
+        "junction_230",
+        "junction_231",
+        "junction_233",
+        "junction_239",
+        "junction_245",
+        "junction_246",
+        "junction_247",
+        "junction_250",
+        "junction_252",
+        "junction_255",
+        "junction_264",
+        "junction_265",
+        "junction_266",
+        "junction_267",
+        "junction_268",
+        "junction_269",
+        "junction_271",
+        "junction_272",
+        "junction_273",
+        "junction_274",
+        "junction_275",
+        "junction_276",
+        "junction_280",
+        "junction_281",
+        "junction_282",
+        "junction_283",
+        "junction_284",
+        "junction_285",
+        "junction_287",
+        "junction_288",
+        "junction_289",
+        "junction_290",
+        "junction_291",
+        "junction_292",
+        "junction_297",
+        "junction_298",
+        "junction_299",
+        "junction_300",
+        "junction_301",
+        "junction_302",
+        "junction_305",
+        "junction_306",
+        "junction_307",
+        "junction_308",
+        "junction_309",
+        "junction_310"
+      ]
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_17",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_26",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_27",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_37",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_62",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_64",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_61",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_77",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_78",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_85",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_97",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_101",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_135",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_136",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_137",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_144",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_149",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_152",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_156",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_157",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_166",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_167",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_173",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_183",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_186",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_201",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_203",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_204",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_206",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_213",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_220",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_221",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_228",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_229",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_230",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_231",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_233",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_245",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_246",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_247",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_250",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_252",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_255",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_280",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_281",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_283",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_285",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_287",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_288",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_290",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_crossing",
+      "crossing_id": "junction_292",
+      "priority": "high"
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::0",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_0__endpoint_42__60"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::1",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_3__endpoint_35__53"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::2",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_10__endpoint_43__57"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::3",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_12__endpoint_44__57"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::4",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_13__junction_0__3",
+        "endpoint_19__junction_0__71"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::5",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_14__endpoint_15__59"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::6",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_16__endpoint_46__81"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::7",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_17__endpoint_47__37"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::8",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_18__endpoint_34__74"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::9",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_20__endpoint_49__37"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::10",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_21__endpoint_22__75"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::11",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_23__endpoint_24__74"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::12",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_25__endpoint_50__37"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::13",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_26__endpoint_27__74"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::14",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_28__endpoint_45__81"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::15",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_29__endpoint_30__73"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::16",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_31__endpoint_32__35"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::17",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_33__endpoint_39__51"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::18",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_36__endpoint_48__81"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::19",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_37__endpoint_40__73"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::20",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_38__endpoint_41__71"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::21",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_51__endpoint_67__61"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::22",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_52__endpoint_60__56"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::23",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_53__endpoint_63__80"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::24",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_54__junction_1__38",
+        "endpoint_58__junction_1__12"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::25",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_55__endpoint_66__51"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::26",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_56__endpoint_59__33"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::27",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_61__endpoint_62__81"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::28",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_65__endpoint_68__90"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::29",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_69__junction_2__12",
+        "endpoint_70__junction_2__7",
+        "endpoint_71__junction_2__22",
+        "endpoint_76__junction_2__21",
+        "endpoint_77__junction_2__8"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::30",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_72__endpoint_73__26"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::31",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_74__endpoint_75__19"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::32",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_78__junction_3__12"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::33",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_79__endpoint_88__24"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::34",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_80__junction_4__27",
+        "endpoint_82__junction_3__48",
+        "endpoint_87__junction_4__4"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::35",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_81__endpoint_83__12"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::36",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_84__endpoint_85__110"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::37",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_89__endpoint_94__24"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::38",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_90__endpoint_93__22"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::39",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_91__endpoint_96__25"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::40",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_92__endpoint_95__23"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::41",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_99__junction_6__4"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::42",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_100__endpoint_101__109"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::43",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_102__endpoint_103__111"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::44",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_104__endpoint_107__12"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::45",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_105__endpoint_106__13"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::46",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_108__junction_7__24",
+        "endpoint_109__junction_8__13",
+        "endpoint_110__junction_8__7",
+        "endpoint_113__junction_11__11",
+        "endpoint_114__junction_14__197",
+        "endpoint_115__junction_11__26",
+        "endpoint_118__junction_12__8",
+        "endpoint_119__junction_16__3"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::51",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_120__junction_24__51",
+        "endpoint_138__junction_24__67"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::54",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_127__junction_20__10",
+        "endpoint_128__junction_20__3"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::55",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_130__junction_22__22",
+        "endpoint_131__junction_22__4"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::64",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_156__junction_36__55",
+        "endpoint_183__junction_36__73"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::67",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_160__endpoint_168__70",
+        "endpoint_178__junction_48__29",
+        "endpoint_186__junction_48__12"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::71",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_170__junction_34__51"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::73",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_173__junction_41__10"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::76",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_179__junction_44__8",
+        "endpoint_199__junction_55__186"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::80",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_188__junction_53__3"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::81",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_189__endpoint_190__14",
+        "endpoint_197__endpoint_202__187",
+        "endpoint_200__junction_65__8",
+        "endpoint_201__endpoint_203__51",
+        "endpoint_204__junction_67__926",
+        "endpoint_218__junction_65__105",
+        "endpoint_218__junction_83__59",
+        "endpoint_225__junction_83__11"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::82",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_193__junction_63__41"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::83",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_194__junction_60__6",
+        "endpoint_195__junction_60__9"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::84",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_196__junction_56__62"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::85",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_205__junction_66__34"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::86",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_207__junction_155__1549",
+        "endpoint_210__endpoint_211__42",
+        "endpoint_213__endpoint_215__20",
+        "endpoint_436__junction_153__344"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::87",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_216__junction_75__27"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::88",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_217__junction_81__29"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::91",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_223__endpoint_333__1101",
+        "endpoint_349__junction_139__24",
+        "endpoint_354__junction_139__10",
+        "endpoint_358__junction_141__3",
+        "endpoint_359__junction_139__15",
+        "endpoint_361__junction_141__15",
+        "endpoint_375__junction_153__16"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::92",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_226__junction_84__9"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::93",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_227__endpoint_262__302"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::94",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_229__endpoint_268__594"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::95",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_230__junction_87__31"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::96",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_231__junction_88__28"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::97",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_232__junction_130__381",
+        "bridge::endpoint_344__junction_163__194"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::102",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_237__junction_103__57",
+        "endpoint_248__junction_103__17",
+        "endpoint_267__junction_103__53"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::103",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_238__junction_95__6",
+        "endpoint_238__junction_105__49"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::104",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_239__junction_94__26",
+        "endpoint_241__junction_98__31"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::105",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_240__junction_95__16"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::106",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_242__junction_99__28"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::109",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_247__endpoint_256__23"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::115",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_260__endpoint_273__45"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::116",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_261__junction_109__9"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::117",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_271__junction_111__11",
+        "endpoint_276__junction_111__30"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::118",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_272__endpoint_279__19"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::120",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_275__endpoint_284__25"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::121",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_277__junction_113__13"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::122",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_278__junction_118__66",
+        "endpoint_323__junction_118__74"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::124",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_281__endpoint_282__97"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::125",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_283__junction_150__475",
+        "endpoint_363__junction_150__43",
+        "endpoint_384__junction_150__6"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::126",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_285__junction_114__6",
+        "endpoint_288__junction_115__12"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::127",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_289__junction_108__340"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::129",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_293__endpoint_294__19",
+        "endpoint_312__junction_148__162",
+        "endpoint_372__junction_148__14"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::130",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_295__junction_120__19",
+        "endpoint_297__junction_120__12"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::132",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_298__junction_121__6",
+        "endpoint_298__endpoint_326__42"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::133",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_299__junction_131__59",
+        "endpoint_352__junction_131__59"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::134",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_300__junction_122__21",
+        "endpoint_316__junction_122__22"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::135",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_301__junction_121__16"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::136",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_302__junction_124__24",
+        "endpoint_328__junction_124__40"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::137",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_303__endpoint_308__60"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::138",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_304__endpoint_309__14"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::139",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_305__junction_122__76"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::140",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_307__junction_123__18"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::141",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_311__endpoint_334__48"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::142",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_313__junction_129__29"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::143",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_314__junction_125__13",
+        "endpoint_321__junction_125__4"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::144",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_315__endpoint_319__17"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::145",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_317__junction_126__8",
+        "endpoint_351__junction_126__81"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::146",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_318__junction_126__28"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::147",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_320__endpoint_322__19"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::148",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_324__junction_128__4"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::149",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_325__endpoint_332__24"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::150",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_329__junction_132__28",
+        "endpoint_335__junction_132__5"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::153",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_336__junction_120__63"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::154",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_338__endpoint_342__19"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::157",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_345__junction_138__11",
+        "endpoint_346__junction_138__3"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::158",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_347__junction_132__36"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::159",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_348__endpoint_353__25"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::161",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_356__junction_142__12",
+        "endpoint_362__junction_142__14"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::162",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_357__junction_143__66"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::163",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_364__junction_150__26"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::165",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_366__junction_138__71"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::167",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_368__endpoint_369__40"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::170",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_378__endpoint_408__145",
+        "endpoint_379__junction_151__23",
+        "endpoint_381__junction_151__13",
+        "endpoint_388__junction_151__58"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::173",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_389__junction_160__19",
+        "endpoint_392__junction_160__24"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::174",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_390__junction_162__16",
+        "endpoint_395__junction_165__48",
+        "endpoint_396__junction_163__31",
+        "endpoint_406__junction_175__25",
+        "endpoint_583__junction_251__4"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::175",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_391__junction_171__69"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::179",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_398__junction_164__125",
+        "endpoint_399__junction_164__7"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::180",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_403__junction_172__18",
+        "endpoint_412__junction_172__19"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::181",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_404__endpoint_411__36"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::182",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_405__junction_170__27",
+        "endpoint_410__junction_169__46",
+        "endpoint_416__junction_169__98",
+        "endpoint_432__junction_180__23",
+        "endpoint_444__junction_180__10"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::183",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_407__junction_171__30"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::184",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_413__endpoint_440__114"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::185",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_414__endpoint_415__44"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::188",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_419__endpoint_429__50"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::189",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_420__endpoint_421__41"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::190",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_423__junction_175__41"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::191",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_424__junction_176__61",
+        "endpoint_426__junction_177__26"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::192",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_425__endpoint_447__125"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::194",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_430__junction_189__99",
+        "endpoint_461__junction_191__12",
+        "endpoint_530__junction_225__12"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::195",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_431__junction_179__21",
+        "endpoint_437__junction_179__126",
+        "endpoint_442__junction_180__23"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::197",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_441__junction_176__67"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::199",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_446__junction_187__24"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::201",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_453__junction_185__10",
+        "endpoint_454__endpoint_472__76",
+        "endpoint_468__endpoint_470__31",
+        "bridge::endpoint_360__junction_182__390"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::203",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_458__junction_192__137",
+        "endpoint_459__junction_192__7",
+        "endpoint_464__endpoint_474__141"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::206",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_467__junction_195__18",
+        "endpoint_487__junction_205__31",
+        "endpoint_488__junction_196__286"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::207",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_475__junction_198__464"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::208",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_478__junction_202__65",
+        "endpoint_481__junction_202__70"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::209",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_480__junction_202__5"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::210",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_483__junction_210__41",
+        "endpoint_505__junction_210__21"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::211",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_484__junction_208__39",
+        "endpoint_504__junction_208__22",
+        "endpoint_514__endpoint_521__27"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::212",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_489__junction_244__452"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::218",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_500__endpoint_508__22"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::221",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_503__endpoint_542__149"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::224",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_516__endpoint_538__201"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::225",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_517__endpoint_527__24"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::226",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_518__junction_223__19",
+        "endpoint_526__junction_224__13"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::227",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_519__junction_222__11"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::228",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_523__junction_223__9"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::229",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_524__endpoint_536__118"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::231",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_531__junction_226__9"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::232",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_532__junction_225__15"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::233",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_535__endpoint_547__59"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::234",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_539__junction_232__38",
+        "endpoint_545__junction_232__59",
+        "endpoint_562__junction_237__38"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::235",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_541__junction_227__97"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::236",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_548__junction_238__125",
+        "endpoint_579__endpoint_580__76",
+        "endpoint_581__junction_238__326"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::238",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_551__junction_235__18",
+        "endpoint_552__junction_235__61"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::241",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_556__endpoint_557__73"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::243",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_561__junction_240__68"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::244",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_563__endpoint_564__33"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::245",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_565__endpoint_571__24",
+        "endpoint_568__junction_241__105",
+        "endpoint_573__junction_242__452"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::247",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_569__junction_240__8"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::249",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_577__junction_248__98",
+        "endpoint_578__junction_294__1016",
+        "endpoint_587__junction_249__312",
+        "endpoint_603__junction_294__25",
+        "endpoint_604__junction_294__1794"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::251",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_588__endpoint_589__32",
+        "endpoint_596__junction_258__5"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::252",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_591__junction_256__16",
+        "endpoint_597__junction_256__7"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::253",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_592__junction_258__19"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::254",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_593__junction_257__5"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::255",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_598__junction_259__49"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::256",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_599__junction_270__72",
+        "endpoint_601__junction_260__453"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::257",
+      "priority": "high",
+      "edge_ids": [
+        "endpoint_602__junction_286__114"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::287",
+      "priority": "high",
+      "edge_ids": [
+        "bridge::endpoint_340__endpoint_492__598"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::289",
+      "priority": "high",
+      "edge_ids": [
+        "bridge::endpoint_443__endpoint_457__47"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::280",
+      "priority": "high",
+      "edge_ids": [
+        "bridge::junction_263__endpoint_598__55"
+      ]
+    },
+    {
+      "category": "unresolved_terminal_edge",
+      "group_key": "edge_component::283",
+      "priority": "high",
+      "edge_ids": [
+        "bridge::junction_279__endpoint_602__56"
+      ]
+    }
+  ]
+}

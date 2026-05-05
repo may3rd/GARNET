@@ -1,0 +1,17 @@
+{
+  "image_id": "Test-00006.jpg",
+  "pass_type": "sheet",
+  "mask_pixel_count": 621933,
+  "connected_component_count_before": 1230,
+  "connected_component_count_after": 189,
+  "removed_small_components": 2,
+  "added_pixels": 150342,
+  "removed_pixels": 40,
+  "changed_pixel_count": 150382,
+  "horizontal_close_kernel": 13,
+  "vertical_close_kernel": 13,
+  "min_component_area": 32,
+  "source_artifacts": [
+    "stage5_pipe_mask.png"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "image_id": "Test-00006.jpg",
+  "pass_type": "sheet",
+  "node_count": 1068,
+  "edge_count": 742,
+  "connected_component_count": 356,
+  "edge_component_count": 289,
+  "unresolved_junction_count": 41,
+  "crossing_candidate_count": 420,
+  "non_connecting_crossing_count": 54,
+  "unresolved_crossing_count": 41,
+  "accepted_attachment_count": 0,
+  "accepted_connection_attachment_count": 8,
+  "accepted_text_attachment_count": 11,
+  "accepted_instrument_tag_attachment_count": 23,
+  "edge_terminal_count": 734,
+  "edge_connection_count": 655,
+  "source_artifacts": [
+    "stage9_node_clusters.json",
+    "stage10_pipe_edges.json",
+    "stage10_crossing_resolution.json",
+    "stage11_junctions.json"
+  ]
+}

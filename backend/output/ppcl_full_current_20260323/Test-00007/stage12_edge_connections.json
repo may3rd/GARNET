@@ -1,0 +1,4875 @@
+{
+  "edge_connections": [
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000050",
+      "connector_class": "arrow",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_358__junction_154__1347",
+      "target_edge_id": "endpoint_357__junction_154__256"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000053",
+      "connector_class": "arrow",
+      "alignment": "vertical",
+      "source_edge_id": "junction_233__junction_236__70",
+      "target_edge_id": "endpoint_577__junction_236__768"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000054",
+      "connector_class": "arrow",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_232__junction_71__4",
+      "target_edge_id": "junction_66__junction_71__166"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000055",
+      "connector_class": "arrow",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_234__junction_75__5",
+      "target_edge_id": "junction_69__junction_75__614"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000056",
+      "connector_class": "gate valve",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_416__junction_180__3",
+      "target_edge_id": "endpoint_424__endpoint_429__69"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000060",
+      "connector_class": "gate valve",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_168__junction_171__124",
+      "target_edge_id": "endpoint_385__junction_169__27"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000065",
+      "connector_class": "gate valve",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_421__junction_181__10",
+      "target_edge_id": "endpoint_426__endpoint_428__32"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000066",
+      "connector_class": "gate valve",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_444__junction_198__16",
+      "target_edge_id": "endpoint_448__junction_202__4"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000067",
+      "connector_class": "gate valve",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_162__junction_165__96",
+      "target_edge_id": "endpoint_381__junction_166__29"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000070",
+      "connector_class": "gate valve",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_410__junction_177__136",
+      "target_edge_id": "bridge::junction_169__junction_182__243"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000071",
+      "connector_class": "gate valve",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_451__junction_203__16",
+      "target_edge_id": "endpoint_454__endpoint_460__45"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000072",
+      "connector_class": "gate valve",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_183__junction_60__14",
+      "target_edge_id": "endpoint_197__junction_64__38"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000073",
+      "connector_class": "gate valve",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_352__junction_146__15",
+      "target_edge_id": "endpoint_356__junction_148__17"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000074",
+      "connector_class": "gate valve",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_236__endpoint_244__34",
+      "target_edge_id": "endpoint_259__junction_89__22"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000077",
+      "connector_class": "gate valve",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_350__junction_146__10",
+      "target_edge_id": "endpoint_344__endpoint_354__117"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000078",
+      "connector_class": "gate valve",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_467__junction_209__82",
+      "target_edge_id": "endpoint_450__endpoint_456__104"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000080",
+      "connector_class": "spectacle blind",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_357__junction_154__256",
+      "target_edge_id": "junction_151__junction_155__198"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000082",
+      "connector_class": "spectacle blind",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_441__junction_196__14",
+      "target_edge_id": "endpoint_442__junction_191__154"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000085",
+      "connector_class": "spectacle blind",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_255__junction_71__177",
+      "target_edge_id": "endpoint_265__junction_90__18"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000087",
+      "connector_class": "globe valve",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_235__endpoint_247__111",
+      "target_edge_id": "endpoint_261__junction_85__6"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000088",
+      "connector_class": "globe valve",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_344__endpoint_354__117",
+      "target_edge_id": "endpoint_341__junction_143__3"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000089",
+      "connector_class": "globe valve",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_238__junction_63__126",
+      "target_edge_id": "endpoint_257__junction_92__51"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000092",
+      "connector_class": "reducer",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_574__endpoint_576__106",
+      "target_edge_id": "endpoint_577__junction_236__768"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000093",
+      "connector_class": "reducer",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_573__endpoint_575__812",
+      "target_edge_id": "endpoint_574__endpoint_576__106"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000095",
+      "connector_class": "reducer",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_227__junction_74__13",
+      "target_edge_id": "endpoint_231__junction_75__108"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000098",
+      "connector_class": "reducer",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_226__junction_67__18",
+      "target_edge_id": "endpoint_229__junction_72__11"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000100",
+      "connector_class": "reducer",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_383__junction_164__22",
+      "target_edge_id": "bridge::endpoint_391__endpoint_554__1090"
+    },
+    {
+      "kind": "inline_element",
+      "connector_id": "obj_000101",
+      "connector_class": "reducer",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_366__junction_148__98",
+      "target_edge_id": "endpoint_369__junction_161__22"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_0",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_14__junction_0__117",
+      "target_edge_id": "junction_0__junction_1__469"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_1",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_591__junction_1__12854",
+      "target_edge_id": "junction_0__junction_1__469"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_4",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_4__junction_3__467",
+      "target_edge_id": "junction_4__junction_5__468"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_6",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_6__junction_5__467",
+      "target_edge_id": "junction_6__junction_7__468"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_8",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_8__junction_7__467",
+      "target_edge_id": "junction_8__junction_9__468"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_10",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_10__junction_9__467",
+      "target_edge_id": "junction_10__junction_13__230"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_3",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_4__junction_3__467",
+      "target_edge_id": "junction_3__junction_19__660"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_5",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_4__junction_5__468",
+      "target_edge_id": "junction_6__junction_5__467"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_7",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_6__junction_7__468",
+      "target_edge_id": "junction_8__junction_7__467"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_9",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_8__junction_9__468",
+      "target_edge_id": "junction_10__junction_9__467"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_11",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_11__junction_11__501",
+      "target_edge_id": "junction_11__junction_13__240"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_13",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_10__junction_13__230",
+      "target_edge_id": "junction_11__junction_13__240"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_14",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_14__junction_15__704",
+      "target_edge_id": "junction_14__junction_79__582"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_15",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_14__junction_15__704",
+      "target_edge_id": "junction_15__junction_20__134"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_16",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_49__junction_16__13",
+      "target_edge_id": "junction_16__junction_17__54"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_17",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_34__junction_17__34",
+      "target_edge_id": "junction_16__junction_17__54"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_18",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_61__junction_18__5",
+      "target_edge_id": "junction_18__junction_23__38"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_19",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_155__junction_19__211",
+      "target_edge_id": "junction_3__junction_19__660"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_20",
+      "alignment": "vertical",
+      "source_edge_id": "junction_15__junction_20__134",
+      "target_edge_id": "junction_20__junction_54__224"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_21",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_70__junction_21__9",
+      "target_edge_id": "endpoint_75__junction_21__80"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_22",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_69__junction_22__10",
+      "target_edge_id": "endpoint_72__junction_22__26"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_23",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_81__junction_23__16",
+      "target_edge_id": "junction_23__junction_24__41"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_24",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_77__junction_24__22",
+      "target_edge_id": "junction_23__junction_24__41"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_25",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_82__junction_25__12",
+      "target_edge_id": "endpoint_83__junction_25__28"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_27",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_97__junction_27__12",
+      "target_edge_id": "junction_27__junction_29__30"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_26",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_100__junction_26__5",
+      "target_edge_id": "endpoint_112__junction_26__9"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_28",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_102__junction_28__4",
+      "target_edge_id": "endpoint_109__junction_28__46"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_29",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_99__junction_29__12",
+      "target_edge_id": "junction_27__junction_29__30"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_30",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_30__junction_31__42",
+      "target_edge_id": "junction_30__junction_40__28"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_31",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_103__junction_31__7",
+      "target_edge_id": "junction_30__junction_31__42"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_34",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_108__junction_34__14",
+      "target_edge_id": "endpoint_121__junction_34__20"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_32",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_98__junction_32__38",
+      "target_edge_id": "endpoint_115__junction_32__3"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_35",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_118__junction_35__10",
+      "target_edge_id": "endpoint_119__junction_35__38"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_33",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_123__junction_33__25",
+      "target_edge_id": "junction_33__junction_36__34"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_36",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_122__junction_36__7",
+      "target_edge_id": "junction_33__junction_36__34"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_37",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_37__junction_50__53",
+      "target_edge_id": "junction_37__junction_41__12"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_39",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_124__junction_39__3",
+      "target_edge_id": "junction_39__junction_41__19"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_38",
+      "alignment": "vertical",
+      "source_edge_id": "junction_31__junction_38__26",
+      "target_edge_id": "junction_38__junction_51__43"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_41",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_142__junction_41__14",
+      "target_edge_id": "junction_37__junction_41__12"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_42",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_42__junction_48__109",
+      "target_edge_id": "junction_42__junction_43__69"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_43",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_42__junction_43__69",
+      "target_edge_id": "junction_43__junction_45__156"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_44",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_139__junction_44__86",
+      "target_edge_id": "junction_44__junction_47__72"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_45",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_43__junction_45__156",
+      "target_edge_id": "junction_45__junction_46__25"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_46",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_137__junction_46__30",
+      "target_edge_id": "junction_45__junction_46__25"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_46",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_130__junction_46__7",
+      "target_edge_id": "endpoint_149__junction_46__9"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_47",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_44__junction_47__72",
+      "target_edge_id": "junction_47__junction_48__57"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_48",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_42__junction_48__109",
+      "target_edge_id": "junction_47__junction_48__57"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_49",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_49__junction_50__21",
+      "target_edge_id": "junction_49__junction_51__34"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_50",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_148__junction_50__3",
+      "target_edge_id": "junction_49__junction_50__21"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_51",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_38__junction_51__43",
+      "target_edge_id": "junction_49__junction_51__34"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_53",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_48__junction_53__31",
+      "target_edge_id": "junction_53__junction_61__67"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_54",
+      "alignment": "vertical",
+      "source_edge_id": "junction_20__junction_54__224",
+      "target_edge_id": "junction_54__junction_88__273"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_55",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_161__junction_55__12",
+      "target_edge_id": "endpoint_172__junction_55__47"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_57",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_156__junction_57__22",
+      "target_edge_id": "endpoint_171__junction_57__18"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_59",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_182__junction_59__14",
+      "target_edge_id": "junction_59__junction_58__32"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_58",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_178__junction_58__55",
+      "target_edge_id": "junction_59__junction_58__32"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_60",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_170__junction_60__24",
+      "target_edge_id": "endpoint_183__junction_60__14"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_61",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_175__junction_61__30",
+      "target_edge_id": "junction_61__junction_62__21"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_62",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_62__junction_63__53",
+      "target_edge_id": "junction_62__junction_65__102"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_63",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_194__junction_63__60",
+      "target_edge_id": "junction_62__junction_63__53"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_64",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_197__junction_64__38",
+      "target_edge_id": "endpoint_198__junction_64__69"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_65",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_220__junction_65__45",
+      "target_edge_id": "junction_61__junction_65__97"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_69",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_69__junction_70__200",
+      "target_edge_id": "junction_69__junction_75__614"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_67",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_226__junction_67__18",
+      "target_edge_id": "junction_67__junction_66__137"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_66",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_67__junction_66__137",
+      "target_edge_id": "junction_66__junction_71__166"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_66",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_218__junction_66__40",
+      "target_edge_id": "junction_66__junction_77__37"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_70",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_228__junction_70__11",
+      "target_edge_id": "junction_69__junction_70__200"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_71",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_255__junction_71__177",
+      "target_edge_id": "junction_66__junction_71__166"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_72",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_253__junction_72__154",
+      "target_edge_id": "junction_72__junction_73__21"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_74",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_227__junction_74__13",
+      "target_edge_id": "endpoint_230__junction_74__10"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_75",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_231__junction_75__108",
+      "target_edge_id": "junction_69__junction_75__614"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_77",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_246__junction_77__8",
+      "target_edge_id": "junction_66__junction_77__37"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_78",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_78__junction_81__47",
+      "target_edge_id": "junction_78__junction_123__224"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_79",
+      "alignment": "vertical",
+      "source_edge_id": "junction_14__junction_79__582",
+      "target_edge_id": "junction_79__junction_87__45"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_82",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_243__junction_82__25",
+      "target_edge_id": "endpoint_249__junction_82__10"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_83",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_245__junction_83__40",
+      "target_edge_id": "junction_64__junction_83__112"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_85",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_260__junction_85__5",
+      "target_edge_id": "endpoint_261__junction_85__6"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_87",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_87__junction_88__704",
+      "target_edge_id": "junction_87__junction_223__1751"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_88",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_87__junction_88__704",
+      "target_edge_id": "junction_88__junction_124__179"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_89",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_259__junction_89__22",
+      "target_edge_id": "junction_89__junction_91__15"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_90",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_90__junction_95__99",
+      "target_edge_id": "junction_90__junction_91__61"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_91",
+      "alignment": "vertical",
+      "source_edge_id": "junction_89__junction_91__15",
+      "target_edge_id": "junction_91__junction_94__34"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_92",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_257__junction_92__51",
+      "target_edge_id": "endpoint_270__junction_92__32"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_93",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_266__junction_93__85",
+      "target_edge_id": "endpoint_272__junction_93__51"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_94",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_94__junction_95__162",
+      "target_edge_id": "junction_94__junction_105__60"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_95",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_94__junction_95__162",
+      "target_edge_id": "junction_95__junction_104__49"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_96",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_301__junction_96__56",
+      "target_edge_id": "junction_96__junction_118__89"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_97",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_276__junction_97__29",
+      "target_edge_id": "endpoint_281__junction_97__6"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_98",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_283__junction_98__5",
+      "target_edge_id": "endpoint_289__junction_98__28"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_99",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_280__junction_99__29",
+      "target_edge_id": "endpoint_282__junction_99__6"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_101",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_297__junction_101__13",
+      "target_edge_id": "junction_101__junction_112__54"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_105",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_94__junction_105__60",
+      "target_edge_id": "junction_105__junction_106__39"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_104",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_95__junction_104__49",
+      "target_edge_id": "junction_104__junction_107__39"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_102",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_100__junction_102__92",
+      "target_edge_id": "junction_102__junction_103__82"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_102",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_273__junction_102__47",
+      "target_edge_id": "junction_102__junction_110__21"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_103",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_303__junction_103__7",
+      "target_edge_id": "junction_103__junction_110__63"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_107",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_104__junction_107__39",
+      "target_edge_id": "junction_107__junction_106__97"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_106",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_105__junction_106__39",
+      "target_edge_id": "junction_107__junction_106__97"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_108",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_298__junction_108__35",
+      "target_edge_id": "endpoint_299__junction_108__14"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_109",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_103__junction_109__122",
+      "target_edge_id": "junction_109__junction_119__41"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_110",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_102__junction_110__21",
+      "target_edge_id": "junction_103__junction_110__63"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_113",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_108__junction_113__49",
+      "target_edge_id": "junction_112__junction_113__39"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_114",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_106__junction_114__36",
+      "target_edge_id": "junction_114__junction_115__37"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_115",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_107__junction_115__35",
+      "target_edge_id": "junction_114__junction_115__37"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_117",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_115__junction_117__37",
+      "target_edge_id": "junction_117__junction_121__39"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_120",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_114__junction_120__37",
+      "target_edge_id": "junction_120__junction_122__39"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_118",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_309__junction_118__10",
+      "target_edge_id": "junction_96__junction_118__89"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_122",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_105__junction_122__56",
+      "target_edge_id": "junction_120__junction_122__39"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_121",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_117__junction_121__39",
+      "target_edge_id": "junction_121__junction_129__128"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_123",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_311__junction_123__49",
+      "target_edge_id": "junction_123__junction_136__223"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_124",
+      "alignment": "vertical",
+      "source_edge_id": "junction_88__junction_124__179",
+      "target_edge_id": "junction_124__junction_137__223"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_126",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_119__junction_126__320",
+      "target_edge_id": "junction_122__junction_126__33"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_128",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_318__junction_128__3",
+      "target_edge_id": "junction_128__junction_139__1239"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_129",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_129__junction_132__36",
+      "target_edge_id": "junction_129__junction_133__50"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_131",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_131__junction_130__46",
+      "target_edge_id": "junction_131__junction_132__44"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_132",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_129__junction_132__36",
+      "target_edge_id": "junction_131__junction_132__44"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_130",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_314__junction_130__31",
+      "target_edge_id": "junction_130__junction_134__33"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_133",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_319__junction_133__20",
+      "target_edge_id": "junction_129__junction_133__50"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_134",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_355__junction_134__594",
+      "target_edge_id": "junction_130__junction_134__33"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_136",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_330__junction_136__211",
+      "target_edge_id": "junction_123__junction_136__223"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_137",
+      "alignment": "vertical",
+      "source_edge_id": "junction_124__junction_137__223",
+      "target_edge_id": "junction_137__junction_140__224"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_138",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_324__junction_138__7",
+      "target_edge_id": "endpoint_325__junction_138__6"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_139",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_329__junction_139__24",
+      "target_edge_id": "junction_128__junction_139__1239"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_140",
+      "alignment": "vertical",
+      "source_edge_id": "junction_137__junction_140__224",
+      "target_edge_id": "junction_140__junction_152__224"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_141",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_336__junction_141__12",
+      "target_edge_id": "junction_141__junction_142__25"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_142",
+      "alignment": "vertical",
+      "source_edge_id": "junction_141__junction_142__25",
+      "target_edge_id": "junction_142__junction_145__24"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_143",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_340__junction_143__13",
+      "target_edge_id": "endpoint_341__junction_143__3"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_145",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_353__junction_145__50",
+      "target_edge_id": "junction_142__junction_145__24"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_146",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_348__junction_146__11",
+      "target_edge_id": "endpoint_352__junction_146__15"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_148",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_356__junction_148__17",
+      "target_edge_id": "endpoint_366__junction_148__98"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_149",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_129__junction_149__513",
+      "target_edge_id": "junction_149__junction_155__147"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_150",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_150__junction_153__47",
+      "target_edge_id": "junction_150__junction_173__224"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_152",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_393__junction_152__212",
+      "target_edge_id": "junction_140__junction_152__224"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_154",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_357__junction_154__256",
+      "target_edge_id": "endpoint_358__junction_154__1347"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_151",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_359__junction_151__15",
+      "target_edge_id": "junction_151__junction_166__141"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_157",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_149__junction_157__46",
+      "target_edge_id": "junction_157__junction_158__42"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_159",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_371__junction_159__13",
+      "target_edge_id": "junction_159__junction_165__96"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_160",
+      "alignment": "vertical",
+      "source_edge_id": "junction_158__junction_160__29",
+      "target_edge_id": "junction_160__junction_167__73"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_161",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_365__junction_161__177",
+      "target_edge_id": "junction_161__junction_164__31"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_164",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_378__junction_164__26",
+      "target_edge_id": "endpoint_383__junction_164__22"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_166",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_151__junction_166__141",
+      "target_edge_id": "junction_166__junction_169__35"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_165",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_162__junction_165__96",
+      "target_edge_id": "junction_165__junction_172__140"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_165",
+      "alignment": "vertical",
+      "source_edge_id": "junction_159__junction_165__96",
+      "target_edge_id": "junction_165__junction_168__28"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_167",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_382__junction_167__40",
+      "target_edge_id": "junction_160__junction_167__73"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_168",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_389__junction_168__41",
+      "target_edge_id": "junction_168__junction_171__124"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_169",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_385__junction_169__27",
+      "target_edge_id": "endpoint_392__junction_169__29"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_173",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_395__junction_173__16",
+      "target_edge_id": "junction_173__junction_192__224"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_174",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_397__junction_174__62",
+      "target_edge_id": "junction_174__junction_175__43"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_175",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_398__junction_175__26",
+      "target_edge_id": "junction_174__junction_175__43"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_177",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_407__junction_177__18",
+      "target_edge_id": "endpoint_410__junction_177__136"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_179",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_406__junction_179__69",
+      "target_edge_id": "endpoint_413__junction_179__40"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_180",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_167__junction_180__197",
+      "target_edge_id": "junction_180__junction_187__20"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_181",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_417__junction_181__18",
+      "target_edge_id": "endpoint_419__junction_181__9"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_182",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_182__junction_185__75",
+      "target_edge_id": "junction_182__junction_186__13"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_183",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_404__junction_183__113",
+      "target_edge_id": "junction_183__junction_185__168"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_185",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_425__junction_185__10",
+      "target_edge_id": "junction_183__junction_185__168"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_187",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_180__junction_187__20",
+      "target_edge_id": "junction_187__junction_189__96"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_186",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_182__junction_186__13",
+      "target_edge_id": "junction_186__junction_189__73"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_189",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_187__junction_189__96",
+      "target_edge_id": "junction_186__junction_189__73"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_190",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_189__junction_190__25",
+      "target_edge_id": "junction_190__junction_191__16"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_191",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_186__junction_191__96",
+      "target_edge_id": "junction_190__junction_191__16"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_192",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_431__junction_192__30",
+      "target_edge_id": "junction_192__junction_212__223"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_193",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_396__junction_193__208",
+      "target_edge_id": "junction_193__junction_213__223"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_194",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_433__junction_194__27",
+      "target_edge_id": "endpoint_434__junction_194__119"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_195",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_436__junction_195__13",
+      "target_edge_id": "junction_183__junction_195__277"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_196",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_441__junction_196__14",
+      "target_edge_id": "junction_196__junction_198__71"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_198",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_196__junction_198__71",
+      "target_edge_id": "bridge::endpoint_443__junction_198__82"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_199",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_445__junction_199__4",
+      "target_edge_id": "junction_199__junction_200__24"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_202",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_448__junction_202__4",
+      "target_edge_id": "endpoint_449__junction_202__24"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_203",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_453__junction_203__216",
+      "target_edge_id": "junction_202__junction_203__24"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_205",
+      "alignment": "vertical",
+      "source_edge_id": "junction_195__junction_205__160",
+      "target_edge_id": "junction_205__junction_211__20"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_206",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_458__junction_206__10",
+      "target_edge_id": "junction_206__junction_210__27"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_207",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_459__junction_207__19",
+      "target_edge_id": "junction_207__junction_208__16"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_208",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_468__junction_208__14",
+      "target_edge_id": "junction_208__junction_211__19"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_210",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_469__junction_210__13",
+      "target_edge_id": "junction_210__junction_211__28"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_211",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_471__junction_211__15",
+      "target_edge_id": "junction_210__junction_211__28"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_211",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_472__junction_211__15",
+      "target_edge_id": "junction_205__junction_211__20"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_212",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_464__junction_212__14",
+      "target_edge_id": "junction_212__junction_220__224"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_209",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_452__junction_209__51",
+      "target_edge_id": "endpoint_474__junction_209__34"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_216",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_411__junction_216__710",
+      "target_edge_id": "junction_216__junction_218__18"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_217",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_217__junction_215__27",
+      "target_edge_id": "junction_217__junction_218__36"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_215",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_482__junction_215__6",
+      "target_edge_id": "junction_217__junction_215__27"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_215",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_477__junction_215__29",
+      "target_edge_id": "endpoint_487__junction_215__38"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_218",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_485__junction_218__22",
+      "target_edge_id": "junction_217__junction_218__36"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_219",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_470__junction_219__190",
+      "target_edge_id": "endpoint_484__junction_219__38"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_220",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_543__junction_220__215",
+      "target_edge_id": "junction_212__junction_220__224"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_225",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_492__junction_225__3",
+      "target_edge_id": "endpoint_544__junction_225__171"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_227",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_483__junction_227__193",
+      "target_edge_id": "endpoint_497__junction_227__40"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_228",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_525__junction_228__189",
+      "target_edge_id": "endpoint_535__junction_228__21"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_229",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_495__junction_229__21",
+      "target_edge_id": "endpoint_526__junction_229__86"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_230",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_538__junction_230__12",
+      "target_edge_id": "junction_230__junction_233__23"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_231",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_231__junction_232__704",
+      "target_edge_id": "junction_231__junction_239__201"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_232",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_231__junction_232__704",
+      "target_edge_id": "junction_232__junction_235__71"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_233",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_233__junction_234__16",
+      "target_edge_id": "junction_233__junction_236__70"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_234",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_539__junction_234__6",
+      "target_edge_id": "junction_233__junction_234__16"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_235",
+      "alignment": "vertical",
+      "source_edge_id": "junction_232__junction_235__71",
+      "target_edge_id": "junction_235__junction_240__130"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_236",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_577__junction_236__768",
+      "target_edge_id": "junction_233__junction_236__70"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_238",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_549__junction_238__406",
+      "target_edge_id": "endpoint_550__junction_238__237"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_239",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_239__junction_241__201",
+      "target_edge_id": "junction_239__junction_244__95"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_240",
+      "alignment": "vertical",
+      "source_edge_id": "junction_235__junction_240__130",
+      "target_edge_id": "bridge::junction_240__endpoint_555__93"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_241",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_239__junction_241__201",
+      "target_edge_id": "junction_240__junction_241__502"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_242",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_556__junction_242__30",
+      "target_edge_id": "junction_242__junction_296__223"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_245",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_555__junction_245__524",
+      "target_edge_id": "junction_245__junction_244__204"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_244",
+      "alignment": "vertical",
+      "source_edge_id": "junction_239__junction_244__95",
+      "target_edge_id": "junction_244__junction_251__111"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_248",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_248__junction_250__19",
+      "target_edge_id": "junction_248__junction_255__18"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_249",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_249__junction_256__37",
+      "target_edge_id": "junction_249__junction_255__33"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_247",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_558__junction_247__16",
+      "target_edge_id": "endpoint_564__junction_247__7"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_250",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_561__junction_250__5",
+      "target_edge_id": "junction_250__junction_257__31"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_251",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_251__junction_256__69",
+      "target_edge_id": "junction_251__junction_258__818"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_252",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_252__junction_258__91",
+      "target_edge_id": "junction_252__junction_253__363"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_253",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_252__junction_253__363",
+      "target_edge_id": "junction_253__junction_288__542"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_255",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_248__junction_255__18",
+      "target_edge_id": "junction_249__junction_255__33"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_256",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_249__junction_256__37",
+      "target_edge_id": "junction_251__junction_256__69"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_257",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_247__junction_257__36",
+      "target_edge_id": "junction_257__junction_330__798"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_258",
+      "alignment": "vertical",
+      "source_edge_id": "junction_252__junction_258__91",
+      "target_edge_id": "junction_258__junction_273__35"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_266",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_266__junction_270__81",
+      "target_edge_id": "junction_266__junction_287__48"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_267",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_267__junction_272__58",
+      "target_edge_id": "junction_267__junction_268__82"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_268",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_565__junction_268__15",
+      "target_edge_id": "junction_268__junction_269__83"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_269",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_566__junction_269__15",
+      "target_edge_id": "junction_269__junction_270__83"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_270",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_266__junction_270__81",
+      "target_edge_id": "junction_269__junction_270__83"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_271",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_271__junction_280__332",
+      "target_edge_id": "junction_271__junction_272__20"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_272",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_267__junction_272__58",
+      "target_edge_id": "junction_271__junction_272__20"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_273",
+      "alignment": "vertical",
+      "source_edge_id": "junction_258__junction_273__35",
+      "target_edge_id": "junction_273__junction_288__35"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_280",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_271__junction_280__332",
+      "target_edge_id": "junction_280__junction_342__971"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_281",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_272__junction_281__48",
+      "target_edge_id": "junction_281__junction_282__20"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_282",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_570__junction_282__99",
+      "target_edge_id": "junction_281__junction_282__20"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_283",
+      "alignment": "vertical",
+      "source_edge_id": "junction_271__junction_283__42",
+      "target_edge_id": "junction_283__junction_298__47"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_287",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_266__junction_287__48",
+      "target_edge_id": "junction_287__junction_324__260"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_288",
+      "alignment": "vertical",
+      "source_edge_id": "junction_273__junction_288__35",
+      "target_edge_id": "junction_288__junction_304__35"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_295",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_280__junction_295__36",
+      "target_edge_id": "junction_295__junction_354__971"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_296",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_594__junction_296__275",
+      "target_edge_id": "junction_242__junction_296__223"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_297",
+      "alignment": "vertical",
+      "source_edge_id": "junction_287__junction_297__28",
+      "target_edge_id": "junction_297__junction_303__19"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_298",
+      "alignment": "vertical",
+      "source_edge_id": "junction_283__junction_298__47",
+      "target_edge_id": "junction_298__junction_312__26"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_303",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_303__junction_325__127",
+      "target_edge_id": "junction_303__junction_326__47"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_304",
+      "alignment": "vertical",
+      "source_edge_id": "junction_288__junction_304__35",
+      "target_edge_id": "junction_304__junction_313__36"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_311",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_295__junction_311__36",
+      "target_edge_id": "junction_311__junction_369__925"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_312",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_584__junction_312__245",
+      "target_edge_id": "junction_312__junction_321__21"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_321",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_321__junction_328__58",
+      "target_edge_id": "junction_321__junction_322__83"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_322",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_321__junction_322__83",
+      "target_edge_id": "junction_322__junction_323__83"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_325",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_325__junction_329__35",
+      "target_edge_id": "junction_325__junction_326__82"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_323",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_322__junction_323__83",
+      "target_edge_id": "junction_323__junction_324__82"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_324",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_323__junction_324__82",
+      "target_edge_id": "junction_324__junction_329__47"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_313",
+      "alignment": "vertical",
+      "source_edge_id": "junction_304__junction_313__36",
+      "target_edge_id": "junction_313__junction_330__35"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_326",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_325__junction_326__82",
+      "target_edge_id": "junction_326__junction_341__35"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_328",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_321__junction_328__58",
+      "target_edge_id": "junction_327__junction_328__129"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_329",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_325__junction_329__35",
+      "target_edge_id": "junction_324__junction_329__47"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_330",
+      "alignment": "vertical",
+      "source_edge_id": "junction_313__junction_330__35",
+      "target_edge_id": "junction_330__junction_342__35"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_341",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_341__junction_353__177",
+      "target_edge_id": "junction_341__junction_394__512"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_342",
+      "alignment": "vertical",
+      "source_edge_id": "junction_330__junction_342__35",
+      "target_edge_id": "junction_342__junction_354__35"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_349",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_311__junction_349__121",
+      "target_edge_id": "junction_349__junction_370__443"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_353",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_352__junction_353__353",
+      "target_edge_id": "junction_353__junction_376__61"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_354",
+      "alignment": "vertical",
+      "source_edge_id": "junction_342__junction_354__35",
+      "target_edge_id": "junction_354__junction_368__53"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_362",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_590__junction_362__7",
+      "target_edge_id": "junction_362__junction_363__31"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_361",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_362__junction_361__28",
+      "target_edge_id": "junction_361__junction_372__28"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_364",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_364__junction_365__24",
+      "target_edge_id": "junction_364__junction_366__31"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_365",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_364__junction_365__24",
+      "target_edge_id": "junction_365__junction_372__78"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_366",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_364__junction_366__31",
+      "target_edge_id": "junction_366__junction_373__22"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_368",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_368__junction_389__156",
+      "target_edge_id": "junction_368__junction_369__60"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_369",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_368__junction_369__60",
+      "target_edge_id": "junction_369__junction_390__18"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_370",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_370__junction_391__111",
+      "target_edge_id": "junction_370__junction_371__72"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_371",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_370__junction_371__72",
+      "target_edge_id": "junction_371__junction_392__51"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_372",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_365__junction_372__78",
+      "target_edge_id": "junction_372__junction_392__21"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_373",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_365__junction_373__26",
+      "target_edge_id": "junction_366__junction_373__22"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_376",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_595__junction_376__146",
+      "target_edge_id": "junction_376__junction_394__178"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_378",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_596__junction_378__14",
+      "target_edge_id": "junction_378__junction_379__235"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_379",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_603__junction_379__28",
+      "target_edge_id": "junction_379__junction_380__235"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_380",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_598__junction_380__15",
+      "target_edge_id": "junction_380__junction_381__234"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_381",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_606__junction_381__29",
+      "target_edge_id": "junction_381__junction_382__235"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_382",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_612__junction_382__30",
+      "target_edge_id": "junction_382__junction_383__469"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_383",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_599__junction_383__15",
+      "target_edge_id": "junction_383__junction_384__234"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_384",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_607__junction_384__29",
+      "target_edge_id": "junction_384__junction_385__235"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_385",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_384__junction_385__235",
+      "target_edge_id": "junction_385__junction_386__233"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_386",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_604__junction_386__28",
+      "target_edge_id": "junction_386__junction_387__235"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_387",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_600__junction_387__15",
+      "target_edge_id": "junction_387__junction_388__235"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_388",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_608__junction_388__29",
+      "target_edge_id": "junction_388__junction_389__234"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_389",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_368__junction_389__156",
+      "target_edge_id": "junction_388__junction_389__234"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_390",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_609__junction_390__29",
+      "target_edge_id": "junction_390__junction_391__235"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_391",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_370__junction_391__111",
+      "target_edge_id": "junction_390__junction_391__235"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_392",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_371__junction_392__51",
+      "target_edge_id": "junction_372__junction_392__21"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_393",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_611__junction_393__29",
+      "target_edge_id": "junction_393__junction_394__176"
+    },
+    {
+      "kind": "junction_alignment",
+      "connector_id": "junction_394",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_376__junction_394__178",
+      "target_edge_id": "junction_393__junction_394__176"
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_10__junction_13__230",
+      "target_edge_id": "junction_11__junction_13__240",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_24__endpoint_31__90",
+      "target_edge_id": "endpoint_28__endpoint_33__70",
+      "gap_px": 24.042,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_25__endpoint_29__30",
+      "target_edge_id": "endpoint_30__endpoint_32__174",
+      "gap_px": 26.306,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_34__junction_17__34",
+      "target_edge_id": "junction_16__junction_17__54",
+      "gap_px": 1.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_61__junction_18__5",
+      "target_edge_id": "junction_18__junction_23__38",
+      "gap_px": 2.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_35__junction_16__8",
+      "target_edge_id": "endpoint_49__junction_16__13",
+      "gap_px": 8.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_36__endpoint_37__54",
+      "target_edge_id": "endpoint_45__endpoint_46__63",
+      "gap_px": 22.561,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_36__endpoint_37__54",
+      "target_edge_id": "endpoint_42__endpoint_47__50",
+      "gap_px": 19.235,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_38__endpoint_53__217",
+      "target_edge_id": "endpoint_56__endpoint_64__36",
+      "gap_px": 26.249,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_39__endpoint_40__20",
+      "target_edge_id": "endpoint_41__endpoint_48__27",
+      "gap_px": 26.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_39__endpoint_40__20",
+      "target_edge_id": "endpoint_43__endpoint_44__48",
+      "gap_px": 24.083,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_41__endpoint_48__27",
+      "target_edge_id": "endpoint_45__endpoint_46__63",
+      "gap_px": 21.024,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_56__endpoint_64__36",
+      "target_edge_id": "endpoint_57__endpoint_58__55",
+      "gap_px": 33.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_52__junction_24__42",
+      "target_edge_id": "endpoint_62__endpoint_66__35",
+      "gap_px": 26.926,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_50__junction_17__3",
+      "target_edge_id": "endpoint_61__junction_18__5",
+      "gap_px": 22.136,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_51__endpoint_60__112",
+      "target_edge_id": "endpoint_54__endpoint_59__46",
+      "gap_px": 23.409,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_51__endpoint_60__112",
+      "target_edge_id": "endpoint_57__endpoint_58__55",
+      "gap_px": 28.018,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_81__junction_23__16",
+      "target_edge_id": "junction_23__junction_24__41",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_62__endpoint_66__35",
+      "target_edge_id": "endpoint_71__endpoint_80__22",
+      "gap_px": 21.401,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_72__junction_22__26",
+      "target_edge_id": "endpoint_78__junction_22__13",
+      "gap_px": 1.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_70__junction_21__9",
+      "target_edge_id": "endpoint_79__junction_21__13",
+      "gap_px": 21.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_70__junction_21__9",
+      "target_edge_id": "endpoint_75__junction_21__80",
+      "gap_px": 1.414,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_72__junction_22__26",
+      "target_edge_id": "endpoint_75__junction_21__80",
+      "gap_px": 24.698,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_82__junction_25__12",
+      "target_edge_id": "endpoint_86__endpoint_87__77",
+      "gap_px": 26.571,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_82__junction_25__12",
+      "target_edge_id": "endpoint_83__junction_25__28",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_83__junction_25__28",
+      "target_edge_id": "endpoint_92__junction_25__3",
+      "gap_px": 29.155,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_84__endpoint_88__71",
+      "target_edge_id": "endpoint_89__endpoint_93__35",
+      "gap_px": 25.298,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_84__endpoint_88__71",
+      "target_edge_id": "endpoint_86__endpoint_87__77",
+      "gap_px": 34.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_89__endpoint_93__35",
+      "target_edge_id": "endpoint_90__endpoint_94__69",
+      "gap_px": 34.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_108__junction_34__14",
+      "target_edge_id": "endpoint_116__junction_34__38",
+      "gap_px": 15.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_122__junction_36__7",
+      "target_edge_id": "junction_33__junction_36__34",
+      "gap_px": 2.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_27__junction_29__30",
+      "target_edge_id": "junction_27__junction_36__24",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_119__junction_35__38",
+      "target_edge_id": "endpoint_120__junction_32__11",
+      "gap_px": 25.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_115__junction_32__3",
+      "target_edge_id": "endpoint_98__junction_32__38",
+      "gap_px": 14.036,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_100__junction_26__5",
+      "target_edge_id": "endpoint_112__junction_26__9",
+      "gap_px": 11.314,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_99__junction_29__12",
+      "target_edge_id": "junction_27__junction_29__30",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_120__junction_32__11",
+      "target_edge_id": "junction_26__junction_32__19",
+      "gap_px": 14.142,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_109__junction_28__46",
+      "target_edge_id": "endpoint_113__junction_28__16",
+      "gap_px": 1.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_126__junction_38__15",
+      "target_edge_id": "junction_30__junction_31__42",
+      "gap_px": 29.411,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_30__junction_31__42",
+      "target_edge_id": "junction_30__junction_40__28",
+      "gap_px": 0.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_106__junction_30__21",
+      "target_edge_id": "junction_40__junction_49__31",
+      "gap_px": 27.166,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_108__junction_34__14",
+      "target_edge_id": "junction_34__junction_35__70",
+      "gap_px": 7.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_123__junction_33__25",
+      "target_edge_id": "junction_33__junction_36__34",
+      "gap_px": 25.962,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "connection_seeded_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_110__junction_44__64",
+      "target_edge_id": "endpoint_139__junction_44__86",
+      "gap_px": 59.169,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_134__endpoint_143__19",
+      "target_edge_id": "endpoint_144__endpoint_150__57",
+      "gap_px": 24.042,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_132__endpoint_145__129",
+      "target_edge_id": "endpoint_135__endpoint_136__53",
+      "gap_px": 18.028,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_118__junction_35__10",
+      "target_edge_id": "endpoint_121__junction_34__20",
+      "gap_px": 24.021,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_118__junction_35__10",
+      "target_edge_id": "endpoint_119__junction_35__38",
+      "gap_px": 1.414,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_123__junction_33__25",
+      "target_edge_id": "endpoint_135__endpoint_136__53",
+      "gap_px": 31.78,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_142__junction_41__14",
+      "target_edge_id": "junction_37__junction_41__12",
+      "gap_px": 11.045,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_37__junction_41__12",
+      "target_edge_id": "junction_37__junction_50__53",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_147__junction_41__16",
+      "target_edge_id": "junction_39__junction_41__19",
+      "gap_px": 11.045,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_38__junction_51__43",
+      "target_edge_id": "junction_49__junction_51__34",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_42__junction_43__69",
+      "target_edge_id": "junction_42__junction_48__109",
+      "gap_px": 0.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_130__junction_46__7",
+      "target_edge_id": "endpoint_149__junction_46__9",
+      "gap_px": 20.248,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_132__endpoint_145__129",
+      "target_edge_id": "endpoint_144__endpoint_150__57",
+      "gap_px": 24.352,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_137__junction_46__30",
+      "target_edge_id": "junction_45__junction_46__25",
+      "gap_px": 8.062,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_43__junction_45__156",
+      "target_edge_id": "junction_45__junction_46__25",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_44__junction_47__72",
+      "target_edge_id": "junction_47__junction_48__57",
+      "gap_px": 1.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_141__junction_52__6",
+      "target_edge_id": "endpoint_146__endpoint_151__65",
+      "gap_px": 30.017,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_37__junction_50__53",
+      "target_edge_id": "junction_49__junction_50__21",
+      "gap_px": 1.414,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_49__junction_50__21",
+      "target_edge_id": "junction_49__junction_51__34",
+      "gap_px": 0.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_155__junction_19__211",
+      "target_edge_id": "endpoint_173__junction_78__214",
+      "gap_px": 23.022,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_155__junction_19__211",
+      "target_edge_id": "junction_3__junction_19__660",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_156__junction_57__22",
+      "target_edge_id": "endpoint_171__junction_57__18",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_158__endpoint_159__53",
+      "target_edge_id": "endpoint_161__junction_55__12",
+      "gap_px": 24.187,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_160__junction_56__8",
+      "target_edge_id": "endpoint_167__endpoint_174__64",
+      "gap_px": 31.016,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_161__junction_55__12",
+      "target_edge_id": "endpoint_172__junction_55__47",
+      "gap_px": 1.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_163__endpoint_165__69",
+      "target_edge_id": "endpoint_164__endpoint_169__29",
+      "gap_px": 32.016,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_170__junction_60__24",
+      "target_edge_id": "endpoint_183__junction_60__14",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_175__junction_61__30",
+      "target_edge_id": "junction_61__junction_62__21",
+      "gap_px": 18.385,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_176__junction_58__8",
+      "target_edge_id": "endpoint_177__junction_59__5",
+      "gap_px": 30.806,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_177__junction_59__5",
+      "target_edge_id": "endpoint_182__junction_59__14",
+      "gap_px": 5.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_178__junction_58__55",
+      "target_edge_id": "junction_59__junction_58__32",
+      "gap_px": 12.042,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_184__endpoint_189__18",
+      "target_edge_id": "endpoint_186__endpoint_190__91",
+      "gap_px": 25.298,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_184__endpoint_189__18",
+      "target_edge_id": "endpoint_185__endpoint_188__71",
+      "gap_px": 33.015,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_185__endpoint_188__71",
+      "target_edge_id": "endpoint_187__endpoint_192__30",
+      "gap_px": 32.016,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_186__endpoint_190__91",
+      "target_edge_id": "endpoint_191__endpoint_195__82",
+      "gap_px": 34.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_194__junction_63__60",
+      "target_edge_id": "endpoint_238__junction_63__126",
+      "gap_px": 1.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_197__junction_64__38",
+      "target_edge_id": "endpoint_198__junction_64__69",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_202__endpoint_216__113",
+      "target_edge_id": "endpoint_211__endpoint_217__46",
+      "gap_px": 23.409,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_202__endpoint_216__113",
+      "target_edge_id": "endpoint_206__endpoint_215__60",
+      "gap_px": 22.472,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_203__endpoint_210__19",
+      "target_edge_id": "endpoint_208__endpoint_209__72",
+      "gap_px": 33.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_207__endpoint_213__29",
+      "target_edge_id": "endpoint_208__endpoint_209__72",
+      "gap_px": 30.017,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_218__junction_66__40",
+      "target_edge_id": "junction_66__junction_77__37",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_220__junction_65__45",
+      "target_edge_id": "junction_62__junction_65__102",
+      "gap_px": 1.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_223__endpoint_240__40",
+      "target_edge_id": "endpoint_242__endpoint_248__67",
+      "gap_px": 23.77,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_226__junction_67__18",
+      "target_edge_id": "junction_67__junction_66__137",
+      "gap_px": 18.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_227__junction_74__13",
+      "target_edge_id": "endpoint_230__junction_74__10",
+      "gap_px": 23.022,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_228__junction_70__11",
+      "target_edge_id": "junction_69__junction_70__200",
+      "gap_px": 1.414,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_233__junction_73__4",
+      "target_edge_id": "junction_72__junction_73__21",
+      "gap_px": 4.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_234__junction_75__5",
+      "target_edge_id": "junction_69__junction_75__614",
+      "gap_px": 1.414,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_232__junction_71__4",
+      "target_edge_id": "junction_66__junction_71__166",
+      "gap_px": 1.414,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_246__junction_77__8",
+      "target_edge_id": "junction_77__junction_84__262",
+      "gap_px": 8.544,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_253__junction_72__154",
+      "target_edge_id": "endpoint_261__junction_85__6",
+      "gap_px": 27.785,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_260__junction_85__5",
+      "target_edge_id": "endpoint_261__junction_85__6",
+      "gap_px": 15.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_257__junction_92__51",
+      "target_edge_id": "endpoint_270__junction_92__32",
+      "gap_px": 1.414,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_259__junction_89__22",
+      "target_edge_id": "junction_89__junction_91__15",
+      "gap_px": 11.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_89__junction_91__15",
+      "target_edge_id": "junction_91__junction_94__34",
+      "gap_px": 1.414,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_90__junction_91__61",
+      "target_edge_id": "junction_90__junction_95__99",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_266__junction_93__85",
+      "target_edge_id": "endpoint_272__junction_93__51",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_273__junction_102__47",
+      "target_edge_id": "junction_102__junction_110__21",
+      "gap_px": 11.18,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_274__endpoint_287__16",
+      "target_edge_id": "endpoint_288__endpoint_292__34",
+      "gap_px": 27.203,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_274__endpoint_287__16",
+      "target_edge_id": "endpoint_277__endpoint_286__50",
+      "gap_px": 26.926,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_275__endpoint_278__54",
+      "target_edge_id": "endpoint_283__junction_98__5",
+      "gap_px": 23.087,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_289__junction_98__28",
+      "target_edge_id": "endpoint_295__junction_98__10",
+      "gap_px": 1.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_276__junction_97__29",
+      "target_edge_id": "endpoint_294__junction_97__10",
+      "gap_px": 1.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_280__junction_99__29",
+      "target_edge_id": "endpoint_296__junction_99__10",
+      "gap_px": 1.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_288__endpoint_292__34",
+      "target_edge_id": "endpoint_289__junction_98__28",
+      "gap_px": 29.155,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_108__junction_113__49",
+      "target_edge_id": "junction_112__junction_113__39",
+      "gap_px": 2.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_297__junction_101__13",
+      "target_edge_id": "junction_101__junction_112__54",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_298__junction_108__35",
+      "target_edge_id": "endpoint_300__endpoint_302__24",
+      "gap_px": 25.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_301__junction_96__56",
+      "target_edge_id": "junction_96__junction_118__89",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_103__junction_109__122",
+      "target_edge_id": "junction_103__junction_110__63",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_309__junction_118__10",
+      "target_edge_id": "junction_96__junction_118__89",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_311__junction_123__49",
+      "target_edge_id": "junction_123__junction_136__223",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_314__junction_130__31",
+      "target_edge_id": "junction_131__junction_130__46",
+      "gap_px": 31.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_314__junction_130__31",
+      "target_edge_id": "junction_130__junction_134__33",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_316__junction_131__22",
+      "target_edge_id": "junction_131__junction_130__46",
+      "gap_px": 19.235,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_317__junction_128__131",
+      "target_edge_id": "endpoint_319__junction_133__20",
+      "gap_px": 22.847,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_319__junction_133__20",
+      "target_edge_id": "junction_129__junction_133__50",
+      "gap_px": 1.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_324__junction_138__7",
+      "target_edge_id": "endpoint_326__endpoint_328__54",
+      "gap_px": 30.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_329__junction_139__24",
+      "target_edge_id": "junction_128__junction_139__1239",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_330__junction_136__211",
+      "target_edge_id": "endpoint_337__junction_150__214",
+      "gap_px": 23.022,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_330__junction_136__211",
+      "target_edge_id": "junction_123__junction_136__223",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_331__junction_141__27",
+      "target_edge_id": "endpoint_343__junction_142__14",
+      "gap_px": 33.526,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_141__junction_142__25",
+      "target_edge_id": "junction_142__junction_145__24",
+      "gap_px": 0.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_336__junction_141__12",
+      "target_edge_id": "junction_141__junction_142__25",
+      "gap_px": 0.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_343__junction_142__14",
+      "target_edge_id": "junction_144__junction_145__40",
+      "gap_px": 23.77,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_341__junction_143__3",
+      "target_edge_id": "junction_143__junction_144__19",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_346__junction_148__164",
+      "target_edge_id": "junction_143__junction_144__19",
+      "gap_px": 19.235,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_348__junction_146__11",
+      "target_edge_id": "endpoint_352__junction_146__15",
+      "gap_px": 26.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_353__junction_145__50",
+      "target_edge_id": "junction_142__junction_145__24",
+      "gap_px": 12.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_355__junction_134__594",
+      "target_edge_id": "junction_130__junction_134__33",
+      "gap_px": 10.296,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_356__junction_148__17",
+      "target_edge_id": "endpoint_366__junction_148__98",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_359__junction_151__15",
+      "target_edge_id": "junction_151__junction_166__141",
+      "gap_px": 17.464,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "connection_seeded_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_357__junction_154__256",
+      "target_edge_id": "endpoint_358__junction_154__1347",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_365__junction_161__177",
+      "target_edge_id": "junction_161__junction_164__31",
+      "gap_px": 13.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_369__junction_161__22",
+      "target_edge_id": "endpoint_375__junction_161__44",
+      "gap_px": 14.036,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_370__junction_160__18",
+      "target_edge_id": "junction_157__junction_158__42",
+      "gap_px": 29.017,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_378__junction_164__26",
+      "target_edge_id": "endpoint_383__junction_164__22",
+      "gap_px": 2.236,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_378__junction_164__26",
+      "target_edge_id": "endpoint_380__junction_163__8",
+      "gap_px": 15.811,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "connection_seeded_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "bridge::endpoint_391__endpoint_554__1090",
+      "target_edge_id": "endpoint_383__junction_164__22",
+      "gap_px": 40.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_382__junction_167__40",
+      "target_edge_id": "junction_160__junction_167__73",
+      "gap_px": 4.123,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_151__junction_166__141",
+      "target_edge_id": "junction_166__junction_169__35",
+      "gap_px": 1.414,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_385__junction_169__27",
+      "target_edge_id": "endpoint_392__junction_169__29",
+      "gap_px": 27.514,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_162__junction_165__96",
+      "target_edge_id": "junction_165__junction_172__140",
+      "gap_px": 8.062,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_393__junction_152__212",
+      "target_edge_id": "endpoint_396__junction_193__208",
+      "gap_px": 28.018,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_393__junction_152__212",
+      "target_edge_id": "junction_140__junction_152__224",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "bridge::endpoint_386__endpoint_399__90",
+      "target_edge_id": "endpoint_394__endpoint_400__47",
+      "gap_px": 28.018,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_395__junction_173__16",
+      "target_edge_id": "junction_173__junction_192__224",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_396__junction_193__208",
+      "target_edge_id": "junction_193__junction_213__223",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_397__junction_174__62",
+      "target_edge_id": "junction_174__junction_175__43",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_398__junction_175__26",
+      "target_edge_id": "junction_174__junction_175__43",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_401__endpoint_415__183",
+      "target_edge_id": "endpoint_402__junction_176__5",
+      "gap_px": 21.095,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_401__endpoint_415__183",
+      "target_edge_id": "endpoint_421__junction_181__10",
+      "gap_px": 25.632,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_404__junction_183__113",
+      "target_edge_id": "junction_183__junction_185__168",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_407__junction_177__18",
+      "target_edge_id": "endpoint_410__junction_177__136",
+      "gap_px": 16.125,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_411__junction_216__710",
+      "target_edge_id": "junction_216__junction_218__18",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_217__junction_215__27",
+      "target_edge_id": "junction_217__junction_218__36",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_167__junction_180__197",
+      "target_edge_id": "junction_180__junction_187__20",
+      "gap_px": 0.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_417__junction_181__18",
+      "target_edge_id": "endpoint_419__junction_181__9",
+      "gap_px": 27.019,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_421__junction_181__10",
+      "target_edge_id": "endpoint_424__endpoint_429__69",
+      "gap_px": 16.155,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_425__junction_185__10",
+      "target_edge_id": "junction_183__junction_185__168",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_431__junction_192__30",
+      "target_edge_id": "junction_192__junction_212__223",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_433__junction_194__27",
+      "target_edge_id": "endpoint_434__junction_194__119",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_436__junction_195__13",
+      "target_edge_id": "junction_183__junction_195__277",
+      "gap_px": 1.414,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "bridge::endpoint_440__endpoint_443__57",
+      "target_edge_id": "bridge::endpoint_443__junction_198__82",
+      "gap_px": 5.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "bridge::endpoint_440__endpoint_443__57",
+      "target_edge_id": "endpoint_439__junction_200__67",
+      "gap_px": 34.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_439__junction_200__67",
+      "target_edge_id": "endpoint_445__junction_199__4",
+      "gap_px": 22.204,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_445__junction_199__4",
+      "target_edge_id": "junction_199__junction_200__24",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_441__junction_196__14",
+      "target_edge_id": "junction_196__junction_198__71",
+      "gap_px": 14.56,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_453__junction_203__216",
+      "target_edge_id": "junction_202__junction_203__24",
+      "gap_px": 1.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_448__junction_202__4",
+      "target_edge_id": "endpoint_449__junction_202__24",
+      "gap_px": 1.414,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_452__junction_209__51",
+      "target_edge_id": "endpoint_474__junction_209__34",
+      "gap_px": 21.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_458__junction_206__10",
+      "target_edge_id": "junction_206__junction_210__27",
+      "gap_px": 10.44,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_458__junction_206__10",
+      "target_edge_id": "junction_210__junction_211__28",
+      "gap_px": 20.616,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_468__junction_208__14",
+      "target_edge_id": "junction_208__junction_211__19",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_459__junction_207__19",
+      "target_edge_id": "junction_207__junction_208__16",
+      "gap_px": 1.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_464__junction_212__14",
+      "target_edge_id": "junction_212__junction_220__224",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_471__junction_211__15",
+      "target_edge_id": "junction_210__junction_211__28",
+      "gap_px": 17.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_472__junction_211__15",
+      "target_edge_id": "junction_205__junction_211__20",
+      "gap_px": 2.236,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_195__junction_205__160",
+      "target_edge_id": "junction_205__junction_211__20",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_477__junction_215__29",
+      "target_edge_id": "endpoint_487__junction_215__38",
+      "gap_px": 26.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_482__junction_215__6",
+      "target_edge_id": "junction_217__junction_215__27",
+      "gap_px": 12.649,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_483__junction_227__193",
+      "target_edge_id": "endpoint_497__junction_227__40",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "connection_seeded_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_492__junction_225__3",
+      "target_edge_id": "endpoint_544__junction_225__171",
+      "gap_px": 1.414,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_525__junction_228__189",
+      "target_edge_id": "endpoint_535__junction_228__21",
+      "gap_px": 2.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_495__junction_229__21",
+      "target_edge_id": "endpoint_526__junction_229__86",
+      "gap_px": 19.416,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_495__junction_229__21",
+      "target_edge_id": "endpoint_536__junction_229__17",
+      "gap_px": 16.279,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_497__junction_227__40",
+      "target_edge_id": "endpoint_498__endpoint_500__20",
+      "gap_px": 33.015,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_498__endpoint_500__20",
+      "target_edge_id": "endpoint_501__endpoint_502__32",
+      "gap_px": 33.015,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_504__endpoint_521__56",
+      "target_edge_id": "endpoint_519__endpoint_520__77",
+      "gap_px": 36.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_508__endpoint_529__76",
+      "target_edge_id": "endpoint_527__endpoint_528__77",
+      "gap_px": 36.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "connection_seeded_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_511__endpoint_512__81",
+      "target_edge_id": "endpoint_513__endpoint_514__76",
+      "gap_px": 37.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_517__endpoint_518__76",
+      "target_edge_id": "endpoint_519__endpoint_520__77",
+      "gap_px": 36.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_526__junction_229__86",
+      "target_edge_id": "endpoint_527__endpoint_528__77",
+      "gap_px": 36.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_230__junction_233__23",
+      "target_edge_id": "junction_230__junction_234__30",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_540__junction_234__7",
+      "target_edge_id": "junction_233__junction_234__16",
+      "gap_px": 6.403,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_233__junction_234__16",
+      "target_edge_id": "junction_233__junction_236__70",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_543__junction_220__215",
+      "target_edge_id": "endpoint_547__junction_242__214",
+      "gap_px": 19.026,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_543__junction_220__215",
+      "target_edge_id": "junction_212__junction_220__224",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_549__junction_238__406",
+      "target_edge_id": "endpoint_550__junction_238__237",
+      "gap_px": 1.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_556__junction_242__30",
+      "target_edge_id": "junction_242__junction_296__223",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_558__junction_247__16",
+      "target_edge_id": "junction_247__junction_257__36",
+      "gap_px": 1.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_249__junction_255__33",
+      "target_edge_id": "junction_249__junction_256__37",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_248__junction_255__18",
+      "target_edge_id": "junction_249__junction_255__33",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_559__junction_249__19",
+      "target_edge_id": "junction_255__junction_313__833",
+      "gap_px": 33.136,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_561__junction_250__5",
+      "target_edge_id": "junction_250__junction_257__31",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_247__junction_257__36",
+      "target_edge_id": "junction_257__junction_330__798",
+      "gap_px": 0.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_565__junction_268__15",
+      "target_edge_id": "junction_268__junction_269__83",
+      "gap_px": 15.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_566__junction_269__15",
+      "target_edge_id": "junction_269__junction_270__83",
+      "gap_px": 15.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_567__junction_270__16",
+      "target_edge_id": "endpoint_572__junction_323__277",
+      "gap_px": 20.025,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_267__junction_282__42",
+      "target_edge_id": "junction_281__junction_282__20",
+      "gap_px": 1.414,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_281__junction_282__20",
+      "target_edge_id": "junction_281__junction_283__59",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_571__junction_298__314",
+      "target_edge_id": "endpoint_578__endpoint_581__242",
+      "gap_px": 25.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_584__junction_312__245",
+      "target_edge_id": "junction_312__junction_321__21",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "connection_seeded_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_573__endpoint_575__812",
+      "target_edge_id": "endpoint_574__endpoint_576__106",
+      "gap_px": 37.014,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_577__junction_236__768",
+      "target_edge_id": "endpoint_582__endpoint_583__26",
+      "gap_px": 25.942,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_577__junction_236__768",
+      "target_edge_id": "junction_233__junction_236__70",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_287__junction_297__28",
+      "target_edge_id": "junction_287__junction_324__260",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_303__junction_325__127",
+      "target_edge_id": "junction_303__junction_326__47",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_588__endpoint_589__53",
+      "target_edge_id": "junction_375__junction_393__132",
+      "gap_px": 29.069,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_590__junction_362__7",
+      "target_edge_id": "junction_362__junction_361__28",
+      "gap_px": 7.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_591__junction_1__12854",
+      "target_edge_id": "junction_0__junction_1__469",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_594__junction_296__275",
+      "target_edge_id": "junction_242__junction_296__223",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_368__junction_389__156",
+      "target_edge_id": "junction_388__junction_389__234",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_598__junction_380__15",
+      "target_edge_id": "junction_379__junction_380__235",
+      "gap_px": 15.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_599__junction_383__15",
+      "target_edge_id": "junction_382__junction_383__469",
+      "gap_px": 15.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_600__junction_387__15",
+      "target_edge_id": "junction_386__junction_387__235",
+      "gap_px": 15.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_370__junction_391__111",
+      "target_edge_id": "junction_390__junction_391__235",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_603__junction_379__28",
+      "target_edge_id": "junction_379__junction_380__235",
+      "gap_px": 28.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_604__junction_386__28",
+      "target_edge_id": "junction_386__junction_387__235",
+      "gap_px": 28.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_608__junction_388__29",
+      "target_edge_id": "junction_388__junction_389__234",
+      "gap_px": 29.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_368__junction_369__60",
+      "target_edge_id": "junction_369__junction_390__18",
+      "gap_px": 1.414,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_311__junction_369__925",
+      "target_edge_id": "junction_390__junction_391__235",
+      "gap_px": 18.028,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_610__junction_392__29",
+      "target_edge_id": "junction_361__junction_372__28",
+      "gap_px": 19.105,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_612__junction_382__30",
+      "target_edge_id": "junction_382__junction_383__469",
+      "gap_px": 30.017,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_4__junction_5__468",
+      "target_edge_id": "junction_6__junction_5__467",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_6__junction_7__468",
+      "target_edge_id": "junction_8__junction_7__467",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_10__junction_9__467",
+      "target_edge_id": "junction_8__junction_9__468",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_14__junction_15__704",
+      "target_edge_id": "junction_14__junction_79__582",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_14__junction_15__704",
+      "target_edge_id": "junction_15__junction_20__134",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_14__junction_79__582",
+      "target_edge_id": "junction_79__junction_87__45",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_15__junction_20__134",
+      "target_edge_id": "junction_20__junction_54__224",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_20__junction_54__224",
+      "target_edge_id": "junction_54__junction_88__273",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_31__junction_38__26",
+      "target_edge_id": "junction_38__junction_51__43",
+      "gap_px": 8.544,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_47__junction_48__57",
+      "target_edge_id": "junction_48__junction_53__31",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_42__junction_43__69",
+      "target_edge_id": "junction_43__junction_45__156",
+      "gap_px": 1.414,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_53__junction_61__67",
+      "target_edge_id": "junction_61__junction_65__97",
+      "gap_px": 13.038,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_62__junction_63__53",
+      "target_edge_id": "junction_62__junction_65__102",
+      "gap_px": 0.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_69__junction_70__200",
+      "target_edge_id": "junction_69__junction_75__614",
+      "gap_px": 0.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_66__junction_71__166",
+      "target_edge_id": "junction_67__junction_66__137",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_78__junction_123__224",
+      "target_edge_id": "junction_78__junction_81__47",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_87__junction_223__1751",
+      "target_edge_id": "junction_87__junction_88__704",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_87__junction_88__704",
+      "target_edge_id": "junction_88__junction_124__179",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_124__junction_137__223",
+      "target_edge_id": "junction_88__junction_124__179",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_94__junction_105__60",
+      "target_edge_id": "junction_94__junction_95__162",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_105__junction_106__39",
+      "target_edge_id": "junction_94__junction_105__60",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_104__junction_107__39",
+      "target_edge_id": "junction_95__junction_104__49",
+      "gap_px": 1.414,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_100__junction_102__92",
+      "target_edge_id": "junction_102__junction_103__82",
+      "gap_px": 11.402,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_105__junction_106__39",
+      "target_edge_id": "junction_106__junction_114__36",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_105__junction_122__56",
+      "target_edge_id": "junction_120__junction_122__39",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_104__junction_107__39",
+      "target_edge_id": "junction_107__junction_106__97",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_103__junction_109__122",
+      "target_edge_id": "junction_109__junction_119__41",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_114__junction_115__37",
+      "target_edge_id": "junction_115__junction_117__37",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_114__junction_115__37",
+      "target_edge_id": "junction_114__junction_120__37",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_114__junction_120__37",
+      "target_edge_id": "junction_120__junction_122__39",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_117__junction_120__98",
+      "target_edge_id": "junction_117__junction_121__39",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_117__junction_121__39",
+      "target_edge_id": "junction_121__junction_129__128",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_119__junction_126__320",
+      "target_edge_id": "junction_122__junction_126__33",
+      "gap_px": 1.414,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_124__junction_137__223",
+      "target_edge_id": "junction_137__junction_140__224",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_126__junction_134__125",
+      "target_edge_id": "junction_134__junction_135__36",
+      "gap_px": 4.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_129__junction_149__513",
+      "target_edge_id": "junction_149__junction_155__147",
+      "gap_px": 10.296,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_137__junction_140__224",
+      "target_edge_id": "junction_140__junction_152__224",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_150__junction_153__47",
+      "target_edge_id": "junction_150__junction_173__224",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_158__junction_160__29",
+      "target_edge_id": "junction_160__junction_167__73",
+      "gap_px": 0.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_159__junction_165__96",
+      "target_edge_id": "junction_165__junction_168__28",
+      "gap_px": 6.325,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_182__junction_185__75",
+      "target_edge_id": "junction_182__junction_186__13",
+      "gap_px": 0.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_186__junction_189__73",
+      "target_edge_id": "junction_189__junction_190__25",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_189__junction_190__25",
+      "target_edge_id": "junction_190__junction_191__16",
+      "gap_px": 0.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_186__junction_191__96",
+      "target_edge_id": "junction_190__junction_191__16",
+      "gap_px": 1.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "bridge::junction_169__junction_182__243",
+      "target_edge_id": "junction_186__junction_191__96",
+      "gap_px": 16.279,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "bridge::endpoint_443__junction_198__82",
+      "target_edge_id": "junction_196__junction_198__71",
+      "gap_px": 1.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_231__junction_232__704",
+      "target_edge_id": "junction_231__junction_239__201",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_231__junction_232__704",
+      "target_edge_id": "junction_232__junction_235__71",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_232__junction_235__71",
+      "target_edge_id": "junction_235__junction_240__130",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "bridge::junction_240__endpoint_555__93",
+      "target_edge_id": "junction_235__junction_240__130",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_239__junction_241__201",
+      "target_edge_id": "junction_239__junction_244__95",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_239__junction_241__201",
+      "target_edge_id": "junction_240__junction_241__502",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_239__junction_244__95",
+      "target_edge_id": "junction_244__junction_251__111",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_249__junction_256__37",
+      "target_edge_id": "junction_251__junction_256__69",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_251__junction_256__69",
+      "target_edge_id": "junction_251__junction_258__818",
+      "gap_px": 0.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_252__junction_253__363",
+      "target_edge_id": "junction_252__junction_273__139",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_252__junction_258__91",
+      "target_edge_id": "junction_258__junction_273__35",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_258__junction_273__35",
+      "target_edge_id": "junction_273__junction_288__35",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_273__junction_288__35",
+      "target_edge_id": "junction_288__junction_304__35",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_266__junction_270__81",
+      "target_edge_id": "junction_266__junction_287__48",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_266__junction_270__81",
+      "target_edge_id": "junction_269__junction_270__83",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_267__junction_268__82",
+      "target_edge_id": "junction_267__junction_282__42",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_271__junction_272__20",
+      "target_edge_id": "junction_272__junction_281__48",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_271__junction_272__20",
+      "target_edge_id": "junction_271__junction_283__42",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_271__junction_280__332",
+      "target_edge_id": "junction_280__junction_342__971",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_280__junction_295__36",
+      "target_edge_id": "junction_295__junction_354__971",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_271__junction_283__42",
+      "target_edge_id": "junction_283__junction_298__47",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_288__junction_304__35",
+      "target_edge_id": "junction_304__junction_313__36",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_295__junction_311__36",
+      "target_edge_id": "junction_311__junction_369__925",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_283__junction_298__47",
+      "target_edge_id": "junction_298__junction_312__26",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_287__junction_297__28",
+      "target_edge_id": "junction_297__junction_303__19",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_304__junction_313__36",
+      "target_edge_id": "junction_313__junction_330__35",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_313__junction_330__35",
+      "target_edge_id": "junction_330__junction_342__35",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_311__junction_349__121",
+      "target_edge_id": "junction_349__junction_370__443",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_321__junction_328__58",
+      "target_edge_id": "junction_327__junction_328__129",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_322__junction_323__83",
+      "target_edge_id": "junction_323__junction_324__82",
+      "gap_px": 1.414,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_324__junction_329__47",
+      "target_edge_id": "junction_325__junction_329__35",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_325__junction_326__82",
+      "target_edge_id": "junction_326__junction_341__35",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_341__junction_353__177",
+      "target_edge_id": "junction_341__junction_394__512",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_323__junction_324__82",
+      "target_edge_id": "junction_324__junction_329__47",
+      "gap_px": 1.414,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_330__junction_342__35",
+      "target_edge_id": "junction_342__junction_354__35",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "junction_342__junction_354__35",
+      "target_edge_id": "junction_354__junction_368__53",
+      "gap_px": 1.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_352__junction_353__353",
+      "target_edge_id": "junction_353__junction_376__61",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_365__junction_372__78",
+      "target_edge_id": "junction_365__junction_373__26",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_364__junction_366__31",
+      "target_edge_id": "junction_364__junction_373__20",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_365__junction_373__26",
+      "target_edge_id": "junction_366__junction_373__22",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_371__junction_392__51",
+      "target_edge_id": "junction_372__junction_392__21",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_368__junction_369__60",
+      "target_edge_id": "junction_368__junction_389__156",
+      "gap_px": 0.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_370__junction_371__72",
+      "target_edge_id": "junction_370__junction_391__111",
+      "gap_px": 0.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_370__junction_371__72",
+      "target_edge_id": "junction_371__junction_392__51",
+      "gap_px": 1.414,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_376__junction_394__178",
+      "target_edge_id": "junction_393__junction_394__176",
+      "gap_px": 2.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "junction_385__junction_386__233",
+      "target_edge_id": "junction_385__junction_395__23",
+      "gap_px": 0.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "gap_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "bridge::endpoint_555__junction_266__146",
+      "target_edge_id": "bridge::junction_240__endpoint_555__93",
+      "gap_px": 5.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "connection_seeded_continuation",
+      "alignment": "vertical",
+      "source_edge_id": "endpoint_110__junction_44__64",
+      "target_edge_id": "junction_47__junction_63__125",
+      "gap_px": 72.111,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "connection_seeded_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_484__junction_219__38",
+      "target_edge_id": "endpoint_492__junction_225__3",
+      "gap_px": 76.0,
+      "opposite_error": 0.2929
+    },
+    {
+      "kind": "connection_seeded_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_513__endpoint_514__76",
+      "target_edge_id": "endpoint_515__endpoint_516__76",
+      "gap_px": 37.0,
+      "opposite_error": 0.0
+    },
+    {
+      "kind": "connection_seeded_continuation",
+      "alignment": "horizontal",
+      "source_edge_id": "endpoint_515__endpoint_516__76",
+      "target_edge_id": "endpoint_517__endpoint_518__76",
+      "gap_px": 37.0,
+      "opposite_error": 0.0
+    }
+  ]
+}

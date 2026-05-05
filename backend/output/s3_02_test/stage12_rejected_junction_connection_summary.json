@@ -1,0 +1,12 @@
+{
+  "image_id": "sample.png",
+  "pass_type": "sheet",
+  "rejected_junction_alignment_connection_count": 510,
+  "rejected_junction_alignment_reason_counts": {
+    "not_opposite_direction": 496,
+    "not_opposite_sides": 5,
+    "misses_junction_centerline": 9
+  },
+  "invalid_shared_junction_fallback_candidate_count": 1949,
+  "accepted_junction_straight_through_count": 344
+}

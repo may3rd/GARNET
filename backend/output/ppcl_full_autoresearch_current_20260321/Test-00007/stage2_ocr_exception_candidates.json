@@ -1,0 +1,5951 @@
+[
+  {
+    "source_region_id": "ocr_000096",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1375,
+      "y_min": 732,
+      "x_max": 1408,
+      "y_max": 750
+    },
+    "crop_hint": {
+      "x_min": 1375,
+      "y_min": 732,
+      "x_max": 1408,
+      "y_max": 750
+    },
+    "text": "80",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000074",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1543,
+      "y_min": 616,
+      "x_max": 1569,
+      "y_max": 634
+    },
+    "crop_hint": {
+      "x_min": 1543,
+      "y_min": 616,
+      "x_max": 1569,
+      "y_max": 634
+    },
+    "text": "07",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000118",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1513,
+      "y_min": 913,
+      "x_max": 1538,
+      "y_max": 930
+    },
+    "crop_hint": {
+      "x_min": 1513,
+      "y_min": 913,
+      "x_max": 1538,
+      "y_max": 930
+    },
+    "text": "07",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000087",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1289,
+      "y_min": 684,
+      "x_max": 1347,
+      "y_max": 728
+    },
+    "crop_hint": {
+      "x_min": 1289,
+      "y_min": 684,
+      "x_max": 1347,
+      "y_max": 728
+    },
+    "text": "\u00b72728",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000046",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 126,
+      "y_min": 498,
+      "x_max": 144,
+      "y_max": 516
+    },
+    "crop_hint": {
+      "x_min": 126,
+      "y_min": 498,
+      "x_max": 144,
+      "y_max": 516
+    },
+    "text": "-",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000033",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 986,
+      "y_min": 378,
+      "x_max": 1299,
+      "y_max": 398
+    },
+    "crop_hint": {
+      "x_min": 986,
+      "y_min": 378,
+      "x_max": 1299,
+      "y_max": 398
+    },
+    "text": "IN 171-980-9-1-8",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000002",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1772,
+      "y_min": 55,
+      "x_max": 1784,
+      "y_max": 73
+    },
+    "crop_hint": {
+      "x_min": 1772,
+      "y_min": 55,
+      "x_max": 1784,
+      "y_max": 73
+    },
+    "text": "D",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000115",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1281,
+      "y_min": 876,
+      "x_max": 1353,
+      "y_max": 893
+    },
+    "crop_hint": {
+      "x_min": 1281,
+      "y_min": 876,
+      "x_max": 1353,
+      "y_max": 893
+    },
+    "text": "CATOR",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000050",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1526,
+      "y_min": 516,
+      "x_max": 1578,
+      "y_max": 533
+    },
+    "crop_hint": {
+      "x_min": 1526,
+      "y_min": 516,
+      "x_max": 1578,
+      "y_max": 533
+    },
+    "text": "- FREE",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000056",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1525,
+      "y_min": 538,
+      "x_max": 1626,
+      "y_max": 555
+    },
+    "crop_hint": {
+      "x_min": 1525,
+      "y_min": 538,
+      "x_max": 1626,
+      "y_max": 555
+    },
+    "text": "DRAINING",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000092",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1568,
+      "y_min": 700,
+      "x_max": 1611,
+      "y_max": 724
+    },
+    "crop_hint": {
+      "x_min": 1568,
+      "y_min": 700,
+      "x_max": 1611,
+      "y_max": 724
+    },
+    "text": "4\"P",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000123",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1434,
+      "y_min": 963,
+      "x_max": 1477,
+      "y_max": 987
+    },
+    "crop_hint": {
+      "x_min": 1434,
+      "y_min": 963,
+      "x_max": 1477,
+      "y_max": 987
+    },
+    "text": "X \u00be\"P",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000031",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1693,
+      "y_min": 367,
+      "x_max": 1745,
+      "y_max": 385
+    },
+    "crop_hint": {
+      "x_min": 1693,
+      "y_min": 367,
+      "x_max": 1745,
+      "y_max": 385
+    },
+    "text": "FREE",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000036",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1693,
+      "y_min": 389,
+      "x_max": 1794,
+      "y_max": 407
+    },
+    "crop_hint": {
+      "x_min": 1693,
+      "y_min": 389,
+      "x_max": 1794,
+      "y_max": 407
+    },
+    "text": "DRAINING",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000039",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1870,
+      "y_min": 432,
+      "x_max": 1918,
+      "y_max": 457
+    },
+    "crop_hint": {
+      "x_min": 1870,
+      "y_min": 432,
+      "x_max": 1918,
+      "y_max": 457
+    },
+    "text": "D",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000049",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1757,
+      "y_min": 505,
+      "x_max": 1808,
+      "y_max": 518
+    },
+    "crop_hint": {
+      "x_min": 1757,
+      "y_min": 505,
+      "x_max": 1808,
+      "y_max": 518
+    },
+    "text": "SET @",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000059",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1758,
+      "y_min": 547,
+      "x_max": 1785,
+      "y_max": 560
+    },
+    "crop_hint": {
+      "x_min": 1758,
+      "y_min": 547,
+      "x_max": 1785,
+      "y_max": 560
+    },
+    "text": "4L6",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000066",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1665,
+      "y_min": 571,
+      "x_max": 1741,
+      "y_max": 594
+    },
+    "crop_hint": {
+      "x_min": 1665,
+      "y_min": 571,
+      "x_max": 1741,
+      "y_max": 594
+    },
+    "text": "0801B",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000108",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1759,
+      "y_min": 812,
+      "x_max": 1836,
+      "y_max": 830
+    },
+    "crop_hint": {
+      "x_min": 1759,
+      "y_min": 812,
+      "x_max": 1836,
+      "y_max": 830
+    },
+    "text": "NOTE 1",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000111",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1784,
+      "y_min": 839,
+      "x_max": 1847,
+      "y_max": 856
+    },
+    "crop_hint": {
+      "x_min": 1784,
+      "y_min": 839,
+      "x_max": 1847,
+      "y_max": 856
+    },
+    "text": "\u2022 FREE",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000032",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1960,
+      "y_min": 370,
+      "x_max": 1995,
+      "y_max": 387
+    },
+    "crop_hint": {
+      "x_min": 1960,
+      "y_min": 370,
+      "x_max": 1995,
+      "y_max": 387
+    },
+    "text": "0801A",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000023",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2047,
+      "y_min": 299,
+      "x_max": 2088,
+      "y_max": 312
+    },
+    "crop_hint": {
+      "x_min": 2047,
+      "y_min": 299,
+      "x_max": 2088,
+      "y_max": 312
+    },
+    "text": "SET @",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000024",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2038,
+      "y_min": 319,
+      "x_max": 2150,
+      "y_max": 336
+    },
+    "crop_hint": {
+      "x_min": 2038,
+      "y_min": 319,
+      "x_max": 2150,
+      "y_max": 336
+    },
+    "text": "21.5 kg/cm2g",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000028",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2038,
+      "y_min": 341,
+      "x_max": 2064,
+      "y_max": 354
+    },
+    "crop_hint": {
+      "x_min": 2038,
+      "y_min": 341,
+      "x_max": 2064,
+      "y_max": 354
+    },
+    "text": "4L6",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000003",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2239,
+      "y_min": 55,
+      "x_max": 2250,
+      "y_max": 73
+    },
+    "crop_hint": {
+      "x_min": 2239,
+      "y_min": 55,
+      "x_max": 2250,
+      "y_max": 73
+    },
+    "text": "E",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000035",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2366,
+      "y_min": 387,
+      "x_max": 2369,
+      "y_max": 400
+    },
+    "crop_hint": {
+      "x_min": 2366,
+      "y_min": 387,
+      "x_max": 2369,
+      "y_max": 400
+    },
+    "text": "INSULATION: NI",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000037",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2625,
+      "y_min": 412,
+      "x_max": 2628,
+      "y_max": 428
+    },
+    "crop_hint": {
+      "x_min": 2625,
+      "y_min": 412,
+      "x_max": 2628,
+      "y_max": 428
+    },
+    "text": "PIC",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000041",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2603,
+      "y_min": 456,
+      "x_max": 2652,
+      "y_max": 473
+    },
+    "crop_hint": {
+      "x_min": 2603,
+      "y_min": 456,
+      "x_max": 2652,
+      "y_max": 473
+    },
+    "text": "0801",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000070",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2842,
+      "y_min": 590,
+      "x_max": 2869,
+      "y_max": 607
+    },
+    "crop_hint": {
+      "x_min": 2842,
+      "y_min": 590,
+      "x_max": 2869,
+      "y_max": 607
+    },
+    "text": "080",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000073",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2601,
+      "y_min": 605,
+      "x_max": 2649,
+      "y_max": 622
+    },
+    "crop_hint": {
+      "x_min": 2601,
+      "y_min": 605,
+      "x_max": 2649,
+      "y_max": 622
+    },
+    "text": "0801",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000093",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2015,
+      "y_min": 711,
+      "x_max": 2068,
+      "y_max": 728
+    },
+    "crop_hint": {
+      "x_min": 2015,
+      "y_min": 711,
+      "x_max": 2068,
+      "y_max": 728
+    },
+    "text": "- FREE",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000097",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2015,
+      "y_min": 733,
+      "x_max": 2116,
+      "y_max": 750
+    },
+    "crop_hint": {
+      "x_min": 2015,
+      "y_min": 733,
+      "x_max": 2116,
+      "y_max": 750
+    },
+    "text": "DRAINING",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000110",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2281,
+      "y_min": 820,
+      "x_max": 2293,
+      "y_max": 838
+    },
+    "crop_hint": {
+      "x_min": 2281,
+      "y_min": 820,
+      "x_max": 2293,
+      "y_max": 838
+    },
+    "text": "BO",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000124",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2261,
+      "y_min": 971,
+      "x_max": 2284,
+      "y_max": 989
+    },
+    "crop_hint": {
+      "x_min": 2261,
+      "y_min": 971,
+      "x_max": 2284,
+      "y_max": 989
+    },
+    "text": "AU",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000125",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2296,
+      "y_min": 999,
+      "x_max": 2320,
+      "y_max": 1016
+    },
+    "crop_hint": {
+      "x_min": 2296,
+      "y_min": 999,
+      "x_max": 2320,
+      "y_max": 1016
+    },
+    "text": "AM/",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000062",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2754,
+      "y_min": 560,
+      "x_max": 2771,
+      "y_max": 577
+    },
+    "crop_hint": {
+      "x_min": 2754,
+      "y_min": 560,
+      "x_max": 2771,
+      "y_max": 577
+    },
+    "text": "PI",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000072",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2737,
+      "y_min": 604,
+      "x_max": 2792,
+      "y_max": 622
+    },
+    "crop_hint": {
+      "x_min": 2737,
+      "y_min": 604,
+      "x_max": 2792,
+      "y_max": 622
+    },
+    "text": "0803",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000091",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2492,
+      "y_min": 694,
+      "x_max": 2527,
+      "y_max": 711
+    },
+    "crop_hint": {
+      "x_min": 2492,
+      "y_min": 694,
+      "x_max": 2527,
+      "y_max": 711
+    },
+    "text": "MIN",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000116",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2492,
+      "y_min": 887,
+      "x_max": 2619,
+      "y_max": 905
+    },
+    "crop_hint": {
+      "x_min": 2492,
+      "y_min": 887,
+      "x_max": 2619,
+      "y_max": 905
+    },
+    "text": "COALESCER",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000140",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2160,
+      "y_min": 1537,
+      "x_max": 2163,
+      "y_max": 1553
+    },
+    "crop_hint": {
+      "x_min": 2160,
+      "y_min": 1537,
+      "x_max": 2163,
+      "y_max": 1553
+    },
+    "text": "DISTRIBUTOR-",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000104",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1343,
+      "y_min": 793,
+      "x_max": 1365,
+      "y_max": 814
+    },
+    "crop_hint": {
+      "x_min": 1343,
+      "y_min": 793,
+      "x_max": 1365,
+      "y_max": 814
+    },
+    "text": "2\".",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000085",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1674,
+      "y_min": 675,
+      "x_max": 1698,
+      "y_max": 709
+    },
+    "crop_hint": {
+      "x_min": 1674,
+      "y_min": 675,
+      "x_max": 1698,
+      "y_max": 709
+    },
+    "text": "D",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000113",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1794,
+      "y_min": 861,
+      "x_max": 1895,
+      "y_max": 878
+    },
+    "crop_hint": {
+      "x_min": 1794,
+      "y_min": 861,
+      "x_max": 1895,
+      "y_max": 878
+    },
+    "text": "DRAINING",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000052",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2013,
+      "y_min": 526,
+      "x_max": 2057,
+      "y_max": 549
+    },
+    "crop_hint": {
+      "x_min": 2013,
+      "y_min": 526,
+      "x_max": 2057,
+      "y_max": 549
+    },
+    "text": "\u2022X\u00be\"P",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000106",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2187,
+      "y_min": 802,
+      "x_max": 2210,
+      "y_max": 822
+    },
+    "crop_hint": {
+      "x_min": 2187,
+      "y_min": 802,
+      "x_max": 2210,
+      "y_max": 822
+    },
+    "text": "8\".",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000045",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2604,
+      "y_min": 495,
+      "x_max": 2621,
+      "y_max": 508
+    },
+    "crop_hint": {
+      "x_min": 2604,
+      "y_min": 495,
+      "x_max": 2621,
+      "y_max": 508
+    },
+    "text": "I",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000053",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2604,
+      "y_min": 526,
+      "x_max": 2621,
+      "y_max": 538
+    },
+    "crop_hint": {
+      "x_min": 2604,
+      "y_min": 526,
+      "x_max": 2621,
+      "y_max": 538
+    },
+    "text": "P",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000064",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1976,
+      "y_min": 562,
+      "x_max": 1987,
+      "y_max": 579
+    },
+    "crop_hint": {
+      "x_min": 1976,
+      "y_min": 562,
+      "x_max": 1987,
+      "y_max": 579
+    },
+    "text": "X LO",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000004",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2707,
+      "y_min": 55,
+      "x_max": 2718,
+      "y_max": 73
+    },
+    "crop_hint": {
+      "x_min": 2707,
+      "y_min": 55,
+      "x_max": 2718,
+      "y_max": 73
+    },
+    "text": "F",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000005",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3175,
+      "y_min": 55,
+      "x_max": 3188,
+      "y_max": 73
+    },
+    "crop_hint": {
+      "x_min": 3175,
+      "y_min": 55,
+      "x_max": 3188,
+      "y_max": 73
+    },
+    "text": "G",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000067",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2990,
+      "y_min": 572,
+      "x_max": 3064,
+      "y_max": 589
+    },
+    "crop_hint": {
+      "x_min": 2990,
+      "y_min": 572,
+      "x_max": 3064,
+      "y_max": 589
+    },
+    "text": "TYPE I",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000090",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3074,
+      "y_min": 693,
+      "x_max": 3135,
+      "y_max": 714
+    },
+    "crop_hint": {
+      "x_min": 3074,
+      "y_min": 693,
+      "x_max": 3135,
+      "y_max": 714
+    },
+    "text": "4\"X6\"",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000007",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3642,
+      "y_min": 56,
+      "x_max": 3655,
+      "y_max": 72
+    },
+    "crop_hint": {
+      "x_min": 3642,
+      "y_min": 56,
+      "x_max": 3655,
+      "y_max": 72
+    },
+    "text": "H",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000141",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3475,
+      "y_min": 1563,
+      "x_max": 3524,
+      "y_max": 1580
+    },
+    "crop_hint": {
+      "x_min": 3475,
+      "y_min": 1563,
+      "x_max": 3524,
+      "y_max": 1580
+    },
+    "text": "0801",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000075",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3848,
+      "y_min": 619,
+      "x_max": 3987,
+      "y_max": 636
+    },
+    "crop_hint": {
+      "x_min": 3848,
+      "y_min": 619,
+      "x_max": 3987,
+      "y_max": 636
+    },
+    "text": "TO SOLVENT",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000079",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3848,
+      "y_min": 642,
+      "x_max": 3907,
+      "y_max": 659
+    },
+    "crop_hint": {
+      "x_min": 3848,
+      "y_min": 642,
+      "x_max": 3907,
+      "y_max": 659
+    },
+    "text": "DRUM",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000018",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4134,
+      "y_min": 261,
+      "x_max": 4152,
+      "y_max": 279
+    },
+    "crop_hint": {
+      "x_min": 4134,
+      "y_min": 261,
+      "x_max": 4152,
+      "y_max": 279
+    },
+    "text": "2.",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000025",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4134,
+      "y_min": 321,
+      "x_max": 4152,
+      "y_max": 338
+    },
+    "crop_hint": {
+      "x_min": 4134,
+      "y_min": 321,
+      "x_max": 4152,
+      "y_max": 338
+    },
+    "text": "3.",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000034",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4134,
+      "y_min": 381,
+      "x_max": 4152,
+      "y_max": 398
+    },
+    "crop_hint": {
+      "x_min": 4134,
+      "y_min": 381,
+      "x_max": 4152,
+      "y_max": 398
+    },
+    "text": "4.",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000040",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4134,
+      "y_min": 440,
+      "x_max": 4152,
+      "y_max": 458
+    },
+    "crop_hint": {
+      "x_min": 4134,
+      "y_min": 440,
+      "x_max": 4152,
+      "y_max": 458
+    },
+    "text": "5.",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000047",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4134,
+      "y_min": 500,
+      "x_max": 4152,
+      "y_max": 517
+    },
+    "crop_hint": {
+      "x_min": 4134,
+      "y_min": 500,
+      "x_max": 4152,
+      "y_max": 517
+    },
+    "text": "6.",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000112",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4143,
+      "y_min": 851,
+      "x_max": 4154,
+      "y_max": 869
+    },
+    "crop_hint": {
+      "x_min": 4143,
+      "y_min": 851,
+      "x_max": 4154,
+      "y_max": 869
+    },
+    "text": "2",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000013",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4134,
+      "y_min": 172,
+      "x_max": 4149,
+      "y_max": 189
+    },
+    "crop_hint": {
+      "x_min": 4134,
+      "y_min": 172,
+      "x_max": 4149,
+      "y_max": 189
+    },
+    "text": "1.",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000063",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4134,
+      "y_min": 560,
+      "x_max": 4152,
+      "y_max": 577
+    },
+    "crop_hint": {
+      "x_min": 4134,
+      "y_min": 560,
+      "x_max": 4152,
+      "y_max": 577
+    },
+    "text": "7.",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000076",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4134,
+      "y_min": 619,
+      "x_max": 4152,
+      "y_max": 637
+    },
+    "crop_hint": {
+      "x_min": 4134,
+      "y_min": 619,
+      "x_max": 4152,
+      "y_max": 637
+    },
+    "text": "8.",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000006",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4577,
+      "y_min": 55,
+      "x_max": 4586,
+      "y_max": 72
+    },
+    "crop_hint": {
+      "x_min": 4577,
+      "y_min": 55,
+      "x_max": 4586,
+      "y_max": 72
+    },
+    "text": "J",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000009",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4461,
+      "y_min": 114,
+      "x_max": 4472,
+      "y_max": 130
+    },
+    "crop_hint": {
+      "x_min": 4461,
+      "y_min": 114,
+      "x_max": 4472,
+      "y_max": 130
+    },
+    "text": "GENERAL NOTES",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000086",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4161,
+      "y_min": 679,
+      "x_max": 4519,
+      "y_max": 696
+    },
+    "crop_hint": {
+      "x_min": 4161,
+      "y_min": 679,
+      "x_max": 4519,
+      "y_max": 696
+    },
+    "text": "14780-8120-25-25-0001F~H.",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000099",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4438,
+      "y_min": 746,
+      "x_max": 4507,
+      "y_max": 763
+    },
+    "crop_hint": {
+      "x_min": 4438,
+      "y_min": 746,
+      "x_max": 4507,
+      "y_max": 763
+    },
+    "text": "NOTES",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000117",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4180,
+      "y_min": 902,
+      "x_max": 4346,
+      "y_max": 920
+    },
+    "crop_hint": {
+      "x_min": 4180,
+      "y_min": 902,
+      "x_max": 4346,
+      "y_max": 920
+    },
+    "text": "SPECIFICATION.",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000020",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4860,
+      "y_min": 276,
+      "x_max": 4886,
+      "y_max": 293
+    },
+    "crop_hint": {
+      "x_min": 4860,
+      "y_min": 276,
+      "x_max": 4886,
+      "y_max": 293
+    },
+    "text": "- 70",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000048",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4845,
+      "y_min": 500,
+      "x_max": 4872,
+      "y_max": 517
+    },
+    "crop_hint": {
+      "x_min": 4845,
+      "y_min": 500,
+      "x_max": 4872,
+      "y_max": 517
+    },
+    "text": "- 65",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000095",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4860,
+      "y_min": 723,
+      "x_max": 4872,
+      "y_max": 741
+    },
+    "crop_hint": {
+      "x_min": 4860,
+      "y_min": 723,
+      "x_max": 4872,
+      "y_max": 741
+    },
+    "text": "- 60",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000120",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4845,
+      "y_min": 947,
+      "x_max": 4871,
+      "y_max": 965
+    },
+    "crop_hint": {
+      "x_min": 4845,
+      "y_min": 947,
+      "x_max": 4871,
+      "y_max": 965
+    },
+    "text": "- 55",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000128",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4827,
+      "y_min": 1171,
+      "x_max": 4886,
+      "y_max": 1188
+    },
+    "crop_hint": {
+      "x_min": 4827,
+      "y_min": 1171,
+      "x_max": 4886,
+      "y_max": 1188
+    },
+    "text": "- 50",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000132",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4845,
+      "y_min": 1395,
+      "x_max": 4858,
+      "y_max": 1412
+    },
+    "crop_hint": {
+      "x_min": 4845,
+      "y_min": 1395,
+      "x_max": 4858,
+      "y_max": 1412
+    },
+    "text": "- 45",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000174",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 89,
+      "y_min": 1842,
+      "x_max": 115,
+      "y_max": 1860
+    },
+    "crop_hint": {
+      "x_min": 89,
+      "y_min": 1842,
+      "x_max": 115,
+      "y_max": 1860
+    },
+    "text": "35 -",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000206",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 74,
+      "y_min": 2066,
+      "x_max": 100,
+      "y_max": 2084
+    },
+    "crop_hint": {
+      "x_min": 74,
+      "y_min": 2066,
+      "x_max": 100,
+      "y_max": 2084
+    },
+    "text": "30",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000221",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 89,
+      "y_min": 2290,
+      "x_max": 115,
+      "y_max": 2307
+    },
+    "crop_hint": {
+      "x_min": 89,
+      "y_min": 2290,
+      "x_max": 115,
+      "y_max": 2307
+    },
+    "text": "25 -",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000267",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 96,
+      "y_min": 2737,
+      "x_max": 119,
+      "y_max": 2755
+    },
+    "crop_hint": {
+      "x_min": 96,
+      "y_min": 2737,
+      "x_max": 119,
+      "y_max": 2755
+    },
+    "text": "15",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000142",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 414,
+      "y_min": 1566,
+      "x_max": 520,
+      "y_max": 1583
+    },
+    "crop_hint": {
+      "x_min": 414,
+      "y_min": 1566,
+      "x_max": 520,
+      "y_max": 1583
+    },
+    "text": "FROM OIL",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000145",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 832,
+      "y_min": 1590,
+      "x_max": 1181,
+      "y_max": 1610
+    },
+    "crop_hint": {
+      "x_min": 832,
+      "y_min": 1590,
+      "x_max": 1181,
+      "y_max": 1610
+    },
+    "text": "6\"-CUL- 25-007007-B2A2-NI",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000238",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 418,
+      "y_min": 2551,
+      "x_max": 549,
+      "y_max": 2569
+    },
+    "crop_hint": {
+      "x_min": 418,
+      "y_min": 2551,
+      "x_max": 549,
+      "y_max": 2569
+    },
+    "text": "FROM FLOW",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000239",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 418,
+      "y_min": 2574,
+      "x_max": 557,
+      "y_max": 2592
+    },
+    "crop_hint": {
+      "x_min": 418,
+      "y_min": 2574,
+      "x_max": 557,
+      "y_max": 2592
+    },
+    "text": "CONTROLLER",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000248",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1151,
+      "y_min": 2603,
+      "x_max": 1168,
+      "y_max": 2620
+    },
+    "crop_hint": {
+      "x_min": 1151,
+      "y_min": 2603,
+      "x_max": 1168,
+      "y_max": 2620
+    },
+    "text": "\u2014 0-",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000250",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1375,
+      "y_min": 2603,
+      "x_max": 1392,
+      "y_max": 2620
+    },
+    "crop_hint": {
+      "x_min": 1375,
+      "y_min": 2603,
+      "x_max": 1392,
+      "y_max": 2620
+    },
+    "text": "\u2014 0-",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000251",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1487,
+      "y_min": 2603,
+      "x_max": 1504,
+      "y_max": 2620
+    },
+    "crop_hint": {
+      "x_min": 1487,
+      "y_min": 2603,
+      "x_max": 1504,
+      "y_max": 2620
+    },
+    "text": "\u2014 0-",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000131",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 126,
+      "y_min": 1393,
+      "x_max": 144,
+      "y_max": 1411
+    },
+    "crop_hint": {
+      "x_min": 126,
+      "y_min": 1393,
+      "x_max": 144,
+      "y_max": 1411
+    },
+    "text": "L",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000151",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2200,
+      "y_min": 1645,
+      "x_max": 2222,
+      "y_max": 1665
+    },
+    "crop_hint": {
+      "x_min": 2200,
+      "y_min": 1645,
+      "x_max": 2222,
+      "y_max": 1665
+    },
+    "text": "8\"1",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000167",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1780,
+      "y_min": 1804,
+      "x_max": 1821,
+      "y_max": 1821
+    },
+    "crop_hint": {
+      "x_min": 1780,
+      "y_min": 1804,
+      "x_max": 1821,
+      "y_max": 1821
+    },
+    "text": "800",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000178",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1674,
+      "y_min": 1849,
+      "x_max": 1705,
+      "y_max": 1866
+    },
+    "crop_hint": {
+      "x_min": 1674,
+      "y_min": 1849,
+      "x_max": 1705,
+      "y_max": 1866
+    },
+    "text": "LIC",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000179",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1747,
+      "y_min": 1857,
+      "x_max": 1788,
+      "y_max": 1874
+    },
+    "crop_hint": {
+      "x_min": 1747,
+      "y_min": 1857,
+      "x_max": 1788,
+      "y_max": 1874
+    },
+    "text": "LAH",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000185",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1665,
+      "y_min": 1893,
+      "x_max": 1732,
+      "y_max": 1914
+    },
+    "crop_hint": {
+      "x_min": 1665,
+      "y_min": 1893,
+      "x_max": 1732,
+      "y_max": 1914
+    },
+    "text": "0801/",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000184",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1726,
+      "y_min": 1888,
+      "x_max": 1797,
+      "y_max": 1911
+    },
+    "crop_hint": {
+      "x_min": 1726,
+      "y_min": 1888,
+      "x_max": 1797,
+      "y_max": 1911
+    },
+    "text": "/ LAL",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000195",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1730,
+      "y_min": 1930,
+      "x_max": 1773,
+      "y_max": 1948
+    },
+    "crop_hint": {
+      "x_min": 1730,
+      "y_min": 1930,
+      "x_max": 1773,
+      "y_max": 1948
+    },
+    "text": "COR:",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000210",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1823,
+      "y_min": 2121,
+      "x_max": 1840,
+      "y_max": 2159
+    },
+    "crop_hint": {
+      "x_min": 1823,
+      "y_min": 2121,
+      "x_max": 1840,
+      "y_max": 2159
+    },
+    "text": "1500",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000177",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1916,
+      "y_min": 1848,
+      "x_max": 1940,
+      "y_max": 1866
+    },
+    "crop_hint": {
+      "x_min": 1916,
+      "y_min": 1848,
+      "x_max": 1940,
+      "y_max": 1866
+    },
+    "text": "LT",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000186",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1904,
+      "y_min": 1893,
+      "x_max": 1958,
+      "y_max": 1914
+    },
+    "crop_hint": {
+      "x_min": 1904,
+      "y_min": 1893,
+      "x_max": 1958,
+      "y_max": 1914
+    },
+    "text": "0801",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000180",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2071,
+      "y_min": 1861,
+      "x_max": 2083,
+      "y_max": 1878
+    },
+    "crop_hint": {
+      "x_min": 2071,
+      "y_min": 1861,
+      "x_max": 2083,
+      "y_max": 1878
+    },
+    "text": "R",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000182",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2049,
+      "y_min": 1879,
+      "x_max": 2104,
+      "y_max": 1902
+    },
+    "crop_hint": {
+      "x_min": 2049,
+      "y_min": 1879,
+      "x_max": 2104,
+      "y_max": 1902
+    },
+    "text": "0802",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000188",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2058,
+      "y_min": 1899,
+      "x_max": 2097,
+      "y_max": 1916
+    },
+    "crop_hint": {
+      "x_min": 2058,
+      "y_min": 1899,
+      "x_max": 2097,
+      "y_max": 1916
+    },
+    "text": "A/B",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000191",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1954,
+      "y_min": 1917,
+      "x_max": 1998,
+      "y_max": 1934
+    },
+    "crop_hint": {
+      "x_min": 1954,
+      "y_min": 1917,
+      "x_max": 1998,
+      "y_max": 1934
+    },
+    "text": "GWR",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000158",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2139,
+      "y_min": 1734,
+      "x_max": 2163,
+      "y_max": 1755
+    },
+    "crop_hint": {
+      "x_min": 2139,
+      "y_min": 1734,
+      "x_max": 2163,
+      "y_max": 1755
+    },
+    "text": "2\"",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000190",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2138,
+      "y_min": 1910,
+      "x_max": 2166,
+      "y_max": 1934
+    },
+    "crop_hint": {
+      "x_min": 2138,
+      "y_min": 1910,
+      "x_max": 2166,
+      "y_max": 1934
+    },
+    "text": "3\u00be\"-",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000203",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2139,
+      "y_min": 2001,
+      "x_max": 2163,
+      "y_max": 2022
+    },
+    "crop_hint": {
+      "x_min": 2139,
+      "y_min": 2001,
+      "x_max": 2163,
+      "y_max": 2022
+    },
+    "text": "2\"1",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000209",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1877,
+      "y_min": 2092,
+      "x_max": 2210,
+      "y_max": 2112
+    },
+    "crop_hint": {
+      "x_min": 1877,
+      "y_min": 2092,
+      "x_max": 2210,
+      "y_max": 2112
+    },
+    "text": "2\"- PL-25-008002-B2A2-NI-",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000211",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1986,
+      "y_min": 2147,
+      "x_max": 2041,
+      "y_max": 2167
+    },
+    "crop_hint": {
+      "x_min": 1986,
+      "y_min": 2147,
+      "x_max": 2041,
+      "y_max": 2167
+    },
+    "text": "1\"\u00d72\"",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000215",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2101,
+      "y_min": 2188,
+      "x_max": 2125,
+      "y_max": 2208
+    },
+    "crop_hint": {
+      "x_min": 2101,
+      "y_min": 2188,
+      "x_max": 2125,
+      "y_max": 2208
+    },
+    "text": "2\"",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000148",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2361,
+      "y_min": 1618,
+      "x_max": 2373,
+      "y_max": 1636
+    },
+    "crop_hint": {
+      "x_min": 2361,
+      "y_min": 1618,
+      "x_max": 2373,
+      "y_max": 1636
+    },
+    "text": "8",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000155",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2272,
+      "y_min": 1707,
+      "x_max": 2405,
+      "y_max": 1725
+    },
+    "crop_hint": {
+      "x_min": 2272,
+      "y_min": 1707,
+      "x_max": 2405,
+      "y_max": 1725
+    },
+    "text": "BLIND TRAY.",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000161",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2529,
+      "y_min": 1759,
+      "x_max": 2547,
+      "y_max": 1776
+    },
+    "crop_hint": {
+      "x_min": 2529,
+      "y_min": 1759,
+      "x_max": 2547,
+      "y_max": 1776
+    },
+    "text": "PI",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000168",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2511,
+      "y_min": 1804,
+      "x_max": 2566,
+      "y_max": 1821
+    },
+    "crop_hint": {
+      "x_min": 2511,
+      "y_min": 1804,
+      "x_max": 2566,
+      "y_max": 1821
+    },
+    "text": "0802/",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000187",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2681,
+      "y_min": 1894,
+      "x_max": 2694,
+      "y_max": 1910
+    },
+    "crop_hint": {
+      "x_min": 2681,
+      "y_min": 1894,
+      "x_max": 2694,
+      "y_max": 1910
+    },
+    "text": "BLANKOFF WHEN",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000198",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2660,
+      "y_min": 1957,
+      "x_max": 2875,
+      "y_max": 1978
+    },
+    "crop_hint": {
+      "x_min": 2660,
+      "y_min": 1957,
+      "x_max": 2875,
+      "y_max": 1978
+    },
+    "text": "2\"- S12-66-05906",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000205",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2555,
+      "y_min": 2041,
+      "x_max": 2599,
+      "y_max": 2064
+    },
+    "crop_hint": {
+      "x_min": 2555,
+      "y_min": 2041,
+      "x_max": 2599,
+      "y_max": 2064
+    },
+    "text": "\u00be\"P",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000208",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2446,
+      "y_min": 2072,
+      "x_max": 2588,
+      "y_max": 2089
+    },
+    "crop_hint": {
+      "x_min": 2446,
+      "y_min": 2072,
+      "x_max": 2588,
+      "y_max": 2089
+    },
+    "text": "B2A2, MS-12",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000218",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2381,
+      "y_min": 2229,
+      "x_max": 2398,
+      "y_max": 2241
+    },
+    "crop_hint": {
+      "x_min": 2381,
+      "y_min": 2229,
+      "x_max": 2398,
+      "y_max": 2241
+    },
+    "text": "N",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000230",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2060,
+      "y_min": 2434,
+      "x_max": 2190,
+      "y_max": 2452
+    },
+    "crop_hint": {
+      "x_min": 2060,
+      "y_min": 2434,
+      "x_max": 2190,
+      "y_max": 2452
+    },
+    "text": "TYPE A-PH",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000261",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1957,
+      "y_min": 2621,
+      "x_max": 2031,
+      "y_max": 2638
+    },
+    "crop_hint": {
+      "x_min": 1957,
+      "y_min": 2621,
+      "x_max": 2031,
+      "y_max": 2638
+    },
+    "text": "TYPE I",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000265",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1956,
+      "y_min": 2710,
+      "x_max": 2122,
+      "y_max": 2727
+    },
+    "crop_hint": {
+      "x_min": 1956,
+      "y_min": 2710,
+      "x_max": 2122,
+      "y_max": 2727
+    },
+    "text": "DRAIN HEADER)",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000225",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2313,
+      "y_min": 2333,
+      "x_max": 2336,
+      "y_max": 2692
+    },
+    "crop_hint": {
+      "x_min": 2313,
+      "y_min": 2333,
+      "x_max": 2336,
+      "y_max": 2692
+    },
+    "text": "1\u00bd\"- PWD-25-008003-L1A1-NI",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000233",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2396,
+      "y_min": 2466,
+      "x_max": 2448,
+      "y_max": 2484
+    },
+    "crop_hint": {
+      "x_min": 2396,
+      "y_min": 2466,
+      "x_max": 2448,
+      "y_max": 2484
+    },
+    "text": "\u2022 FREE",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000235",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2396,
+      "y_min": 2496,
+      "x_max": 2497,
+      "y_max": 2513
+    },
+    "crop_hint": {
+      "x_min": 2396,
+      "y_min": 2496,
+      "x_max": 2497,
+      "y_max": 2513
+    },
+    "text": "DRAINING",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000252",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2527,
+      "y_min": 2603,
+      "x_max": 2544,
+      "y_max": 2620
+    },
+    "crop_hint": {
+      "x_min": 2527,
+      "y_min": 2603,
+      "x_max": 2544,
+      "y_max": 2620
+    },
+    "text": "- O",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000270",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2403,
+      "y_min": 2758,
+      "x_max": 2550,
+      "y_max": 2775
+    },
+    "crop_hint": {
+      "x_min": 2403,
+      "y_min": 2758,
+      "x_max": 2550,
+      "y_max": 2775
+    },
+    "text": "TO PHENOLIC",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000275",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2402,
+      "y_min": 2817,
+      "x_max": 2567,
+      "y_max": 2834
+    },
+    "crop_hint": {
+      "x_min": 2402,
+      "y_min": 2817,
+      "x_max": 2567,
+      "y_max": 2834
+    },
+    "text": "DRAIN HEADER",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000193",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1822,
+      "y_min": 1922,
+      "x_max": 1840,
+      "y_max": 1963
+    },
+    "crop_hint": {
+      "x_min": 1822,
+      "y_min": 1922,
+      "x_max": 1840,
+      "y_max": 1963
+    },
+    "text": "550",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000143",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2228,
+      "y_min": 1588,
+      "x_max": 2238,
+      "y_max": 1616
+    },
+    "crop_hint": {
+      "x_min": 2228,
+      "y_min": 1588,
+      "x_max": 2238,
+      "y_max": 1616
+    },
+    "text": "-c",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000200",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2559,
+      "y_min": 1975,
+      "x_max": 2617,
+      "y_max": 1993
+    },
+    "crop_hint": {
+      "x_min": 2559,
+      "y_min": 1975,
+      "x_max": 2617,
+      "y_max": 1993
+    },
+    "text": "1X",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000156",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3299,
+      "y_min": 1715,
+      "x_max": 3330,
+      "y_max": 1732
+    },
+    "crop_hint": {
+      "x_min": 3299,
+      "y_min": 1715,
+      "x_max": 3330,
+      "y_max": 1732
+    },
+    "text": "FIC",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000162",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3290,
+      "y_min": 1759,
+      "x_max": 3339,
+      "y_max": 1777
+    },
+    "crop_hint": {
+      "x_min": 3290,
+      "y_min": 1759,
+      "x_max": 3339,
+      "y_max": 1777
+    },
+    "text": "0801/",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000160",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3365,
+      "y_min": 1752,
+      "x_max": 3404,
+      "y_max": 1769
+    },
+    "crop_hint": {
+      "x_min": 3365,
+      "y_min": 1752,
+      "x_max": 3404,
+      "y_max": 1769
+    },
+    "text": "FAL",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000152",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3524,
+      "y_min": 1652,
+      "x_max": 3527,
+      "y_max": 1668
+    },
+    "crop_hint": {
+      "x_min": 3524,
+      "y_min": 1652,
+      "x_max": 3527,
+      "y_max": 1668
+    },
+    "text": "MAGNETIC",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000163",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3468,
+      "y_min": 1759,
+      "x_max": 3517,
+      "y_max": 1777
+    },
+    "crop_hint": {
+      "x_min": 3468,
+      "y_min": 1759,
+      "x_max": 3517,
+      "y_max": 1777
+    },
+    "text": "0801",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000173",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3373,
+      "y_min": 1841,
+      "x_max": 3435,
+      "y_max": 1859
+    },
+    "crop_hint": {
+      "x_min": 3373,
+      "y_min": 1841,
+      "x_max": 3435,
+      "y_max": 1859
+    },
+    "text": "-RATIO",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000197",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3287,
+      "y_min": 1953,
+      "x_max": 3342,
+      "y_max": 1970
+    },
+    "crop_hint": {
+      "x_min": 3287,
+      "y_min": 1953,
+      "x_max": 3342,
+      "y_max": 1970
+    },
+    "text": "10702/",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000226",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3554,
+      "y_min": 2397,
+      "x_max": 3574,
+      "y_max": 2738
+    },
+    "crop_hint": {
+      "x_min": 3554,
+      "y_min": 2397,
+      "x_max": 3574,
+      "y_max": 2738
+    },
+    "text": "1\"- NAS-41-007105-B1A2-NI",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000169",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3594,
+      "y_min": 1812,
+      "x_max": 3596,
+      "y_max": 1814
+    },
+    "crop_hint": {
+      "x_min": 3594,
+      "y_min": 1812,
+      "x_max": 3596,
+      "y_max": 1814
+    },
+    "text": "D",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000227",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3306,
+      "y_min": 2401,
+      "x_max": 3323,
+      "y_max": 2418
+    },
+    "crop_hint": {
+      "x_min": 3306,
+      "y_min": 2401,
+      "x_max": 3323,
+      "y_max": 2418
+    },
+    "text": "- O",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000149",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4825,
+      "y_min": 1619,
+      "x_max": 4886,
+      "y_max": 1636
+    },
+    "crop_hint": {
+      "x_min": 4825,
+      "y_min": 1619,
+      "x_max": 4886,
+      "y_max": 1636
+    },
+    "text": "- 40",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000176",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4816,
+      "y_min": 1842,
+      "x_max": 4872,
+      "y_max": 1865
+    },
+    "crop_hint": {
+      "x_min": 4816,
+      "y_min": 1842,
+      "x_max": 4872,
+      "y_max": 1865
+    },
+    "text": "- 35",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000207",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4861,
+      "y_min": 2066,
+      "x_max": 4873,
+      "y_max": 2084
+    },
+    "crop_hint": {
+      "x_min": 4861,
+      "y_min": 2066,
+      "x_max": 4873,
+      "y_max": 2084
+    },
+    "text": "- 30",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000222",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4845,
+      "y_min": 2290,
+      "x_max": 4857,
+      "y_max": 2307
+    },
+    "crop_hint": {
+      "x_min": 4845,
+      "y_min": 2290,
+      "x_max": 4857,
+      "y_max": 2307
+    },
+    "text": "- 25",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000237",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4860,
+      "y_min": 2514,
+      "x_max": 4886,
+      "y_max": 2531
+    },
+    "crop_hint": {
+      "x_min": 4860,
+      "y_min": 2514,
+      "x_max": 4886,
+      "y_max": 2531
+    },
+    "text": "\u2022 20",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000240",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4611,
+      "y_min": 2578,
+      "x_max": 4745,
+      "y_max": 2615
+    },
+    "crop_hint": {
+      "x_min": 4611,
+      "y_min": 2578,
+      "x_max": 4745,
+      "y_max": 2615
+    },
+    "text": "posco",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000258",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4390,
+      "y_min": 2612,
+      "x_max": 4568,
+      "y_max": 2644
+    },
+    "crop_hint": {
+      "x_min": 4390,
+      "y_min": 2612,
+      "x_max": 4568,
+      "y_max": 2644
+    },
+    "text": "PHENOL",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000268",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4846,
+      "y_min": 2737,
+      "x_max": 4869,
+      "y_max": 2755
+    },
+    "crop_hint": {
+      "x_min": 4846,
+      "y_min": 2737,
+      "x_max": 4869,
+      "y_max": 2755
+    },
+    "text": "- 15",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000369",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 22,
+      "y_min": 3363,
+      "x_max": 36,
+      "y_max": 3411
+    },
+    "crop_hint": {
+      "x_min": 22,
+      "y_min": 3363,
+      "x_max": 36,
+      "y_max": 3411
+    },
+    "text": "NOTE:",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000284",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 81,
+      "y_min": 2961,
+      "x_max": 105,
+      "y_max": 2979
+    },
+    "crop_hint": {
+      "x_min": 81,
+      "y_min": 2961,
+      "x_max": 105,
+      "y_max": 2979
+    },
+    "text": "10",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000307",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 449,
+      "y_min": 3134,
+      "x_max": 680,
+      "y_max": 3152
+    },
+    "crop_hint": {
+      "x_min": 449,
+      "y_min": 3134,
+      "x_max": 680,
+      "y_max": 3152
+    },
+    "text": "CIRCULATION PUMPS",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000331",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1418,
+      "y_min": 3205,
+      "x_max": 1474,
+      "y_max": 3226
+    },
+    "crop_hint": {
+      "x_min": 1418,
+      "y_min": 3205,
+      "x_max": 1474,
+      "y_max": 3226
+    },
+    "text": "1\"x2\"",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000381",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 369,
+      "y_min": 3438,
+      "x_max": 382,
+      "y_max": 3456
+    },
+    "crop_hint": {
+      "x_min": 369,
+      "y_min": 3438,
+      "x_max": 382,
+      "y_max": 3456
+    },
+    "text": "A",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000382",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 836,
+      "y_min": 3438,
+      "x_max": 849,
+      "y_max": 3455
+    },
+    "crop_hint": {
+      "x_min": 836,
+      "y_min": 3438,
+      "x_max": 849,
+      "y_max": 3455
+    },
+    "text": "\u0e3f",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000379",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1543,
+      "y_min": 3422,
+      "x_max": 1545,
+      "y_max": 3445
+    },
+    "crop_hint": {
+      "x_min": 1543,
+      "y_min": 3422,
+      "x_max": 1545,
+      "y_max": 3445
+    },
+    "text": "-",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000269",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 126,
+      "y_min": 2740,
+      "x_max": 144,
+      "y_max": 2754
+    },
+    "crop_hint": {
+      "x_min": 126,
+      "y_min": 2740,
+      "x_max": 144,
+      "y_max": 2754
+    },
+    "text": "T",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000332",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1564,
+      "y_min": 3206,
+      "x_max": 1599,
+      "y_max": 3227
+    },
+    "crop_hint": {
+      "x_min": 1564,
+      "y_min": 3206,
+      "x_max": 1599,
+      "y_max": 3227
+    },
+    "text": "2\"x",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000254",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2751,
+      "y_min": 2603,
+      "x_max": 2786,
+      "y_max": 2620
+    },
+    "crop_hint": {
+      "x_min": 2751,
+      "y_min": 2603,
+      "x_max": 2786,
+      "y_max": 2620
+    },
+    "text": "\u2022 -",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000255",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2842,
+      "y_min": 2603,
+      "x_max": 2879,
+      "y_max": 2620
+    },
+    "crop_hint": {
+      "x_min": 2842,
+      "y_min": 2603,
+      "x_max": 2879,
+      "y_max": 2620
+    },
+    "text": "- C",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000383",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1771,
+      "y_min": 3438,
+      "x_max": 1784,
+      "y_max": 3455
+    },
+    "crop_hint": {
+      "x_min": 1771,
+      "y_min": 3438,
+      "x_max": 1784,
+      "y_max": 3455
+    },
+    "text": "D",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000282",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3573,
+      "y_min": 2942,
+      "x_max": 3617,
+      "y_max": 2960
+    },
+    "crop_hint": {
+      "x_min": 3573,
+      "y_min": 2942,
+      "x_max": 3617,
+      "y_max": 2960
+    },
+    "text": "NAS",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000279",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3652,
+      "y_min": 2904,
+      "x_max": 3830,
+      "y_max": 2921
+    },
+    "crop_hint": {
+      "x_min": 3652,
+      "y_min": 2904,
+      "x_max": 3830,
+      "y_max": 2921
+    },
+    "text": "20WT% CAUSTIC",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000373",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3342,
+      "y_min": 3383,
+      "x_max": 3387,
+      "y_max": 3398
+    },
+    "crop_hint": {
+      "x_min": 3342,
+      "y_min": 3383,
+      "x_max": 3387,
+      "y_max": 3398
+    },
+    "text": "REV.",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000292",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3540,
+      "y_min": 3093,
+      "x_max": 3617,
+      "y_max": 3107
+    },
+    "crop_hint": {
+      "x_min": 3540,
+      "y_min": 3093,
+      "x_max": 3617,
+      "y_max": 3107
+    },
+    "text": "AS BUILT",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000375",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3506,
+      "y_min": 3385,
+      "x_max": 3634,
+      "y_max": 3399
+    },
+    "crop_hint": {
+      "x_min": 3506,
+      "y_min": 3385,
+      "x_max": 3634,
+      "y_max": 3399
+    },
+    "text": "DESCRIPTION",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000376",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3786,
+      "y_min": 3385,
+      "x_max": 3812,
+      "y_max": 3399
+    },
+    "crop_hint": {
+      "x_min": 3786,
+      "y_min": 3385,
+      "x_max": 3812,
+      "y_max": 3399
+    },
+    "text": "BY",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000290",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4048,
+      "y_min": 3091,
+      "x_max": 4108,
+      "y_max": 3111
+    },
+    "crop_hint": {
+      "x_min": 4048,
+      "y_min": 3091,
+      "x_max": 4108,
+      "y_max": 3111
+    },
+    "text": "4/25/16",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000300",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4044,
+      "y_min": 3126,
+      "x_max": 4111,
+      "y_max": 3146
+    },
+    "crop_hint": {
+      "x_min": 4044,
+      "y_min": 3126,
+      "x_max": 4111,
+      "y_max": 3146
+    },
+    "text": "10/15/14",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000311",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4045,
+      "y_min": 3161,
+      "x_max": 4110,
+      "y_max": 3182
+    },
+    "crop_hint": {
+      "x_min": 4045,
+      "y_min": 3161,
+      "x_max": 4110,
+      "y_max": 3182
+    },
+    "text": "10/8/'14",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000330",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4044,
+      "y_min": 3199,
+      "x_max": 4111,
+      "y_max": 3213
+    },
+    "crop_hint": {
+      "x_min": 4044,
+      "y_min": 3199,
+      "x_max": 4111,
+      "y_max": 3213
+    },
+    "text": "9/16/14",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000335",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4044,
+      "y_min": 3232,
+      "x_max": 4111,
+      "y_max": 3252
+    },
+    "crop_hint": {
+      "x_min": 4044,
+      "y_min": 3232,
+      "x_max": 4111,
+      "y_max": 3252
+    },
+    "text": "8/20/'14",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000342",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4049,
+      "y_min": 3267,
+      "x_max": 4107,
+      "y_max": 3287
+    },
+    "crop_hint": {
+      "x_min": 4049,
+      "y_min": 3267,
+      "x_max": 4107,
+      "y_max": 3287
+    },
+    "text": "4/4/14",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000352",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4045,
+      "y_min": 3302,
+      "x_max": 4111,
+      "y_max": 3323
+    },
+    "crop_hint": {
+      "x_min": 4045,
+      "y_min": 3302,
+      "x_max": 4111,
+      "y_max": 3323
+    },
+    "text": "2/28/14",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000361",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4049,
+      "y_min": 3337,
+      "x_max": 4109,
+      "y_max": 3357
+    },
+    "crop_hint": {
+      "x_min": 4049,
+      "y_min": 3337,
+      "x_max": 4109,
+      "y_max": 3357
+    },
+    "text": "2/7/14",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000374",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4038,
+      "y_min": 3383,
+      "x_max": 4094,
+      "y_max": 3401
+    },
+    "crop_hint": {
+      "x_min": 4038,
+      "y_min": 3383,
+      "x_max": 4094,
+      "y_max": 3401
+    },
+    "text": "\u2022 DATE",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000384",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2706,
+      "y_min": 3438,
+      "x_max": 2718,
+      "y_max": 3455
+    },
+    "crop_hint": {
+      "x_min": 2706,
+      "y_min": 3438,
+      "x_max": 2718,
+      "y_max": 3455
+    },
+    "text": "F",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000385",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3174,
+      "y_min": 3438,
+      "x_max": 3187,
+      "y_max": 3455
+    },
+    "crop_hint": {
+      "x_min": 3174,
+      "y_min": 3438,
+      "x_max": 3187,
+      "y_max": 3455
+    },
+    "text": "G",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000386",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3642,
+      "y_min": 3438,
+      "x_max": 3654,
+      "y_max": 3455
+    },
+    "crop_hint": {
+      "x_min": 3642,
+      "y_min": 3438,
+      "x_max": 3654,
+      "y_max": 3455
+    },
+    "text": "H",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000321",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4135,
+      "y_min": 3184,
+      "x_max": 4147,
+      "y_max": 3198
+    },
+    "crop_hint": {
+      "x_min": 4135,
+      "y_min": 3184,
+      "x_max": 4147,
+      "y_max": 3198
+    },
+    "text": "BY",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000333",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4135,
+      "y_min": 3223,
+      "x_max": 4158,
+      "y_max": 3237
+    },
+    "crop_hint": {
+      "x_min": 4135,
+      "y_min": 3223,
+      "x_max": 4158,
+      "y_max": 3237
+    },
+    "text": "DA",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000359",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4140,
+      "y_min": 3315,
+      "x_max": 4155,
+      "y_max": 3334
+    },
+    "crop_hint": {
+      "x_min": 4140,
+      "y_min": 3315,
+      "x_max": 4155,
+      "y_max": 3334
+    },
+    "text": "P",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000370",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3974,
+      "y_min": 3376,
+      "x_max": 4032,
+      "y_max": 3390
+    },
+    "crop_hint": {
+      "x_min": 3974,
+      "y_min": 3376,
+      "x_max": 4032,
+      "y_max": 3390
+    },
+    "text": "PROJ.",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000336",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3358,
+      "y_min": 3234,
+      "x_max": 3376,
+      "y_max": 3248
+    },
+    "crop_hint": {
+      "x_min": 3358,
+      "y_min": 3234,
+      "x_max": 3376,
+      "y_max": 3248
+    },
+    "text": "51",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000241",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4394,
+      "y_min": 2584,
+      "x_max": 4443,
+      "y_max": 2610
+    },
+    "crop_hint": {
+      "x_min": 4394,
+      "y_min": 2584,
+      "x_max": 4443,
+      "y_max": 2610
+    },
+    "text": "prat",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000285",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4834,
+      "y_min": 2961,
+      "x_max": 4881,
+      "y_max": 2979
+    },
+    "crop_hint": {
+      "x_min": 4834,
+      "y_min": 2961,
+      "x_max": 4881,
+      "y_max": 2979
+    },
+    "text": "- 10",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000299",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4211,
+      "y_min": 3124,
+      "x_max": 4325,
+      "y_max": 3137
+    },
+    "crop_hint": {
+      "x_min": 4211,
+      "y_min": 3124,
+      "x_max": 4325,
+      "y_max": 3137
+    },
+    "text": "CERTIFIED FOR",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000320",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4434,
+      "y_min": 3179,
+      "x_max": 4460,
+      "y_max": 3193
+    },
+    "crop_hint": {
+      "x_min": 4434,
+      "y_min": 3179,
+      "x_max": 4460,
+      "y_max": 3193
+    },
+    "text": "BY",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000334",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4425,
+      "y_min": 3228,
+      "x_max": 4469,
+      "y_max": 3243
+    },
+    "crop_hint": {
+      "x_min": 4425,
+      "y_min": 3228,
+      "x_max": 4469,
+      "y_max": 3243
+    },
+    "text": "DATE",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000350",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4464,
+      "y_min": 3269,
+      "x_max": 4574,
+      "y_max": 3284
+    },
+    "crop_hint": {
+      "x_min": 4464,
+      "y_min": 3269,
+      "x_max": 4574,
+      "y_max": 3284
+    },
+    "text": "DWG. NO.",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000351",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4737,
+      "y_min": 3269,
+      "x_max": 4781,
+      "y_max": 3283
+    },
+    "crop_hint": {
+      "x_min": 4737,
+      "y_min": 3269,
+      "x_max": 4781,
+      "y_max": 3283
+    },
+    "text": "REV.",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000323",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4845,
+      "y_min": 3185,
+      "x_max": 4857,
+      "y_max": 3202
+    },
+    "crop_hint": {
+      "x_min": 4845,
+      "y_min": 3185,
+      "x_max": 4857,
+      "y_max": 3202
+    },
+    "text": "- 5",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000349",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4223,
+      "y_min": 3269,
+      "x_max": 4343,
+      "y_max": 3283
+    },
+    "crop_hint": {
+      "x_min": 4223,
+      "y_min": 3269,
+      "x_max": 4343,
+      "y_max": 3283
+    },
+    "text": "PROJ. NO.",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000360",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4240,
+      "y_min": 3315,
+      "x_max": 4328,
+      "y_max": 3335
+    },
+    "crop_hint": {
+      "x_min": 4240,
+      "y_min": 3315,
+      "x_max": 4328,
+      "y_max": 3335
+    },
+    "text": "120117",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000380",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4547,
+      "y_min": 3432,
+      "x_max": 4617,
+      "y_max": 3449
+    },
+    "crop_hint": {
+      "x_min": 4547,
+      "y_min": 3432,
+      "x_max": 4617,
+      "y_max": 3449
+    },
+    "text": "SCALE",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000378",
+    "reasons": [
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4856,
+      "y_min": 3409,
+      "x_max": 4869,
+      "y_max": 3426
+    },
+    "crop_hint": {
+      "x_min": 4856,
+      "y_min": 3409,
+      "x_max": 4869,
+      "y_max": 3426
+    },
+    "text": "- O",
+    "confidence": 1.0
+  },
+  {
+    "source_region_id": "ocr_000078",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1546,
+      "y_min": 639,
+      "x_max": 1599,
+      "y_max": 661
+    },
+    "crop_hint": {
+      "x_min": 1546,
+      "y_min": 639,
+      "x_max": 1599,
+      "y_max": 661
+    },
+    "text": "\u2022 x",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000051",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1682,
+      "y_min": 526,
+      "x_max": 1725,
+      "y_max": 543
+    },
+    "crop_hint": {
+      "x_min": 1682,
+      "y_min": 526,
+      "x_max": 1725,
+      "y_max": 543
+    },
+    "text": "PSV",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000026",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1958,
+      "y_min": 325,
+      "x_max": 2001,
+      "y_max": 342
+    },
+    "crop_hint": {
+      "x_min": 1958,
+      "y_min": 325,
+      "x_max": 2001,
+      "y_max": 342
+    },
+    "text": "PSV",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000061",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2614,
+      "y_min": 560,
+      "x_max": 2641,
+      "y_max": 577
+    },
+    "crop_hint": {
+      "x_min": 2614,
+      "y_min": 560,
+      "x_max": 2641,
+      "y_max": 577
+    },
+    "text": "PT",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000060",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2673,
+      "y_min": 551,
+      "x_max": 2697,
+      "y_max": 568
+    },
+    "crop_hint": {
+      "x_min": 2673,
+      "y_min": 551,
+      "x_max": 2697,
+      "y_max": 568
+    },
+    "text": "FF",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000107",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2333,
+      "y_min": 804,
+      "x_max": 2358,
+      "y_max": 822
+    },
+    "crop_hint": {
+      "x_min": 2333,
+      "y_min": 804,
+      "x_max": 2358,
+      "y_max": 822
+    },
+    "text": "AO",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000122",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2344,
+      "y_min": 959,
+      "x_max": 2403,
+      "y_max": 979
+    },
+    "crop_hint": {
+      "x_min": 2344,
+      "y_min": 959,
+      "x_max": 2403,
+      "y_max": 979
+    },
+    "text": "= 24\"ID",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000089",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2760,
+      "y_min": 692,
+      "x_max": 2822,
+      "y_max": 712
+    },
+    "crop_hint": {
+      "x_min": 2760,
+      "y_min": 692,
+      "x_max": 2822,
+      "y_max": 712
+    },
+    "text": "6\"X4\"",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000094",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1734,
+      "y_min": 719,
+      "x_max": 1778,
+      "y_max": 742
+    },
+    "crop_hint": {
+      "x_min": 1734,
+      "y_min": 719,
+      "x_max": 1778,
+      "y_max": 742
+    },
+    "text": "\u2022\u00d7\u00be\"P",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000100",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1696,
+      "y_min": 748,
+      "x_max": 1722,
+      "y_max": 765
+    },
+    "crop_hint": {
+      "x_min": 1696,
+      "y_min": 748,
+      "x_max": 1722,
+      "y_max": 765
+    },
+    "text": "8LC",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000055",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2912,
+      "y_min": 536,
+      "x_max": 2937,
+      "y_max": 553
+    },
+    "crop_hint": {
+      "x_min": 2912,
+      "y_min": 536,
+      "x_max": 2937,
+      "y_max": 553
+    },
+    "text": "\\ FF!",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000102",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2891,
+      "y_min": 770,
+      "x_max": 3025,
+      "y_max": 787
+    },
+    "crop_hint": {
+      "x_min": 2891,
+      "y_min": 770,
+      "x_max": 3025,
+      "y_max": 787
+    },
+    "text": "B2A1 BIAL",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000133",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3706,
+      "y_min": 1399,
+      "x_max": 3723,
+      "y_max": 1456
+    },
+    "crop_hint": {
+      "x_min": 3706,
+      "y_min": 1399,
+      "x_max": 3723,
+      "y_max": 1456
+    },
+    "text": "B2A2",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000138",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3546,
+      "y_min": 1509,
+      "x_max": 3570,
+      "y_max": 1526
+    },
+    "crop_hint": {
+      "x_min": 3546,
+      "y_min": 1509,
+      "x_max": 3570,
+      "y_max": 1526
+    },
+    "text": "FF",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000134",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3657,
+      "y_min": 1431,
+      "x_max": 3684,
+      "y_max": 1474
+    },
+    "crop_hint": {
+      "x_min": 3657,
+      "y_min": 1431,
+      "x_max": 3684,
+      "y_max": 1474
+    },
+    "text": "DOT",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000137",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3706,
+      "y_min": 1490,
+      "x_max": 3723,
+      "y_max": 1545
+    },
+    "crop_hint": {
+      "x_min": 3706,
+      "y_min": 1490,
+      "x_max": 3723,
+      "y_max": 1545
+    },
+    "text": "B1A2",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000171",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1964,
+      "y_min": 1833,
+      "x_max": 1975,
+      "y_max": 1850
+    },
+    "crop_hint": {
+      "x_min": 1964,
+      "y_min": 1833,
+      "x_max": 1975,
+      "y_max": 1850
+    },
+    "text": "FF",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000166",
+    "reasons": [
+      "low_confidence"
+    ],
+    "sheet_bbox": {
+      "x_min": 2261,
+      "y_min": 1796,
+      "x_max": 2288,
+      "y_max": 1814
+    },
+    "crop_hint": {
+      "x_min": 2261,
+      "y_min": 1796,
+      "x_max": 2288,
+      "y_max": 1814
+    },
+    "text": "-BL1",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000165",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2405,
+      "y_min": 1784,
+      "x_max": 2428,
+      "y_max": 1802
+    },
+    "crop_hint": {
+      "x_min": 2405,
+      "y_min": 1784,
+      "x_max": 2428,
+      "y_max": 1802
+    },
+    "text": "BP",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000199",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2344,
+      "y_min": 1970,
+      "x_max": 2430,
+      "y_max": 1997
+    },
+    "crop_hint": {
+      "x_min": 2344,
+      "y_min": 1970,
+      "x_max": 2430,
+      "y_max": 1997
+    },
+    "text": "[24\"ID BSHA",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000224",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2225,
+      "y_min": 2308,
+      "x_max": 2242,
+      "y_max": 2353
+    },
+    "crop_hint": {
+      "x_min": 2225,
+      "y_min": 2308,
+      "x_max": 2242,
+      "y_max": 2353
+    },
+    "text": "L1A1",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000219",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2224,
+      "y_min": 2238,
+      "x_max": 2242,
+      "y_max": 2286
+    },
+    "crop_hint": {
+      "x_min": 2224,
+      "y_min": 2238,
+      "x_max": 2242,
+      "y_max": 2286
+    },
+    "text": "L2A1",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000257",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1600,
+      "y_min": 2605,
+      "x_max": 1628,
+      "y_max": 2620
+    },
+    "crop_hint": {
+      "x_min": 1600,
+      "y_min": 2605,
+      "x_max": 1628,
+      "y_max": 2620
+    },
+    "text": "\u2022 '",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000228",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1956,
+      "y_min": 2433,
+      "x_max": 1976,
+      "y_max": 2454
+    },
+    "crop_hint": {
+      "x_min": 1956,
+      "y_min": 2433,
+      "x_max": 1976,
+      "y_max": 2454
+    },
+    "text": "X1\"",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000229",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2017,
+      "y_min": 2433,
+      "x_max": 2036,
+      "y_max": 2454
+    },
+    "crop_hint": {
+      "x_min": 2017,
+      "y_min": 2433,
+      "x_max": 2036,
+      "y_max": 2454
+    },
+    "text": "$1'",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000234",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1891,
+      "y_min": 2495,
+      "x_max": 1916,
+      "y_max": 2511
+    },
+    "crop_hint": {
+      "x_min": 1891,
+      "y_min": 2495,
+      "x_max": 1916,
+      "y_max": 2511
+    },
+    "text": "FF",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000273",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2322,
+      "y_min": 2794,
+      "x_max": 2367,
+      "y_max": 2811
+    },
+    "crop_hint": {
+      "x_min": 2322,
+      "y_min": 2794,
+      "x_max": 2367,
+      "y_max": 2811
+    },
+    "text": "PWD",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000159",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2470,
+      "y_min": 1749,
+      "x_max": 2494,
+      "y_max": 1769
+    },
+    "crop_hint": {
+      "x_min": 2470,
+      "y_min": 1749,
+      "x_max": 2494,
+      "y_max": 1769
+    },
+    "text": "- 2\"",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000192",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2360,
+      "y_min": 1918,
+      "x_max": 2391,
+      "y_max": 1940
+    },
+    "crop_hint": {
+      "x_min": 2360,
+      "y_min": 1918,
+      "x_max": 2391,
+      "y_max": 1940
+    },
+    "text": "BM",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000170",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2198,
+      "y_min": 1824,
+      "x_max": 2222,
+      "y_max": 1844
+    },
+    "crop_hint": {
+      "x_min": 2198,
+      "y_min": 1824,
+      "x_max": 2222,
+      "y_max": 1844
+    },
+    "text": "2'1",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000157",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3480,
+      "y_min": 1715,
+      "x_max": 3505,
+      "y_max": 1732
+    },
+    "crop_hint": {
+      "x_min": 3480,
+      "y_min": 1715,
+      "x_max": 3505,
+      "y_max": 1732
+    },
+    "text": "FT",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000189",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3301,
+      "y_min": 1908,
+      "x_max": 3328,
+      "y_max": 1925
+    },
+    "crop_hint": {
+      "x_min": 3301,
+      "y_min": 1908,
+      "x_max": 3328,
+      "y_max": 1925
+    },
+    "text": "FY",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000135",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3608,
+      "y_min": 1443,
+      "x_max": 3650,
+      "y_max": 1521
+    },
+    "crop_hint": {
+      "x_min": 3608,
+      "y_min": 1443,
+      "x_max": 3650,
+      "y_max": 1521
+    },
+    "text": "* =",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000259",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4165,
+      "y_min": 2613,
+      "x_max": 4170,
+      "y_max": 2621
+    },
+    "crop_hint": {
+      "x_min": 4165,
+      "y_min": 2613,
+      "x_max": 4170,
+      "y_max": 2621
+    },
+    "text": "BECHTEL",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000387",
+    "reasons": [
+      "low_confidence"
+    ],
+    "sheet_bbox": {
+      "x_min": 143,
+      "y_min": 3458,
+      "x_max": 352,
+      "y_max": 3475
+    },
+    "crop_hint": {
+      "x_min": 143,
+      "y_min": 3458,
+      "x_max": 352,
+      "y_max": 3475
+    },
+    "text": "BOR-A1 - ISBL.DWG",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000322",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 104,
+      "y_min": 3185,
+      "x_max": 116,
+      "y_max": 3202
+    },
+    "crop_hint": {
+      "x_min": 104,
+      "y_min": 3185,
+      "x_max": 116,
+      "y_max": 3202
+    },
+    "text": "ur",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000313",
+    "reasons": [
+      "low_confidence"
+    ],
+    "sheet_bbox": {
+      "x_min": 3356,
+      "y_min": 3164,
+      "x_max": 3378,
+      "y_max": 3178
+    },
+    "crop_hint": {
+      "x_min": 3356,
+      "y_min": 3164,
+      "x_max": 3378,
+      "y_max": 3178
+    },
+    "text": "S3",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000343",
+    "reasons": [
+      "low_confidence"
+    ],
+    "sheet_bbox": {
+      "x_min": 3356,
+      "y_min": 3269,
+      "x_max": 3378,
+      "y_max": 3284
+    },
+    "crop_hint": {
+      "x_min": 3356,
+      "y_min": 3269,
+      "x_max": 3378,
+      "y_max": 3284
+    },
+    "text": "R2",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000353",
+    "reasons": [
+      "low_confidence"
+    ],
+    "sheet_bbox": {
+      "x_min": 3358,
+      "y_min": 3305,
+      "x_max": 3376,
+      "y_max": 3319
+    },
+    "crop_hint": {
+      "x_min": 3358,
+      "y_min": 3305,
+      "x_max": 3376,
+      "y_max": 3319
+    },
+    "text": "R1",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000294",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3848,
+      "y_min": 3093,
+      "x_max": 3884,
+      "y_max": 3107
+    },
+    "crop_hint": {
+      "x_min": 3848,
+      "y_min": 3093,
+      "x_max": 3884,
+      "y_max": 3107
+    },
+    "text": "SWP",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000296",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3990,
+      "y_min": 3093,
+      "x_max": 4024,
+      "y_max": 3107
+    },
+    "crop_hint": {
+      "x_min": 3990,
+      "y_min": 3093,
+      "x_max": 4024,
+      "y_max": 3107
+    },
+    "text": "SWL",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000316",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3848,
+      "y_min": 3164,
+      "x_max": 3884,
+      "y_max": 3178
+    },
+    "crop_hint": {
+      "x_min": 3848,
+      "y_min": 3164,
+      "x_max": 3884,
+      "y_max": 3178
+    },
+    "text": "SWP",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000327",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3848,
+      "y_min": 3199,
+      "x_max": 3884,
+      "y_max": 3213
+    },
+    "crop_hint": {
+      "x_min": 3848,
+      "y_min": 3199,
+      "x_max": 3884,
+      "y_max": 3213
+    },
+    "text": "SWP",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000339",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3848,
+      "y_min": 3234,
+      "x_max": 3884,
+      "y_max": 3248
+    },
+    "crop_hint": {
+      "x_min": 3848,
+      "y_min": 3234,
+      "x_max": 3884,
+      "y_max": 3248
+    },
+    "text": "SWP",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000346",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3848,
+      "y_min": 3269,
+      "x_max": 3884,
+      "y_max": 3284
+    },
+    "crop_hint": {
+      "x_min": 3848,
+      "y_min": 3269,
+      "x_max": 3884,
+      "y_max": 3284
+    },
+    "text": "SWP",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000356",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3848,
+      "y_min": 3305,
+      "x_max": 3884,
+      "y_max": 3319
+    },
+    "crop_hint": {
+      "x_min": 3848,
+      "y_min": 3305,
+      "x_max": 3884,
+      "y_max": 3319
+    },
+    "text": "SWP",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000306",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3990,
+      "y_min": 3128,
+      "x_max": 4024,
+      "y_max": 3143
+    },
+    "crop_hint": {
+      "x_min": 3990,
+      "y_min": 3128,
+      "x_max": 4024,
+      "y_max": 3143
+    },
+    "text": "SWL",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000318",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3990,
+      "y_min": 3164,
+      "x_max": 4024,
+      "y_max": 3178
+    },
+    "crop_hint": {
+      "x_min": 3990,
+      "y_min": 3164,
+      "x_max": 4024,
+      "y_max": 3178
+    },
+    "text": "SWL",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000329",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3990,
+      "y_min": 3199,
+      "x_max": 4024,
+      "y_max": 3213
+    },
+    "crop_hint": {
+      "x_min": 3990,
+      "y_min": 3199,
+      "x_max": 4024,
+      "y_max": 3213
+    },
+    "text": "SWL",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000341",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3990,
+      "y_min": 3234,
+      "x_max": 4024,
+      "y_max": 3248
+    },
+    "crop_hint": {
+      "x_min": 3990,
+      "y_min": 3234,
+      "x_max": 4024,
+      "y_max": 3248
+    },
+    "text": "SWL",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000348",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3990,
+      "y_min": 3269,
+      "x_max": 4024,
+      "y_max": 3284
+    },
+    "crop_hint": {
+      "x_min": 3990,
+      "y_min": 3269,
+      "x_max": 4024,
+      "y_max": 3284
+    },
+    "text": "SWL",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000358",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3990,
+      "y_min": 3305,
+      "x_max": 4024,
+      "y_max": 3319
+    },
+    "crop_hint": {
+      "x_min": 3990,
+      "y_min": 3305,
+      "x_max": 4024,
+      "y_max": 3319
+    },
+    "text": "SWL",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000365",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3848,
+      "y_min": 3340,
+      "x_max": 3884,
+      "y_max": 3354
+    },
+    "crop_hint": {
+      "x_min": 3848,
+      "y_min": 3340,
+      "x_max": 3884,
+      "y_max": 3354
+    },
+    "text": "SWP",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000367",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3990,
+      "y_min": 3340,
+      "x_max": 4024,
+      "y_max": 3354
+    },
+    "crop_hint": {
+      "x_min": 3990,
+      "y_min": 3340,
+      "x_max": 4024,
+      "y_max": 3354
+    },
+    "text": "SWL",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000371",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4135,
+      "y_min": 3377,
+      "x_max": 4150,
+      "y_max": 3396
+    },
+    "crop_hint": {
+      "x_min": 4135,
+      "y_min": 3377,
+      "x_max": 4150,
+      "y_max": 3396
+    },
+    "text": "PP",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000304",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3848,
+      "y_min": 3128,
+      "x_max": 3884,
+      "y_max": 3143
+    },
+    "crop_hint": {
+      "x_min": 3848,
+      "y_min": 3128,
+      "x_max": 3884,
+      "y_max": 3143
+    },
+    "text": "SWP",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000377",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3838,
+      "y_min": 3385,
+      "x_max": 3892,
+      "y_max": 3399
+    },
+    "crop_hint": {
+      "x_min": 3838,
+      "y_min": 3385,
+      "x_max": 3892,
+      "y_max": 3399
+    },
+    "text": "CHK.",
+    "confidence": 0.5
+  },
+  {
+    "source_region_id": "ocr_000098",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1289,
+      "y_min": 734,
+      "x_max": 1349,
+      "y_max": 752
+    },
+    "crop_hint": {
+      "x_min": 1289,
+      "y_min": 734,
+      "x_max": 1349,
+      "y_max": 752
+    },
+    "text": "1HMd",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000082",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1590,
+      "y_min": 664,
+      "x_max": 1599,
+      "y_max": 685
+    },
+    "crop_hint": {
+      "x_min": 1590,
+      "y_min": 664,
+      "x_max": 1599,
+      "y_max": 685
+    },
+    "text": "X",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000119",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1507,
+      "y_min": 934,
+      "x_max": 1539,
+      "y_max": 952
+    },
+    "crop_hint": {
+      "x_min": 1507,
+      "y_min": 934,
+      "x_max": 1539,
+      "y_max": 952
+    },
+    "text": "X",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000058",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2852,
+      "y_min": 545,
+      "x_max": 2864,
+      "y_max": 562
+    },
+    "crop_hint": {
+      "x_min": 2852,
+      "y_min": 545,
+      "x_max": 2864,
+      "y_max": 562
+    },
+    "text": "PV",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000121",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2129,
+      "y_min": 954,
+      "x_max": 2188,
+      "y_max": 972
+    },
+    "crop_hint": {
+      "x_min": 2129,
+      "y_min": 954,
+      "x_max": 2188,
+      "y_max": 972
+    },
+    "text": "PWHT",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000127",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2687,
+      "y_min": 1043,
+      "x_max": 2746,
+      "y_max": 1061
+    },
+    "crop_hint": {
+      "x_min": 2687,
+      "y_min": 1043,
+      "x_max": 2746,
+      "y_max": 1061
+    },
+    "text": "PWHT",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000042",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1801,
+      "y_min": 460,
+      "x_max": 1895,
+      "y_max": 487
+    },
+    "crop_hint": {
+      "x_min": 1801,
+      "y_min": 460,
+      "x_max": 1895,
+      "y_max": 487
+    },
+    "text": "LOX\u00be\"P",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000083",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2917,
+      "y_min": 671,
+      "x_max": 2963,
+      "y_max": 694
+    },
+    "crop_hint": {
+      "x_min": 2917,
+      "y_min": 671,
+      "x_max": 2963,
+      "y_max": 694
+    },
+    "text": "HX",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000139",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3486,
+      "y_min": 1518,
+      "x_max": 3513,
+      "y_max": 1536
+    },
+    "crop_hint": {
+      "x_min": 3486,
+      "y_min": 1518,
+      "x_max": 3513,
+      "y_max": 1536
+    },
+    "text": "FV",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000136",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3735,
+      "y_min": 1478,
+      "x_max": 3753,
+      "y_max": 1538
+    },
+    "crop_hint": {
+      "x_min": 3735,
+      "y_min": 1478,
+      "x_max": 3753,
+      "y_max": 1538
+    },
+    "text": "PWHT**",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000146",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1824,
+      "y_min": 1596,
+      "x_max": 1883,
+      "y_max": 1613
+    },
+    "crop_hint": {
+      "x_min": 1824,
+      "y_min": 1596,
+      "x_max": 1883,
+      "y_max": 1613
+    },
+    "text": "PWHT",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000175",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2051,
+      "y_min": 1842,
+      "x_max": 2097,
+      "y_max": 1859
+    },
+    "crop_hint": {
+      "x_min": 2051,
+      "y_min": 1842,
+      "x_max": 2097,
+      "y_max": 1859
+    },
+    "text": "LG-",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000212",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1919,
+      "y_min": 2164,
+      "x_max": 1937,
+      "y_max": 2209
+    },
+    "crop_hint": {
+      "x_min": 1919,
+      "y_min": 2164,
+      "x_max": 1937,
+      "y_max": 2209
+    },
+    "text": "PWHT",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000164",
+    "reasons": [
+      "low_confidence"
+    ],
+    "sheet_bbox": {
+      "x_min": 2261,
+      "y_min": 1768,
+      "x_max": 2291,
+      "y_max": 1786
+    },
+    "crop_hint": {
+      "x_min": 2261,
+      "y_min": 1768,
+      "x_max": 2291,
+      "y_max": 1786
+    },
+    "text": "HBN1",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000202",
+    "reasons": [
+      "low_confidence"
+    ],
+    "sheet_bbox": {
+      "x_min": 2258,
+      "y_min": 1976,
+      "x_max": 2293,
+      "y_max": 1993
+    },
+    "crop_hint": {
+      "x_min": 2258,
+      "y_min": 1976,
+      "x_max": 2293,
+      "y_max": 1993
+    },
+    "text": "-BN2",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000214",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2261,
+      "y_min": 2183,
+      "x_max": 2321,
+      "y_max": 2201
+    },
+    "crop_hint": {
+      "x_min": 2261,
+      "y_min": 2183,
+      "x_max": 2321,
+      "y_max": 2201
+    },
+    "text": "PWHT",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000217",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 2410,
+      "y_min": 2197,
+      "x_max": 2428,
+      "y_max": 2256
+    },
+    "crop_hint": {
+      "x_min": 2410,
+      "y_min": 2197,
+      "x_max": 2428,
+      "y_max": 2256
+    },
+    "text": "PWHT",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000232",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1919,
+      "y_min": 2466,
+      "x_max": 1938,
+      "y_max": 2479
+    },
+    "crop_hint": {
+      "x_min": 1919,
+      "y_min": 2466,
+      "x_max": 1938,
+      "y_max": 2479
+    },
+    "text": "FC",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000236",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1935,
+      "y_min": 2505,
+      "x_max": 1952,
+      "y_max": 2541
+    },
+    "crop_hint": {
+      "x_min": 1935,
+      "y_min": 2505,
+      "x_max": 1952,
+      "y_max": 2541
+    },
+    "text": "X",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000260",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1919,
+      "y_min": 2618,
+      "x_max": 1937,
+      "y_max": 2678
+    },
+    "crop_hint": {
+      "x_min": 1919,
+      "y_min": 2618,
+      "x_max": 1937,
+      "y_max": 2678
+    },
+    "text": "PWHT",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000196",
+    "reasons": [
+      "low_confidence"
+    ],
+    "sheet_bbox": {
+      "x_min": 2259,
+      "y_min": 1947,
+      "x_max": 2292,
+      "y_max": 1964
+    },
+    "crop_hint": {
+      "x_min": 2259,
+      "y_min": 1947,
+      "x_max": 2292,
+      "y_max": 1964
+    },
+    "text": "BL2",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000213",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3561,
+      "y_min": 2171,
+      "x_max": 3578,
+      "y_max": 2215
+    },
+    "crop_hint": {
+      "x_min": 3561,
+      "y_min": 2171,
+      "x_max": 3578,
+      "y_max": 2215
+    },
+    "text": "PWHT",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000312",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 1209,
+      "y_min": 3163,
+      "x_max": 1269,
+      "y_max": 3181
+    },
+    "crop_hint": {
+      "x_min": 1209,
+      "y_min": 3163,
+      "x_max": 1269,
+      "y_max": 3181
+    },
+    "text": "PWHT",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000293",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3779,
+      "y_min": 3093,
+      "x_max": 3811,
+      "y_max": 3107
+    },
+    "crop_hint": {
+      "x_min": 3779,
+      "y_min": 3093,
+      "x_max": 3811,
+      "y_max": 3107
+    },
+    "text": "JGC",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000303",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3779,
+      "y_min": 3128,
+      "x_max": 3812,
+      "y_max": 3143
+    },
+    "crop_hint": {
+      "x_min": 3779,
+      "y_min": 3128,
+      "x_max": 3812,
+      "y_max": 3143
+    },
+    "text": "JGC",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000315",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3779,
+      "y_min": 3164,
+      "x_max": 3812,
+      "y_max": 3178
+    },
+    "crop_hint": {
+      "x_min": 3779,
+      "y_min": 3164,
+      "x_max": 3812,
+      "y_max": 3178
+    },
+    "text": "JGC",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000326",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3779,
+      "y_min": 3199,
+      "x_max": 3812,
+      "y_max": 3213
+    },
+    "crop_hint": {
+      "x_min": 3779,
+      "y_min": 3199,
+      "x_max": 3812,
+      "y_max": 3213
+    },
+    "text": "JGC",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000338",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3779,
+      "y_min": 3234,
+      "x_max": 3812,
+      "y_max": 3248
+    },
+    "crop_hint": {
+      "x_min": 3779,
+      "y_min": 3234,
+      "x_max": 3812,
+      "y_max": 3248
+    },
+    "text": "JGC",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000345",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3779,
+      "y_min": 3269,
+      "x_max": 3812,
+      "y_max": 3284
+    },
+    "crop_hint": {
+      "x_min": 3779,
+      "y_min": 3269,
+      "x_max": 3812,
+      "y_max": 3284
+    },
+    "text": "JGC",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000355",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3779,
+      "y_min": 3305,
+      "x_max": 3812,
+      "y_max": 3319
+    },
+    "crop_hint": {
+      "x_min": 3779,
+      "y_min": 3305,
+      "x_max": 3812,
+      "y_max": 3319
+    },
+    "text": "JGC",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000364",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3779,
+      "y_min": 3340,
+      "x_max": 3812,
+      "y_max": 3354
+    },
+    "crop_hint": {
+      "x_min": 3779,
+      "y_min": 3340,
+      "x_max": 3812,
+      "y_max": 3354
+    },
+    "text": "JGC",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000295",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3921,
+      "y_min": 3093,
+      "x_max": 3952,
+      "y_max": 3107
+    },
+    "crop_hint": {
+      "x_min": 3921,
+      "y_min": 3093,
+      "x_max": 3952,
+      "y_max": 3107
+    },
+    "text": "JSC",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000305",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3921,
+      "y_min": 3128,
+      "x_max": 3952,
+      "y_max": 3143
+    },
+    "crop_hint": {
+      "x_min": 3921,
+      "y_min": 3128,
+      "x_max": 3952,
+      "y_max": 3143
+    },
+    "text": "JSC",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000317",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3921,
+      "y_min": 3164,
+      "x_max": 3952,
+      "y_max": 3178
+    },
+    "crop_hint": {
+      "x_min": 3921,
+      "y_min": 3164,
+      "x_max": 3952,
+      "y_max": 3178
+    },
+    "text": "JSC",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000328",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3921,
+      "y_min": 3199,
+      "x_max": 3952,
+      "y_max": 3213
+    },
+    "crop_hint": {
+      "x_min": 3921,
+      "y_min": 3199,
+      "x_max": 3952,
+      "y_max": 3213
+    },
+    "text": "JSC",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000340",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3921,
+      "y_min": 3234,
+      "x_max": 3952,
+      "y_max": 3248
+    },
+    "crop_hint": {
+      "x_min": 3921,
+      "y_min": 3234,
+      "x_max": 3952,
+      "y_max": 3248
+    },
+    "text": "JSC",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000347",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3921,
+      "y_min": 3269,
+      "x_max": 3952,
+      "y_max": 3284
+    },
+    "crop_hint": {
+      "x_min": 3921,
+      "y_min": 3269,
+      "x_max": 3952,
+      "y_max": 3284
+    },
+    "text": "JSC",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000357",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3921,
+      "y_min": 3305,
+      "x_max": 3952,
+      "y_max": 3319
+    },
+    "crop_hint": {
+      "x_min": 3921,
+      "y_min": 3305,
+      "x_max": 3952,
+      "y_max": 3319
+    },
+    "text": "JSC",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000366",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 3921,
+      "y_min": 3340,
+      "x_max": 3952,
+      "y_max": 3354
+    },
+    "crop_hint": {
+      "x_min": 3921,
+      "y_min": 3340,
+      "x_max": 3952,
+      "y_max": 3354
+    },
+    "text": "JSC",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000291",
+    "reasons": [
+      "low_confidence"
+    ],
+    "sheet_bbox": {
+      "x_min": 3358,
+      "y_min": 3093,
+      "x_max": 3376,
+      "y_max": 3107
+    },
+    "crop_hint": {
+      "x_min": 3358,
+      "y_min": 3093,
+      "x_max": 3376,
+      "y_max": 3107
+    },
+    "text": "Z1",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000278",
+    "reasons": [
+      "low_confidence",
+      "unknown_class"
+    ],
+    "sheet_bbox": {
+      "x_min": 4164,
+      "y_min": 2899,
+      "x_max": 4264,
+      "y_max": 2944
+    },
+    "crop_hint": {
+      "x_min": 4164,
+      "y_min": 2899,
+      "x_max": 4264,
+      "y_max": 2944
+    },
+    "text": "vop",
+    "confidence": 0.3
+  },
+  {
+    "source_region_id": "ocr_000368",
+    "reasons": [
+      "low_confidence"
+    ],
+    "sheet_bbox": {
+      "x_min": 4748,
+      "y_min": 3346,
+      "x_max": 4771,
+      "y_max": 3366
+    },
+    "crop_hint": {
+      "x_min": 4748,
+      "y_min": 3346,
+      "x_max": 4771,
+      "y_max": 3366
+    },
+    "text": "Z1",
+    "confidence": 0.3
+  }
+]

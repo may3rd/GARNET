@@ -1,0 +1,151 @@
+{
+  "image_id": "Test-00003.jpg",
+  "pass_type": "sheet",
+  "accepted": [
+    {
+      "det_id": "obj_000136",
+      "class_name": "page connection",
+      "bbox": [
+        3793,
+        1103,
+        3997,
+        1146
+      ],
+      "accepted": true,
+      "reason": "best candidate selected",
+      "anchor_name": "left",
+      "anchor_xy": [
+        3793,
+        1124.5
+      ],
+      "edge_id": "endpoint_278__junction_50__2531",
+      "nearest_point_xy": [
+        3790.0,
+        1123.0
+      ],
+      "connection_anchor_xy": [
+        3793.0,
+        1124.5
+      ],
+      "attachment_stub_xy": [
+        [
+          3790.0,
+          1123.0
+        ],
+        [
+          3793.0,
+          1124.5
+        ]
+      ],
+      "distance_px": 3.3541019662496847,
+      "score": 3.5630321559063054,
+      "segment_index": 0,
+      "t": 0.0
+    },
+    {
+      "det_id": "obj_000137",
+      "class_name": "page connection",
+      "bbox": [
+        162,
+        1254,
+        370,
+        1298
+      ],
+      "accepted": true,
+      "reason": "best candidate selected",
+      "anchor_name": "right",
+      "anchor_xy": [
+        370,
+        1276.0
+      ],
+      "edge_id": "endpoint_323__junction_161__360",
+      "nearest_point_xy": [
+        372.0,
+        1275.0
+      ],
+      "connection_anchor_xy": [
+        370.0,
+        1276.0
+      ],
+      "attachment_stub_xy": [
+        [
+          372.0,
+          1275.0
+        ],
+        [
+          370.0,
+          1276.0
+        ]
+      ],
+      "distance_px": 2.23606797749979,
+      "score": 3.6096169054375506,
+      "segment_index": 0,
+      "t": 0.0
+    },
+    {
+      "det_id": "obj_000139",
+      "class_name": "utility connection",
+      "bbox": [
+        2212,
+        3135,
+        2284,
+        3200
+      ],
+      "accepted": true,
+      "reason": "best candidate selected",
+      "anchor_name": "top",
+      "anchor_xy": [
+        2248.0,
+        3135
+      ],
+      "edge_id": "endpoint_514__junction_246__451",
+      "nearest_point_xy": [
+        2248.0,
+        3133.0
+      ],
+      "connection_anchor_xy": [
+        2248.0,
+        3135.0
+      ],
+      "attachment_stub_xy": [
+        [
+          2248.0,
+          3133.0
+        ],
+        [
+          2248.0,
+          3135.0
+        ]
+      ],
+      "distance_px": 2.0,
+      "score": 3.5520833333333335,
+      "segment_index": 0,
+      "t": 0.0
+    }
+  ],
+  "rejected": [
+    {
+      "det_id": "obj_000138",
+      "class_name": "page connection",
+      "bbox": [
+        3793,
+        2787,
+        4000,
+        2828
+      ],
+      "accepted": false,
+      "reason": "no valid pipe candidate found",
+      "anchor_name": null,
+      "anchor_xy": null,
+      "edge_id": null,
+      "nearest_point_xy": null,
+      "connection_anchor_xy": null,
+      "attachment_stub_xy": null,
+      "distance_px": null,
+      "score": null,
+      "segment_index": null,
+      "t": null
+    }
+  ],
+  "equipment_detection_stage": "stage4 (provisional until Stage 4.1 exists)"
+}

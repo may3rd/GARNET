@@ -1,0 +1,24 @@
+{
+  "image_id": "Test-00007.jpg",
+  "pass_type": "sheet",
+  "route": "ocrmac",
+  "tile_count": 12,
+  "raw_detection_count": 1404,
+  "merged_region_count": 387,
+  "exception_candidate_count": 293,
+  "slice_height": 1600,
+  "slice_width": 1600,
+  "overlap_height_ratio": 0.2,
+  "overlap_width_ratio": 0.2,
+  "framework": "vision",
+  "recognition_level": "accurate",
+  "language_preference": [
+    "en-US"
+  ],
+  "rotated_ocr_enabled": true,
+  "tighten_bboxes": true,
+  "tighten_padding_px": 1,
+  "tighten_dark_threshold": 200,
+  "postprocess_match_metric": "IOS",
+  "postprocess_match_threshold": 0.1
+}

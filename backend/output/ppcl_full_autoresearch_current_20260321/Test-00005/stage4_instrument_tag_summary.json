@@ -1,0 +1,13 @@
+{
+  "image_id": "Test-00005.jpg",
+  "pass_type": "sheet",
+  "instrument_semantic_object_count": 11,
+  "matched_instrument_semantic_count": 11,
+  "ocr_confirmed_instrument_semantic_count": 11,
+  "detection_only_instrument_semantic_count": 0,
+  "sheet_ocr_instrument_semantic_count": 0,
+  "crop_ocr_instrument_semantic_count": 11,
+  "rotated_crop_ocr_instrument_semantic_count": 0,
+  "rejected_instrument_semantic_count": 0,
+  "max_distance_px": 60.0
+}

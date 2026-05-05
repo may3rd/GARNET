@@ -1,0 +1,449 @@
+{
+  "image_id": "Test-00008.jpg",
+  "pass_type": "sheet",
+  "line_numbers": [
+    {
+      "id": "line_number_000001",
+      "source_object_id": "obj_000014",
+      "bbox": {
+        "x_min": 2746,
+        "y_min": 918,
+        "x_max": 3081,
+        "y_max": 950
+      },
+      "text": "1\u00bd\"-N-53-051045-B1A1-NI",
+      "normalized_text": "1\u00bd\"-N-53-051045-B1A1-NI",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "score": null,
+      "distance_px": null,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9594,
+      "fused_confidence": 0.9594,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000002",
+      "source_object_id": "obj_000015",
+      "bbox": {
+        "x_min": 3428,
+        "y_min": 2119,
+        "x_max": 3799,
+        "y_max": 2149
+      },
+      "text": "10\"- CUL-25-009003-B1A1-NI",
+      "normalized_text": "10\"-CUL-25-009003-B1A1-NI",
+      "ocr_region_id": "ocr_000287",
+      "ocr_source": "sheet_ocr",
+      "score": 3.9688,
+      "distance_px": 2.5,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9547,
+      "fused_confidence": 0.9547,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000003",
+      "source_object_id": "obj_000016",
+      "bbox": {
+        "x_min": 468,
+        "y_min": 2992,
+        "x_max": 829,
+        "y_max": 3027
+      },
+      "text": "6\"-CUL-25-009004-B1A1-NI",
+      "normalized_text": "6\"-CUL-25-009004-B1A1-NI",
+      "ocr_region_id": "ocr_000353",
+      "ocr_source": "sheet_ocr",
+      "score": 3.9802,
+      "distance_px": 1.581,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9494,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000004",
+      "source_object_id": "obj_000017",
+      "bbox": {
+        "x_min": 948,
+        "y_min": 1599,
+        "x_max": 1306,
+        "y_max": 1632
+      },
+      "text": "2\"-S12-66-059067-MS12-H",
+      "normalized_text": "2\"-S12-66-059067-MS12-H",
+      "ocr_region_id": "ocr_000197",
+      "ocr_source": "sheet_ocr",
+      "score": 3.986,
+      "distance_px": 1.118,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9483,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000005",
+      "source_object_id": "obj_000018",
+      "bbox": {
+        "x_min": 787,
+        "y_min": 1471,
+        "x_max": 1147,
+        "y_max": 1503
+      },
+      "text": "2\"-CUL- 25-009012-B1A1-NI",
+      "normalized_text": "2\"-CUL-25-009012-B1A1-NI",
+      "ocr_region_id": "ocr_000161",
+      "ocr_source": "sheet_ocr",
+      "score": 3.9688,
+      "distance_px": 2.5,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9482,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000006",
+      "source_object_id": "obj_000019",
+      "bbox": {
+        "x_min": 3586,
+        "y_min": 1317,
+        "x_max": 3946,
+        "y_max": 1351
+      },
+      "text": "6\"- CUL - 25- 009004- B1A1 -NI",
+      "normalized_text": "6\"-CUL-25-009004-B1A1-NI",
+      "ocr_region_id": "ocr_000144",
+      "ocr_source": "sheet_ocr",
+      "score": 3.9775,
+      "distance_px": 1.803,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9474,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000007",
+      "source_object_id": "obj_000020",
+      "bbox": {
+        "x_min": 2338,
+        "y_min": 1151,
+        "x_max": 2664,
+        "y_max": 1183
+      },
+      "text": "1\"-N- 25-009013-B1A1-NI",
+      "normalized_text": "1\"-N-25-009013-B1A1-NI",
+      "ocr_region_id": "ocr_000126",
+      "ocr_source": "sheet_ocr",
+      "score": 4.0,
+      "distance_px": 0.0,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9474,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000008",
+      "source_object_id": "obj_000021",
+      "bbox": {
+        "x_min": 932,
+        "y_min": 644,
+        "x_max": 1289,
+        "y_max": 677
+      },
+      "text": "6\"- CUL- 25-008001-B1A1-NI",
+      "normalized_text": "6\"-CUL-25-008001-B1A1-NI",
+      "ocr_region_id": "ocr_000067",
+      "ocr_source": "sheet_ocr",
+      "score": 3.9813,
+      "distance_px": 1.5,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9469,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000009",
+      "source_object_id": "obj_000022",
+      "bbox": {
+        "x_min": 1029,
+        "y_min": 2925,
+        "x_max": 1384,
+        "y_max": 2957
+      },
+      "text": "-1\"-CUL-25-009007-B1A1-NI",
+      "normalized_text": "-1\"-CUL-25-009007-B1A1-NI",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "score": 3.9912,
+      "distance_px": 0.707,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9465,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000010",
+      "source_object_id": "obj_000023",
+      "bbox": {
+        "x_min": 470,
+        "y_min": 2858,
+        "x_max": 824,
+        "y_max": 2889
+      },
+      "text": "C| _75-000008-R141\u2014NI",
+      "normalized_text": "C|-75-000008-R141\u2014NI",
+      "ocr_region_id": "ocr_000340",
+      "ocr_source": "sheet_ocr",
+      "score": 3.6293,
+      "distance_px": 29.652,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.94,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000011",
+      "source_object_id": "obj_000024",
+      "bbox": {
+        "x_min": 2616,
+        "y_min": 2069,
+        "x_max": 2989,
+        "y_max": 2103
+      },
+      "text": "10\"-CUL-25-009002-B1A1-N",
+      "normalized_text": "10\"-CUL-25-009002-B1A1-N",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "score": 3.2997,
+      "distance_px": 56.02,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9373,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000012",
+      "source_object_id": "obj_000025",
+      "bbox": {
+        "x_min": 3592,
+        "y_min": 1524,
+        "x_max": 3951,
+        "y_max": 1557
+      },
+      "text": "\u20226\"-CUL-25-009005-B1A1-NI",
+      "normalized_text": "\u20226\"-CUL-25-009005-B1A1-NI",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "score": 3.9438,
+      "distance_px": 4.5,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9335,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000013",
+      "source_object_id": "obj_000026",
+      "bbox": {
+        "x_min": 2653,
+        "y_min": 2309,
+        "x_max": 2999,
+        "y_max": 2340
+      },
+      "text": "2\"-PL-25-009006-B1A1-NI",
+      "normalized_text": "2\"-PL-25-009006-B1A1-NI",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "score": 3.2743,
+      "distance_px": 58.054,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9298,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000014",
+      "source_object_id": "obj_000027",
+      "bbox": {
+        "x_min": 2152,
+        "y_min": 1092,
+        "x_max": 2180,
+        "y_max": 1433
+      },
+      "text": "6\"-F-25-009001-B1A1-NI",
+      "normalized_text": "6\"-F-25-009001-B1A1-NI",
+      "ocr_region_id": "ocr_000119",
+      "ocr_source": "sheet_ocr",
+      "score": 3.903,
+      "distance_px": 7.762,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9253,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000015",
+      "source_object_id": "obj_000028",
+      "bbox": {
+        "x_min": 1819,
+        "y_min": 2306,
+        "x_max": 1847,
+        "y_max": 2662
+      },
+      "text": "1\u00bd\"- FD-25-009010-B1A1-NI",
+      "normalized_text": "1\u00bd\"-FD-25-009010-B1A1-NI",
+      "ocr_region_id": "ocr_000299",
+      "ocr_source": "sheet_ocr",
+      "score": 3.986,
+      "distance_px": 1.118,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.923,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000016",
+      "source_object_id": "obj_000029",
+      "bbox": {
+        "x_min": 2120,
+        "y_min": 2157,
+        "x_max": 2459,
+        "y_max": 2188
+      },
+      "text": "- 2\"-FD-25-009011-B1A2-NI",
+      "normalized_text": "-2\"-FD-25-009011-B1A2-NI",
+      "ocr_region_id": "ocr_000289",
+      "ocr_source": "sheet_ocr",
+      "score": 3.9605,
+      "distance_px": 3.162,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9211,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000017",
+      "source_object_id": "obj_000030",
+      "bbox": {
+        "x_min": 1414,
+        "y_min": 2304,
+        "x_max": 1444,
+        "y_max": 2675
+      },
+      "text": "1\u00bd\"-PWD-25-009009-L1A1-NI",
+      "normalized_text": "1\u00bd\"-PWD-25-009009-L1A1-NI",
+      "ocr_region_id": "ocr_000298",
+      "ocr_source": "sheet_ocr",
+      "score": 3.9434,
+      "distance_px": 4.528,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9179,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000018",
+      "source_object_id": "obj_000031",
+      "bbox": {
+        "x_min": 656,
+        "y_min": 1837,
+        "x_max": 682,
+        "y_max": 2199
+      },
+      "text": "2\"- CUL-22-004006-B1A1-NI",
+      "normalized_text": "2\"-CUL-22-004006-B1A1-NI",
+      "ocr_region_id": "ocr_000256",
+      "ocr_source": "sheet_ocr",
+      "score": 3.986,
+      "distance_px": 1.118,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9129,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000020",
+      "source_object_id": "obj_000033",
+      "bbox": {
+        "x_min": 790,
+        "y_min": 835,
+        "x_max": 884,
+        "y_max": 1247
+      },
+      "text": "FIC-0901/-FT-0901-1/2\"",
+      "normalized_text": "FIC-0901/-FT-0901-1/2\"",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "score": null,
+      "distance_px": null,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.8181,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    }
+  ],
+  "rejected": [
+    {
+      "id": "line_number_000019",
+      "source_object_id": "obj_000032",
+      "bbox": {
+        "x_min": 2,
+        "y_min": 2058,
+        "x_max": 78,
+        "y_max": 3423
+      },
+      "text": "",
+      "normalized_text": "",
+      "ocr_region_id": null,
+      "ocr_source": null,
+      "score": null,
+      "distance_px": null,
+      "ocr_confirmed": false,
+      "detection_confidence": 0.8254,
+      "fused_confidence": 0.8254,
+      "semantic_class": "line_number",
+      "review_state": "rejected"
+    },
+    {
+      "id": "line_number_000021",
+      "source_object_id": "obj_000034",
+      "bbox": {
+        "x_min": 1,
+        "y_min": 55,
+        "x_max": 79,
+        "y_max": 1756
+      },
+      "text": "",
+      "normalized_text": "",
+      "ocr_region_id": null,
+      "ocr_source": null,
+      "score": null,
+      "distance_px": null,
+      "ocr_confirmed": false,
+      "detection_confidence": 0.8074,
+      "fused_confidence": 0.8074,
+      "semantic_class": "line_number",
+      "review_state": "rejected"
+    }
+  ]
+}

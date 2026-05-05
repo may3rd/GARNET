@@ -1,0 +1,17 @@
+{
+  "candidate_link_count": 11360,
+  "selected_candidate_link_count": 1434,
+  "rejected_candidate_link_count": 9272,
+  "rejection_reason_counts": {
+    "not_opposite_direction": 1462,
+    "not_opposite_sides": 5,
+    "misses_junction_centerline": 9,
+    "shares_junction_node": 7796
+  },
+  "selected_kind_counts": {
+    "inline_element": 48,
+    "junction_alignment": 344,
+    "gap_continuation": 906,
+    "connection_seeded_continuation": 136
+  }
+}

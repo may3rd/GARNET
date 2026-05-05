@@ -1,0 +1,48 @@
+{
+  "image_id": "Test-00009.jpg",
+  "pass_type": "sheet",
+  "accepted": [
+    {
+      "det_id": "obj_000134",
+      "class_name": "pump",
+      "bbox": [
+        2637,
+        1692,
+        2687,
+        1791
+      ],
+      "accepted": true,
+      "reason": "best candidate selected",
+      "anchor_name": "left",
+      "anchor_xy": [
+        2637,
+        1741.5
+      ],
+      "edge_id": "endpoint_446__endpoint_450__70",
+      "nearest_point_xy": [
+        2633.0,
+        1747.0
+      ],
+      "connection_anchor_xy": [
+        2637.0,
+        1741.5
+      ],
+      "attachment_stub_xy": [
+        [
+          2633.0,
+          1747.0
+        ],
+        [
+          2637.0,
+          1741.5
+        ]
+      ],
+      "distance_px": 6.800735254367722,
+      "score": 3.798307757988064,
+      "segment_index": 66,
+      "t": 1.0
+    }
+  ],
+  "rejected": [],
+  "equipment_detection_stage": "stage4 (provisional until Stage 4.1 exists)"
+}

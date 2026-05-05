@@ -1,0 +1,15 @@
+{
+  "image_id": "sample.png",
+  "pass_type": "sheet",
+  "epsilon": 2.0,
+  "edge_count": 1393,
+  "edges_simplified_count": 1393,
+  "total_original_point_count": 75479,
+  "total_simplified_point_count": 4325,
+  "compression_ratio": 0.05730070615667934,
+  "mean_compression_per_edge": 0.12435869857238846,
+  "median_compression_per_edge": 0.09090909090909091,
+  "source_artifacts": [
+    "stage10_pipe_edges.json"
+  ]
+}

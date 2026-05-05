@@ -1,0 +1,260 @@
+{
+  "image_id": "Test-00006.jpg",
+  "pass_type": "sheet",
+  "line_numbers": [
+    {
+      "id": "line_number_000001",
+      "source_object_id": "obj_000016",
+      "bbox": {
+        "x_min": 3353,
+        "y_min": 1898,
+        "x_max": 3718,
+        "y_max": 1933
+      },
+      "text": "6\"-CUL-25-007007-B2A2-NI",
+      "normalized_text": "6\"-CUL-25-007007-B2A2-NI",
+      "ocr_region_id": "ocr_000198",
+      "ocr_source": "sheet_ocr",
+      "score": 3.986,
+      "distance_px": 1.118,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9545,
+      "fused_confidence": 0.9545,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000002",
+      "source_object_id": "obj_000017",
+      "bbox": {
+        "x_min": 3362,
+        "y_min": 2965,
+        "x_max": 3712,
+        "y_max": 2995
+      },
+      "text": "3\"-PL-25-007008-N2A1-NI 25-0013",
+      "normalized_text": "3\"-PL-25-007008-N2A1-NI25-0013",
+      "ocr_region_id": "ocr_000309,ocr_000313",
+      "ocr_source": "sheet_ocr",
+      "score": 3.986,
+      "distance_px": 1.118,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9543,
+      "fused_confidence": 0.9543,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000003",
+      "source_object_id": "obj_000018",
+      "bbox": {
+        "x_min": 2308,
+        "y_min": 2801,
+        "x_max": 2337,
+        "y_max": 3152
+      },
+      "text": "\u00be\"-WW-91-051074-L1A1-NI",
+      "normalized_text": "\u00be\"-WW-91-051074-L1A1-NI",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "score": 3.0,
+      "distance_px": 136.504,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9441,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000004",
+      "source_object_id": "obj_000019",
+      "bbox": {
+        "x_min": 1864,
+        "y_min": 2652,
+        "x_max": 1898,
+        "y_max": 3027
+      },
+      "text": "1\u00bd\u2122-PWD-25-007009-L1A1-NI",
+      "normalized_text": "1\u00bd\u2122-PWD-25-007009-L1A1-NI",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "score": 3.0373,
+      "distance_px": 77.015,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9404,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000005",
+      "source_object_id": "obj_000020",
+      "bbox": {
+        "x_min": 2658,
+        "y_min": 3230,
+        "x_max": 3017,
+        "y_max": 3261
+      },
+      "text": "6\"-CUL-25-009004-B1A1-NI",
+      "normalized_text": "6\"-CUL-25-009004-B1A1-NI",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "score": 3.125,
+      "distance_px": 70.002,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9398,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000006",
+      "source_object_id": "obj_000021",
+      "bbox": {
+        "x_min": 933,
+        "y_min": 334,
+        "x_max": 1263,
+        "y_max": 368
+      },
+      "text": "4\"-F-25-007012-L1A1-ET",
+      "normalized_text": "4\"-F-25-007012-L1A1-ET",
+      "ocr_region_id": "ocr_000030",
+      "ocr_source": "sheet_ocr",
+      "score": 3.9681,
+      "distance_px": 2.55,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.9283,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000007",
+      "source_object_id": "obj_000022",
+      "bbox": {
+        "x_min": 1024,
+        "y_min": 483,
+        "x_max": 1201,
+        "y_max": 515
+      },
+      "text": "4\"-F-25-007013-L1A1-ET\u2014",
+      "normalized_text": "4\"-F-25-007013-L1A1-ET\u2014",
+      "ocr_region_id": "ocr_000049",
+      "ocr_source": "sheet_ocr",
+      "score": 2.2902,
+      "distance_px": 42.582,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.8867,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000008",
+      "source_object_id": "obj_000023",
+      "bbox": {
+        "x_min": 476,
+        "y_min": 1253,
+        "x_max": 822,
+        "y_max": 1285
+      },
+      "text": "3'-PL-25-007001-N2A1-ET",
+      "normalized_text": "3'-PL-25-007001-N2A1-ET",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "score": null,
+      "distance_px": null,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.8853,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000009",
+      "source_object_id": "obj_000024",
+      "bbox": {
+        "x_min": 1813,
+        "y_min": 3136,
+        "x_max": 2224,
+        "y_max": 3245
+      },
+      "text": "PWD5-0015TOPHENOLICWASTEWATERCLOSEDDRAINHEADER",
+      "normalized_text": "PWD5-0015TOPHENOLICWASTEWATERCLOSEDDRAINHEADER",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "score": null,
+      "distance_px": null,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.8602,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000010",
+      "source_object_id": "obj_000025",
+      "bbox": {
+        "x_min": 1126,
+        "y_min": 1030,
+        "x_max": 1482,
+        "y_max": 1062
+      },
+      "text": "3\"-CUL-25-007011-N2A1-ET",
+      "normalized_text": "3\"-CUL-25-007011-N2A1-ET",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "score": 3.962,
+      "distance_px": 3.041,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.8352,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    },
+    {
+      "id": "line_number_000011",
+      "source_object_id": "obj_000026",
+      "bbox": {
+        "x_min": 1162,
+        "y_min": 2216,
+        "x_max": 1519,
+        "y_max": 2246
+      },
+      "text": "2\"-S12-66-059047-MS12-H",
+      "normalized_text": "2\"-S12-66-059047-MS12-H",
+      "ocr_region_id": "crop_ocr",
+      "ocr_source": "crop_ocr",
+      "score": 3.9775,
+      "distance_px": 1.803,
+      "ocr_confirmed": true,
+      "detection_confidence": 0.8259,
+      "fused_confidence": 0.95,
+      "semantic_class": "line_number",
+      "review_state": "ocr_confirmed"
+    }
+  ],
+  "rejected": [
+    {
+      "id": "line_number_000012",
+      "source_object_id": "obj_000027",
+      "bbox": {
+        "x_min": 3,
+        "y_min": 2031,
+        "x_max": 76,
+        "y_max": 3418
+      },
+      "text": "",
+      "normalized_text": "",
+      "ocr_region_id": null,
+      "ocr_source": null,
+      "score": null,
+      "distance_px": null,
+      "ocr_confirmed": false,
+      "detection_confidence": 0.8206,
+      "fused_confidence": 0.8206,
+      "semantic_class": "line_number",
+      "review_state": "rejected"
+    }
+  ]
+}

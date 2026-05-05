@@ -1,0 +1,17 @@
+{
+  "image_id": "input.png",
+  "pass_type": "sheet",
+  "total_edges": 0,
+  "edges_with_forward_direction": 0,
+  "edges_with_reverse_direction": 0,
+  "edges_with_bidirectional": 0,
+  "edges_without_direction": 0,
+  "arrows_assigned_to_edge": 0,
+  "arrows_unassigned": 0,
+  "arrow_proximity_px": 40.0,
+  "mean_flow_direction_confidence": 0.0,
+  "source_artifacts": [
+    "stage4_objects.json",
+    "stage10b_pipe_edges_simplified.json"
+  ]
+}

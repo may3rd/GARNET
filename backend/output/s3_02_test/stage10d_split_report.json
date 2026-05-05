@@ -1,0 +1,386 @@
+[
+  {
+    "connector_id": "obj_000083",
+    "connector_class": "arrow",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000094",
+    "connector_class": "arrow",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000095",
+    "connector_class": "arrow",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000096",
+    "connector_class": "arrow",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000097",
+    "connector_class": "arrow",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000099",
+    "connector_class": "arrow",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000104",
+    "connector_class": "arrow",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000106",
+    "connector_class": "gate valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000107",
+    "connector_class": "gate valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000109",
+    "connector_class": "gate valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000111",
+    "connector_class": "gate valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000112",
+    "connector_class": "gate valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000113",
+    "connector_class": "gate valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000114",
+    "connector_class": "gate valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000115",
+    "connector_class": "gate valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000116",
+    "connector_class": "gate valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000117",
+    "connector_class": "gate valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000120",
+    "connector_class": "gate valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000122",
+    "connector_class": "gate valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000126",
+    "connector_class": "gate valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000129",
+    "connector_class": "gate valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000130",
+    "connector_class": "gate valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000131",
+    "connector_class": "gate valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000138",
+    "connector_class": "gate valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000141",
+    "connector_class": "gate valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000144",
+    "connector_class": "spectacle blind",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000153",
+    "connector_class": "spectacle blind",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000157",
+    "connector_class": "globe valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000158",
+    "connector_class": "globe valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000159",
+    "connector_class": "globe valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000160",
+    "connector_class": "globe valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000161",
+    "connector_class": "globe valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000162",
+    "connector_class": "globe valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000163",
+    "connector_class": "globe valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000165",
+    "connector_class": "reducer",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000168",
+    "connector_class": "reducer",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000170",
+    "connector_class": "reducer",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000172",
+    "connector_class": "reducer",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000173",
+    "connector_class": "reducer",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000175",
+    "connector_class": "reducer",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000177",
+    "connector_class": "reducer",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000178",
+    "connector_class": "reducer",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000184",
+    "connector_class": "reducer",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000187",
+    "connector_class": "reducer",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000201",
+    "connector_class": "check valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000205",
+    "connector_class": "check valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000207",
+    "connector_class": "check valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  },
+  {
+    "connector_id": "obj_000216",
+    "connector_class": "pressure relief valve",
+    "edge_id": null,
+    "distance_px": 0.0,
+    "split_index": null,
+    "status": "skipped_already_connected"
+  }
+]
