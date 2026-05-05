@@ -174,6 +174,16 @@ def run_pipe_graph_qa_stage(
             terminal_exposed_components.add(component_idx)
 
     review_queue: list[dict[str, Any]] = []
+    _node_pos = {str(n["id"]): n.get("position", {}) for n in nodes}
+    _edge_pos: dict[str, dict[str, Any]] = {}
+    for edge in edges:
+        pl = edge.get("polyline", [])
+        if pl:
+            _edge_pos[str(edge.get("id", ""))] = {
+                "start": pl[0],
+                "end": pl[-1],
+                "polyline": pl,
+            }
     articulation_groups: dict[str, dict[str, Any]] = {}
     for node_id in articulation_points[:]:
         component_idx = edge_component_index.get(str(node_id))
@@ -198,6 +208,10 @@ def run_pipe_graph_qa_stage(
             },
         )
         group["node_ids"].append(node_id)
+        if _edge_pos.get(node_id):
+            group.setdefault("geometry", _edge_pos[node_id])
+        elif node_id in _node_pos:
+            group.setdefault("geometry", _node_pos[node_id])
     review_queue.extend(articulation_groups.values())
     isolated_groups: dict[str, dict[str, Any]] = {}
     for item in low_degree_nodes:
@@ -217,6 +231,8 @@ def run_pipe_graph_qa_stage(
             },
         )
         group["node_ids"].append(node_id)
+        if node_id in _node_pos:
+            group.setdefault("geometry", _node_pos[node_id])
     review_queue.extend(isolated_groups.values())
 
     unresolved_crossings: list[dict[str, Any]] = []
@@ -246,6 +262,17 @@ def run_pipe_graph_qa_stage(
                 "category": "unresolved_crossing",
                 "crossing_id": crossing_id,
                 "priority": "high",
+                "geometry": dict(item.get("centroid", {}) or {}),
+                "branch_count": int(item.get("branch_count", 0)),
+                "raw_branch_count": int(item.get("raw_branch_count", 0)),
+                "reasons": list(item.get("unresolved_reasons", [])),
+                "evidence_refs": {
+                    "stage10_crossing_resolution": {
+                        "crossing_id": crossing_id,
+                        "members": item.get("members", []),
+                        "branches": item.get("branches", []),
+                    },
+                },
             }
         )
 
@@ -282,6 +309,11 @@ def run_pipe_graph_qa_stage(
             },
         )
         group["edge_ids"].append(edge_id)
+
+        if _edge_pos.get(edge_id):
+            group.setdefault("geometry", _edge_pos[edge_id])
+            group.setdefault("evidence_refs", {
+                "stage12_edge_terminals": {"edge_id": edge_id}}),
 
     review_queue.extend(unresolved_terminal_groups.values())
     grouped_unresolved_terminal_edges = [
