@@ -246,6 +246,7 @@ class PIDPipeline:
             (12, "stage12c_page_connector_labeling", self.stage12c_page_connector_labeling),
             (12, "stage12b_graph_export", self.stage12b_graph_export),
             (13, "stage13_graph_qa", self.stage13_graph_qa),
+            (14, "stage14_recovery_loop", self.stage14_recovery_loop),
         ]
 
     def _manifest_path(self) -> Path:
@@ -1105,13 +1106,19 @@ class PIDPipeline:
         self._save_json("stage13_review_queue", qa_result["review_queue"])
         self._save_json("stage13_graph_qa_summary", qa_result["summary"])
 
+    def stage14_recovery_loop(self) -> None:
+        from garnet.recovery_loop import run_recovery_stage
+
+        decisions = run_recovery_stage(str(self.out_dir), max_iterations=3)
+        self._save_json("stage5_recovery_decisions", decisions)
+
 
 def main() -> None:
     parser = argparse.ArgumentParser("P&ID pipeline")
     parser.add_argument("--image", required=True)
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     parser.add_argument("--ocr-route", choices=["easyocr", "gemini", "paddleocr", "ocrmac"], default="ocrmac")
-    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, or 13)")
+    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, or 14)")
     args = parser.parse_args()
     pipe = PIDPipeline(args.image, out_dir=args.out, cfg=PipelineConfig(ocr_route=args.ocr_route))
     pipe.run(stop_after=args.stop_after)

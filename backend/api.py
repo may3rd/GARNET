@@ -758,6 +758,10 @@ def _serialize_pipeline_job(job_id: str) -> dict[str, Any]:
     if os.path.exists(graph_v1_path):
         with open(graph_v1_path, "r", encoding="utf-8") as f:
             payload["graph_v1"] = json.load(f)
+    recovery_path = os.path.join(payload["job_dir"], "stage5_recovery_decisions.json")
+    if os.path.exists(recovery_path):
+        with open(recovery_path, "r", encoding="utf-8") as f:
+            payload["recovery_decisions"] = json.load(f)
     return payload
 
 
