@@ -270,26 +270,50 @@ def _exit_terminal_for_anchor(anchor_name: str) -> str:
 
 
 def _build_off_page_connector_map(
+    stage12_graph: dict[str, Any],
     connection_attachments_payload: dict[str, Any] | None,
     page_connector_labels_payload: dict[str, Any] | None,
 ) -> dict[str, dict[str, Any]]:
     """Build a map from edge_id → off_page_connector dict for page-connection edges.
 
-    Only page connection attachments with resolved labels (non-empty labels list)
-    get off_page_connector fields. Edges without labels remain unmapped.
+    Each accepted page-connection attachment carries a det_id (the page connection
+    object).  The graph contains an attach_edge whose source is
+    ``connection::{det_id}`` — that is the edge that physically exits the sheet
+    boundary.  We look up that attach_edge, join with the stage-12c labels via
+    the det_id / object_id key, and return off_page_connector data for that edge.
+
+    Only attachments with resolved labels (non-empty labels list with a
+    page_reference) produce off_page_connector entries.
     """
     if not connection_attachments_payload:
         return {}
 
-    result: dict[str, dict[str, Any]] = {}
+    # Build source-node-id → attach_edge-id map.
+    # Each page-connection node (type='page connection', id='connection::{det_id}')
+    # is the source of exactly one attach_edge.
+    attach_edge_by_pc_source: dict[str, str] = {}
+    for edge in stage12_graph.get("edges", []):
+        src = str(edge.get("source", ""))
+        if src.startswith("connection::"):
+            attach_edge_by_pc_source[src] = str(edge.get("id", ""))
+
     pc_labels = _page_connector_labels_by_object_id(page_connector_labels_payload)
+    result: dict[str, dict[str, Any]] = {}
+
     for att in connection_attachments_payload.get("accepted", []):
         if att.get("class_name") != "page connection":
             continue
-        edge_id = str(att.get("edge_id", ""))
-        if not edge_id or edge_id.startswith("attach_edge::"):
-            continue
+
         obj_id = str(att.get("det_id") or att.get("object_id") or "")
+        if not obj_id:
+            continue
+
+        # Look up the attach_edge that has this page-connection node as its source.
+        pc_source = f"connection::{obj_id}"
+        edge_id = attach_edge_by_pc_source.get(pc_source)
+        if not edge_id:
+            continue
+
         labels = pc_labels.get(obj_id, [])
         if not labels:
             continue
@@ -377,6 +401,7 @@ def build_graph_v1_payload(
 
     edges: list[dict[str, Any]] = []
     off_page_by_edge = _build_off_page_connector_map(
+        stage12_graph,
         connection_attachments_payload,
         page_connector_labels_payload,
     )

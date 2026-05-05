@@ -169,6 +169,94 @@ class GraphExportAdapterTests(unittest.TestCase):
         self.assertEqual(node["text"], "SHEET P-101")
         self.assertEqual(node["tags"]["page_reference"]["reference_value"], "P-101")
 
+    def test_off_page_connector_set_on_attach_edge(self) -> None:
+        """off_page_connector is set on the attach_edge whose source is the
+        page-connection node, joined via det_id / object_id.
+
+        The join key is the graph topology (attach_edge.source = 'connection::{det_id}'),
+        NOT the attachment's own edge_id field (which refers to a pipe edge elsewhere).
+        """
+        payload = build_graph_v1_payload(
+            stage12_graph={
+                "image_id": "sample.png",
+                "nodes": [
+                    {
+                        "id": "connection::obj_9",
+                        "type": "page connection",
+                        "kind": "page connection",
+                        "position": {"x": 15.0, "y": 25.0},
+                    }
+                ],
+                "edges": [
+                    {
+                        "id": "attach_edge::obj_9",
+                        "source": "connection::obj_9",
+                        "target": "attach::obj_9",
+                        "polyline": [{"x": 10, "y": 20}, {"x": 20, "y": 20}],
+                    },
+                    {
+                        "id": "pipe_001",
+                        "source": "endpoint_1",
+                        "target": "endpoint_2",
+                        "polyline": [{"x": 0, "y": 0}, {"x": 10, "y": 10}],
+                    },
+                ],
+            },
+            objects_payload={
+                "image_id": "sample.png",
+                "objects": [
+                    {
+                        "id": "obj_9",
+                        "class_name": "page connection",
+                        "bbox": {"x_min": 10, "y_min": 20, "x_max": 20, "y_max": 30},
+                    }
+                ],
+            },
+            page_connector_labels_payload={
+                "connectors": [
+                    {
+                        "object_id": "obj_9",
+                        "labels": [
+                            {
+                                "normalized_text": "SHEET P-101",
+                                "page_reference": {
+                                    "reference_type": "sheet",
+                                    "reference_value": "P-101",
+                                    "matched_text": "SHEET P-101",
+                                },
+                            }
+                        ],
+                    }
+                ]
+            },
+            connection_attachments_payload={
+                "accepted": [
+                    {
+                        "class_name": "page connection",
+                        "det_id": "obj_9",
+                        "edge_id": "pipe_001",   # wrong join key — must be ignored
+                        "anchor_name": "top",
+                        "bbox": [10, 20, 20, 30],
+                    }
+                ]
+            },
+            image_dimensions={"width": 100, "height": 80},
+        )
+
+        edges_by_id = {e["id"]: e for e in payload["edges"]}
+
+        # off_page_connector must appear on attach_edge (via graph topology join),
+        # NOT on pipe_001 (attachment.edge_id is a red herring)
+        self.assertIn("off_page_connector", edges_by_id["attach_edge::obj_9"])
+        off = edges_by_id["attach_edge::obj_9"]["off_page_connector"]
+        self.assertEqual(off["reference_type"], "sheet")
+        self.assertEqual(off["reference_value"], "P-101")
+        self.assertEqual(off["exit_terminal"], "destination")   # anchor=top → destination
+        self.assertEqual(off["direction"], "input")
+
+        # pipe_001 must NOT have off_page_connector
+        self.assertNotIn("off_page_connector", edges_by_id["pipe_001"])
+
 
 if __name__ == "__main__":
     unittest.main()
