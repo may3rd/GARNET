@@ -1,0 +1,18 @@
+{
+  "image_id": "input.png",
+  "pass_type": "sheet",
+  "equipment_candidates": 0,
+  "accepted_attachment_count": 0,
+  "rejected_attachment_count": 0,
+  "attachment_classes": [
+    "pump",
+    "heat exchanger",
+    "tank",
+    "vessel",
+    "column",
+    "compressor",
+    "blower",
+    "fan"
+  ],
+  "equipment_detection_stage": "stage4 (provisional until Stage 4.1 exists)"
+}

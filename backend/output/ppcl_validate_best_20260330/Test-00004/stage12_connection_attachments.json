@@ -1,0 +1,248 @@
+{
+  "image_id": "Test-00004.jpg",
+  "pass_type": "sheet",
+  "accepted": [
+    {
+      "det_id": "obj_000138",
+      "class_name": "page connection",
+      "bbox": [
+        3702,
+        2860,
+        3748,
+        3066
+      ],
+      "accepted": true,
+      "reason": "best candidate selected",
+      "anchor_name": "top",
+      "anchor_xy": [
+        3725.0,
+        2860
+      ],
+      "edge_id": "endpoint_479__endpoint_488__54",
+      "nearest_point_xy": [
+        3723.0,
+        2858.0
+      ],
+      "connection_anchor_xy": [
+        3725.0,
+        2860.0
+      ],
+      "attachment_stub_xy": [
+        [
+          3723.0,
+          2858.0
+        ],
+        [
+          3725.0,
+          2860.0
+        ]
+      ],
+      "distance_px": 2.8284271247461903,
+      "score": 3.6785954792089686,
+      "segment_index": 52,
+      "t": 1.0
+    },
+    {
+      "det_id": "obj_000139",
+      "class_name": "page connection",
+      "bbox": [
+        182,
+        1506,
+        385,
+        1550
+      ],
+      "accepted": true,
+      "reason": "best candidate selected",
+      "anchor_name": "right",
+      "anchor_xy": [
+        385,
+        1528.0
+      ],
+      "edge_id": "endpoint_307__junction_150__86",
+      "nearest_point_xy": [
+        389.0,
+        1527.0
+      ],
+      "connection_anchor_xy": [
+        385.0,
+        1528.0
+      ],
+      "attachment_stub_xy": [
+        [
+          389.0,
+          1527.0
+        ],
+        [
+          385.0,
+          1528.0
+        ]
+      ],
+      "distance_px": 4.123105625617661,
+      "score": 3.7209560545521674,
+      "segment_index": 0,
+      "t": 0.0
+    },
+    {
+      "det_id": "obj_000140",
+      "class_name": "utility connection",
+      "bbox": [
+        3016,
+        3154,
+        3086,
+        3246
+      ],
+      "accepted": true,
+      "reason": "best candidate selected",
+      "anchor_name": "top",
+      "anchor_xy": [
+        3051.0,
+        3154
+      ],
+      "edge_id": "endpoint_521__junction_280__141",
+      "nearest_point_xy": [
+        3051.0,
+        3152.0
+      ],
+      "connection_anchor_xy": [
+        3051.0,
+        3154.0
+      ],
+      "attachment_stub_xy": [
+        [
+          3051.0,
+          3152.0
+        ],
+        [
+          3051.0,
+          3154.0
+        ]
+      ],
+      "distance_px": 2.0,
+      "score": 3.566666666666667,
+      "segment_index": 0,
+      "t": 0.0
+    },
+    {
+      "det_id": "obj_000141",
+      "class_name": "utility connection",
+      "bbox": [
+        1214,
+        2994,
+        1286,
+        3087
+      ],
+      "accepted": true,
+      "reason": "best candidate selected",
+      "anchor_name": "top",
+      "anchor_xy": [
+        1250.0,
+        2994
+      ],
+      "edge_id": "endpoint_497__endpoint_501__111",
+      "nearest_point_xy": [
+        1249.0,
+        2992.0
+      ],
+      "connection_anchor_xy": [
+        1250.0,
+        2994.0
+      ],
+      "attachment_stub_xy": [
+        [
+          1249.0,
+          2992.0
+        ],
+        [
+          1250.0,
+          2994.0
+        ]
+      ],
+      "distance_px": 2.23606797749979,
+      "score": 3.6096169054375506,
+      "segment_index": 109,
+      "t": 1.0
+    },
+    {
+      "det_id": "obj_000142",
+      "class_name": "utility connection",
+      "bbox": [
+        2708,
+        735,
+        2802,
+        806
+      ],
+      "accepted": true,
+      "reason": "best candidate selected",
+      "anchor_name": "left",
+      "anchor_xy": [
+        2708,
+        770.5
+      ],
+      "edge_id": "endpoint_170__junction_70__91",
+      "nearest_point_xy": [
+        2706.0,
+        771.0
+      ],
+      "connection_anchor_xy": [
+        2708.0,
+        770.5
+      ],
+      "attachment_stub_xy": [
+        [
+          2706.0,
+          771.0
+        ],
+        [
+          2708.0,
+          770.5
+        ]
+      ],
+      "distance_px": 2.0615528128088303,
+      "score": 3.579030716060299,
+      "segment_index": 0,
+      "t": 0.0
+    },
+    {
+      "det_id": "obj_000147",
+      "class_name": "connection",
+      "bbox": [
+        3237,
+        2996,
+        3316,
+        3070
+      ],
+      "accepted": true,
+      "reason": "best candidate selected",
+      "anchor_name": "top",
+      "anchor_xy": [
+        3276.5,
+        2996
+      ],
+      "edge_id": "endpoint_482__endpoint_502__182",
+      "nearest_point_xy": [
+        3273.25,
+        2992.75
+      ],
+      "connection_anchor_xy": [
+        3276.5,
+        2996.0
+      ],
+      "attachment_stub_xy": [
+        [
+          3273.25,
+          2992.75
+        ],
+        [
+          3276.5,
+          2996.0
+        ]
+      ],
+      "distance_px": 4.596194077712559,
+      "score": 3.9489982425425674,
+      "segment_index": 180,
+      "t": 0.75
+    }
+  ],
+  "rejected": [],
+  "equipment_detection_stage": "stage4 (provisional until Stage 4.1 exists)"
+}

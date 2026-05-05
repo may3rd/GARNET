@@ -1,0 +1,10 @@
+{
+  "image_id": "input.png",
+  "pass_type": "sheet",
+  "candidate_count": 13,
+  "accepted_attachment_count": 13,
+  "rejected_attachment_count": 0,
+  "accepted_attachment_on_provisional_edge_count": 12,
+  "max_distance_px": 80.0,
+  "text_class": "instrument_semantic"
+}

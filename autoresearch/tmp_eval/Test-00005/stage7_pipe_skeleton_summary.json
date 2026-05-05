@@ -1,0 +1,10 @@
+{
+  "image_id": "Test-00005.jpg",
+  "pass_type": "sheet",
+  "input_mask_pixel_count": 633228,
+  "skeleton_pixel_count": 104227,
+  "pixel_reduction": 529001,
+  "source_artifacts": [
+    "stage6_pipe_mask_sealed.png"
+  ]
+}

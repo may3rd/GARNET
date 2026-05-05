@@ -1,0 +1,16 @@
+{
+  "image_id": "Test-00006.jpg",
+  "pass_type": "sheet",
+  "topology_marker_count": 31,
+  "class_counts": {
+    "arrow": 12,
+    "node": 19
+  },
+  "role_counts": {
+    "flow_marker": 12,
+    "junction_marker": 19
+  },
+  "source_artifacts": [
+    "stage4_objects.json"
+  ]
+}

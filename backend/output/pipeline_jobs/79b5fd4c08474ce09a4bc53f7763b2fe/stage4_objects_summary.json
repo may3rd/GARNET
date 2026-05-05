@@ -1,0 +1,7 @@
+{
+  "image_id": "sample.png",
+  "pass_type": "sheet",
+  "route": "ultralytics",
+  "object_count": 0,
+  "source_weight": "yolo_weights/yolo11n_PPCL_640_20250204.pt"
+}

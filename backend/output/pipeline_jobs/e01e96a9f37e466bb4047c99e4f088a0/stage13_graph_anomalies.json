@@ -1,0 +1,14 @@
+{
+  "image_id": "input.png",
+  "pass_type": "sheet",
+  "connected_component_count": 0,
+  "largest_component_size": 0,
+  "articulation_point_count": 0,
+  "isolated_node_count": 0,
+  "unresolved_crossing_count": 0,
+  "unresolved_terminal_edge_count": 0,
+  "articulation_points": [],
+  "isolated_nodes": [],
+  "unresolved_crossings": [],
+  "unresolved_terminal_edges": []
+}

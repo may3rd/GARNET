@@ -1,0 +1,578 @@
+{
+  "image_id": "Test-00009.jpg",
+  "pass_type": "sheet",
+  "topology_markers": [
+    {
+      "id": "topology_marker::obj_000037",
+      "source_object_id": "obj_000037",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.9203,
+      "bbox": {
+        "x_min": 3060,
+        "y_min": 1876,
+        "x_max": 3089,
+        "y_max": 1904
+      }
+    },
+    {
+      "id": "topology_marker::obj_000038",
+      "source_object_id": "obj_000038",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.919,
+      "bbox": {
+        "x_min": 1567,
+        "y_min": 1878,
+        "x_max": 1594,
+        "y_max": 1904
+      }
+    },
+    {
+      "id": "topology_marker::obj_000039",
+      "source_object_id": "obj_000039",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.9146,
+      "bbox": {
+        "x_min": 3353,
+        "y_min": 1606,
+        "x_max": 3372,
+        "y_max": 1625
+      }
+    },
+    {
+      "id": "topology_marker::obj_000040",
+      "source_object_id": "obj_000040",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.9093,
+      "bbox": {
+        "x_min": 1759,
+        "y_min": 1608,
+        "x_max": 1778,
+        "y_max": 1626
+      }
+    },
+    {
+      "id": "topology_marker::obj_000041",
+      "source_object_id": "obj_000041",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.9067,
+      "bbox": {
+        "x_min": 2788,
+        "y_min": 1607,
+        "x_max": 2806,
+        "y_max": 1625
+      }
+    },
+    {
+      "id": "topology_marker::obj_000042",
+      "source_object_id": "obj_000042",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.9062,
+      "bbox": {
+        "x_min": 3355,
+        "y_min": 2081,
+        "x_max": 3373,
+        "y_max": 2100
+      }
+    },
+    {
+      "id": "topology_marker::obj_000043",
+      "source_object_id": "obj_000043",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.8996,
+      "bbox": {
+        "x_min": 3199,
+        "y_min": 1606,
+        "x_max": 3216,
+        "y_max": 1626
+      }
+    },
+    {
+      "id": "topology_marker::obj_000044",
+      "source_object_id": "obj_000044",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.8991,
+      "bbox": {
+        "x_min": 3064,
+        "y_min": 1608,
+        "x_max": 3084,
+        "y_max": 1627
+      }
+    },
+    {
+      "id": "topology_marker::obj_000045",
+      "source_object_id": "obj_000045",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.8968,
+      "bbox": {
+        "x_min": 3253,
+        "y_min": 1608,
+        "x_max": 3273,
+        "y_max": 1626
+      }
+    },
+    {
+      "id": "topology_marker::obj_000046",
+      "source_object_id": "obj_000046",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.8957,
+      "bbox": {
+        "x_min": 2929,
+        "y_min": 1604,
+        "x_max": 2949,
+        "y_max": 1626
+      }
+    },
+    {
+      "id": "topology_marker::obj_000047",
+      "source_object_id": "obj_000047",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.8911,
+      "bbox": {
+        "x_min": 1383,
+        "y_min": 1607,
+        "x_max": 1402,
+        "y_max": 1626
+      }
+    },
+    {
+      "id": "topology_marker::obj_000048",
+      "source_object_id": "obj_000048",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.8905,
+      "bbox": {
+        "x_min": 1851,
+        "y_min": 2036,
+        "x_max": 1869,
+        "y_max": 2057
+      }
+    },
+    {
+      "id": "topology_marker::obj_000049",
+      "source_object_id": "obj_000049",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.8896,
+      "bbox": {
+        "x_min": 1850,
+        "y_min": 1605,
+        "x_max": 1868,
+        "y_max": 1627
+      }
+    },
+    {
+      "id": "topology_marker::obj_000050",
+      "source_object_id": "obj_000050",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.883,
+      "bbox": {
+        "x_min": 2874,
+        "y_min": 1608,
+        "x_max": 2891,
+        "y_max": 1625
+      }
+    },
+    {
+      "id": "topology_marker::obj_000051",
+      "source_object_id": "obj_000051",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.8795,
+      "bbox": {
+        "x_min": 2787,
+        "y_min": 1989,
+        "x_max": 2808,
+        "y_max": 2009
+      }
+    },
+    {
+      "id": "topology_marker::obj_000052",
+      "source_object_id": "obj_000052",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.8788,
+      "bbox": {
+        "x_min": 1435,
+        "y_min": 1608,
+        "x_max": 1452,
+        "y_max": 1625
+      }
+    },
+    {
+      "id": "topology_marker::obj_000053",
+      "source_object_id": "obj_000053",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.8778,
+      "bbox": {
+        "x_min": 1852,
+        "y_min": 2171,
+        "x_max": 1868,
+        "y_max": 2187
+      }
+    },
+    {
+      "id": "topology_marker::obj_000054",
+      "source_object_id": "obj_000054",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.8675,
+      "bbox": {
+        "x_min": 1305,
+        "y_min": 1605,
+        "x_max": 1326,
+        "y_max": 1627
+      }
+    },
+    {
+      "id": "topology_marker::obj_000055",
+      "source_object_id": "obj_000055",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.8629,
+      "bbox": {
+        "x_min": 1704,
+        "y_min": 1608,
+        "x_max": 1720,
+        "y_max": 1626
+      }
+    },
+    {
+      "id": "topology_marker::obj_000056",
+      "source_object_id": "obj_000056",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.8622,
+      "bbox": {
+        "x_min": 3355,
+        "y_min": 1962,
+        "x_max": 3369,
+        "y_max": 1977
+      }
+    },
+    {
+      "id": "topology_marker::obj_000057",
+      "source_object_id": "obj_000057",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.8593,
+      "bbox": {
+        "x_min": 2790,
+        "y_min": 1846,
+        "x_max": 2805,
+        "y_max": 1865
+      }
+    },
+    {
+      "id": "topology_marker::obj_000058",
+      "source_object_id": "obj_000058",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.8577,
+      "bbox": {
+        "x_min": 1305,
+        "y_min": 2028,
+        "x_max": 1322,
+        "y_max": 2048
+      }
+    },
+    {
+      "id": "topology_marker::obj_000059",
+      "source_object_id": "obj_000059",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.8502,
+      "bbox": {
+        "x_min": 3355,
+        "y_min": 1846,
+        "x_max": 3371,
+        "y_max": 1864
+      }
+    },
+    {
+      "id": "topology_marker::obj_000060",
+      "source_object_id": "obj_000060",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.8447,
+      "bbox": {
+        "x_min": 1569,
+        "y_min": 1608,
+        "x_max": 1589,
+        "y_max": 1628
+      }
+    },
+    {
+      "id": "topology_marker::obj_000061",
+      "source_object_id": "obj_000061",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.8386,
+      "bbox": {
+        "x_min": 1852,
+        "y_min": 1845,
+        "x_max": 1868,
+        "y_max": 1864
+      }
+    },
+    {
+      "id": "topology_marker::obj_000062",
+      "source_object_id": "obj_000062",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.8281,
+      "bbox": {
+        "x_min": 1307,
+        "y_min": 1846,
+        "x_max": 1324,
+        "y_max": 1865
+      }
+    },
+    {
+      "id": "topology_marker::obj_000063",
+      "source_object_id": "obj_000063",
+      "class_name": "node",
+      "role": "junction_marker",
+      "confidence": 0.8014,
+      "bbox": {
+        "x_min": 2758,
+        "y_min": 2761,
+        "x_max": 2776,
+        "y_max": 2780
+      }
+    },
+    {
+      "id": "topology_marker::obj_000064",
+      "source_object_id": "obj_000064",
+      "class_name": "arrow",
+      "role": "flow_marker",
+      "confidence": 0.9426,
+      "bbox": {
+        "x_min": 3062,
+        "y_min": 2514,
+        "x_max": 3086,
+        "y_max": 2549
+      }
+    },
+    {
+      "id": "topology_marker::obj_000065",
+      "source_object_id": "obj_000065",
+      "class_name": "arrow",
+      "role": "flow_marker",
+      "confidence": 0.9416,
+      "bbox": {
+        "x_min": 1537,
+        "y_min": 1693,
+        "x_max": 1560,
+        "y_max": 1725
+      }
+    },
+    {
+      "id": "topology_marker::obj_000066",
+      "source_object_id": "obj_000066",
+      "class_name": "arrow",
+      "role": "flow_marker",
+      "confidence": 0.9404,
+      "bbox": {
+        "x_min": 1597,
+        "y_min": 1693,
+        "x_max": 1620,
+        "y_max": 1725
+      }
+    },
+    {
+      "id": "topology_marker::obj_000067",
+      "source_object_id": "obj_000067",
+      "class_name": "arrow",
+      "role": "flow_marker",
+      "confidence": 0.9331,
+      "bbox": {
+        "x_min": 2756,
+        "y_min": 2620,
+        "x_max": 2778,
+        "y_max": 2651
+      }
+    },
+    {
+      "id": "topology_marker::obj_000068",
+      "source_object_id": "obj_000068",
+      "class_name": "arrow",
+      "role": "flow_marker",
+      "confidence": 0.93,
+      "bbox": {
+        "x_min": 3375,
+        "y_min": 2556,
+        "x_max": 3405,
+        "y_max": 2578
+      }
+    },
+    {
+      "id": "topology_marker::obj_000069",
+      "source_object_id": "obj_000069",
+      "class_name": "arrow",
+      "role": "flow_marker",
+      "confidence": 0.9262,
+      "bbox": {
+        "x_min": 2122,
+        "y_min": 2465,
+        "x_max": 2159,
+        "y_max": 2489
+      }
+    },
+    {
+      "id": "topology_marker::obj_000070",
+      "source_object_id": "obj_000070",
+      "class_name": "arrow",
+      "role": "flow_marker",
+      "confidence": 0.9228,
+      "bbox": {
+        "x_min": 3064,
+        "y_min": 1309,
+        "x_max": 3083,
+        "y_max": 1342
+      }
+    },
+    {
+      "id": "topology_marker::obj_000071",
+      "source_object_id": "obj_000071",
+      "class_name": "arrow",
+      "role": "flow_marker",
+      "confidence": 0.9204,
+      "bbox": {
+        "x_min": 1034,
+        "y_min": 1129,
+        "x_max": 1067,
+        "y_max": 1151
+      }
+    },
+    {
+      "id": "topology_marker::obj_000072",
+      "source_object_id": "obj_000072",
+      "class_name": "arrow",
+      "role": "flow_marker",
+      "confidence": 0.912,
+      "bbox": {
+        "x_min": 1924,
+        "y_min": 1641,
+        "x_max": 1944,
+        "y_max": 1671
+      }
+    },
+    {
+      "id": "topology_marker::obj_000073",
+      "source_object_id": "obj_000073",
+      "class_name": "arrow",
+      "role": "flow_marker",
+      "confidence": 0.9052,
+      "bbox": {
+        "x_min": 816,
+        "y_min": 2557,
+        "x_max": 840,
+        "y_max": 2598
+      }
+    },
+    {
+      "id": "topology_marker::obj_000074",
+      "source_object_id": "obj_000074",
+      "class_name": "arrow",
+      "role": "flow_marker",
+      "confidence": 0.9016,
+      "bbox": {
+        "x_min": 3427,
+        "y_min": 1642,
+        "x_max": 3448,
+        "y_max": 1664
+      }
+    },
+    {
+      "id": "topology_marker::obj_000075",
+      "source_object_id": "obj_000075",
+      "class_name": "arrow",
+      "role": "flow_marker",
+      "confidence": 0.8962,
+      "bbox": {
+        "x_min": 1568,
+        "y_min": 2518,
+        "x_max": 1587,
+        "y_max": 2550
+      }
+    },
+    {
+      "id": "topology_marker::obj_000076",
+      "source_object_id": "obj_000076",
+      "class_name": "arrow",
+      "role": "flow_marker",
+      "confidence": 0.895,
+      "bbox": {
+        "x_min": 2344,
+        "y_min": 2511,
+        "x_max": 2371,
+        "y_max": 2552
+      }
+    },
+    {
+      "id": "topology_marker::obj_000077",
+      "source_object_id": "obj_000077",
+      "class_name": "arrow",
+      "role": "flow_marker",
+      "confidence": 0.8889,
+      "bbox": {
+        "x_min": 3033,
+        "y_min": 1757,
+        "x_max": 3053,
+        "y_max": 1788
+      }
+    },
+    {
+      "id": "topology_marker::obj_000078",
+      "source_object_id": "obj_000078",
+      "class_name": "arrow",
+      "role": "flow_marker",
+      "confidence": 0.8885,
+      "bbox": {
+        "x_min": 2712,
+        "y_min": 1641,
+        "x_max": 2733,
+        "y_max": 1671
+      }
+    },
+    {
+      "id": "topology_marker::obj_000079",
+      "source_object_id": "obj_000079",
+      "class_name": "arrow",
+      "role": "flow_marker",
+      "confidence": 0.8873,
+      "bbox": {
+        "x_min": 3092,
+        "y_min": 1758,
+        "x_max": 3113,
+        "y_max": 1787
+      }
+    },
+    {
+      "id": "topology_marker::obj_000080",
+      "source_object_id": "obj_000080",
+      "class_name": "arrow",
+      "role": "flow_marker",
+      "confidence": 0.887,
+      "bbox": {
+        "x_min": 2343,
+        "y_min": 1338,
+        "x_max": 2369,
+        "y_max": 1381
+      }
+    }
+  ]
+}

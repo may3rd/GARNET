@@ -1,0 +1,60 @@
+{
+  "image_id": "Test-00002.jpg",
+  "pass_type": "sheet",
+  "mask_pixel_count": 447390,
+  "connected_component_count": 1063,
+  "small_component_removals": 31,
+  "ocr_suppression_pixel_count": 342204,
+  "suppressed_ocr_count": 398,
+  "preserved_ocr_count": 28,
+  "suppressed_ocr_class_counts": {
+    "instrument tag": 14,
+    "note": 77,
+    "unknown": 307
+  },
+  "preserved_ocr_class_counts": {
+    "line number": 28
+  },
+  "object_suppression_pixel_count": 97776,
+  "suppressed_object_count": 126,
+  "preserved_object_count": 42,
+  "suppressed_object_class_counts": {
+    "check valve": 4,
+    "control valve": 2,
+    "gate valve": 31,
+    "globe valve": 4,
+    "instrument dcs": 5,
+    "instrument logic": 2,
+    "instrument tag": 16,
+    "line number": 17,
+    "page connection": 3,
+    "pressure relief valve": 2,
+    "pump": 2,
+    "reducer": 18,
+    "sampling point": 3,
+    "spectacle blind": 11,
+    "strainer": 2,
+    "utility connection": 4
+  },
+  "preserved_object_class_counts": {
+    "arrow": 13,
+    "node": 29
+  },
+  "source_artifacts": [
+    "stage1_gray.png",
+    "stage1_binary_adaptive.png",
+    "stage1_binary_otsu.png",
+    "stage2_ocr_regions.json",
+    "stage4_objects.json"
+  ],
+  "ocr_padding": 1,
+  "object_inset": 1,
+  "min_component_area": 16,
+  "preserve_ocr_classes": [
+    "line_number"
+  ],
+  "preserve_object_classes": [
+    "arrow",
+    "node"
+  ]
+}

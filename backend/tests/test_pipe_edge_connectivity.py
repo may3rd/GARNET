@@ -39,11 +39,22 @@ class PipeEdgeConnectivityTests(unittest.TestCase):
         )
 
         self.assertEqual(result["summary"]["inline_element_connection_count"], 1)
+        self.assertGreaterEqual(result["summary"]["candidate_link_count"], 1)
         self.assertEqual(result["connections"][0]["kind"], "inline_element")
         self.assertEqual(result["connections"][0]["connector_class"], "arrow")
         self.assertEqual(
             tuple(sorted((result["connections"][0]["source_edge_id"], result["connections"][0]["target_edge_id"]))),
             ("edge_left", "edge_right"),
+        )
+        selected_links = [
+            item
+            for item in result["candidate_link_graph"]["links"]
+            if item.get("selected") and item.get("selected_kind") == "inline_element"
+        ]
+        self.assertEqual(len(selected_links), 1)
+        self.assertEqual(
+            result["candidate_link_selection_summary"]["shadow_selected_kind_counts"].get("inline_element"),
+            1,
         )
 
     def test_build_pipe_edge_connectivity_forces_vertical_arrow_to_top_bottom_pair(self) -> None:
@@ -247,6 +258,14 @@ class PipeEdgeConnectivityTests(unittest.TestCase):
         self.assertEqual(result["summary"]["junction_alignment_connection_count"], 0)
         self.assertEqual(result["summary"]["gap_continuation_connection_count"], 0)
         self.assertGreaterEqual(result["summary"]["invalid_shared_junction_fallback_candidate_count"], 1)
+        blocked_links = [
+            item
+            for item in result["candidate_link_graph"]["links"]
+            if item.get("rejection_reason") == "shares_junction_node"
+        ]
+        self.assertGreaterEqual(len(blocked_links), 1)
+        shadow_rejections = result["candidate_link_selection_summary"]["shadow_rejection_reason_counts"]
+        self.assertNotIn("blocked_by_same_junction_rejection", shadow_rejections)
         self.assertEqual(result["summary"]["rejected_junction_alignment_connection_count"], 1)
         self.assertEqual(result["summary"]["rejected_junction_alignment_reason_counts"], {"misses_junction_centerline": 1})
         self.assertEqual(
@@ -355,6 +374,44 @@ class PipeEdgeConnectivityTests(unittest.TestCase):
         self.assertIn(("edge_left", "edge_right"), gap_pairs)
         self.assertEqual(result["summary"]["gap_continuation_connection_count"], 1)
         self.assertEqual(result["summary"]["invalid_shared_junction_fallback_candidate_count"], 0)
+        selected_gap_links = [
+            item
+            for item in result["candidate_link_graph"]["links"]
+            if item.get("selected") and item.get("selected_kind") == "gap_continuation"
+        ]
+        self.assertGreaterEqual(len(selected_gap_links), 1)
+        self.assertEqual(result["candidate_link_selection_summary"]["shadow_removed_link_count"], 0)
+
+    def test_build_pipe_edge_connectivity_shadow_selector_blocks_duplicate_endpoint_claims(self) -> None:
+        result = build_pipe_edge_connectivity(
+            edges=[
+                {
+                    "id": "edge_seed",
+                    "source": "endpoint_0",
+                    "target": "endpoint_1",
+                    "polyline": [{"row": 20, "col": 0}, {"row": 20, "col": 18}],
+                },
+                {
+                    "id": "edge_a",
+                    "source": "endpoint_2",
+                    "target": "endpoint_3",
+                    "polyline": [{"row": 20, "col": 22}, {"row": 20, "col": 40}],
+                },
+                {
+                    "id": "edge_b",
+                    "source": "endpoint_4",
+                    "target": "endpoint_5",
+                    "polyline": [{"row": 20, "col": 24}, {"row": 20, "col": 42}],
+                },
+            ],
+            node_clusters=[],
+            object_regions=[],
+            inline_connector_classes=("arrow", "valve", "reducer"),
+            inline_match_distance_px=8.0,
+        )
+
+        shadow_rejections = result["candidate_link_selection_summary"]["shadow_rejection_reason_counts"]
+        self.assertGreaterEqual(shadow_rejections.get("endpoint_already_claimed", 0), 1)
 
     def test_build_pipe_edge_connectivity_allows_longer_gap_for_connection_seeded_edges(self) -> None:
         result = build_pipe_edge_connectivity(

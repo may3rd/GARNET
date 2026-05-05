@@ -1,0 +1,128 @@
+{
+  "image_id": "Test-00005.jpg",
+  "pass_type": "sheet",
+  "accepted": [
+    {
+      "region_id": "line_number_000001",
+      "text": "- 2\"-F-25-007006-L1A1-ET",
+      "normalized_text": "-2\"-F-25-007006-L1A1-ET",
+      "bbox": {
+        "x_min": 2508,
+        "y_min": 1104,
+        "x_max": 2834,
+        "y_max": 1140
+      },
+      "edge_id": "endpoint_334__junction_110__99",
+      "distance_px": 2.0,
+      "threshold_px": 171.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "line_number_000002",
+      "text": "2\"- PL- 25-013003-B1A2-NI",
+      "normalized_text": "2\"-PL-25-013003-B1A2-NI",
+      "bbox": {
+        "x_min": 3255,
+        "y_min": 2878,
+        "x_max": 3598,
+        "y_max": 2912
+      },
+      "edge_id": "endpoint_626__endpoint_631__2618",
+      "distance_px": 72.0,
+      "threshold_px": 171.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "line_number_000003",
+      "text": "25-0006 2\"-PL-25-006002-N2A1-ET",
+      "normalized_text": "25-00062\"-PL-25-006002-N2A1-ET",
+      "bbox": {
+        "x_min": 418,
+        "y_min": 3109,
+        "x_max": 767,
+        "y_max": 3137
+      },
+      "edge_id": "endpoint_653__junction_275__518",
+      "distance_px": 5.59,
+      "threshold_px": 180.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "line_number_000004",
+      "text": "\u00bd\"- SA-25-010007-L2A1-NI",
+      "normalized_text": "\u00bd\"-SA-25-010007-L2A1-NI",
+      "bbox": {
+        "x_min": 3259,
+        "y_min": 2763,
+        "x_max": 3608,
+        "y_max": 2800
+      },
+      "edge_id": "endpoint_626__endpoint_631__2618",
+      "distance_px": 6.0,
+      "threshold_px": 171.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "line_number_000005",
+      "text": "3\"-PL-25-006002-TFE2",
+      "normalized_text": "3\"-PL-25-006002-TFE2",
+      "bbox": {
+        "x_min": 1368,
+        "y_min": 2107,
+        "x_max": 1664,
+        "y_max": 2140
+      },
+      "edge_id": "endpoint_495__endpoint_499__41",
+      "distance_px": 7.159,
+      "threshold_px": 165.6,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "line_number_000006",
+      "text": "- 2\"-F-25-007005-L1A1-ET",
+      "normalized_text": "-2\"-F-25-007005-L1A1-ET",
+      "bbox": {
+        "x_min": 2512,
+        "y_min": 975,
+        "x_max": 2830,
+        "y_max": 1008
+      },
+      "edge_id": "endpoint_304__junction_98__67",
+      "distance_px": 11.011,
+      "threshold_px": 171.0,
+      "attached_to_provisional_edge": true
+    },
+    {
+      "region_id": "line_number_000007",
+      "text": "-1\u00bd\"-PL-25-007004-N2A1-ET",
+      "normalized_text": "-1\u00bd\"-PL-25-007004-N2A1-ET",
+      "bbox": {
+        "x_min": 2258,
+        "y_min": 1532,
+        "x_max": 2618,
+        "y_max": 1565
+      },
+      "edge_id": "junction_133__junction_135__89",
+      "distance_px": 39.0,
+      "threshold_px": 174.6,
+      "attached_to_provisional_edge": false
+    },
+    {
+      "region_id": "line_number_000008",
+      "text": "2\"-PL-25-007003-N2A1-ET",
+      "normalized_text": "2\"-PL-25-007003-N2A1-ET",
+      "bbox": {
+        "x_min": 1978,
+        "y_min": 1196,
+        "x_max": 2011,
+        "y_max": 1541
+      },
+      "edge_id": "junction_115__junction_132__283",
+      "distance_px": 10.0,
+      "threshold_px": 103.85,
+      "attached_to_provisional_edge": false
+    }
+  ],
+  "rejected": [],
+  "text_class": "line_number"
+}

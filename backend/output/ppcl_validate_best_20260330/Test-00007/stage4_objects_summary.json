@@ -1,0 +1,30 @@
+{
+  "image_id": "Test-00007.jpg",
+  "pass_type": "sheet",
+  "route": "ultralytics",
+  "object_count": 121,
+  "class_counts": {
+    "arrow": 8,
+    "check valve": 2,
+    "control valve": 2,
+    "gate valve": 24,
+    "globe valve": 4,
+    "instrument dcs": 4,
+    "instrument tag": 11,
+    "line number": 13,
+    "node": 23,
+    "page connection": 3,
+    "pressure relief valve": 2,
+    "reducer": 13,
+    "sampling point": 1,
+    "spectacle blind": 7,
+    "utility connection": 4
+  },
+  "image_size": 640,
+  "overlap_ratio": 0.2,
+  "postprocess_type": "GREEDYNMM",
+  "postprocess_match_metric": "IOS",
+  "postprocess_match_threshold": 0.1,
+  "source_model": "ultralytics",
+  "source_weight": "yolo_weights/yolo26n_PPCL_640_20260227.pt"
+}

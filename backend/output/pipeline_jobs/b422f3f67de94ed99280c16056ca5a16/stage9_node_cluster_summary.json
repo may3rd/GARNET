@@ -1,0 +1,6 @@
+{
+  "image_id": "sample.png",
+  "pass_type": "sheet",
+  "endpoint_cluster_count": 2,
+  "junction_cluster_count": 1
+}

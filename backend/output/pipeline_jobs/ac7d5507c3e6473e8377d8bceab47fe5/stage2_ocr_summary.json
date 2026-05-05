@@ -1,0 +1,13 @@
+{
+  "image_id": "sample.png",
+  "pass_type": "sheet",
+  "tile_count": 1,
+  "raw_detection_count": 0,
+  "merged_region_count": 0,
+  "exception_candidate_count": 0,
+  "slice_height": 1600,
+  "slice_width": 1600,
+  "overlap_height_ratio": 0.2,
+  "overlap_width_ratio": 0.2,
+  "route": "easyocr"
+}

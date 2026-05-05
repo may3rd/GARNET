@@ -1,0 +1,5147 @@
+{
+  "image_id": "Test-00005.jpg",
+  "pass_type": "sheet",
+  "connected_component_count": 385,
+  "largest_component_size": 186,
+  "articulation_point_count": 284,
+  "isolated_node_count": 181,
+  "unresolved_crossing_count": 45,
+  "unresolved_terminal_edge_count": 480,
+  "articulation_points": [
+    "endpoint_528",
+    "junction_0",
+    "junction_1",
+    "junction_10",
+    "junction_100",
+    "junction_101",
+    "junction_103",
+    "junction_104",
+    "junction_105",
+    "junction_106",
+    "junction_107",
+    "junction_108",
+    "junction_11",
+    "junction_110",
+    "junction_111",
+    "junction_112",
+    "junction_113",
+    "junction_114",
+    "junction_115",
+    "junction_116",
+    "junction_117",
+    "junction_119",
+    "junction_120",
+    "junction_121",
+    "junction_122",
+    "junction_123",
+    "junction_124",
+    "junction_126",
+    "junction_127",
+    "junction_128",
+    "junction_129",
+    "junction_13",
+    "junction_130",
+    "junction_131",
+    "junction_132",
+    "junction_133",
+    "junction_134",
+    "junction_135",
+    "junction_136",
+    "junction_137",
+    "junction_138",
+    "junction_139",
+    "junction_14",
+    "junction_140",
+    "junction_141",
+    "junction_142",
+    "junction_143",
+    "junction_145",
+    "junction_146",
+    "junction_147",
+    "junction_148",
+    "junction_149",
+    "junction_15",
+    "junction_150",
+    "junction_151",
+    "junction_152",
+    "junction_153",
+    "junction_154",
+    "junction_155",
+    "junction_156",
+    "junction_157",
+    "junction_158",
+    "junction_159",
+    "junction_162",
+    "junction_163",
+    "junction_164",
+    "junction_17",
+    "junction_170",
+    "junction_171",
+    "junction_172",
+    "junction_174",
+    "junction_175",
+    "junction_176",
+    "junction_179",
+    "junction_180",
+    "junction_181",
+    "junction_182",
+    "junction_183",
+    "junction_186",
+    "junction_187",
+    "junction_189",
+    "junction_19",
+    "junction_190",
+    "junction_191",
+    "junction_192",
+    "junction_193",
+    "junction_194",
+    "junction_195",
+    "junction_196",
+    "junction_197",
+    "junction_198",
+    "junction_20",
+    "junction_200",
+    "junction_201",
+    "junction_202",
+    "junction_203",
+    "junction_204",
+    "junction_206",
+    "junction_207",
+    "junction_208",
+    "junction_209",
+    "junction_21",
+    "junction_211",
+    "junction_212",
+    "junction_213",
+    "junction_214",
+    "junction_215",
+    "junction_216",
+    "junction_217",
+    "junction_218",
+    "junction_219",
+    "junction_22",
+    "junction_221",
+    "junction_224",
+    "junction_225",
+    "junction_226",
+    "junction_227",
+    "junction_228",
+    "junction_229",
+    "junction_23",
+    "junction_230",
+    "junction_232",
+    "junction_233",
+    "junction_234",
+    "junction_235",
+    "junction_236",
+    "junction_237",
+    "junction_239",
+    "junction_24",
+    "junction_240",
+    "junction_241",
+    "junction_242",
+    "junction_243",
+    "junction_244",
+    "junction_245",
+    "junction_246",
+    "junction_247",
+    "junction_249",
+    "junction_25",
+    "junction_251",
+    "junction_252",
+    "junction_253",
+    "junction_254",
+    "junction_257",
+    "junction_258",
+    "junction_259",
+    "junction_260",
+    "junction_262",
+    "junction_263",
+    "junction_265",
+    "junction_266",
+    "junction_268",
+    "junction_269",
+    "junction_27",
+    "junction_270",
+    "junction_271",
+    "junction_272",
+    "junction_274",
+    "junction_275",
+    "junction_279",
+    "junction_281",
+    "junction_282",
+    "junction_284",
+    "junction_285",
+    "junction_286",
+    "junction_289",
+    "junction_29",
+    "junction_290",
+    "junction_291",
+    "junction_292",
+    "junction_294",
+    "junction_3",
+    "junction_30",
+    "junction_304",
+    "junction_305",
+    "junction_306",
+    "junction_307",
+    "junction_31",
+    "junction_310",
+    "junction_317",
+    "junction_319",
+    "junction_32",
+    "junction_325",
+    "junction_33",
+    "junction_332",
+    "junction_333",
+    "junction_334",
+    "junction_335",
+    "junction_341",
+    "junction_349",
+    "junction_35",
+    "junction_36",
+    "junction_360",
+    "junction_364",
+    "junction_365",
+    "junction_367",
+    "junction_37",
+    "junction_379",
+    "junction_38",
+    "junction_39",
+    "junction_398",
+    "junction_399",
+    "junction_4",
+    "junction_40",
+    "junction_401",
+    "junction_404",
+    "junction_405",
+    "junction_406",
+    "junction_41",
+    "junction_410",
+    "junction_412",
+    "junction_413",
+    "junction_414",
+    "junction_415",
+    "junction_416",
+    "junction_417",
+    "junction_418",
+    "junction_419",
+    "junction_42",
+    "junction_420",
+    "junction_421",
+    "junction_422",
+    "junction_423",
+    "junction_424",
+    "junction_425",
+    "junction_426",
+    "junction_427",
+    "junction_428",
+    "junction_43",
+    "junction_430",
+    "junction_44",
+    "junction_45",
+    "junction_46",
+    "junction_47",
+    "junction_49",
+    "junction_5",
+    "junction_50",
+    "junction_51",
+    "junction_53",
+    "junction_54",
+    "junction_55",
+    "junction_56",
+    "junction_57",
+    "junction_58",
+    "junction_59",
+    "junction_6",
+    "junction_60",
+    "junction_61",
+    "junction_62",
+    "junction_63",
+    "junction_64",
+    "junction_65",
+    "junction_67",
+    "junction_68",
+    "junction_69",
+    "junction_7",
+    "junction_70",
+    "junction_72",
+    "junction_73",
+    "junction_74",
+    "junction_75",
+    "junction_76",
+    "junction_78",
+    "junction_79",
+    "junction_8",
+    "junction_80",
+    "junction_83",
+    "junction_84",
+    "junction_85",
+    "junction_86",
+    "junction_87",
+    "junction_88",
+    "junction_89",
+    "junction_9",
+    "junction_90",
+    "junction_91",
+    "junction_92",
+    "junction_93",
+    "junction_94",
+    "junction_95",
+    "junction_96",
+    "junction_97",
+    "junction_98",
+    "junction_99"
+  ],
+  "isolated_nodes": [
+    {
+      "node_id": "endpoint_1",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_32",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_33",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_61",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_65",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_84",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_86",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_91",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_100",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_118",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_123",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_126",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_133",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_137",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_143",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_145",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_146",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_147",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_162",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_174",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_179",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_185",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_201",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_216",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_237",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_238",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_255",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_257",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_263",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_269",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_301",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_303",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_307",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_314",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_315",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_316",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_317",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_321",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_322",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_326",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_327",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_328",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_335",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_337",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_348",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_352",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_360",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_362",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_369",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_371",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_412",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_444",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_446",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_447",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_449",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_450",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_453",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_455",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_456",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_462",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_465",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_470",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_472",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_488",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_512",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_513",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_514",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_515",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_561",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_571",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_577",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_578",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_619",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_628",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_629",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_633",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_636",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_637",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_639",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_643",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_648",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_651",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_654",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "endpoint_701",
+      "type": "endpoint",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_2",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_12",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_34",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_48",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_52",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_66",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_71",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_77",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_81",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_102",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_109",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_144",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_160",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_161",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_165",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_166",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_167",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_173",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_177",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_178",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_188",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_199",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_205",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_223",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_231",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_238",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_250",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_255",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_273",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_280",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_283",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_295",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_296",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_297",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_298",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_299",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_300",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_301",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_311",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_312",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_313",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_314",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_315",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_316",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_321",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_322",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_323",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_326",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_327",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_328",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_329",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_330",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_331",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_336",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_337",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_338",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_339",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_342",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_343",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_344",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_345",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_346",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_347",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_351",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_352",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_353",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_354",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_355",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_356",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_357",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_368",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_369",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_370",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_371",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_372",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_373",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_374",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_375",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_376",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_377",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_380",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_381",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_382",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_383",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_384",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_385",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_387",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_390",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_392",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_393",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_394",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_395",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_396",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_397",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_400",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_408",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    },
+    {
+      "node_id": "junction_411",
+      "type": "junction",
+      "degree": 0,
+      "reason": "isolated_node"
+    }
+  ],
+  "unresolved_crossings": [
+    {
+      "crossing_id": "junction_34",
+      "branch_count": 2,
+      "reasons": [
+        "insufficient_branches"
+      ]
+    },
+    {
+      "crossing_id": "junction_48",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_52",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob",
+        "branch_merge_instability"
+      ]
+    },
+    {
+      "crossing_id": "junction_66",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_77",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_81",
+      "branch_count": 2,
+      "reasons": [
+        "insufficient_branches"
+      ]
+    },
+    {
+      "crossing_id": "junction_102",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_109",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_144",
+      "branch_count": 2,
+      "reasons": [
+        "insufficient_branches"
+      ]
+    },
+    {
+      "crossing_id": "junction_160",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_161",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_165",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_166",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_167",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_173",
+      "branch_count": 2,
+      "reasons": [
+        "insufficient_branches"
+      ]
+    },
+    {
+      "crossing_id": "junction_177",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_178",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_188",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_199",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_205",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_223",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_231",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_238",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_250",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_255",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob",
+        "branch_merge_instability"
+      ]
+    },
+    {
+      "crossing_id": "junction_273",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_283",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_326",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_327",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_329",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_342",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_343",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_345",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_347",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_380",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_381",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_383",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_385",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_392",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_393",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_395",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_397",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_400",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_408",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    },
+    {
+      "crossing_id": "junction_411",
+      "branch_count": 4,
+      "reasons": [
+        "four_way_tie",
+        "paired_crossing_vs_blob_junction_tie",
+        "strong_center_blob"
+      ]
+    }
+  ],
+  "unresolved_terminal_edges": [
+    {
+      "edge_id": "endpoint_0__endpoint_11__16",
+      "source_node_id": "endpoint_0",
+      "destination_node_id": "endpoint_11",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_2__junction_5__30",
+      "source_node_id": "endpoint_2",
+      "destination_node_id": "junction_5",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_3__junction_7__30",
+      "source_node_id": "endpoint_3",
+      "destination_node_id": "junction_7",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_4__junction_9__30",
+      "source_node_id": "endpoint_4",
+      "destination_node_id": "junction_9",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_5__junction_11__30",
+      "source_node_id": "endpoint_5",
+      "destination_node_id": "junction_11",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_6__junction_4__29",
+      "source_node_id": "endpoint_6",
+      "destination_node_id": "junction_4",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_7__junction_6__29",
+      "source_node_id": "endpoint_7",
+      "destination_node_id": "junction_6",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_8__junction_8__29",
+      "source_node_id": "endpoint_8",
+      "destination_node_id": "junction_8",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_9__junction_10__29",
+      "source_node_id": "endpoint_9",
+      "destination_node_id": "junction_10",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_10__junction_11__501",
+      "source_node_id": "endpoint_10",
+      "destination_node_id": "junction_11",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_12__junction_0__117",
+      "source_node_id": "endpoint_12",
+      "destination_node_id": "junction_0",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_13__junction_15__87",
+      "source_node_id": "endpoint_13",
+      "destination_node_id": "junction_15",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_14__endpoint_17__72",
+      "source_node_id": "endpoint_14",
+      "destination_node_id": "endpoint_17",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_15__endpoint_16__52",
+      "source_node_id": "endpoint_15",
+      "destination_node_id": "endpoint_16",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_18__junction_16__8",
+      "source_node_id": "endpoint_18",
+      "destination_node_id": "junction_16",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_19__endpoint_27__164",
+      "source_node_id": "endpoint_19",
+      "destination_node_id": "endpoint_27",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_20__endpoint_24__83",
+      "source_node_id": "endpoint_20",
+      "destination_node_id": "endpoint_24",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_21__endpoint_28__90",
+      "source_node_id": "endpoint_21",
+      "destination_node_id": "endpoint_28",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_22__endpoint_25__53",
+      "source_node_id": "endpoint_22",
+      "destination_node_id": "endpoint_25",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_23__endpoint_26__29",
+      "source_node_id": "endpoint_23",
+      "destination_node_id": "endpoint_26",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_30__junction_17__26",
+      "source_node_id": "endpoint_30",
+      "destination_node_id": "junction_17",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_31__junction_17__9",
+      "source_node_id": "endpoint_31",
+      "destination_node_id": "junction_17",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_34__endpoint_36__18",
+      "source_node_id": "endpoint_34",
+      "destination_node_id": "endpoint_36",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_35__junction_18__73",
+      "source_node_id": "endpoint_35",
+      "destination_node_id": "junction_18",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_37__endpoint_56__105",
+      "source_node_id": "endpoint_37",
+      "destination_node_id": "endpoint_56",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_38__endpoint_40__74",
+      "source_node_id": "endpoint_38",
+      "destination_node_id": "endpoint_40",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_39__endpoint_43__503",
+      "source_node_id": "endpoint_39",
+      "destination_node_id": "endpoint_43",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_41__endpoint_42__75",
+      "source_node_id": "endpoint_41",
+      "destination_node_id": "endpoint_42",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_44__endpoint_47__45",
+      "source_node_id": "endpoint_44",
+      "destination_node_id": "endpoint_47",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_45__endpoint_49__36",
+      "source_node_id": "endpoint_45",
+      "destination_node_id": "endpoint_49",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_46__endpoint_55__46",
+      "source_node_id": "endpoint_46",
+      "destination_node_id": "endpoint_55",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_48__endpoint_50__26",
+      "source_node_id": "endpoint_48",
+      "destination_node_id": "endpoint_50",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_51__endpoint_52__23",
+      "source_node_id": "endpoint_51",
+      "destination_node_id": "endpoint_52",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_53__endpoint_54__56",
+      "source_node_id": "endpoint_53",
+      "destination_node_id": "endpoint_54",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_57__junction_19__8",
+      "source_node_id": "endpoint_57",
+      "destination_node_id": "junction_19",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_58__junction_20__9",
+      "source_node_id": "endpoint_58",
+      "destination_node_id": "junction_20",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_59__endpoint_67__76",
+      "source_node_id": "endpoint_59",
+      "destination_node_id": "endpoint_67",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_60__endpoint_70__16",
+      "source_node_id": "endpoint_60",
+      "destination_node_id": "endpoint_70",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_62__endpoint_63__91",
+      "source_node_id": "endpoint_62",
+      "destination_node_id": "endpoint_63",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_64__junction_20__81",
+      "source_node_id": "endpoint_64",
+      "destination_node_id": "junction_20",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_66__endpoint_68__82",
+      "source_node_id": "endpoint_66",
+      "destination_node_id": "endpoint_68",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_69__junction_21__67",
+      "source_node_id": "endpoint_69",
+      "destination_node_id": "junction_21",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_71__junction_20__11",
+      "source_node_id": "endpoint_71",
+      "destination_node_id": "junction_20",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_72__junction_20__13",
+      "source_node_id": "endpoint_72",
+      "destination_node_id": "junction_20",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_73__junction_22__14",
+      "source_node_id": "endpoint_73",
+      "destination_node_id": "junction_22",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_74__junction_27__13",
+      "source_node_id": "endpoint_74",
+      "destination_node_id": "junction_27",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_75__endpoint_96__25",
+      "source_node_id": "endpoint_75",
+      "destination_node_id": "endpoint_96",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_76__junction_24__6",
+      "source_node_id": "endpoint_76",
+      "destination_node_id": "junction_24",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_77__endpoint_98__27",
+      "source_node_id": "endpoint_77",
+      "destination_node_id": "endpoint_98",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_78__junction_25__38",
+      "source_node_id": "endpoint_78",
+      "destination_node_id": "junction_25",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_79__junction_23__7",
+      "source_node_id": "endpoint_79",
+      "destination_node_id": "junction_23",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_80__endpoint_90__40",
+      "source_node_id": "endpoint_80",
+      "destination_node_id": "endpoint_90",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_81__junction_27__26",
+      "source_node_id": "endpoint_81",
+      "destination_node_id": "junction_27",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_82__junction_25__13",
+      "source_node_id": "endpoint_82",
+      "destination_node_id": "junction_25",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_83__junction_29__4",
+      "source_node_id": "endpoint_83",
+      "destination_node_id": "junction_29",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_85__endpoint_87__55",
+      "source_node_id": "endpoint_85",
+      "destination_node_id": "endpoint_87",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_88__endpoint_94__33",
+      "source_node_id": "endpoint_88",
+      "destination_node_id": "endpoint_94",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_89__junction_28__45",
+      "source_node_id": "endpoint_89",
+      "destination_node_id": "junction_28",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_92__junction_24__11",
+      "source_node_id": "endpoint_92",
+      "destination_node_id": "junction_24",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_93__junction_23__10",
+      "source_node_id": "endpoint_93",
+      "destination_node_id": "junction_23",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_95__junction_23__12",
+      "source_node_id": "endpoint_95",
+      "destination_node_id": "junction_23",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_97__junction_30__12",
+      "source_node_id": "endpoint_97",
+      "destination_node_id": "junction_30",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_99__junction_30__28",
+      "source_node_id": "endpoint_99",
+      "destination_node_id": "junction_30",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_101__junction_36__13",
+      "source_node_id": "endpoint_101",
+      "destination_node_id": "junction_36",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_102__endpoint_121__24",
+      "source_node_id": "endpoint_102",
+      "destination_node_id": "endpoint_121",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_103__endpoint_105__51",
+      "source_node_id": "endpoint_103",
+      "destination_node_id": "endpoint_105",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_104__junction_35__5",
+      "source_node_id": "endpoint_104",
+      "destination_node_id": "junction_35",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_106__junction_33__16",
+      "source_node_id": "endpoint_106",
+      "destination_node_id": "junction_33",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_107__endpoint_108__61",
+      "source_node_id": "endpoint_107",
+      "destination_node_id": "endpoint_108",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_109__endpoint_110__55",
+      "source_node_id": "endpoint_109",
+      "destination_node_id": "endpoint_110",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_111__endpoint_116__34",
+      "source_node_id": "endpoint_111",
+      "destination_node_id": "endpoint_116",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_112__junction_35__45",
+      "source_node_id": "endpoint_112",
+      "destination_node_id": "junction_35",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_113__endpoint_114__36",
+      "source_node_id": "endpoint_113",
+      "destination_node_id": "endpoint_114",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_115__junction_36__3",
+      "source_node_id": "endpoint_115",
+      "destination_node_id": "junction_36",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_117__junction_35__13",
+      "source_node_id": "endpoint_117",
+      "destination_node_id": "junction_35",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_119__junction_37__20",
+      "source_node_id": "endpoint_119",
+      "destination_node_id": "junction_37",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_120__junction_47__13",
+      "source_node_id": "endpoint_120",
+      "destination_node_id": "junction_47",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_122__junction_43__4",
+      "source_node_id": "endpoint_122",
+      "destination_node_id": "junction_43",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_124__junction_40__8",
+      "source_node_id": "endpoint_124",
+      "destination_node_id": "junction_40",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_125__junction_42__4",
+      "source_node_id": "endpoint_125",
+      "destination_node_id": "junction_42",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_127__junction_39__11",
+      "source_node_id": "endpoint_127",
+      "destination_node_id": "junction_39",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_128__junction_40__17",
+      "source_node_id": "endpoint_128",
+      "destination_node_id": "junction_40",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_129__junction_38__11",
+      "source_node_id": "endpoint_129",
+      "destination_node_id": "junction_38",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_130__junction_38__29",
+      "source_node_id": "endpoint_130",
+      "destination_node_id": "junction_38",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_131__endpoint_232__733",
+      "source_node_id": "endpoint_131",
+      "destination_node_id": "endpoint_232",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "inline_passthrough"
+    },
+    {
+      "edge_id": "endpoint_132__endpoint_144__24",
+      "source_node_id": "endpoint_132",
+      "destination_node_id": "endpoint_144",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_134__junction_45__9",
+      "source_node_id": "endpoint_134",
+      "destination_node_id": "junction_45",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_135__endpoint_136__75",
+      "source_node_id": "endpoint_135",
+      "destination_node_id": "endpoint_136",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_138__endpoint_153__19",
+      "source_node_id": "endpoint_138",
+      "destination_node_id": "endpoint_153",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_139__endpoint_142__53",
+      "source_node_id": "endpoint_139",
+      "destination_node_id": "endpoint_142",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_140__endpoint_151__55",
+      "source_node_id": "endpoint_140",
+      "destination_node_id": "endpoint_151",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_141__endpoint_155__64",
+      "source_node_id": "endpoint_141",
+      "destination_node_id": "endpoint_155",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_148__endpoint_154__91",
+      "source_node_id": "endpoint_148",
+      "destination_node_id": "endpoint_154",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_149__junction_49__18",
+      "source_node_id": "endpoint_149",
+      "destination_node_id": "junction_49",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_150__junction_51__18",
+      "source_node_id": "endpoint_150",
+      "destination_node_id": "junction_51",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_152__junction_49__14",
+      "source_node_id": "endpoint_152",
+      "destination_node_id": "junction_49",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_156__endpoint_213__351",
+      "source_node_id": "endpoint_156",
+      "destination_node_id": "endpoint_213",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_157__endpoint_173__74",
+      "source_node_id": "endpoint_157",
+      "destination_node_id": "endpoint_173",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_158__endpoint_165__17",
+      "source_node_id": "endpoint_158",
+      "destination_node_id": "endpoint_165",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_159__endpoint_170__129",
+      "source_node_id": "endpoint_159",
+      "destination_node_id": "endpoint_170",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_160__endpoint_161__53",
+      "source_node_id": "endpoint_160",
+      "destination_node_id": "endpoint_161",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_163__endpoint_171__53",
+      "source_node_id": "endpoint_163",
+      "destination_node_id": "endpoint_171",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_164__endpoint_169__74",
+      "source_node_id": "endpoint_164",
+      "destination_node_id": "endpoint_169",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_166__endpoint_172__54",
+      "source_node_id": "endpoint_166",
+      "destination_node_id": "endpoint_172",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_167__endpoint_168__30",
+      "source_node_id": "endpoint_167",
+      "destination_node_id": "endpoint_168",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_175__junction_53__44",
+      "source_node_id": "endpoint_175",
+      "destination_node_id": "junction_53",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_176__junction_54__16",
+      "source_node_id": "endpoint_176",
+      "destination_node_id": "junction_54",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_177__endpoint_190__14",
+      "source_node_id": "endpoint_177",
+      "destination_node_id": "endpoint_190",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_178__endpoint_186__64",
+      "source_node_id": "endpoint_178",
+      "destination_node_id": "endpoint_186",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_180__endpoint_187__24",
+      "source_node_id": "endpoint_180",
+      "destination_node_id": "endpoint_187",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_181__endpoint_182__20",
+      "source_node_id": "endpoint_181",
+      "destination_node_id": "endpoint_182",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_183__endpoint_184__20",
+      "source_node_id": "endpoint_183",
+      "destination_node_id": "endpoint_184",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_188__endpoint_189__39",
+      "source_node_id": "endpoint_188",
+      "destination_node_id": "endpoint_189",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_191__endpoint_193__28",
+      "source_node_id": "endpoint_191",
+      "destination_node_id": "endpoint_193",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_192__endpoint_194__52",
+      "source_node_id": "endpoint_192",
+      "destination_node_id": "endpoint_194",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_195__junction_55__3",
+      "source_node_id": "endpoint_195",
+      "destination_node_id": "junction_55",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_196__junction_55__12",
+      "source_node_id": "endpoint_196",
+      "destination_node_id": "junction_55",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_197__endpoint_203__22",
+      "source_node_id": "endpoint_197",
+      "destination_node_id": "endpoint_203",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_198__endpoint_204__24",
+      "source_node_id": "endpoint_198",
+      "destination_node_id": "endpoint_204",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_199__junction_60__42",
+      "source_node_id": "endpoint_199",
+      "destination_node_id": "junction_60",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_200__endpoint_205__65",
+      "source_node_id": "endpoint_200",
+      "destination_node_id": "endpoint_205",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_202__endpoint_206__24",
+      "source_node_id": "endpoint_202",
+      "destination_node_id": "endpoint_206",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_207__junction_57__9",
+      "source_node_id": "endpoint_207",
+      "destination_node_id": "junction_57",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_208__junction_56__19",
+      "source_node_id": "endpoint_208",
+      "destination_node_id": "junction_56",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_209__junction_65__44",
+      "source_node_id": "endpoint_209",
+      "destination_node_id": "junction_65",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_210__junction_58__32",
+      "source_node_id": "endpoint_210",
+      "destination_node_id": "junction_58",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_211__junction_65__33",
+      "source_node_id": "endpoint_211",
+      "destination_node_id": "junction_65",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_212__endpoint_218__19",
+      "source_node_id": "endpoint_212",
+      "destination_node_id": "endpoint_218",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_214__junction_64__12",
+      "source_node_id": "endpoint_214",
+      "destination_node_id": "junction_64",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_215__junction_63__14",
+      "source_node_id": "endpoint_215",
+      "destination_node_id": "junction_63",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_217__junction_58__17",
+      "source_node_id": "endpoint_217",
+      "destination_node_id": "junction_58",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_219__junction_62__27",
+      "source_node_id": "endpoint_219",
+      "destination_node_id": "junction_62",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_220__junction_59__7",
+      "source_node_id": "endpoint_220",
+      "destination_node_id": "junction_59",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_221__junction_64__3",
+      "source_node_id": "endpoint_221",
+      "destination_node_id": "junction_64",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_222__junction_59__52",
+      "source_node_id": "endpoint_222",
+      "destination_node_id": "junction_59",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_223__junction_62__4",
+      "source_node_id": "endpoint_223",
+      "destination_node_id": "junction_62",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_224__junction_65__99",
+      "source_node_id": "endpoint_224",
+      "destination_node_id": "junction_65",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_225__junction_58__19",
+      "source_node_id": "endpoint_225",
+      "destination_node_id": "junction_58",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_226__junction_63__45",
+      "source_node_id": "endpoint_226",
+      "destination_node_id": "junction_63",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_227__junction_63__7",
+      "source_node_id": "endpoint_227",
+      "destination_node_id": "junction_63",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_228__junction_64__98",
+      "source_node_id": "endpoint_228",
+      "destination_node_id": "junction_64",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_229__junction_67__783",
+      "source_node_id": "endpoint_229",
+      "destination_node_id": "junction_67",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_230__endpoint_579__2929",
+      "source_node_id": "endpoint_230",
+      "destination_node_id": "endpoint_579",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_231__junction_65__18",
+      "source_node_id": "endpoint_231",
+      "destination_node_id": "junction_65",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_233__junction_67__8",
+      "source_node_id": "endpoint_233",
+      "destination_node_id": "junction_67",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_234__endpoint_239__69",
+      "source_node_id": "endpoint_234",
+      "destination_node_id": "endpoint_239",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_235__junction_65__32",
+      "source_node_id": "endpoint_235",
+      "destination_node_id": "junction_65",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_236__junction_68__14",
+      "source_node_id": "endpoint_236",
+      "destination_node_id": "junction_68",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_240__junction_70__735",
+      "source_node_id": "endpoint_240",
+      "destination_node_id": "junction_70",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_241__junction_69__59",
+      "source_node_id": "endpoint_241",
+      "destination_node_id": "junction_69",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_242__junction_72__11",
+      "source_node_id": "endpoint_242",
+      "destination_node_id": "junction_72",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_243__junction_73__12",
+      "source_node_id": "endpoint_243",
+      "destination_node_id": "junction_73",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_244__junction_74__4",
+      "source_node_id": "endpoint_244",
+      "destination_node_id": "junction_74",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_245__junction_72__118",
+      "source_node_id": "endpoint_245",
+      "destination_node_id": "junction_72",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_246__endpoint_247__38",
+      "source_node_id": "endpoint_246",
+      "destination_node_id": "endpoint_247",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_248__endpoint_259__122",
+      "source_node_id": "endpoint_248",
+      "destination_node_id": "endpoint_259",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_249__junction_73__12",
+      "source_node_id": "endpoint_249",
+      "destination_node_id": "junction_73",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_250__junction_78__35",
+      "source_node_id": "endpoint_250",
+      "destination_node_id": "junction_78",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_251__junction_74__20",
+      "source_node_id": "endpoint_251",
+      "destination_node_id": "junction_74",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_252__endpoint_270__64",
+      "source_node_id": "endpoint_252",
+      "destination_node_id": "endpoint_270",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_253__endpoint_254__13",
+      "source_node_id": "endpoint_253",
+      "destination_node_id": "endpoint_254",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_256__junction_68__383",
+      "source_node_id": "endpoint_256",
+      "destination_node_id": "junction_68",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_258__endpoint_261__59",
+      "source_node_id": "endpoint_258",
+      "destination_node_id": "endpoint_261",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_260__junction_80__10",
+      "source_node_id": "endpoint_260",
+      "destination_node_id": "junction_80",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_262__endpoint_387__1285",
+      "source_node_id": "endpoint_262",
+      "destination_node_id": "endpoint_387",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_264__endpoint_268__40",
+      "source_node_id": "endpoint_264",
+      "destination_node_id": "endpoint_268",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_265__junction_79__12",
+      "source_node_id": "endpoint_265",
+      "destination_node_id": "junction_79",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_266__endpoint_267__67",
+      "source_node_id": "endpoint_266",
+      "destination_node_id": "endpoint_267",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_271__junction_80__28",
+      "source_node_id": "endpoint_271",
+      "destination_node_id": "junction_80",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_272__junction_84__8",
+      "source_node_id": "endpoint_272",
+      "destination_node_id": "junction_84",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_273__junction_86__24",
+      "source_node_id": "endpoint_273",
+      "destination_node_id": "junction_86",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_274__endpoint_275__99",
+      "source_node_id": "endpoint_274",
+      "destination_node_id": "endpoint_275",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_276__endpoint_277__43",
+      "source_node_id": "endpoint_276",
+      "destination_node_id": "endpoint_277",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_278__endpoint_279__83",
+      "source_node_id": "endpoint_278",
+      "destination_node_id": "endpoint_279",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_280__junction_85__23",
+      "source_node_id": "endpoint_280",
+      "destination_node_id": "junction_85",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_281__endpoint_310__160",
+      "source_node_id": "endpoint_281",
+      "destination_node_id": "endpoint_310",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_282__junction_85__6",
+      "source_node_id": "endpoint_282",
+      "destination_node_id": "junction_85",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_283__endpoint_285__38",
+      "source_node_id": "endpoint_283",
+      "destination_node_id": "endpoint_285",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_284__endpoint_286__38",
+      "source_node_id": "endpoint_284",
+      "destination_node_id": "endpoint_286",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_287__junction_80__147",
+      "source_node_id": "endpoint_287",
+      "destination_node_id": "junction_80",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_288__junction_86__10",
+      "source_node_id": "endpoint_288",
+      "destination_node_id": "junction_86",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_289__junction_87__4",
+      "source_node_id": "endpoint_289",
+      "destination_node_id": "junction_87",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_290__endpoint_291__74",
+      "source_node_id": "endpoint_290",
+      "destination_node_id": "endpoint_291",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_292__endpoint_298__72",
+      "source_node_id": "endpoint_292",
+      "destination_node_id": "endpoint_298",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_293__junction_87__18",
+      "source_node_id": "endpoint_293",
+      "destination_node_id": "junction_87",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_294__junction_89__7",
+      "source_node_id": "endpoint_294",
+      "destination_node_id": "junction_89",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_295__junction_88__9",
+      "source_node_id": "endpoint_295",
+      "destination_node_id": "junction_88",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_296__junction_90__9",
+      "source_node_id": "endpoint_296",
+      "destination_node_id": "junction_90",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_297__junction_91__44",
+      "source_node_id": "endpoint_297",
+      "destination_node_id": "junction_91",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_299__junction_92__16",
+      "source_node_id": "endpoint_299",
+      "destination_node_id": "junction_92",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_300__junction_93__24",
+      "source_node_id": "endpoint_300",
+      "destination_node_id": "junction_93",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_302__junction_96__63",
+      "source_node_id": "endpoint_302",
+      "destination_node_id": "junction_96",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_304__junction_98__67",
+      "source_node_id": "endpoint_304",
+      "destination_node_id": "junction_98",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_305__junction_95__100",
+      "source_node_id": "endpoint_305",
+      "destination_node_id": "junction_95",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_306__junction_94__18",
+      "source_node_id": "endpoint_306",
+      "destination_node_id": "junction_94",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_308__junction_94__7",
+      "source_node_id": "endpoint_308",
+      "destination_node_id": "junction_94",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_309__junction_95__9",
+      "source_node_id": "endpoint_309",
+      "destination_node_id": "junction_95",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_311__junction_99__54",
+      "source_node_id": "endpoint_311",
+      "destination_node_id": "junction_99",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_313__junction_96__80",
+      "source_node_id": "endpoint_313",
+      "destination_node_id": "junction_96",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_318__junction_103__8",
+      "source_node_id": "endpoint_318",
+      "destination_node_id": "junction_103",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_319__junction_105__8",
+      "source_node_id": "endpoint_319",
+      "destination_node_id": "junction_105",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_320__junction_104__5",
+      "source_node_id": "endpoint_320",
+      "destination_node_id": "junction_104",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_323__junction_106__8",
+      "source_node_id": "endpoint_323",
+      "destination_node_id": "junction_106",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_324__junction_105__8",
+      "source_node_id": "endpoint_324",
+      "destination_node_id": "junction_105",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_325__junction_105__10",
+      "source_node_id": "endpoint_325",
+      "destination_node_id": "junction_105",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_329__endpoint_331__22",
+      "source_node_id": "endpoint_329",
+      "destination_node_id": "endpoint_331",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "inline_passthrough"
+    },
+    {
+      "edge_id": "endpoint_330__junction_108__19",
+      "source_node_id": "endpoint_330",
+      "destination_node_id": "junction_108",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_332__endpoint_339__58",
+      "source_node_id": "endpoint_332",
+      "destination_node_id": "endpoint_339",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_333__junction_108__9",
+      "source_node_id": "endpoint_333",
+      "destination_node_id": "junction_108",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_334__junction_110__99",
+      "source_node_id": "endpoint_334",
+      "destination_node_id": "junction_110",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_336__junction_112__39",
+      "source_node_id": "endpoint_336",
+      "destination_node_id": "junction_112",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_338__junction_112__92",
+      "source_node_id": "endpoint_338",
+      "destination_node_id": "junction_112",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_340__junction_117__47",
+      "source_node_id": "endpoint_340",
+      "destination_node_id": "junction_117",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_341__junction_115__8",
+      "source_node_id": "endpoint_341",
+      "destination_node_id": "junction_115",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_342__junction_114__10",
+      "source_node_id": "endpoint_342",
+      "destination_node_id": "junction_114",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_343__junction_113__58",
+      "source_node_id": "endpoint_343",
+      "destination_node_id": "junction_113",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_344__junction_115__5",
+      "source_node_id": "endpoint_344",
+      "destination_node_id": "junction_115",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_345__junction_117__31",
+      "source_node_id": "endpoint_345",
+      "destination_node_id": "junction_117",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_346__junction_116__64",
+      "source_node_id": "endpoint_346",
+      "destination_node_id": "junction_116",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_347__endpoint_356__64",
+      "source_node_id": "endpoint_347",
+      "destination_node_id": "endpoint_356",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_349__junction_120__17",
+      "source_node_id": "endpoint_349",
+      "destination_node_id": "junction_120",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_350__junction_121__21",
+      "source_node_id": "endpoint_350",
+      "destination_node_id": "junction_121",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_351__junction_119__8",
+      "source_node_id": "endpoint_351",
+      "destination_node_id": "junction_119",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_353__junction_101__222",
+      "source_node_id": "endpoint_353",
+      "destination_node_id": "junction_101",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_354__junction_121__30",
+      "source_node_id": "endpoint_354",
+      "destination_node_id": "junction_121",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_355__junction_122__20",
+      "source_node_id": "endpoint_355",
+      "destination_node_id": "junction_122",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_357__junction_121__15",
+      "source_node_id": "endpoint_357",
+      "destination_node_id": "junction_121",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_358__junction_120__28",
+      "source_node_id": "endpoint_358",
+      "destination_node_id": "junction_120",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_359__junction_122__11",
+      "source_node_id": "endpoint_359",
+      "destination_node_id": "junction_122",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_361__junction_124__15",
+      "source_node_id": "endpoint_361",
+      "destination_node_id": "junction_124",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_363__junction_125__16",
+      "source_node_id": "endpoint_363",
+      "destination_node_id": "junction_125",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_364__junction_123__23",
+      "source_node_id": "endpoint_364",
+      "destination_node_id": "junction_123",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_365__endpoint_375__60",
+      "source_node_id": "endpoint_365",
+      "destination_node_id": "endpoint_375",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_366__junction_127__19",
+      "source_node_id": "endpoint_366",
+      "destination_node_id": "junction_127",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_367__junction_122__33",
+      "source_node_id": "endpoint_367",
+      "destination_node_id": "junction_122",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_368__junction_127__29",
+      "source_node_id": "endpoint_368",
+      "destination_node_id": "junction_127",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_370__junction_127__3",
+      "source_node_id": "endpoint_370",
+      "destination_node_id": "junction_127",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_372__junction_126__17",
+      "source_node_id": "endpoint_372",
+      "destination_node_id": "junction_126",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_373__junction_129__54",
+      "source_node_id": "endpoint_373",
+      "destination_node_id": "junction_129",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_374__junction_133__98",
+      "source_node_id": "endpoint_374",
+      "destination_node_id": "junction_133",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_376__junction_128__6",
+      "source_node_id": "endpoint_376",
+      "destination_node_id": "junction_128",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_377__junction_113__215",
+      "source_node_id": "endpoint_377",
+      "destination_node_id": "junction_113",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_378__junction_133__326",
+      "source_node_id": "endpoint_378",
+      "destination_node_id": "junction_133",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_379__junction_129__4",
+      "source_node_id": "endpoint_379",
+      "destination_node_id": "junction_129",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_380__junction_131__5",
+      "source_node_id": "endpoint_380",
+      "destination_node_id": "junction_131",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_381__junction_130__16",
+      "source_node_id": "endpoint_381",
+      "destination_node_id": "junction_130",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_382__junction_131__15",
+      "source_node_id": "endpoint_382",
+      "destination_node_id": "junction_131",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_383__endpoint_385__15",
+      "source_node_id": "endpoint_383",
+      "destination_node_id": "endpoint_385",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_384__junction_138__214",
+      "source_node_id": "endpoint_384",
+      "destination_node_id": "junction_138",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_386__endpoint_390__58",
+      "source_node_id": "endpoint_386",
+      "destination_node_id": "endpoint_390",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_388__junction_132__5",
+      "source_node_id": "endpoint_388",
+      "destination_node_id": "junction_132",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_389__endpoint_395__74",
+      "source_node_id": "endpoint_389",
+      "destination_node_id": "endpoint_395",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_391__junction_147__175",
+      "source_node_id": "endpoint_391",
+      "destination_node_id": "junction_147",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_392__junction_134__38",
+      "source_node_id": "endpoint_392",
+      "destination_node_id": "junction_134",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_393__junction_135__65",
+      "source_node_id": "endpoint_393",
+      "destination_node_id": "junction_135",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_394__endpoint_399__56",
+      "source_node_id": "endpoint_394",
+      "destination_node_id": "endpoint_399",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_396__junction_139__30",
+      "source_node_id": "endpoint_396",
+      "destination_node_id": "junction_139",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_397__endpoint_415__185",
+      "source_node_id": "endpoint_397",
+      "destination_node_id": "endpoint_415",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_398__junction_136__22",
+      "source_node_id": "endpoint_398",
+      "destination_node_id": "junction_136",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_400__endpoint_402__21",
+      "source_node_id": "endpoint_400",
+      "destination_node_id": "endpoint_402",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_401__junction_137__13",
+      "source_node_id": "endpoint_401",
+      "destination_node_id": "junction_137",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_403__junction_140__7",
+      "source_node_id": "endpoint_403",
+      "destination_node_id": "junction_140",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_404__junction_145__11",
+      "source_node_id": "endpoint_404",
+      "destination_node_id": "junction_145",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_405__junction_145__3",
+      "source_node_id": "endpoint_405",
+      "destination_node_id": "junction_145",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_406__endpoint_409__46",
+      "source_node_id": "endpoint_406",
+      "destination_node_id": "endpoint_409",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_407__junction_149__7",
+      "source_node_id": "endpoint_407",
+      "destination_node_id": "junction_149",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_408__junction_146__20",
+      "source_node_id": "endpoint_408",
+      "destination_node_id": "junction_146",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_410__junction_152__8",
+      "source_node_id": "endpoint_410",
+      "destination_node_id": "junction_152",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_411__junction_151__7",
+      "source_node_id": "endpoint_411",
+      "destination_node_id": "junction_151",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_413__endpoint_467__293",
+      "source_node_id": "endpoint_413",
+      "destination_node_id": "endpoint_467",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_414__junction_153__18",
+      "source_node_id": "endpoint_414",
+      "destination_node_id": "junction_153",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_416__junction_154__6",
+      "source_node_id": "endpoint_416",
+      "destination_node_id": "junction_154",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_417__junction_154__14",
+      "source_node_id": "endpoint_417",
+      "destination_node_id": "junction_154",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_418__junction_155__13",
+      "source_node_id": "endpoint_418",
+      "destination_node_id": "junction_155",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_419__junction_155__63",
+      "source_node_id": "endpoint_419",
+      "destination_node_id": "junction_155",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_420__junction_154__11",
+      "source_node_id": "endpoint_420",
+      "destination_node_id": "junction_154",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_421__endpoint_445__75",
+      "source_node_id": "endpoint_421",
+      "destination_node_id": "endpoint_445",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_422__junction_156__4",
+      "source_node_id": "endpoint_422",
+      "destination_node_id": "junction_156",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_423__junction_163__31",
+      "source_node_id": "endpoint_423",
+      "destination_node_id": "junction_163",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_424__endpoint_428__39",
+      "source_node_id": "endpoint_424",
+      "destination_node_id": "endpoint_428",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_425__junction_156__13",
+      "source_node_id": "endpoint_425",
+      "destination_node_id": "junction_156",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_426__junction_157__8",
+      "source_node_id": "endpoint_426",
+      "destination_node_id": "junction_157",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_427__junction_157__80",
+      "source_node_id": "endpoint_427",
+      "destination_node_id": "junction_157",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_429__endpoint_430__58",
+      "source_node_id": "endpoint_429",
+      "destination_node_id": "endpoint_430",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_431__junction_159__16",
+      "source_node_id": "endpoint_431",
+      "destination_node_id": "junction_159",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_432__junction_158__15",
+      "source_node_id": "endpoint_432",
+      "destination_node_id": "junction_158",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_433__junction_162__13",
+      "source_node_id": "endpoint_433",
+      "destination_node_id": "junction_162",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_434__endpoint_437__116",
+      "source_node_id": "endpoint_434",
+      "destination_node_id": "endpoint_437",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_435__endpoint_436__72",
+      "source_node_id": "endpoint_435",
+      "destination_node_id": "endpoint_436",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_438__junction_162__3",
+      "source_node_id": "endpoint_438",
+      "destination_node_id": "junction_162",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_439__junction_183__221",
+      "source_node_id": "endpoint_439",
+      "destination_node_id": "junction_183",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_440__junction_163__4",
+      "source_node_id": "endpoint_440",
+      "destination_node_id": "junction_163",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_441__junction_164__26",
+      "source_node_id": "endpoint_441",
+      "destination_node_id": "junction_164",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_442__junction_180__125",
+      "source_node_id": "endpoint_442",
+      "destination_node_id": "junction_180",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_443__junction_181__126",
+      "source_node_id": "endpoint_443",
+      "destination_node_id": "junction_181",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_448__endpoint_457__60",
+      "source_node_id": "endpoint_448",
+      "destination_node_id": "endpoint_457",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_451__junction_174__15",
+      "source_node_id": "endpoint_451",
+      "destination_node_id": "junction_174",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_452__junction_175__8",
+      "source_node_id": "endpoint_452",
+      "destination_node_id": "junction_175",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_454__junction_172__28",
+      "source_node_id": "endpoint_454",
+      "destination_node_id": "junction_172",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_458__junction_182__7",
+      "source_node_id": "endpoint_458",
+      "destination_node_id": "junction_182",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_459__junction_185__6",
+      "source_node_id": "endpoint_459",
+      "destination_node_id": "junction_185",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_460__endpoint_461__46",
+      "source_node_id": "endpoint_460",
+      "destination_node_id": "endpoint_461",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_464__junction_200__63",
+      "source_node_id": "endpoint_464",
+      "destination_node_id": "junction_200",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_466__endpoint_541__287",
+      "source_node_id": "endpoint_466",
+      "destination_node_id": "endpoint_541",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_468__junction_190__6",
+      "source_node_id": "endpoint_468",
+      "destination_node_id": "junction_190",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_469__junction_189__7",
+      "source_node_id": "endpoint_469",
+      "destination_node_id": "junction_189",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_471__junction_189__5",
+      "source_node_id": "endpoint_471",
+      "destination_node_id": "junction_189",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_473__junction_191__6",
+      "source_node_id": "endpoint_473",
+      "destination_node_id": "junction_191",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_474__junction_192__9",
+      "source_node_id": "endpoint_474",
+      "destination_node_id": "junction_192",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_475__junction_202__26",
+      "source_node_id": "endpoint_475",
+      "destination_node_id": "junction_202",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_476__endpoint_481__23",
+      "source_node_id": "endpoint_476",
+      "destination_node_id": "endpoint_481",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "inline_passthrough"
+    },
+    {
+      "edge_id": "endpoint_477__junction_194__30",
+      "source_node_id": "endpoint_477",
+      "destination_node_id": "junction_194",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_478__junction_195__31",
+      "source_node_id": "endpoint_478",
+      "destination_node_id": "junction_195",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_479__junction_203__14",
+      "source_node_id": "endpoint_479",
+      "destination_node_id": "junction_203",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_480__junction_212__193",
+      "source_node_id": "endpoint_480",
+      "destination_node_id": "junction_212",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_482__junction_197__3",
+      "source_node_id": "endpoint_482",
+      "destination_node_id": "junction_197",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_483__junction_206__3",
+      "source_node_id": "endpoint_483",
+      "destination_node_id": "junction_206",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_484__junction_207__3",
+      "source_node_id": "endpoint_484",
+      "destination_node_id": "junction_207",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_485__junction_206__18",
+      "source_node_id": "endpoint_485",
+      "destination_node_id": "junction_206",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_486__junction_207__15",
+      "source_node_id": "endpoint_486",
+      "destination_node_id": "junction_207",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_487__junction_211__17",
+      "source_node_id": "endpoint_487",
+      "destination_node_id": "junction_211",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_489__junction_203__8",
+      "source_node_id": "endpoint_489",
+      "destination_node_id": "junction_203",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_490__junction_207__10",
+      "source_node_id": "endpoint_490",
+      "destination_node_id": "junction_207",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_491__junction_211__10",
+      "source_node_id": "endpoint_491",
+      "destination_node_id": "junction_211",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_492__junction_208__11",
+      "source_node_id": "endpoint_492",
+      "destination_node_id": "junction_208",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_493__endpoint_508__60",
+      "source_node_id": "endpoint_493",
+      "destination_node_id": "endpoint_508",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_494__junction_200__36",
+      "source_node_id": "endpoint_494",
+      "destination_node_id": "junction_200",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_495__endpoint_499__41",
+      "source_node_id": "endpoint_495",
+      "destination_node_id": "endpoint_499",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_496__junction_213__11",
+      "source_node_id": "endpoint_496",
+      "destination_node_id": "junction_213",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_497__junction_213__7",
+      "source_node_id": "endpoint_497",
+      "destination_node_id": "junction_213",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_498__endpoint_502__20",
+      "source_node_id": "endpoint_498",
+      "destination_node_id": "endpoint_502",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "inline_passthrough"
+    },
+    {
+      "edge_id": "endpoint_500__endpoint_501__44",
+      "source_node_id": "endpoint_500",
+      "destination_node_id": "endpoint_501",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "inline_passthrough"
+    },
+    {
+      "edge_id": "endpoint_503__junction_213__16",
+      "source_node_id": "endpoint_503",
+      "destination_node_id": "junction_213",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_504__junction_191__82",
+      "source_node_id": "endpoint_504",
+      "destination_node_id": "junction_191",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_505__junction_217__57",
+      "source_node_id": "endpoint_505",
+      "destination_node_id": "junction_217",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_506__junction_215__16",
+      "source_node_id": "endpoint_506",
+      "destination_node_id": "junction_215",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_507__junction_215__8",
+      "source_node_id": "endpoint_507",
+      "destination_node_id": "junction_215",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_509__junction_216__3",
+      "source_node_id": "endpoint_509",
+      "destination_node_id": "junction_216",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_510__junction_219__34",
+      "source_node_id": "endpoint_510",
+      "destination_node_id": "junction_219",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_511__junction_217__28",
+      "source_node_id": "endpoint_511",
+      "destination_node_id": "junction_217",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_516__endpoint_520__49",
+      "source_node_id": "endpoint_516",
+      "destination_node_id": "endpoint_520",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_517__junction_224__5",
+      "source_node_id": "endpoint_517",
+      "destination_node_id": "junction_224",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_518__junction_225__10",
+      "source_node_id": "endpoint_518",
+      "destination_node_id": "junction_225",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_519__junction_226__19",
+      "source_node_id": "endpoint_519",
+      "destination_node_id": "junction_226",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_521__junction_226__9",
+      "source_node_id": "endpoint_521",
+      "destination_node_id": "junction_226",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_522__junction_227__13",
+      "source_node_id": "endpoint_522",
+      "destination_node_id": "junction_227",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_523__junction_221__62",
+      "source_node_id": "endpoint_523",
+      "destination_node_id": "junction_221",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_524__junction_229__14",
+      "source_node_id": "endpoint_524",
+      "destination_node_id": "junction_229",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_525__junction_228__16",
+      "source_node_id": "endpoint_525",
+      "destination_node_id": "junction_228",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_526__junction_229__15",
+      "source_node_id": "endpoint_526",
+      "destination_node_id": "junction_229",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_527__junction_230__23",
+      "source_node_id": "endpoint_527",
+      "destination_node_id": "junction_230",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_528__junction_244__105",
+      "source_node_id": "endpoint_528",
+      "destination_node_id": "junction_244",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_529__junction_230__6",
+      "source_node_id": "endpoint_529",
+      "destination_node_id": "junction_230",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_532__junction_232__14",
+      "source_node_id": "endpoint_532",
+      "destination_node_id": "junction_232",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_533__junction_233__16",
+      "source_node_id": "endpoint_533",
+      "destination_node_id": "junction_233",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_534__junction_234__6",
+      "source_node_id": "endpoint_534",
+      "destination_node_id": "junction_234",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_535__junction_235__29",
+      "source_node_id": "endpoint_535",
+      "destination_node_id": "junction_235",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_536__junction_235__21",
+      "source_node_id": "endpoint_536",
+      "destination_node_id": "junction_235",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_537__endpoint_555__64",
+      "source_node_id": "endpoint_537",
+      "destination_node_id": "endpoint_555",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_538__endpoint_539__17",
+      "source_node_id": "endpoint_538",
+      "destination_node_id": "endpoint_539",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "inline_passthrough"
+    },
+    {
+      "edge_id": "endpoint_540__junction_237__7",
+      "source_node_id": "endpoint_540",
+      "destination_node_id": "junction_237",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_542__junction_236__6",
+      "source_node_id": "endpoint_542",
+      "destination_node_id": "junction_236",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_543__junction_239__126",
+      "source_node_id": "endpoint_543",
+      "destination_node_id": "junction_239",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_544__junction_241__14",
+      "source_node_id": "endpoint_544",
+      "destination_node_id": "junction_241",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_545__junction_236__24",
+      "source_node_id": "endpoint_545",
+      "destination_node_id": "junction_236",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_546__junction_237__24",
+      "source_node_id": "endpoint_546",
+      "destination_node_id": "junction_237",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_547__endpoint_567__74",
+      "source_node_id": "endpoint_547",
+      "destination_node_id": "endpoint_567",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_548__junction_243__12",
+      "source_node_id": "endpoint_548",
+      "destination_node_id": "junction_243",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_549__endpoint_550__51",
+      "source_node_id": "endpoint_549",
+      "destination_node_id": "endpoint_550",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "inline_passthrough"
+    },
+    {
+      "edge_id": "endpoint_551__junction_244__70",
+      "source_node_id": "endpoint_551",
+      "destination_node_id": "junction_244",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_552__endpoint_553__27",
+      "source_node_id": "endpoint_552",
+      "destination_node_id": "endpoint_553",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "inline_passthrough"
+    },
+    {
+      "edge_id": "endpoint_554__endpoint_622__400",
+      "source_node_id": "endpoint_554",
+      "destination_node_id": "endpoint_622",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "inline_passthrough"
+    },
+    {
+      "edge_id": "endpoint_556__junction_242__7",
+      "source_node_id": "endpoint_556",
+      "destination_node_id": "junction_242",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_557__junction_241__7",
+      "source_node_id": "endpoint_557",
+      "destination_node_id": "junction_241",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_558__junction_247__36",
+      "source_node_id": "endpoint_558",
+      "destination_node_id": "junction_247",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_559__junction_247__15",
+      "source_node_id": "endpoint_559",
+      "destination_node_id": "junction_247",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_560__endpoint_591__254",
+      "source_node_id": "endpoint_560",
+      "destination_node_id": "endpoint_591",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_562__junction_252__75",
+      "source_node_id": "endpoint_562",
+      "destination_node_id": "junction_252",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_563__junction_249__24",
+      "source_node_id": "endpoint_563",
+      "destination_node_id": "junction_249",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_564__junction_251__73",
+      "source_node_id": "endpoint_564",
+      "destination_node_id": "junction_251",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_565__junction_249__55",
+      "source_node_id": "endpoint_565",
+      "destination_node_id": "junction_249",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_566__junction_248__14",
+      "source_node_id": "endpoint_566",
+      "destination_node_id": "junction_248",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_568__endpoint_569__164",
+      "source_node_id": "endpoint_568",
+      "destination_node_id": "endpoint_569",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "inline_passthrough"
+    },
+    {
+      "edge_id": "endpoint_570__junction_244__79",
+      "source_node_id": "endpoint_570",
+      "destination_node_id": "junction_244",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_572__endpoint_584__74",
+      "source_node_id": "endpoint_572",
+      "destination_node_id": "endpoint_584",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_573__junction_252__37",
+      "source_node_id": "endpoint_573",
+      "destination_node_id": "junction_252",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_574__endpoint_576__72",
+      "source_node_id": "endpoint_574",
+      "destination_node_id": "endpoint_576",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "inline_passthrough"
+    },
+    {
+      "edge_id": "endpoint_575__junction_259__24",
+      "source_node_id": "endpoint_575",
+      "destination_node_id": "junction_259",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_580__junction_260__5",
+      "source_node_id": "endpoint_580",
+      "destination_node_id": "junction_260",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_581__junction_258__77",
+      "source_node_id": "endpoint_581",
+      "destination_node_id": "junction_258",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_582__junction_268__214",
+      "source_node_id": "endpoint_582",
+      "destination_node_id": "junction_268",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_583__junction_258__11",
+      "source_node_id": "endpoint_583",
+      "destination_node_id": "junction_258",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_585__junction_253__42",
+      "source_node_id": "endpoint_585",
+      "destination_node_id": "junction_253",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_586__junction_259__23",
+      "source_node_id": "endpoint_586",
+      "destination_node_id": "junction_259",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_587__junction_261__29",
+      "source_node_id": "endpoint_587",
+      "destination_node_id": "junction_261",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_588__junction_251__67",
+      "source_node_id": "endpoint_588",
+      "destination_node_id": "junction_251",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_589__junction_262__47",
+      "source_node_id": "endpoint_589",
+      "destination_node_id": "junction_262",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_590__endpoint_604__159",
+      "source_node_id": "endpoint_590",
+      "destination_node_id": "endpoint_604",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_592__endpoint_596__55",
+      "source_node_id": "endpoint_592",
+      "destination_node_id": "endpoint_596",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_593__endpoint_597__45",
+      "source_node_id": "endpoint_593",
+      "destination_node_id": "endpoint_597",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_594__endpoint_598__67",
+      "source_node_id": "endpoint_594",
+      "destination_node_id": "endpoint_598",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_595__endpoint_599__192",
+      "source_node_id": "endpoint_595",
+      "destination_node_id": "endpoint_599",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_600__junction_262__6",
+      "source_node_id": "endpoint_600",
+      "destination_node_id": "junction_262",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_601__endpoint_602__138",
+      "source_node_id": "endpoint_601",
+      "destination_node_id": "endpoint_602",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_603__junction_262__50",
+      "source_node_id": "endpoint_603",
+      "destination_node_id": "junction_262",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_605__endpoint_609__74",
+      "source_node_id": "endpoint_605",
+      "destination_node_id": "endpoint_609",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_606__endpoint_610__48",
+      "source_node_id": "endpoint_606",
+      "destination_node_id": "endpoint_610",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_607__endpoint_611__45",
+      "source_node_id": "endpoint_607",
+      "destination_node_id": "endpoint_611",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_608__endpoint_614__75",
+      "source_node_id": "endpoint_608",
+      "destination_node_id": "endpoint_614",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_612__endpoint_613__159",
+      "source_node_id": "endpoint_612",
+      "destination_node_id": "endpoint_613",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_615__junction_265__31",
+      "source_node_id": "endpoint_615",
+      "destination_node_id": "junction_265",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_616__junction_266__9",
+      "source_node_id": "endpoint_616",
+      "destination_node_id": "junction_266",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_617__junction_265__23",
+      "source_node_id": "endpoint_617",
+      "destination_node_id": "junction_265",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_618__junction_266__63",
+      "source_node_id": "endpoint_618",
+      "destination_node_id": "junction_266",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_620__junction_265__4",
+      "source_node_id": "endpoint_620",
+      "destination_node_id": "junction_265",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_621__junction_269__45",
+      "source_node_id": "endpoint_621",
+      "destination_node_id": "junction_269",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_623__junction_270__16",
+      "source_node_id": "endpoint_623",
+      "destination_node_id": "junction_270",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_624__junction_271__19",
+      "source_node_id": "endpoint_624",
+      "destination_node_id": "junction_271",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_625__junction_272__8",
+      "source_node_id": "endpoint_625",
+      "destination_node_id": "junction_272",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_626__endpoint_631__2618",
+      "source_node_id": "endpoint_626",
+      "destination_node_id": "endpoint_631",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_627__junction_272__596",
+      "source_node_id": "endpoint_627",
+      "destination_node_id": "junction_272",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_630__junction_272__38",
+      "source_node_id": "endpoint_630",
+      "destination_node_id": "junction_272",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_632__endpoint_634__568",
+      "source_node_id": "endpoint_632",
+      "destination_node_id": "endpoint_634",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_635__junction_274__4",
+      "source_node_id": "endpoint_635",
+      "destination_node_id": "junction_274",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_638__junction_275__4",
+      "source_node_id": "endpoint_638",
+      "destination_node_id": "junction_275",
+      "source_terminal_role": "inline_passthrough",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_640__junction_282__540",
+      "source_node_id": "endpoint_640",
+      "destination_node_id": "junction_282",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_641__junction_279__30",
+      "source_node_id": "endpoint_641",
+      "destination_node_id": "junction_279",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_642__junction_274__3130",
+      "source_node_id": "endpoint_642",
+      "destination_node_id": "junction_274",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_645__junction_285__19",
+      "source_node_id": "endpoint_645",
+      "destination_node_id": "junction_285",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_647__junction_290__5",
+      "source_node_id": "endpoint_647",
+      "destination_node_id": "junction_290",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_649__junction_285__5",
+      "source_node_id": "endpoint_649",
+      "destination_node_id": "junction_285",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_650__junction_285__3",
+      "source_node_id": "endpoint_650",
+      "destination_node_id": "junction_285",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_653__junction_275__518",
+      "source_node_id": "endpoint_653",
+      "destination_node_id": "junction_275",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_655__junction_286__49",
+      "source_node_id": "endpoint_655",
+      "destination_node_id": "junction_286",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_656__junction_304__15",
+      "source_node_id": "endpoint_656",
+      "destination_node_id": "junction_304",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_657__junction_305__15",
+      "source_node_id": "endpoint_657",
+      "destination_node_id": "junction_305",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_658__junction_306__16",
+      "source_node_id": "endpoint_658",
+      "destination_node_id": "junction_306",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_659__junction_325__114",
+      "source_node_id": "endpoint_659",
+      "destination_node_id": "junction_325",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_660__endpoint_661__95",
+      "source_node_id": "endpoint_660",
+      "destination_node_id": "endpoint_661",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_662__junction_319__100",
+      "source_node_id": "endpoint_662",
+      "destination_node_id": "junction_319",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_663__junction_335__315",
+      "source_node_id": "endpoint_663",
+      "destination_node_id": "junction_335",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_664__junction_360__278",
+      "source_node_id": "endpoint_664",
+      "destination_node_id": "junction_360",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_665__endpoint_668__242",
+      "source_node_id": "endpoint_665",
+      "destination_node_id": "endpoint_668",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_666__junction_333__36",
+      "source_node_id": "endpoint_666",
+      "destination_node_id": "junction_333",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_667__junction_334__16",
+      "source_node_id": "endpoint_667",
+      "destination_node_id": "junction_334",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_669__junction_349__237",
+      "source_node_id": "endpoint_669",
+      "destination_node_id": "junction_349",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_670__endpoint_671__15",
+      "source_node_id": "endpoint_670",
+      "destination_node_id": "endpoint_671",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_672__junction_289__331",
+      "source_node_id": "endpoint_672",
+      "destination_node_id": "junction_289",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_673__junction_290__340",
+      "source_node_id": "endpoint_673",
+      "destination_node_id": "junction_290",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_674__junction_398__8",
+      "source_node_id": "endpoint_674",
+      "destination_node_id": "junction_398",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_675__endpoint_676__54",
+      "source_node_id": "endpoint_675",
+      "destination_node_id": "endpoint_676",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "endpoint_677__junction_405__15",
+      "source_node_id": "endpoint_677",
+      "destination_node_id": "junction_405",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_678__junction_406__8",
+      "source_node_id": "endpoint_678",
+      "destination_node_id": "junction_406",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_679__junction_399__4",
+      "source_node_id": "endpoint_679",
+      "destination_node_id": "junction_399",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_680__junction_410__146",
+      "source_node_id": "endpoint_680",
+      "destination_node_id": "junction_410",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_681__junction_412__14",
+      "source_node_id": "endpoint_681",
+      "destination_node_id": "junction_412",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_682__junction_414__14",
+      "source_node_id": "endpoint_682",
+      "destination_node_id": "junction_414",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_683__junction_420__14",
+      "source_node_id": "endpoint_683",
+      "destination_node_id": "junction_420",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_684__junction_424__14",
+      "source_node_id": "endpoint_684",
+      "destination_node_id": "junction_424",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_685__junction_426__15",
+      "source_node_id": "endpoint_685",
+      "destination_node_id": "junction_426",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_686__junction_1__12824",
+      "source_node_id": "endpoint_686",
+      "destination_node_id": "junction_1",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_687__junction_430__3",
+      "source_node_id": "endpoint_687",
+      "destination_node_id": "junction_430",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_688__junction_415__28",
+      "source_node_id": "endpoint_688",
+      "destination_node_id": "junction_415",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_689__junction_427__28",
+      "source_node_id": "endpoint_689",
+      "destination_node_id": "junction_427",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_690__junction_333__257",
+      "source_node_id": "endpoint_690",
+      "destination_node_id": "junction_333",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_691__junction_413__29",
+      "source_node_id": "endpoint_691",
+      "destination_node_id": "junction_413",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_692__junction_417__29",
+      "source_node_id": "endpoint_692",
+      "destination_node_id": "junction_417",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_693__junction_419__29",
+      "source_node_id": "endpoint_693",
+      "destination_node_id": "junction_419",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_694__junction_421__29",
+      "source_node_id": "endpoint_694",
+      "destination_node_id": "junction_421",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_695__junction_423__29",
+      "source_node_id": "endpoint_695",
+      "destination_node_id": "junction_423",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_696__junction_425__29",
+      "source_node_id": "endpoint_696",
+      "destination_node_id": "junction_425",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_697__junction_428__29",
+      "source_node_id": "endpoint_697",
+      "destination_node_id": "junction_428",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_698__junction_416__31",
+      "source_node_id": "endpoint_698",
+      "destination_node_id": "junction_416",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_699__junction_418__34",
+      "source_node_id": "endpoint_699",
+      "destination_node_id": "junction_418",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "endpoint_700__junction_430__16",
+      "source_node_id": "endpoint_700",
+      "destination_node_id": "junction_430",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "junction_terminal"
+    },
+    {
+      "edge_id": "bridge::junction_136__endpoint_463__485",
+      "source_node_id": "junction_136",
+      "destination_node_id": "endpoint_463",
+      "source_terminal_role": "junction_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "bridge::endpoint_531__endpoint_528__81",
+      "source_node_id": "endpoint_531",
+      "destination_node_id": "endpoint_528",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "bridge::endpoint_528__endpoint_530__58",
+      "source_node_id": "endpoint_528",
+      "destination_node_id": "endpoint_530",
+      "source_terminal_role": "unresolved_terminal",
+      "destination_terminal_role": "inline_passthrough"
+    },
+    {
+      "edge_id": "bridge::junction_294__endpoint_655__55",
+      "source_node_id": "junction_294",
+      "destination_node_id": "endpoint_655",
+      "source_terminal_role": "junction_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    },
+    {
+      "edge_id": "bridge::junction_310__endpoint_659__56",
+      "source_node_id": "junction_310",
+      "destination_node_id": "endpoint_659",
+      "source_terminal_role": "junction_terminal",
+      "destination_terminal_role": "unresolved_terminal"
+    }
+  ]
+}

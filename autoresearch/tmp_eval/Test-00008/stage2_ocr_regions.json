@@ -1,0 +1,7030 @@
+{
+  "image_id": "Test-00008.jpg",
+  "pass_type": "sheet",
+  "text_regions": [
+    {
+      "text": "14780-8120-25-25-0009",
+      "normalized_text": "14780-8120-25-25-0009",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 194,
+        "y_min": 42,
+        "x_max": 557,
+        "y_max": 62
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000001"
+    },
+    {
+      "text": "ND | DIAGRAM IS DIAGRAMATIC ONLY. DESIGN OF PIPE LINE",
+      "normalized_text": "ND | DIAGRAM IS DIAGRAMATIC ONLY. DESIGN OF PIPE LINE",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 21,
+        "y_min": 1045,
+        "x_max": 36,
+        "y_max": 1594
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000112"
+    },
+    {
+      "text": "MUST",
+      "normalized_text": "MUST",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 21,
+        "y_min": 963,
+        "x_max": 36,
+        "y_max": 1009
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000104"
+    },
+    {
+      "text": "S IN PIPING, PUMPS AND EQUIPMENT FOR FREEZING AND DRAIN",
+      "normalized_text": "S IN PIPING, PUMPS AND EQUIPMENT FOR FREEZING AND DRAIN",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 48,
+        "y_min": 1003,
+        "x_max": 65,
+        "y_max": 1598
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000108"
+    },
+    {
+      "text": "ING",
+      "normalized_text": "ING",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 48,
+        "y_min": 973,
+        "x_max": 63,
+        "y_max": 1000
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000105"
+    },
+    {
+      "text": "INVESTIGATED FOR VENTING",
+      "normalized_text": "INVESTIGATED FOR VENTING",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 21,
+        "y_min": 671,
+        "x_max": 36,
+        "y_max": 916
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000069"
+    },
+    {
+      "text": "GAS AND VAPOR POCKETS IN PIPING AND EQUIPMENT.",
+      "normalized_text": "GAS AND VAPOR POCKETS IN PIPING AND EQUIPMENT.",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 21,
+        "y_min": 124,
+        "x_max": 37,
+        "y_max": 623
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000010"
+    },
+    {
+      "text": "AND ACCESSIBILITY",
+      "normalized_text": "AND ACCESSIBILITY",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 48,
+        "y_min": 786,
+        "x_max": 63,
+        "y_max": 956
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000080"
+    },
+    {
+      "text": "OF",
+      "normalized_text": "OF",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 48,
+        "y_min": 752,
+        "x_max": 63,
+        "y_max": 774
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000078"
+    },
+    {
+      "text": "260",
+      "normalized_text": "260",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 49,
+        "y_min": 720,
+        "x_max": 99,
+        "y_max": 741
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000075"
+    },
+    {
+      "text": "VALVES,",
+      "normalized_text": "VALVES,",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 48,
+        "y_min": 631,
+        "x_max": 65,
+        "y_max": 699
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000063"
+    },
+    {
+      "text": "FLANGES, INSTRUMENTS INCLUDING THERMOCOUPLES, ETC.",
+      "normalized_text": "FLANGES, INSTRUMENTS INCLUDING THERMOCOUPLES, ETC.",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 48,
+        "y_min": 84,
+        "x_max": 65,
+        "y_max": 617
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000008"
+    },
+    {
+      "text": "FROM EXTRACTION OIL",
+      "normalized_text": "FROM EXTRACTION OIL",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 224,
+        "y_min": 620,
+        "x_max": 479,
+        "y_max": 638
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000061"
+    },
+    {
+      "text": "CAUSTIC SCRUBBING COLUMN",
+      "normalized_text": "CAUSTIC SCRUBBING COLUMN",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 221,
+        "y_min": 645,
+        "x_max": 556,
+        "y_max": 662
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000064"
+    },
+    {
+      "text": "25-0008",
+      "normalized_text": "25-0008",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 252,
+        "y_min": 679,
+        "x_max": 354,
+        "y_max": 696
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000072"
+    },
+    {
+      "text": "1\"-",
+      "normalized_text": "1\"-",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 629,
+        "y_min": 1292,
+        "x_max": 650,
+        "y_max": 1312
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000142"
+    },
+    {
+      "text": "B",
+      "normalized_text": "B",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 836,
+        "y_min": 55,
+        "x_max": 849,
+        "y_max": 73
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000002"
+    },
+    {
+      "text": "- 0\u2014",
+      "normalized_text": "- 0\u2014",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 892,
+        "y_min": 518,
+        "x_max": 989,
+        "y_max": 535
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000042"
+    },
+    {
+      "text": "- 0 -",
+      "normalized_text": "- 0 -",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 994,
+        "y_min": 518,
+        "x_max": 1054,
+        "y_max": 535
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000043"
+    },
+    {
+      "text": "0 - 0 - 0-0-0.",
+      "normalized_text": "0 - 0 - 0-0-0.",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1130,
+        "y_min": 518,
+        "x_max": 1587,
+        "y_max": 535
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000044"
+    },
+    {
+      "text": "6\"- CUL- 25-008001-B1A1-NI",
+      "normalized_text": "6\"- CUL- 25-008001-B1A1-NI",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 939,
+        "y_min": 652,
+        "x_max": 1282,
+        "y_max": 672
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000067"
+    },
+    {
+      "text": "FIC",
+      "normalized_text": "FIC",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 818,
+        "y_min": 906,
+        "x_max": 850,
+        "y_max": 924
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000092"
+    },
+    {
+      "text": "0901",
+      "normalized_text": "0901",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 806,
+        "y_min": 951,
+        "x_max": 855,
+        "y_max": 969
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000103"
+    },
+    {
+      "text": "CORIOLIS",
+      "normalized_text": "CORIOLIS",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 705,
+        "y_min": 1160,
+        "x_max": 802,
+        "y_max": 1178
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000127"
+    },
+    {
+      "text": "0901",
+      "normalized_text": "0901",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 806,
+        "y_min": 1131,
+        "x_max": 855,
+        "y_max": 1148
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000123"
+    },
+    {
+      "text": "1/2\"",
+      "normalized_text": "1/2\"",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 811,
+        "y_min": 1224,
+        "x_max": 860,
+        "y_max": 1249
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000137"
+    },
+    {
+      "text": "0901",
+      "normalized_text": "0901",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 956,
+        "y_min": 1123,
+        "x_max": 1004,
+        "y_max": 1141
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000122"
+    },
+    {
+      "text": "SEE STD DWG 8-138",
+      "normalized_text": "SEE STD DWG 8-138",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1089,
+        "y_min": 1030,
+        "x_max": 1330,
+        "y_max": 1048
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000111"
+    },
+    {
+      "text": "TYPE I",
+      "normalized_text": "TYPE I",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1089,
+        "y_min": 1060,
+        "x_max": 1163,
+        "y_max": 1078
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000114"
+    },
+    {
+      "text": "(CONNECT TO",
+      "normalized_text": "(CONNECT TO",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1089,
+        "y_min": 1090,
+        "x_max": 1242,
+        "y_max": 1112
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000118"
+    },
+    {
+      "text": "FRACTIONATION",
+      "normalized_text": "FRACTIONATION",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1089,
+        "y_min": 1120,
+        "x_max": 1259,
+        "y_max": 1137
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000121"
+    },
+    {
+      "text": "CLOSED DRAIN HEADER)",
+      "normalized_text": "CLOSED DRAIN HEADER)",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1089,
+        "y_min": 1150,
+        "x_max": 1354,
+        "y_max": 1167
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000125"
+    },
+    {
+      "text": "1\"",
+      "normalized_text": "1\"",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1048,
+        "y_min": 1217,
+        "x_max": 1067,
+        "y_max": 1237
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000136"
+    },
+    {
+      "text": "\"\"",
+      "normalized_text": "\"\"",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1059,
+        "y_min": 1278,
+        "x_max": 1067,
+        "y_max": 1285
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000140"
+    },
+    {
+      "text": "2\"-CUL- 25-009012-B1A1-NI",
+      "normalized_text": "2\"-CUL- 25-009012-B1A1-NI",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 794,
+        "y_min": 1478,
+        "x_max": 1136,
+        "y_max": 1499
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000161"
+    },
+    {
+      "text": "- NORMALLY",
+      "normalized_text": "- NORMALLY",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1265,
+        "y_min": 1400,
+        "x_max": 1382,
+        "y_max": 1417
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000150"
+    },
+    {
+      "text": "NO FLOW",
+      "normalized_text": "NO FLOW",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1323,
+        "y_min": 1430,
+        "x_max": 1333,
+        "y_max": 1447
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000154"
+    },
+    {
+      "text": "(FOR FILLING)",
+      "normalized_text": "(FOR FILLING)",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1275,
+        "y_min": 1459,
+        "x_max": 1409,
+        "y_max": 1477
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000158"
+    },
+    {
+      "text": "MS- 12 B2A1",
+      "normalized_text": "MS- 12 B2A1",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1296,
+        "y_min": 1512,
+        "x_max": 1443,
+        "y_max": 1529
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000172"
+    },
+    {
+      "text": "BLANKOFF WHEN",
+      "normalized_text": "BLANKOFF WHEN",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1185,
+        "y_min": 1548,
+        "x_max": 1372,
+        "y_max": 1565
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000179"
+    },
+    {
+      "text": "NOT IN USE -",
+      "normalized_text": "NOT IN USE -",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1185,
+        "y_min": 1577,
+        "x_max": 1319,
+        "y_max": 1595
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000186"
+    },
+    {
+      "text": "80-",
+      "normalized_text": "80-",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1496,
+        "y_min": 1448,
+        "x_max": 1517,
+        "y_max": 1458
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000156"
+    },
+    {
+      "text": "1101",
+      "normalized_text": "1101",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1540,
+        "y_min": 1481,
+        "x_max": 1561,
+        "y_max": 1498
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000162"
+    },
+    {
+      "text": "-",
+      "normalized_text": "-",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 125,
+        "y_min": 498,
+        "x_max": 143,
+        "y_max": 514
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000040"
+    },
+    {
+      "text": "- VI",
+      "normalized_text": "- VI",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 970,
+        "y_min": 1079,
+        "x_max": 997,
+        "y_max": 1093
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000117"
+    },
+    {
+      "text": "D",
+      "normalized_text": "D",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1771,
+        "y_min": 55,
+        "x_max": 1783,
+        "y_max": 73
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000003"
+    },
+    {
+      "text": "E",
+      "normalized_text": "E",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2238,
+        "y_min": 55,
+        "x_max": 2249,
+        "y_max": 73
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000004"
+    },
+    {
+      "text": "ITEM No. : D-2507",
+      "normalized_text": "ITEM No. : D-2507",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1817,
+        "y_min": 139,
+        "x_max": 1906,
+        "y_max": 152
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000012"
+    },
+    {
+      "text": "SERVICE: SOLVENT DRUM",
+      "normalized_text": "SERVICE: SOLVENT DRUM",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1739,
+        "y_min": 168,
+        "x_max": 2039,
+        "y_max": 185
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000014"
+    },
+    {
+      "text": "SIZE DIAMETER X LENGTH(T/T) : 2600mm x 7800mm",
+      "normalized_text": "SIZE DIAMETER X LENGTH(T/T) : 2600mm x 7800mm",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1739,
+        "y_min": 201,
+        "x_max": 2368,
+        "y_max": 219
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000017"
+    },
+    {
+      "text": "DESIGN PRESS. AND TEMP. : FV, 3.5 kg/cm2g / 250\u00b0C, 120\u00b0C",
+      "normalized_text": "DESIGN PRESS. AND TEMP. : FV, 3.5 kg/cm2g / 250\u00b0C, 120\u00b0C",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1739,
+        "y_min": 232,
+        "x_max": 2477,
+        "y_max": 257
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000020"
+    },
+    {
+      "text": "OPERATING PRESS. AND TEMP. : 0.2 kg/cm2g / 57\u00b0C",
+      "normalized_text": "OPERATING PRESS. AND TEMP. : 0.2 kg/cm2g / 57\u00b0C",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1739,
+        "y_min": 269,
+        "x_max": 2374,
+        "y_max": 291
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000023"
+    },
+    {
+      "text": "MISC CONNS: CUL-25-009021-B1A1-NI",
+      "normalized_text": "MISC CONNS: CUL-25-009021-B1A1-NI",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1739,
+        "y_min": 302,
+        "x_max": 2217,
+        "y_max": 320
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000028"
+    },
+    {
+      "text": "CUL -25-009022-B1A2-NI, PWHT",
+      "normalized_text": "CUL -25-009022-B1A2-NI, PWHT",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1960,
+        "y_min": 340,
+        "x_max": 2229,
+        "y_max": 352
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000031"
+    },
+    {
+      "text": "INSULATION: NI",
+      "normalized_text": "INSULATION: NI",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1882,
+        "y_min": 367,
+        "x_max": 1885,
+        "y_max": 379
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000033"
+    },
+    {
+      "text": "F",
+      "normalized_text": "F",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2706,
+        "y_min": 55,
+        "x_max": 2717,
+        "y_max": 73
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000005"
+    },
+    {
+      "text": "\" 2\"",
+      "normalized_text": "\" 2\"",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1370,
+        "y_min": 1173,
+        "x_max": 1394,
+        "y_max": 1193
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000130"
+    },
+    {
+      "text": "524\"",
+      "normalized_text": "524\"",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1602,
+        "y_min": 1509,
+        "x_max": 1640,
+        "y_max": 1529
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000171"
+    },
+    {
+      "text": "ID",
+      "normalized_text": "ID",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1656,
+        "y_min": 1512,
+        "x_max": 1674,
+        "y_max": 1529
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000173"
+    },
+    {
+      "text": "W01",
+      "normalized_text": "W01",
+      "class": "instrument_tag",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1614,
+        "y_min": 1546,
+        "x_max": 1654,
+        "y_max": 1568
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000178"
+    },
+    {
+      "text": "- 0 \u2014",
+      "normalized_text": "- 0 \u2014",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1658,
+        "y_min": 518,
+        "x_max": 1723,
+        "y_max": 535
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000045"
+    },
+    {
+      "text": "- 0-0-0-0-",
+      "normalized_text": "- 0-0-0-0-",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1790,
+        "y_min": 518,
+        "x_max": 2138,
+        "y_max": 535
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000046"
+    },
+    {
+      "text": "- 0 \u2014",
+      "normalized_text": "- 0 \u2014",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2205,
+        "y_min": 518,
+        "x_max": 2318,
+        "y_max": 535
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000047"
+    },
+    {
+      "text": "- 0 - 0\u2014",
+      "normalized_text": "- 0 - 0\u2014",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2341,
+        "y_min": 518,
+        "x_max": 2468,
+        "y_max": 535
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000048"
+    },
+    {
+      "text": "- 0-",
+      "normalized_text": "- 0-",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2535,
+        "y_min": 518,
+        "x_max": 2634,
+        "y_max": 535
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000049"
+    },
+    {
+      "text": "- 0\u2014",
+      "normalized_text": "- 0\u2014",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2651,
+        "y_min": 518,
+        "x_max": 2737,
+        "y_max": 535
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000050"
+    },
+    {
+      "text": "- O",
+      "normalized_text": "- O",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2763,
+        "y_min": 518,
+        "x_max": 2798,
+        "y_max": 535
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000051"
+    },
+    {
+      "text": "LO",
+      "normalized_text": "LO",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2214,
+        "y_min": 616,
+        "x_max": 2222,
+        "y_max": 628
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000060"
+    },
+    {
+      "text": "FREE",
+      "normalized_text": "FREE",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2005,
+        "y_min": 675,
+        "x_max": 2058,
+        "y_max": 692
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000070"
+    },
+    {
+      "text": "DRAINING",
+      "normalized_text": "DRAINING",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2005,
+        "y_min": 705,
+        "x_max": 2106,
+        "y_max": 722
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000074"
+    },
+    {
+      "text": "1\"",
+      "normalized_text": "1\"",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2190,
+        "y_min": 941,
+        "x_max": 2199,
+        "y_max": 948
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000100"
+    },
+    {
+      "text": "PI",
+      "normalized_text": "PI",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2005,
+        "y_min": 1340,
+        "x_max": 2022,
+        "y_max": 1357
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000145"
+    },
+    {
+      "text": "0901",
+      "normalized_text": "0901",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1989,
+        "y_min": 1385,
+        "x_max": 2038,
+        "y_max": 1402
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000146"
+    },
+    {
+      "text": "002",
+      "normalized_text": "002",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1997,
+        "y_min": 1481,
+        "x_max": 2031,
+        "y_max": 1498
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000163"
+    },
+    {
+      "text": "6\"-F-25-009001-B1A1-NI",
+      "normalized_text": "6\"-F-25-009001-B1A1-NI",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2154,
+        "y_min": 1099,
+        "x_max": 2174,
+        "y_max": 1411
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000119"
+    },
+    {
+      "text": "T",
+      "normalized_text": "T",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2137,
+        "y_min": 1459,
+        "x_max": 2158,
+        "y_max": 1477
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000159"
+    },
+    {
+      "text": "C02",
+      "normalized_text": "C02",
+      "class": "instrument_tag",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2131,
+        "y_min": 1481,
+        "x_max": 2165,
+        "y_max": 1499
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000164"
+    },
+    {
+      "text": "D-2507",
+      "normalized_text": "D-2507",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1816,
+        "y_min": 1541,
+        "x_max": 1920,
+        "y_max": 1561
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000176"
+    },
+    {
+      "text": "TO PRU",
+      "normalized_text": "TO PRU",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2396,
+        "y_min": 646,
+        "x_max": 2480,
+        "y_max": 663
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000066"
+    },
+    {
+      "text": "RELIEF HEADER",
+      "normalized_text": "RELIEF HEADER",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2399,
+        "y_min": 668,
+        "x_max": 2570,
+        "y_max": 685
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000068"
+    },
+    {
+      "text": "25-0017",
+      "normalized_text": "25-0017",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2378,
+        "y_min": 759,
+        "x_max": 2477,
+        "y_max": 777
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000079"
+    },
+    {
+      "text": "SET @",
+      "normalized_text": "SET @",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2577,
+        "y_min": 815,
+        "x_max": 2628,
+        "y_max": 828
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000082"
+    },
+    {
+      "text": "0.84 kg/cmg",
+      "normalized_text": "0.84 kg/cmg",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2587,
+        "y_min": 833,
+        "x_max": 2692,
+        "y_max": 849
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000084"
+    },
+    {
+      "text": "RO",
+      "normalized_text": "RO",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2240,
+        "y_min": 862,
+        "x_max": 2269,
+        "y_max": 879
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000087"
+    },
+    {
+      "text": "PI",
+      "normalized_text": "PI",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2341,
+        "y_min": 862,
+        "x_max": 2359,
+        "y_max": 879
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000088"
+    },
+    {
+      "text": "0901",
+      "normalized_text": "0901",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2509,
+        "y_min": 892,
+        "x_max": 2569,
+        "y_max": 915
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000090"
+    },
+    {
+      "text": "0901,",
+      "normalized_text": "0901,",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2230,
+        "y_min": 907,
+        "x_max": 2279,
+        "y_max": 924
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000094"
+    },
+    {
+      "text": "0904,",
+      "normalized_text": "0904,",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2316,
+        "y_min": 906,
+        "x_max": 2383,
+        "y_max": 929
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000093"
+    },
+    {
+      "text": "1\u00bd\"- N-53-",
+      "normalized_text": "1\u00bd\"- N-53-",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2747,
+        "y_min": 924,
+        "x_max": 2864,
+        "y_max": 947
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000096"
+    },
+    {
+      "text": "5MM",
+      "normalized_text": "5MM",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2284,
+        "y_min": 937,
+        "x_max": 2328,
+        "y_max": 955
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000099"
+    },
+    {
+      "text": "1/2\"",
+      "normalized_text": "1/2\"",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2426,
+        "y_min": 999,
+        "x_max": 2475,
+        "y_max": 1024
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000107"
+    },
+    {
+      "text": "RO",
+      "normalized_text": "RO",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2241,
+        "y_min": 1027,
+        "x_max": 2270,
+        "y_max": 1044
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000110"
+    },
+    {
+      "text": "0902,",
+      "normalized_text": "0902,",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2228,
+        "y_min": 1072,
+        "x_max": 2283,
+        "y_max": 1089
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000115"
+    },
+    {
+      "text": "- FOR START-UP",
+      "normalized_text": "- FOR START-UP",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2605,
+        "y_min": 1053,
+        "x_max": 2779,
+        "y_max": 1070
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000113"
+    },
+    {
+      "text": "16MM",
+      "normalized_text": "16MM",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2280,
+        "y_min": 1172,
+        "x_max": 2325,
+        "y_max": 1190
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000129"
+    },
+    {
+      "text": "1\"-N- 25-009013-B1A1-NI",
+      "normalized_text": "1\"-N- 25-009013-B1A1-NI",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2345,
+        "y_min": 1157,
+        "x_max": 2657,
+        "y_max": 1177
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000126"
+    },
+    {
+      "text": "RO",
+      "normalized_text": "RO",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2281,
+        "y_min": 1196,
+        "x_max": 2310,
+        "y_max": 1214
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000132"
+    },
+    {
+      "text": "SEE STD DWGS 8-121",
+      "normalized_text": "SEE STD DWGS 8-121",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2513,
+        "y_min": 1198,
+        "x_max": 2762,
+        "y_max": 1216
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000134"
+    },
+    {
+      "text": "AND 8-141",
+      "normalized_text": "AND 8-141",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2513,
+        "y_min": 1228,
+        "x_max": 2637,
+        "y_max": 1246
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000138"
+    },
+    {
+      "text": "(CONNECT TO FRACTIONATION",
+      "normalized_text": "(CONNECT TO FRACTIONATION",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2523,
+        "y_min": 1258,
+        "x_max": 2852,
+        "y_max": 1276
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000139"
+    },
+    {
+      "text": "CLOSED DRAIN HEADER)",
+      "normalized_text": "CLOSED DRAIN HEADER)",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2513,
+        "y_min": 1288,
+        "x_max": 2778,
+        "y_max": 1306
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000141"
+    },
+    {
+      "text": "2\" BLANKOFF",
+      "normalized_text": "2\" BLANKOFF",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2281,
+        "y_min": 1322,
+        "x_max": 2435,
+        "y_max": 1342
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000143"
+    },
+    {
+      "text": "34\"",
+      "normalized_text": "34\"",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2527,
+        "y_min": 1421,
+        "x_max": 2545,
+        "y_max": 1443
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000151"
+    },
+    {
+      "text": "\u00be\"",
+      "normalized_text": "\u00be\"",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2516,
+        "y_min": 1450,
+        "x_max": 2545,
+        "y_max": 1473
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000157"
+    },
+    {
+      "text": "B02",
+      "normalized_text": "B02",
+      "class": "instrument_tag",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2236,
+        "y_min": 1481,
+        "x_max": 2270,
+        "y_max": 1498
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000165"
+    },
+    {
+      "text": "R",
+      "normalized_text": "R",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2605,
+        "y_min": 1486,
+        "x_max": 2617,
+        "y_max": 1504
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000167"
+    },
+    {
+      "text": "0904",
+      "normalized_text": "0904",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2583,
+        "y_min": 1505,
+        "x_max": 2639,
+        "y_max": 1522
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000170"
+    },
+    {
+      "text": "A/B",
+      "normalized_text": "A/B",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2588,
+        "y_min": 1525,
+        "x_max": 2634,
+        "y_max": 1548
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000174"
+    },
+    {
+      "text": "- 13",
+      "normalized_text": "- 13",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2858,
+        "y_min": 1503,
+        "x_max": 2863,
+        "y_max": 1520
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000169"
+    },
+    {
+      "text": "52\".",
+      "normalized_text": "52\".",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1983,
+        "y_min": 1568,
+        "x_max": 2007,
+        "y_max": 1589
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000185"
+    },
+    {
+      "text": "HLL 1645 mm",
+      "normalized_text": "HLL 1645 mm",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2107,
+        "y_min": 1560,
+        "x_max": 2240,
+        "y_max": 1577
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000183"
+    },
+    {
+      "text": "LT",
+      "normalized_text": "LT",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2756,
+        "y_min": 1549,
+        "x_max": 2780,
+        "y_max": 1566
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000180"
+    },
+    {
+      "text": "3\u00be\"",
+      "normalized_text": "3\u00be\"",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2516,
+        "y_min": 1563,
+        "x_max": 2545,
+        "y_max": 1586
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000184"
+    },
+    {
+      "text": "MIN",
+      "normalized_text": "MIN",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2080,
+        "y_min": 1204,
+        "x_max": 2097,
+        "y_max": 1239
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000135"
+    },
+    {
+      "text": "- 2\"",
+      "normalized_text": "- 2\"",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2371,
+        "y_min": 1427,
+        "x_max": 2395,
+        "y_max": 1447
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000153"
+    },
+    {
+      "text": "2\"-",
+      "normalized_text": "2\"-",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1948,
+        "y_min": 1434,
+        "x_max": 1972,
+        "y_max": 1454
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000155"
+    },
+    {
+      "text": "50",
+      "normalized_text": "50",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2191,
+        "y_min": 1427,
+        "x_max": 2213,
+        "y_max": 1447
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000152"
+    },
+    {
+      "text": "G",
+      "normalized_text": "G",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3174,
+        "y_min": 55,
+        "x_max": 3187,
+        "y_max": 73
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000006"
+    },
+    {
+      "text": "H",
+      "normalized_text": "H",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3641,
+        "y_min": 56,
+        "x_max": 3654,
+        "y_max": 72
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000007"
+    },
+    {
+      "text": "ITEM No. : P-2507A/B",
+      "normalized_text": "ITEM No. : P-2507A/B",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3351,
+        "y_min": 134,
+        "x_max": 3622,
+        "y_max": 152
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000011"
+    },
+    {
+      "text": "SERVICE : SOLVENT PUMPS",
+      "normalized_text": "SERVICE : SOLVENT PUMPS",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3351,
+        "y_min": 168,
+        "x_max": 3667,
+        "y_max": 185
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000015"
+    },
+    {
+      "text": "SPECIFIC GRAVITY @ PUMPING TEMP.: 0.841",
+      "normalized_text": "SPECIFIC GRAVITY @ PUMPING TEMP.: 0.841",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3409,
+        "y_min": 202,
+        "x_max": 3870,
+        "y_max": 219
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000018"
+    },
+    {
+      "text": "DESIGN CAPACITY : 141 m3/hr",
+      "normalized_text": "DESIGN CAPACITY : 141 m3/hr",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3351,
+        "y_min": 235,
+        "x_max": 3713,
+        "y_max": 252
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000021"
+    },
+    {
+      "text": "DIFFERENTIAL PRESS. : 8.71 kg/cm2",
+      "normalized_text": "DIFFERENTIAL PRESS. : 8.71 kg/cm2",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3351,
+        "y_min": 269,
+        "x_max": 3780,
+        "y_max": 291
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000024"
+    },
+    {
+      "text": "(SEE STD DWG 8-137)",
+      "normalized_text": "(SEE STD DWG 8-137)",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3351,
+        "y_min": 300,
+        "x_max": 3603,
+        "y_max": 324
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000027"
+    },
+    {
+      "text": "MOTOR POWER: 110 kw",
+      "normalized_text": "MOTOR POWER: 110 kw",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3351,
+        "y_min": 335,
+        "x_max": 3631,
+        "y_max": 352
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000030"
+    },
+    {
+      "text": "INSULATION: NI",
+      "normalized_text": "INSULATION: NI",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3494,
+        "y_min": 373,
+        "x_max": 3497,
+        "y_max": 386
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000034"
+    },
+    {
+      "text": "- 0 \u2014",
+      "normalized_text": "- 0 \u2014",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2866,
+        "y_min": 518,
+        "x_max": 2961,
+        "y_max": 535
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000052"
+    },
+    {
+      "text": "- O",
+      "normalized_text": "- O",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2982,
+        "y_min": 518,
+        "x_max": 3019,
+        "y_max": 535
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000053"
+    },
+    {
+      "text": "N",
+      "normalized_text": "N",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2945,
+        "y_min": 974,
+        "x_max": 2958,
+        "y_max": 991
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000106"
+    },
+    {
+      "text": "53-0051",
+      "normalized_text": "53-0051",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2901,
+        "y_min": 1021,
+        "x_max": 2996,
+        "y_max": 1038
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000109"
+    },
+    {
+      "text": "6\"- CUL - 25- 009004- B1A1 -NI",
+      "normalized_text": "6\"- CUL - 25- 009004- B1A1 -NI",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3592,
+        "y_min": 1325,
+        "x_max": 3937,
+        "y_max": 1345
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000144"
+    },
+    {
+      "text": "LIC",
+      "normalized_text": "LIC",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3081,
+        "y_min": 1549,
+        "x_max": 3112,
+        "y_max": 1566
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000181"
+    },
+    {
+      "text": "LAH",
+      "normalized_text": "LAH",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2929,
+        "y_min": 1557,
+        "x_max": 2970,
+        "y_max": 1581
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000182"
+    },
+    {
+      "text": "\u2022 6\"- CUL- 25-009005-B1A1 -N",
+      "normalized_text": "\u2022 6\"- CUL- 25-009005-B1A1 -N",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3597,
+        "y_min": 1530,
+        "x_max": 3937,
+        "y_max": 1551
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000175"
+    },
+    {
+      "text": "PI",
+      "normalized_text": "PI",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3697,
+        "y_min": 1580,
+        "x_max": 3715,
+        "y_max": 1597
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000189"
+    },
+    {
+      "text": "2.",
+      "normalized_text": "2.",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4128,
+        "y_min": 256,
+        "x_max": 4145,
+        "y_max": 274
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000022"
+    },
+    {
+      "text": "3.",
+      "normalized_text": "3.",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4128,
+        "y_min": 316,
+        "x_max": 4145,
+        "y_max": 334
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000029"
+    },
+    {
+      "text": "5.",
+      "normalized_text": "5.",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4128,
+        "y_min": 436,
+        "x_max": 4145,
+        "y_max": 453
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000037"
+    },
+    {
+      "text": "8.",
+      "normalized_text": "8.",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4142,
+        "y_min": 628,
+        "x_max": 4145,
+        "y_max": 632
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000062"
+    },
+    {
+      "text": "1.",
+      "normalized_text": "1.",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4140,
+        "y_min": 816,
+        "x_max": 4144,
+        "y_max": 820
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000083"
+    },
+    {
+      "text": "2.",
+      "normalized_text": "2.",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4128,
+        "y_min": 879,
+        "x_max": 4146,
+        "y_max": 896
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000089"
+    },
+    {
+      "text": "6.",
+      "normalized_text": "6.",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4127,
+        "y_min": 495,
+        "x_max": 4145,
+        "y_max": 513
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000039"
+    },
+    {
+      "text": "- O",
+      "normalized_text": "- O",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3087,
+        "y_min": 692,
+        "x_max": 3104,
+        "y_max": 709
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000073"
+    },
+    {
+      "text": "- O",
+      "normalized_text": "- O",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3087,
+        "y_min": 802,
+        "x_max": 3104,
+        "y_max": 819
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000081"
+    },
+    {
+      "text": "- O",
+      "normalized_text": "- O",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3087,
+        "y_min": 912,
+        "x_max": 3104,
+        "y_max": 929
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000095"
+    },
+    {
+      "text": "\u2022 0 -",
+      "normalized_text": "\u2022 0 -",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3087,
+        "y_min": 557,
+        "x_max": 3104,
+        "y_max": 613
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000056"
+    },
+    {
+      "text": "-",
+      "normalized_text": "-",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2981,
+        "y_min": 1579,
+        "x_max": 3007,
+        "y_max": 1581
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000187"
+    },
+    {
+      "text": "GENERAL NOTES",
+      "normalized_text": "GENERAL NOTES",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4460,
+        "y_min": 114,
+        "x_max": 4471,
+        "y_max": 130
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000009"
+    },
+    {
+      "text": "1. FOR ABBREVIATIONS, SYMBOLS & GENERAL NOTES,",
+      "normalized_text": "1. FOR ABBREVIATIONS, SYMBOLS & GENERAL NOTES,",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4128,
+        "y_min": 167,
+        "x_max": 4748,
+        "y_max": 187
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000013"
+    },
+    {
+      "text": "REFER TO LEGEND SHEETS",
+      "normalized_text": "REFER TO LEGEND SHEETS",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4154,
+        "y_min": 197,
+        "x_max": 4460,
+        "y_max": 214
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000016"
+    },
+    {
+      "text": "14780-8120-25-20-0001A THRU 0004.",
+      "normalized_text": "14780-8120-25-20-0001A THRU 0004.",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4155,
+        "y_min": 226,
+        "x_max": 4624,
+        "y_max": 244
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000019"
+    },
+    {
+      "text": "THIS DRAWING WILL BE PREFIXED BY UNIT NO. 2500.",
+      "normalized_text": "THIS DRAWING WILL BE PREFIXED BY UNIT NO. 2500.",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4155,
+        "y_min": 286,
+        "x_max": 4768,
+        "y_max": 304
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000026"
+    },
+    {
+      "text": "REFER TO DWG. 14780-8120-25-25-0001.",
+      "normalized_text": "REFER TO DWG. 14780-8120-25-25-0001.",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4327,
+        "y_min": 354,
+        "x_max": 4658,
+        "y_max": 363
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000032"
+    },
+    {
+      "text": "4. FOR DETAILS OF CONTROL VALVE VENT & DRAIN,",
+      "normalized_text": "4. FOR DETAILS OF CONTROL VALVE VENT & DRAIN,",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4142,
+        "y_min": 389,
+        "x_max": 4734,
+        "y_max": 396
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000035"
+    },
+    {
+      "text": "REFER TO DWG. 14780-8120-25-25-0001A.",
+      "normalized_text": "REFER TO DWG. 14780-8120-25-25-0001A.",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4327,
+        "y_min": 414,
+        "x_max": 4674,
+        "y_max": 423
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000036"
+    },
+    {
+      "text": "REFER TO DWG. 14780-8120-25-25-0001B.",
+      "normalized_text": "REFER TO DWG. 14780-8120-25-25-0001B.",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4154,
+        "y_min": 465,
+        "x_max": 4673,
+        "y_max": 483
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000038"
+    },
+    {
+      "text": "REFER TO DWG. 14780-8120-25-25-0001C.",
+      "normalized_text": "REFER TO DWG. 14780-8120-25-25-0001C.",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4327,
+        "y_min": 534,
+        "x_max": 4673,
+        "y_max": 543
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000054"
+    },
+    {
+      "text": "7. FOR DETAILS OF SAMPLING SYSTEM,",
+      "normalized_text": "7. FOR DETAILS OF SAMPLING SYSTEM,",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4128,
+        "y_min": 555,
+        "x_max": 4577,
+        "y_max": 575
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000055"
+    },
+    {
+      "text": "REFER TO DWG. 14780-8120-25-25-0001D",
+      "normalized_text": "REFER TO DWG. 14780-8120-25-25-0001D",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4327,
+        "y_min": 586,
+        "x_max": 4649,
+        "y_max": 602
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000059"
+    },
+    {
+      "text": "CONTROL AND SEAL PLAN, REFER TO DWG.",
+      "normalized_text": "CONTROL AND SEAL PLAN, REFER TO DWG.",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4154,
+        "y_min": 645,
+        "x_max": 4653,
+        "y_max": 665
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000065"
+    },
+    {
+      "text": "14780-8120-25-25-0001F~H.",
+      "normalized_text": "14780-8120-25-25-0001F~H.",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4155,
+        "y_min": 675,
+        "x_max": 4512,
+        "y_max": 692
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000071"
+    },
+    {
+      "text": "NOTES",
+      "normalized_text": "NOTES",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4437,
+        "y_min": 746,
+        "x_max": 4506,
+        "y_max": 763
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000077"
+    },
+    {
+      "text": "14780-8120-25-25-0001F \"TYPE H\"",
+      "normalized_text": "14780-8120-25-25-0001F \"TYPE H\"",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4159,
+        "y_min": 833,
+        "x_max": 4596,
+        "y_max": 854
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000085"
+    },
+    {
+      "text": "RACK IS ENLARGED TO 2\" AS PER PROJECT",
+      "normalized_text": "RACK IS ENLARGED TO 2\" AS PER PROJECT",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4166,
+        "y_min": 900,
+        "x_max": 4681,
+        "y_max": 920
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000091"
+    },
+    {
+      "text": "SPECIFICATION.",
+      "normalized_text": "SPECIFICATION.",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4224,
+        "y_min": 930,
+        "x_max": 4333,
+        "y_max": 947
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000097"
+    },
+    {
+      "text": "- 70",
+      "normalized_text": "- 70",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4837,
+        "y_min": 276,
+        "x_max": 4885,
+        "y_max": 293
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000025"
+    },
+    {
+      "text": "- 65",
+      "normalized_text": "- 65",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4844,
+        "y_min": 500,
+        "x_max": 4856,
+        "y_max": 517
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000041"
+    },
+    {
+      "text": "- 60",
+      "normalized_text": "- 60",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4859,
+        "y_min": 723,
+        "x_max": 4885,
+        "y_max": 741
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000076"
+    },
+    {
+      "text": "- 55",
+      "normalized_text": "- 55",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4844,
+        "y_min": 947,
+        "x_max": 4870,
+        "y_max": 965
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000102"
+    },
+    {
+      "text": "- 50",
+      "normalized_text": "- 50",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4830,
+        "y_min": 1171,
+        "x_max": 4885,
+        "y_max": 1188
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000128"
+    },
+    {
+      "text": "- 45",
+      "normalized_text": "- 45",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4844,
+        "y_min": 1395,
+        "x_max": 4870,
+        "y_max": 1412
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000149"
+    },
+    {
+      "text": "35",
+      "normalized_text": "35",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 88,
+        "y_min": 1842,
+        "x_max": 114,
+        "y_max": 1860
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000252"
+    },
+    {
+      "text": "-",
+      "normalized_text": "-",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 125,
+        "y_min": 1837,
+        "x_max": 143,
+        "y_max": 1862
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000251"
+    },
+    {
+      "text": "LI",
+      "normalized_text": "LI",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1461,
+        "y_min": 1698,
+        "x_max": 1475,
+        "y_max": 1716
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000222"
+    },
+    {
+      "text": "0901",
+      "normalized_text": "0901",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1444,
+        "y_min": 1743,
+        "x_max": 1492,
+        "y_max": 1761
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000232"
+    },
+    {
+      "text": "LAH",
+      "normalized_text": "LAH",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1522,
+        "y_min": 1706,
+        "x_max": 1563,
+        "y_max": 1723
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000225"
+    },
+    {
+      "text": "COR-",
+      "normalized_text": "COR-",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1546,
+        "y_min": 1751,
+        "x_max": 1589,
+        "y_max": 1768
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000237"
+    },
+    {
+      "text": "SEE STD DWGS 8-121 5",
+      "normalized_text": "SEE STD DWGS 8-121 5",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1302,
+        "y_min": 1826,
+        "x_max": 1552,
+        "y_max": 1843
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000248"
+    },
+    {
+      "text": "AND 8-141",
+      "normalized_text": "AND 8-141",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1377,
+        "y_min": 1864,
+        "x_max": 1392,
+        "y_max": 1867
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000258"
+    },
+    {
+      "text": "(CONNECT TO PHENOLIC |",
+      "normalized_text": "(CONNECT TO PHENOLIC |",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1312,
+        "y_min": 1886,
+        "x_max": 1577,
+        "y_max": 1903
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000262"
+    },
+    {
+      "text": "WATER CLOSED DRAIN HE",
+      "normalized_text": "WATER CLOSED DRAIN HE",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1303,
+        "y_min": 1916,
+        "x_max": 1597,
+        "y_max": 1933
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000267"
+    },
+    {
+      "text": "2\"- CUL-22-004006-B1A1-NI",
+      "normalized_text": "2\"- CUL-22-004006-B1A1-NI",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 660,
+        "y_min": 1845,
+        "x_max": 680,
+        "y_max": 2190
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000256"
+    },
+    {
+      "text": "UTIAL AND THE PROPERTY OF UOP LLC AND MUST NOT BE DISCLOSED TO",
+      "normalized_text": "UTIAL AND THE PROPERTY OF UOP LLC AND MUST NOT BE DISCLOSED TO",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 21,
+        "y_min": 2200,
+        "x_max": 36,
+        "y_max": 2868
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000290"
+    },
+    {
+      "text": "ANY PURPOSE WHATSOEVER WITHOUT ITS WRITTEN PERMISSION",
+      "normalized_text": "ANY PURPOSE WHATSOEVER WITHOUT ITS WRITTEN PERMISSION",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 48,
+        "y_min": 2292,
+        "x_max": 63,
+        "y_max": 2868
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000296"
+    },
+    {
+      "text": "45",
+      "normalized_text": "45",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 88,
+        "y_min": 1395,
+        "x_max": 114,
+        "y_max": 1412
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000148"
+    },
+    {
+      "text": "S12",
+      "normalized_text": "S12",
+      "class": "instrument_tag",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 883,
+        "y_min": 1631,
+        "x_max": 920,
+        "y_max": 1649
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000206"
+    },
+    {
+      "text": "66-0059",
+      "normalized_text": "66-0059",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 851,
+        "y_min": 1678,
+        "x_max": 952,
+        "y_max": 1695
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000214"
+    },
+    {
+      "text": "2\"-S12-66-059067-MS12-H",
+      "normalized_text": "2\"-S12-66-059067-MS12-H",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 956,
+        "y_min": 1606,
+        "x_max": 1296,
+        "y_max": 1626
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000197"
+    },
+    {
+      "text": "\u00be\"P",
+      "normalized_text": "\u00be\"P",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1289,
+        "y_min": 1684,
+        "x_max": 1332,
+        "y_max": 1708
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000217"
+    },
+    {
+      "text": "25 -",
+      "normalized_text": "25 -",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 88,
+        "y_min": 2290,
+        "x_max": 114,
+        "y_max": 2307
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000294"
+    },
+    {
+      "text": "[NORMALLY",
+      "normalized_text": "[NORMALLY",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1092,
+        "y_min": 2329,
+        "x_max": 1209,
+        "y_max": 2346
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000301"
+    },
+    {
+      "text": "22-0004",
+      "normalized_text": "22-0004",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 675,
+        "y_min": 2640,
+        "x_max": 692,
+        "y_max": 2728
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000314"
+    },
+    {
+      "text": "MAKEUP CUMENE FROM",
+      "normalized_text": "MAKEUP CUMENE FROM",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 723,
+        "y_min": 2679,
+        "x_max": 990,
+        "y_max": 2697
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000315"
+    },
+    {
+      "text": "FRESH FEED PUMPS AT",
+      "normalized_text": "FRESH FEED PUMPS AT",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 723,
+        "y_min": 2709,
+        "x_max": 995,
+        "y_max": 2727
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000318"
+    },
+    {
+      "text": "OXIDATION SECTION",
+      "normalized_text": "OXIDATION SECTION",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 723,
+        "y_min": 2739,
+        "x_max": 942,
+        "y_max": 2757
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000327"
+    },
+    {
+      "text": "1\u00bd\"-PWD-25-009009-L1A1-NI",
+      "normalized_text": "1\u00bd\"-PWD-25-009009-L1A1-NI",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1418,
+        "y_min": 2305,
+        "x_max": 1441,
+        "y_max": 2665
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000298"
+    },
+    {
+      "text": "FREE",
+      "normalized_text": "FREE",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1493,
+        "y_min": 2378,
+        "x_max": 1547,
+        "y_max": 2396
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000303"
+    },
+    {
+      "text": "DRAINING",
+      "normalized_text": "DRAINING",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1493,
+        "y_min": 2408,
+        "x_max": 1595,
+        "y_max": 2425
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000305"
+    },
+    {
+      "text": "TO PHEN",
+      "normalized_text": "TO PHEN",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1498,
+        "y_min": 2696,
+        "x_max": 1596,
+        "y_max": 2714
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000316"
+    },
+    {
+      "text": "WASTE W",
+      "normalized_text": "WASTE W",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1498,
+        "y_min": 2726,
+        "x_max": 1569,
+        "y_max": 2744
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000322"
+    },
+    {
+      "text": "DRAIN HE",
+      "normalized_text": "DRAIN HE",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1498,
+        "y_min": 2756,
+        "x_max": 1591,
+        "y_max": 2774
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000331"
+    },
+    {
+      "text": "25-0015",
+      "normalized_text": "25-0015",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1392,
+        "y_min": 2784,
+        "x_max": 1490,
+        "y_max": 2801
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000334"
+    },
+    {
+      "text": "TO PRU",
+      "normalized_text": "TO PRU",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 254,
+        "y_min": 2830,
+        "x_max": 338,
+        "y_max": 2848
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000338"
+    },
+    {
+      "text": "RECYCLE PUMPS",
+      "normalized_text": "RECYCLE PUMPS",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 253,
+        "y_min": 2853,
+        "x_max": 440,
+        "y_max": 2870
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000339"
+    },
+    {
+      "text": "- 4\"P",
+      "normalized_text": "- 4\"P",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1176,
+        "y_min": 2805,
+        "x_max": 1217,
+        "y_max": 2827
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000336"
+    },
+    {
+      "text": "C| _75-000008-R141\u2014NI",
+      "normalized_text": "C| _75-000008-R141\u2014NI",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 558,
+        "y_min": 2875,
+        "x_max": 795,
+        "y_max": 2878
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000340"
+    },
+    {
+      "text": "1S01",
+      "normalized_text": "1S01",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1453,
+        "y_min": 1619,
+        "x_max": 1492,
+        "y_max": 1646
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000199"
+    },
+    {
+      "text": "DISTRIBUTOR",
+      "normalized_text": "DISTRIBUTOR",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1601,
+        "y_min": 1624,
+        "x_max": 1741,
+        "y_max": 1641
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000203"
+    },
+    {
+      "text": "N",
+      "normalized_text": "N",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1609,
+        "y_min": 1696,
+        "x_max": 1626,
+        "y_max": 1709
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000221"
+    },
+    {
+      "text": "LT",
+      "normalized_text": "LT",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1695,
+        "y_min": 1698,
+        "x_max": 1719,
+        "y_max": 1716
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000223"
+    },
+    {
+      "text": "0901,",
+      "normalized_text": "0901,",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1683,
+        "y_min": 1743,
+        "x_max": 1731,
+        "y_max": 1761
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000233"
+    },
+    {
+      "text": "GWR",
+      "normalized_text": "GWR",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1744,
+        "y_min": 1744,
+        "x_max": 1798,
+        "y_max": 1762
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000235"
+    },
+    {
+      "text": "0903",
+      "normalized_text": "0903",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1829,
+        "y_min": 1743,
+        "x_max": 1884,
+        "y_max": 1761
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000234"
+    },
+    {
+      "text": "GAUGE GLASS",
+      "normalized_text": "GAUGE GLASS",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1743,
+        "y_min": 1886,
+        "x_max": 1901,
+        "y_max": 1903
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000263"
+    },
+    {
+      "text": "MUST BE READABLE",
+      "normalized_text": "MUST BE READABLE",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1743,
+        "y_min": 1916,
+        "x_max": 1972,
+        "y_max": 1933
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000268"
+    },
+    {
+      "text": "FROM VALVE",
+      "normalized_text": "FROM VALVE",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1743,
+        "y_min": 1945,
+        "x_max": 1885,
+        "y_max": 1963
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000273"
+    },
+    {
+      "text": "TOZA 2\"",
+      "normalized_text": "TOZA 2\"",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2018,
+        "y_min": 1589,
+        "x_max": 2081,
+        "y_max": 1619
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000192"
+    },
+    {
+      "text": "LLL 955 mm",
+      "normalized_text": "LLL 955 mm",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2222,
+        "y_min": 1612,
+        "x_max": 2262,
+        "y_max": 1624
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000198"
+    },
+    {
+      "text": "895mm",
+      "normalized_text": "895mm",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2033,
+        "y_min": 1703,
+        "x_max": 2116,
+        "y_max": 1721
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000224"
+    },
+    {
+      "text": "2\"-",
+      "normalized_text": "2\"-",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1973,
+        "y_min": 1762,
+        "x_max": 1995,
+        "y_max": 1783
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000239"
+    },
+    {
+      "text": "820mm",
+      "normalized_text": "820mm",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2076,
+        "y_min": 1758,
+        "x_max": 2116,
+        "y_max": 1770
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000238"
+    },
+    {
+      "text": "LLL",
+      "normalized_text": "LLL",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2033,
+        "y_min": 1775,
+        "x_max": 2068,
+        "y_max": 1792
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000242"
+    },
+    {
+      "text": "1/45mm",
+      "normalized_text": "1/45mm",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2076,
+        "y_min": 1802,
+        "x_max": 2095,
+        "y_max": 1814
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000246"
+    },
+    {
+      "text": "-2\"T02B",
+      "normalized_text": "-2\"T02B",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1976,
+        "y_min": 1853,
+        "x_max": 2032,
+        "y_max": 1875
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000257"
+    },
+    {
+      "text": "1070",
+      "normalized_text": "1070",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2139,
+        "y_min": 1740,
+        "x_max": 2157,
+        "y_max": 1778
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000231"
+    },
+    {
+      "text": "- 2\"",
+      "normalized_text": "- 2\"",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2117,
+        "y_min": 1908,
+        "x_max": 2141,
+        "y_max": 1929
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000264"
+    },
+    {
+      "text": "2\"",
+      "normalized_text": "2\"",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2379,
+        "y_min": 1665,
+        "x_max": 2403,
+        "y_max": 1685
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000212"
+    },
+    {
+      "text": "- 2\"-FD-25-009011-B1A2-NI",
+      "normalized_text": "- 2\"-FD-25-009011-B1A2-NI",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2123,
+        "y_min": 2161,
+        "x_max": 2450,
+        "y_max": 2182
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000289"
+    },
+    {
+      "text": "GAUGE GLASS MUST",
+      "normalized_text": "GAUGE GLASS MUST",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2064,
+        "y_min": 2206,
+        "x_max": 2296,
+        "y_max": 2224
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000291"
+    },
+    {
+      "text": "BE READABLE FROM",
+      "normalized_text": "BE READABLE FROM",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2064,
+        "y_min": 2236,
+        "x_max": 2292,
+        "y_max": 2254
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000292"
+    },
+    {
+      "text": "METERING COCKS",
+      "normalized_text": "METERING COCKS",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2064,
+        "y_min": 2266,
+        "x_max": 2259,
+        "y_max": 2284
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000293"
+    },
+    {
+      "text": "G",
+      "normalized_text": "G",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2602,
+        "y_min": 1467,
+        "x_max": 2615,
+        "y_max": 1484
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000160"
+    },
+    {
+      "text": "0902",
+      "normalized_text": "0902",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2740,
+        "y_min": 1594,
+        "x_max": 2795,
+        "y_max": 1611
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000193"
+    },
+    {
+      "text": "C",
+      "normalized_text": "C",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2863,
+        "y_min": 1595,
+        "x_max": 2879,
+        "y_max": 1607
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000195"
+    },
+    {
+      "text": "10\"- CUL- 25-009002-",
+      "normalized_text": "10\"- CUL- 25-009002-",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2624,
+        "y_min": 2077,
+        "x_max": 2869,
+        "y_max": 2098
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000283"
+    },
+    {
+      "text": "1\u00bd\"- FD-25-009010-B1A1-NI",
+      "normalized_text": "1\u00bd\"- FD-25-009010-B1A1-NI",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1822,
+        "y_min": 2315,
+        "x_max": 1845,
+        "y_max": 2655
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000299"
+    },
+    {
+      "text": "FREE",
+      "normalized_text": "FREE",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1897,
+        "y_min": 2378,
+        "x_max": 1950,
+        "y_max": 2396
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000304"
+    },
+    {
+      "text": "DRAINING",
+      "normalized_text": "DRAINING",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1897,
+        "y_min": 2408,
+        "x_max": 1998,
+        "y_max": 2425
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000306"
+    },
+    {
+      "text": "TO FRACTIONATION",
+      "normalized_text": "TO FRACTIONATION",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1899,
+        "y_min": 2725,
+        "x_max": 2111,
+        "y_max": 2742
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000321"
+    },
+    {
+      "text": "CLOSED DRAIN HEADER",
+      "normalized_text": "CLOSED DRAIN HEADER",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1899,
+        "y_min": 2755,
+        "x_max": 2164,
+        "y_max": 2772
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000330"
+    },
+    {
+      "text": "25-0016",
+      "normalized_text": "25-0016",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1823,
+        "y_min": 2792,
+        "x_max": 1838,
+        "y_max": 2795
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000335"
+    },
+    {
+      "text": "Tor 2 -PL-25-009006",
+      "normalized_text": "Tor 2 -PL-25-009006",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2659,
+        "y_min": 2318,
+        "x_max": 2877,
+        "y_max": 2336
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000300"
+    },
+    {
+      "text": "-NORMALLY",
+      "normalized_text": "-NORMALLY",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2535,
+        "y_min": 2445,
+        "x_max": 2652,
+        "y_max": 2463
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000307"
+    },
+    {
+      "text": "24-0003",
+      "normalized_text": "24-0003",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2468,
+        "y_min": 2747,
+        "x_max": 2485,
+        "y_max": 2849
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000329"
+    },
+    {
+      "text": "SOLVENT TO",
+      "normalized_text": "SOLVENT TO",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2520,
+        "y_min": 2710,
+        "x_max": 2658,
+        "y_max": 2728
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000319"
+    },
+    {
+      "text": "FRACTIONATION FEED TANK",
+      "normalized_text": "FRACTIONATION FEED TANK",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2520,
+        "y_min": 2740,
+        "x_max": 2832,
+        "y_max": 2758
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000328"
+    },
+    {
+      "text": "AT FRACTIONATION SECTION",
+      "normalized_text": "AT FRACTIONATION SECTION",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2521,
+        "y_min": 2770,
+        "x_max": 2838,
+        "y_max": 2787
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000332"
+    },
+    {
+      "text": "34\"/",
+      "normalized_text": "34\"/",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1940,
+        "y_min": 1664,
+        "x_max": 1969,
+        "y_max": 1687
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000211"
+    },
+    {
+      "text": "5",
+      "normalized_text": "5",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1609,
+        "y_min": 1682,
+        "x_max": 1626,
+        "y_max": 1695
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000215"
+    },
+    {
+      "text": "LIAL BIAZ",
+      "normalized_text": "LIAL BIAZ",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1592,
+        "y_min": 2031,
+        "x_max": 1714,
+        "y_max": 2050
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000279"
+    },
+    {
+      "text": "ROLAT",
+      "normalized_text": "ROLAT",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2295,
+        "y_min": 1483,
+        "x_max": 2362,
+        "y_max": 1508
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000166"
+    },
+    {
+      "text": "BLANKOFF",
+      "normalized_text": "BLANKOFF",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2196,
+        "y_min": 1941,
+        "x_max": 2296,
+        "y_max": 1958
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000271"
+    },
+    {
+      "text": "K02A900",
+      "normalized_text": "K02A900",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2020,
+        "y_min": 1636,
+        "x_max": 2094,
+        "y_max": 1656
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000210"
+    },
+    {
+      "text": "2\"",
+      "normalized_text": "2\"",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2155,
+        "y_min": 1938,
+        "x_max": 2180,
+        "y_max": 1958
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000270"
+    },
+    {
+      "text": "WH",
+      "normalized_text": "WH",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2045,
+        "y_min": 1955,
+        "x_max": 2062,
+        "y_max": 1984
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000274"
+    },
+    {
+      "text": "* LAL",
+      "normalized_text": "* LAL",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2933,
+        "y_min": 1587,
+        "x_max": 2972,
+        "y_max": 1604
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000191"
+    },
+    {
+      "text": "COR",
+      "normalized_text": "COR",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2944,
+        "y_min": 1631,
+        "x_max": 2987,
+        "y_max": 1649
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000207"
+    },
+    {
+      "text": "5000",
+      "normalized_text": "5000",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2862,
+        "y_min": 1844,
+        "x_max": 2879,
+        "y_max": 1899
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000255"
+    },
+    {
+      "text": "0902)",
+      "normalized_text": "0902)",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3068,
+        "y_min": 1594,
+        "x_max": 3124,
+        "y_max": 1611
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000194"
+    },
+    {
+      "text": "PI",
+      "normalized_text": "PI",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3398,
+        "y_min": 1580,
+        "x_max": 3416,
+        "y_max": 1597
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000188"
+    },
+    {
+      "text": "0902,",
+      "normalized_text": "0902,",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3379,
+        "y_min": 1625,
+        "x_max": 3434,
+        "y_max": 1643
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000204"
+    },
+    {
+      "text": "TYPE A-FR",
+      "normalized_text": "TYPE A-FR",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3133,
+        "y_min": 1733,
+        "x_max": 3242,
+        "y_max": 1751
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000229"
+    },
+    {
+      "text": "SN-2514",
+      "normalized_text": "SN-2514",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3144,
+        "y_min": 1763,
+        "x_max": 3230,
+        "y_max": 1781
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000241"
+    },
+    {
+      "text": "0903",
+      "normalized_text": "0903",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3678,
+        "y_min": 1625,
+        "x_max": 3733,
+        "y_max": 1643
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000205"
+    },
+    {
+      "text": "1300#",
+      "normalized_text": "1300#",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3727,
+        "y_min": 1779,
+        "x_max": 3791,
+        "y_max": 1801
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000244"
+    },
+    {
+      "text": "300#",
+      "normalized_text": "300#",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3318,
+        "y_min": 1779,
+        "x_max": 3380,
+        "y_max": 1807
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000243"
+    },
+    {
+      "text": "P-2507A",
+      "normalized_text": "P-2507A",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3266,
+        "y_min": 1879,
+        "x_max": 3388,
+        "y_max": 1899
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000261"
+    },
+    {
+      "text": ", 300#",
+      "normalized_text": ", 300#",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3442,
+        "y_min": 1874,
+        "x_max": 3497,
+        "y_max": 1896
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000259"
+    },
+    {
+      "text": "1150#",
+      "normalized_text": "1150#",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3429,
+        "y_min": 1909,
+        "x_max": 3494,
+        "y_max": 1931
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000265"
+    },
+    {
+      "text": "COMMON",
+      "normalized_text": "COMMON",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3520,
+        "y_min": 1739,
+        "x_max": 3599,
+        "y_max": 1757
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000230"
+    },
+    {
+      "text": "ALARM",
+      "normalized_text": "ALARM",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3522,
+        "y_min": 1762,
+        "x_max": 3583,
+        "y_max": 1780
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000240"
+    },
+    {
+      "text": "2507/",
+      "normalized_text": "2507/",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3534,
+        "y_min": 1843,
+        "x_max": 3589,
+        "y_max": 1860
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000254"
+    },
+    {
+      "text": "300#4 P- 2507B",
+      "normalized_text": "300#4 P- 2507B",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3617,
+        "y_min": 1875,
+        "x_max": 3849,
+        "y_max": 1899
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000260"
+    },
+    {
+      "text": "NOTE 1",
+      "normalized_text": "NOTE 1",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3525,
+        "y_min": 1942,
+        "x_max": 3591,
+        "y_max": 1959
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000272"
+    },
+    {
+      "text": "10\"- CUL-25-009003-B1A1-NI",
+      "normalized_text": "10\"- CUL-25-009003-B1A1-NI",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3434,
+        "y_min": 2122,
+        "x_max": 3790,
+        "y_max": 2142
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000287"
+    },
+    {
+      "text": "DP",
+      "normalized_text": "DP",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2817,
+        "y_min": 1601,
+        "x_max": 2845,
+        "y_max": 1619
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000196"
+    },
+    {
+      "text": "3",
+      "normalized_text": "3",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2862,
+        "y_min": 1623,
+        "x_max": 2879,
+        "y_max": 1636
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000202"
+    },
+    {
+      "text": "SRT-P2507A",
+      "normalized_text": "SRT-P2507A",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3247,
+        "y_min": 1985,
+        "x_max": 3379,
+        "y_max": 2003
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000275"
+    },
+    {
+      "text": "SRT-P2507B",
+      "normalized_text": "SRT-P2507B",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3747,
+        "y_min": 1985,
+        "x_max": 3878,
+        "y_max": 2003
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000276"
+    },
+    {
+      "text": "150#1",
+      "normalized_text": "150#1",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3321,
+        "y_min": 1745,
+        "x_max": 3373,
+        "y_max": 1767
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000236"
+    },
+    {
+      "text": "XC",
+      "normalized_text": "XC",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3547,
+        "y_min": 1798,
+        "x_max": 3574,
+        "y_max": 1815
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000245"
+    },
+    {
+      "text": "TYPE H",
+      "normalized_text": "TYPE H",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3524,
+        "y_min": 1912,
+        "x_max": 3593,
+        "y_max": 1929
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000266"
+    },
+    {
+      "text": "- 40",
+      "normalized_text": "- 40",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4823,
+        "y_min": 1619,
+        "x_max": 4885,
+        "y_max": 1636
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000200"
+    },
+    {
+      "text": "- 35",
+      "normalized_text": "- 35",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4816,
+        "y_min": 1842,
+        "x_max": 4871,
+        "y_max": 1865
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000253"
+    },
+    {
+      "text": "\u2022 30",
+      "normalized_text": "\u2022 30",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4860,
+        "y_min": 2066,
+        "x_max": 4886,
+        "y_max": 2083
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000280"
+    },
+    {
+      "text": "- 25",
+      "normalized_text": "- 25",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4844,
+        "y_min": 2290,
+        "x_max": 4870,
+        "y_max": 2307
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000295"
+    },
+    {
+      "text": "- 20",
+      "normalized_text": "- 20",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4859,
+        "y_min": 2514,
+        "x_max": 4885,
+        "y_max": 2531
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000308"
+    },
+    {
+      "text": "posco",
+      "normalized_text": "posco",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4610,
+        "y_min": 2577,
+        "x_max": 4744,
+        "y_max": 2615
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000310"
+    },
+    {
+      "text": "PHENOL",
+      "normalized_text": "PHENOL",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4389,
+        "y_min": 2612,
+        "x_max": 4567,
+        "y_max": 2643
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000312"
+    },
+    {
+      "text": "THIS DRAWING IS CONFIDENTIAL PROPERTY OF",
+      "normalized_text": "THIS DRAWING IS CONFIDENTIAL PROPERTY OF",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4260,
+        "y_min": 2696,
+        "x_max": 4643,
+        "y_max": 2712
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000317"
+    },
+    {
+      "text": "PIT PHENOL COMPANY LIMITED",
+      "normalized_text": "PIT PHENOL COMPANY LIMITED",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4288,
+        "y_min": 2723,
+        "x_max": 4640,
+        "y_max": 2743
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000320"
+    },
+    {
+      "text": "AND IS LENT WITHOUT CONSIDERATION OTHER THAN THE BORROWER'S AGREEMENT",
+      "normalized_text": "AND IS LENT WITHOUT CONSIDERATION OTHER THAN THE BORROWER'S AGREEMENT",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4141,
+        "y_min": 2772,
+        "x_max": 4772,
+        "y_max": 2787
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000333"
+    },
+    {
+      "text": "- 15",
+      "normalized_text": "- 15",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4845,
+        "y_min": 2737,
+        "x_max": 4868,
+        "y_max": 2755
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000326"
+    },
+    {
+      "text": "SPECIF FURNISHED THE APPARATUS SHERMAN THE DRAWING MAY BE COVERED",
+      "normalized_text": "SPECIF FURNISHED THE APPARATUS SHERMAN THE DRAWING MAY BE COVERED",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4142,
+        "y_min": 2810,
+        "x_max": 4799,
+        "y_max": 2844
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000337"
+    },
+    {
+      "text": "NOTE:",
+      "normalized_text": "NOTE:",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 21,
+        "y_min": 3363,
+        "x_max": 36,
+        "y_max": 3411
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000426"
+    },
+    {
+      "text": "TH",
+      "normalized_text": "TH",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 21,
+        "y_min": 3328,
+        "x_max": 35,
+        "y_max": 3338
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000417"
+    },
+    {
+      "text": "OTHERS OR REPRODUCED IN ANY MANNER OR",
+      "normalized_text": "OTHERS OR REPRODUCED IN ANY MANNER OR",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 48,
+        "y_min": 2984,
+        "x_max": 63,
+        "y_max": 3411
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "clear",
+      "id": "ocr_000351"
+    },
+    {
+      "text": "25-0005",
+      "normalized_text": "25-0005",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 282,
+        "y_min": 2886,
+        "x_max": 384,
+        "y_max": 2904
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000341"
+    },
+    {
+      "text": "\u00be\"P",
+      "normalized_text": "\u00be\"P",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1507,
+        "y_min": 2887,
+        "x_max": 1551,
+        "y_max": 2910
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000342"
+    },
+    {
+      "text": "\"-CUL- 25-009007-B1A1 -N",
+      "normalized_text": "\"-CUL- 25-009007-B1A1 -N",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1035,
+        "y_min": 2931,
+        "x_max": 1377,
+        "y_max": 2952
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000345"
+    },
+    {
+      "text": "10 \u2014",
+      "normalized_text": "10 \u2014",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 81,
+        "y_min": 2961,
+        "x_max": 104,
+        "y_max": 2978
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000347"
+    },
+    {
+      "text": "TO OIL EXTRACTION",
+      "normalized_text": "TO OIL EXTRACTION",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 251,
+        "y_min": 2976,
+        "x_max": 472,
+        "y_max": 2994
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000350"
+    },
+    {
+      "text": "6\"-CUL-25-009004-B1A1-NI",
+      "normalized_text": "6\"-CUL-25-009004-B1A1-NI",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 474,
+        "y_min": 3000,
+        "x_max": 820,
+        "y_max": 3020
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000353"
+    },
+    {
+      "text": "25-0007A",
+      "normalized_text": "25-0007A",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 274,
+        "y_min": 3030,
+        "x_max": 392,
+        "y_max": 3047
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000355"
+    },
+    {
+      "text": "A",
+      "normalized_text": "A",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 368,
+        "y_min": 3438,
+        "x_max": 382,
+        "y_max": 3455
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000436"
+    },
+    {
+      "text": "15",
+      "normalized_text": "15",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 96,
+        "y_min": 2737,
+        "x_max": 119,
+        "y_max": 2755
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000323"
+    },
+    {
+      "text": "NOTE 2",
+      "normalized_text": "NOTE 2",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1617,
+        "y_min": 2934,
+        "x_max": 1701,
+        "y_max": 2951
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000346"
+    },
+    {
+      "text": "2\"X1\" [1\"x2\"",
+      "normalized_text": "2\"X1\" [1\"x2\"",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1555,
+        "y_min": 2970,
+        "x_max": 1714,
+        "y_max": 2996
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000349"
+    },
+    {
+      "text": "G",
+      "normalized_text": "G",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3173,
+        "y_min": 3438,
+        "x_max": 3187,
+        "y_max": 3455
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000437"
+    },
+    {
+      "text": "AS BUILT",
+      "normalized_text": "AS BUILT",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3539,
+        "y_min": 3093,
+        "x_max": 3616,
+        "y_max": 3107
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000359"
+    },
+    {
+      "text": "FS4-3 ISSUED FOR CONSTRUCTION NO HOLDS",
+      "normalized_text": "FS4-3 ISSUED FOR CONSTRUCTION NO HOLDS",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3347,
+        "y_min": 3128,
+        "x_max": 3745,
+        "y_max": 3143
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000366"
+    },
+    {
+      "text": "FS4-2 ISSUED FOR CONSTRUCTION NO HOLDS",
+      "normalized_text": "FS4-2 ISSUED FOR CONSTRUCTION NO HOLDS",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3338,
+        "y_min": 3166,
+        "x_max": 3745,
+        "y_max": 3180
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000378"
+    },
+    {
+      "text": "FS4-1 ISSUED FOR CONSTRUCTION NO HOLDS",
+      "normalized_text": "FS4-1 ISSUED FOR CONSTRUCTION NO HOLDS",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3339,
+        "y_min": 3200,
+        "x_max": 3745,
+        "y_max": 3215
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000388"
+    },
+    {
+      "text": "ISSUED FOR CONSTRUCTION NO HOLDS",
+      "normalized_text": "ISSUED FOR CONSTRUCTION NO HOLDS",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3409,
+        "y_min": 3236,
+        "x_max": 3745,
+        "y_max": 3250
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000396"
+    },
+    {
+      "text": "ISSUED FOR CONSTRUCTION NO HOLDS",
+      "normalized_text": "ISSUED FOR CONSTRUCTION NO HOLDS",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3409,
+        "y_min": 3271,
+        "x_max": 3745,
+        "y_max": 3285
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000406"
+    },
+    {
+      "text": "ISSUED FOR CONSTRUCTION NO HOLDS",
+      "normalized_text": "ISSUED FOR CONSTRUCTION NO HOLDS",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3409,
+        "y_min": 3306,
+        "x_max": 3745,
+        "y_max": 3320
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000414"
+    },
+    {
+      "text": "ISSUED FOR CONSTRUCTION NO HOLDS",
+      "normalized_text": "ISSUED FOR CONSTRUCTION NO HOLDS",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3409,
+        "y_min": 3341,
+        "x_max": 3745,
+        "y_max": 3356
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000424"
+    },
+    {
+      "text": "REV.",
+      "normalized_text": "REV.",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3341,
+        "y_min": 3383,
+        "x_max": 3390,
+        "y_max": 3397
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000430"
+    },
+    {
+      "text": "DESCRIPTION",
+      "normalized_text": "DESCRIPTION",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3505,
+        "y_min": 3384,
+        "x_max": 3642,
+        "y_max": 3399
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000432"
+    },
+    {
+      "text": "H",
+      "normalized_text": "H",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3641,
+        "y_min": 3438,
+        "x_max": 3653,
+        "y_max": 3455
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "clear",
+      "id": "ocr_000438"
+    },
+    {
+      "text": "BY",
+      "normalized_text": "BY",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3785,
+        "y_min": 3385,
+        "x_max": 3809,
+        "y_max": 3399
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000433"
+    },
+    {
+      "text": "SWL 4/25/16",
+      "normalized_text": "SWL 4/25/16",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3989,
+        "y_min": 3091,
+        "x_max": 4107,
+        "y_max": 3111
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000357"
+    },
+    {
+      "text": "1/31/16",
+      "normalized_text": "1/31/16",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4044,
+        "y_min": 3126,
+        "x_max": 4109,
+        "y_max": 3146
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000365"
+    },
+    {
+      "text": "8/12/15",
+      "normalized_text": "8/12/15",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4046,
+        "y_min": 3166,
+        "x_max": 4107,
+        "y_max": 3180
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000379"
+    },
+    {
+      "text": "12/29/14",
+      "normalized_text": "12/29/14",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4043,
+        "y_min": 3198,
+        "x_max": 4110,
+        "y_max": 3219
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000383"
+    },
+    {
+      "text": "10/15/14",
+      "normalized_text": "10/15/14",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4043,
+        "y_min": 3236,
+        "x_max": 4110,
+        "y_max": 3250
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000397"
+    },
+    {
+      "text": "10/8/14",
+      "normalized_text": "10/8/14",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4044,
+        "y_min": 3271,
+        "x_max": 4109,
+        "y_max": 3285
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000407"
+    },
+    {
+      "text": "19/16/14",
+      "normalized_text": "19/16/14",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4043,
+        "y_min": 3304,
+        "x_max": 4110,
+        "y_max": 3324
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000412"
+    },
+    {
+      "text": "8/20/14",
+      "normalized_text": "8/20/14",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4043,
+        "y_min": 3339,
+        "x_max": 4109,
+        "y_max": 3360
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000418"
+    },
+    {
+      "text": "CHK. APPR.APPR.",
+      "normalized_text": "CHK. APPR.APPR.",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3837,
+        "y_min": 3376,
+        "x_max": 4038,
+        "y_max": 3407
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000427"
+    },
+    {
+      "text": "BY",
+      "normalized_text": "BY",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4134,
+        "y_min": 3183,
+        "x_max": 4158,
+        "y_max": 3198
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000381"
+    },
+    {
+      "text": "DA",
+      "normalized_text": "DA",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4134,
+        "y_min": 3223,
+        "x_max": 4159,
+        "y_max": 3237
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000389"
+    },
+    {
+      "text": "S2",
+      "normalized_text": "S2",
+      "class": "instrument_tag",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3355,
+        "y_min": 3306,
+        "x_max": 3377,
+        "y_max": 3320
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000413"
+    },
+    {
+      "text": "DATE",
+      "normalized_text": "DATE",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4053,
+        "y_min": 3383,
+        "x_max": 4100,
+        "y_max": 3397
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000431"
+    },
+    {
+      "text": "PH",
+      "normalized_text": "PH",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4132,
+        "y_min": 3377,
+        "x_max": 4146,
+        "y_max": 3397
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000429"
+    },
+    {
+      "text": "pott",
+      "normalized_text": "pott",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4393,
+        "y_min": 2584,
+        "x_max": 4442,
+        "y_max": 2610
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000311"
+    },
+    {
+      "text": "BASED ON 963768-120-09-A1|",
+      "normalized_text": "BASED ON 963768-120-09-A1|",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4322,
+        "y_min": 2913,
+        "x_max": 4754,
+        "y_max": 2935
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000344"
+    },
+    {
+      "text": "\u2022 10",
+      "normalized_text": "\u2022 10",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4857,
+        "y_min": 2961,
+        "x_max": 4880,
+        "y_max": 2978
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000348"
+    },
+    {
+      "text": "PIPING AND INSTRUMENT DIAGRAM",
+      "normalized_text": "PIPING AND INSTRUMENT DIAGRAM",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4250,
+        "y_min": 2987,
+        "x_max": 4703,
+        "y_max": 3007
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000352"
+    },
+    {
+      "text": "SOLVENT DRUM",
+      "normalized_text": "SOLVENT DRUM",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4388,
+        "y_min": 3023,
+        "x_max": 4573,
+        "y_max": 3043
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000354"
+    },
+    {
+      "text": "PHENOL RECOVERY SECTION",
+      "normalized_text": "PHENOL RECOVERY SECTION",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4284,
+        "y_min": 3058,
+        "x_max": 4660,
+        "y_max": 3078
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000356"
+    },
+    {
+      "text": "UOP PHENOL PROCESS UNIT",
+      "normalized_text": "UOP PHENOL PROCESS UNIT",
+      "class": "note",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4280,
+        "y_min": 3093,
+        "x_max": 4664,
+        "y_max": 3113
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000363"
+    },
+    {
+      "text": "CERTIFIED FOR",
+      "normalized_text": "CERTIFIED FOR",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4211,
+        "y_min": 3124,
+        "x_max": 4335,
+        "y_max": 3137
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000364"
+    },
+    {
+      "text": "CHK.",
+      "normalized_text": "CHK.",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4667,
+        "y_min": 3137,
+        "x_max": 4722,
+        "y_max": 3151
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000372"
+    },
+    {
+      "text": "APPR.",
+      "normalized_text": "APPR.",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4745,
+        "y_min": 3137,
+        "x_max": 4812,
+        "y_max": 3151
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000373"
+    },
+    {
+      "text": "BY",
+      "normalized_text": "BY",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4432,
+        "y_min": 3179,
+        "x_max": 4456,
+        "y_max": 3193
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000380"
+    },
+    {
+      "text": "DATE",
+      "normalized_text": "DATE",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4424,
+        "y_min": 3228,
+        "x_max": 4471,
+        "y_max": 3242
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000390"
+    },
+    {
+      "text": "- 5",
+      "normalized_text": "- 5",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4844,
+        "y_min": 3185,
+        "x_max": 4856,
+        "y_max": 3202
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000382"
+    },
+    {
+      "text": "PROJ. NO.",
+      "normalized_text": "PROJ. NO.",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4222,
+        "y_min": 3269,
+        "x_max": 4344,
+        "y_max": 3283
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000402"
+    },
+    {
+      "text": "120117",
+      "normalized_text": "120117",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4239,
+        "y_min": 3314,
+        "x_max": 4327,
+        "y_max": 3335
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000416"
+    },
+    {
+      "text": "DWG. NO.",
+      "normalized_text": "DWG. NO.",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4462,
+        "y_min": 3269,
+        "x_max": 4567,
+        "y_max": 3283
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000403"
+    },
+    {
+      "text": "PEN",
+      "normalized_text": "PEN",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4137,
+        "y_min": 3314,
+        "x_max": 4184,
+        "y_max": 3335
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000415"
+    },
+    {
+      "text": "REV.",
+      "normalized_text": "REV.",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4736,
+        "y_min": 3269,
+        "x_max": 4785,
+        "y_max": 3283
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000404"
+    },
+    {
+      "text": "14780-8120-25-25-0009",
+      "normalized_text": "14780-8120-25-25-0009",
+      "class": "line_number",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4277,
+        "y_min": 3376,
+        "x_max": 4639,
+        "y_max": 3397
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000428"
+    },
+    {
+      "text": "SCALE",
+      "normalized_text": "SCALE",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4546,
+        "y_min": 3432,
+        "x_max": 4619,
+        "y_max": 3449
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "clear",
+      "id": "ocr_000435"
+    },
+    {
+      "text": "- O",
+      "normalized_text": "- O",
+      "class": "unknown",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 4855,
+        "y_min": 3409,
+        "x_max": 4867,
+        "y_max": 3426
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "clear",
+      "id": "ocr_000434"
+    },
+    {
+      "text": "7",
+      "normalized_text": "7",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 1036,
+        "y_min": 936,
+        "x_max": 1058,
+        "y_max": 959
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "degraded",
+      "id": "ocr_000098"
+    },
+    {
+      "text": "AFF",
+      "normalized_text": "AFF",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 879,
+        "y_min": 1073,
+        "x_max": 903,
+        "y_max": 1090
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000116"
+    },
+    {
+      "text": "\u20220",
+      "normalized_text": "\u20220",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 822,
+        "y_min": 1194,
+        "x_max": 882,
+        "y_max": 1219
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000131"
+    },
+    {
+      "text": "\u2022 \u00d7",
+      "normalized_text": "\u2022 \u00d7",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 936,
+        "y_min": 1198,
+        "x_max": 1001,
+        "y_max": 1219
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "degraded",
+      "id": "ocr_000133"
+    },
+    {
+      "text": "B1A1",
+      "normalized_text": "B1A1",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 2146,
+        "y_min": 563,
+        "x_max": 2194,
+        "y_max": 580
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000057"
+    },
+    {
+      "text": "L1A1",
+      "normalized_text": "L1A1",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 2214,
+        "y_min": 564,
+        "x_max": 2266,
+        "y_max": 585
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000058"
+    },
+    {
+      "text": "\"''",
+      "normalized_text": "\"''",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 2505,
+        "y_min": 1111,
+        "x_max": 2549,
+        "y_max": 1146
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "degraded",
+      "id": "ocr_000120"
+    },
+    {
+      "text": "NIl",
+      "normalized_text": "NIl",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 2107,
+        "y_min": 1583,
+        "x_max": 2138,
+        "y_max": 1599
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000190"
+    },
+    {
+      "text": "FF",
+      "normalized_text": "FF",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 2819,
+        "y_min": 1543,
+        "x_max": 2843,
+        "y_max": 1560
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000177"
+    },
+    {
+      "text": "14.,",
+      "normalized_text": "14.,",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 2637,
+        "y_min": 943,
+        "x_max": 2647,
+        "y_max": 984
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "degraded",
+      "id": "ocr_000101"
+    },
+    {
+      "text": "10T",
+      "normalized_text": "10T",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 739,
+        "y_min": 1497,
+        "x_max": 785,
+        "y_max": 1523
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000168"
+    },
+    {
+      "text": "=1\"",
+      "normalized_text": "=1\"",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 1139,
+        "y_min": 2523,
+        "x_max": 1160,
+        "y_max": 2543
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000309"
+    },
+    {
+      "text": "PWD",
+      "normalized_text": "PWD",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 1420,
+        "y_min": 2737,
+        "x_max": 1465,
+        "y_max": 2754
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000324"
+    },
+    {
+      "text": "\u00be\"P.",
+      "normalized_text": "\u00be\"P.",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 563,
+        "y_min": 2302,
+        "x_max": 607,
+        "y_max": 2326
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "degraded",
+      "id": "ocr_000297"
+    },
+    {
+      "text": "FF",
+      "normalized_text": "FF",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 1758,
+        "y_min": 1692,
+        "x_max": 1783,
+        "y_max": 1709
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "degraded",
+      "id": "ocr_000220"
+    },
+    {
+      "text": "NO2",
+      "normalized_text": "NO2",
+      "class": "instrument_tag",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 2268,
+        "y_min": 1634,
+        "x_max": 2302,
+        "y_max": 1651
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000209"
+    },
+    {
+      "text": "-VB7W02",
+      "normalized_text": "-VB7W02",
+      "class": "line_number",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 2074,
+        "y_min": 1827,
+        "x_max": 2110,
+        "y_max": 1845
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000250"
+    },
+    {
+      "text": "B1A2",
+      "normalized_text": "B1A2",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 1749,
+        "y_min": 2086,
+        "x_max": 1766,
+        "y_max": 2126
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "degraded",
+      "id": "ocr_000285"
+    },
+    {
+      "text": "PWH",
+      "normalized_text": "PWH",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 1778,
+        "y_min": 2082,
+        "x_max": 1796,
+        "y_max": 2126
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "degraded",
+      "id": "ocr_000284"
+    },
+    {
+      "text": "B1A1",
+      "normalized_text": "B1A1",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 1750,
+        "y_min": 2149,
+        "x_max": 1767,
+        "y_max": 2197
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "degraded",
+      "id": "ocr_000288"
+    },
+    {
+      "text": "B1A2",
+      "normalized_text": "B1A2",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 2156,
+        "y_min": 2070,
+        "x_max": 2210,
+        "y_max": 2087
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000281"
+    },
+    {
+      "text": "B1A1",
+      "normalized_text": "B1A1",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 2233,
+        "y_min": 2071,
+        "x_max": 2281,
+        "y_max": 2089
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000282"
+    },
+    {
+      "text": "3\u00be\"",
+      "normalized_text": "3\u00be\"",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 2518,
+        "y_min": 1665,
+        "x_max": 2547,
+        "y_max": 1688
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "degraded",
+      "id": "ocr_000213"
+    },
+    {
+      "text": "FD",
+      "normalized_text": "FD",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 1833,
+        "y_min": 2737,
+        "x_max": 1858,
+        "y_max": 2754
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000325"
+    },
+    {
+      "text": "X'",
+      "normalized_text": "X'",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3596,
+        "y_min": 1684,
+        "x_max": 3632,
+        "y_max": 1709
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "degraded",
+      "id": "ocr_000218"
+    },
+    {
+      "text": "(M)",
+      "normalized_text": "(M)",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3327,
+        "y_min": 1818,
+        "x_max": 3352,
+        "y_max": 1850
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "degraded",
+      "id": "ocr_000247"
+    },
+    {
+      "text": "VIA",
+      "normalized_text": "VIA",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 2824,
+        "y_min": 2011,
+        "x_max": 2950,
+        "y_max": 2050
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "degraded",
+      "id": "ocr_000278"
+    },
+    {
+      "text": "3\"X6\" 1150#",
+      "normalized_text": "3\"X6\" 1150#",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3627,
+        "y_min": 1732,
+        "x_max": 3790,
+        "y_max": 1767
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "degraded",
+      "id": "ocr_000228"
+    },
+    {
+      "text": "10\"X4\"/",
+      "normalized_text": "10\"X4\"/",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3322,
+        "y_min": 1917,
+        "x_max": 3394,
+        "y_max": 1938
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "degraded",
+      "id": "ocr_000269"
+    },
+    {
+      "text": "BECHTEL",
+      "normalized_text": "BECHTEL",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 4164,
+        "y_min": 2613,
+        "x_max": 4197,
+        "y_max": 2629
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000313"
+    },
+    {
+      "text": "BOR- A1 -ISBL.DWG",
+      "normalized_text": "BOR- A1 -ISBL.DWG",
+      "class": "note",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 143,
+        "y_min": 3458,
+        "x_max": 351,
+        "y_max": 3475
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000439"
+    },
+    {
+      "text": "S4",
+      "normalized_text": "S4",
+      "class": "instrument_tag",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3355,
+        "y_min": 3236,
+        "x_max": 3376,
+        "y_max": 3250
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "degraded",
+      "id": "ocr_000395"
+    },
+    {
+      "text": "S3",
+      "normalized_text": "S3",
+      "class": "instrument_tag",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3355,
+        "y_min": 3271,
+        "x_max": 3377,
+        "y_max": 3285
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "degraded",
+      "id": "ocr_000405"
+    },
+    {
+      "text": "S1",
+      "normalized_text": "S1",
+      "class": "instrument_tag",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3357,
+        "y_min": 3341,
+        "x_max": 3375,
+        "y_max": 3356
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "degraded",
+      "id": "ocr_000423"
+    },
+    {
+      "text": "SWP",
+      "normalized_text": "SWP",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3847,
+        "y_min": 3093,
+        "x_max": 3883,
+        "y_max": 3107
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000361"
+    },
+    {
+      "text": "SWL",
+      "normalized_text": "SWL",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3989,
+        "y_min": 3128,
+        "x_max": 4023,
+        "y_max": 3143
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000370"
+    },
+    {
+      "text": "SWP",
+      "normalized_text": "SWP",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3858,
+        "y_min": 3128,
+        "x_max": 3883,
+        "y_max": 3143
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000368"
+    },
+    {
+      "text": "SWP",
+      "normalized_text": "SWP",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3847,
+        "y_min": 3199,
+        "x_max": 3883,
+        "y_max": 3213
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000385"
+    },
+    {
+      "text": "SWP",
+      "normalized_text": "SWP",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3847,
+        "y_min": 3234,
+        "x_max": 3883,
+        "y_max": 3248
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000392"
+    },
+    {
+      "text": "SWP",
+      "normalized_text": "SWP",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3847,
+        "y_min": 3269,
+        "x_max": 3883,
+        "y_max": 3283
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000399"
+    },
+    {
+      "text": "SWL",
+      "normalized_text": "SWL",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3989,
+        "y_min": 3164,
+        "x_max": 4023,
+        "y_max": 3178
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000377"
+    },
+    {
+      "text": "SWL",
+      "normalized_text": "SWL",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3989,
+        "y_min": 3199,
+        "x_max": 4023,
+        "y_max": 3213
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000387"
+    },
+    {
+      "text": "SWL",
+      "normalized_text": "SWL",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3989,
+        "y_min": 3234,
+        "x_max": 4023,
+        "y_max": 3248
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000394"
+    },
+    {
+      "text": "SWL",
+      "normalized_text": "SWL",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3989,
+        "y_min": 3269,
+        "x_max": 4023,
+        "y_max": 3283
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000401"
+    },
+    {
+      "text": "SWL",
+      "normalized_text": "SWL",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3989,
+        "y_min": 3304,
+        "x_max": 4023,
+        "y_max": 3319
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000411"
+    },
+    {
+      "text": "SWL",
+      "normalized_text": "SWL",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3989,
+        "y_min": 3340,
+        "x_max": 4023,
+        "y_max": 3354
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000422"
+    },
+    {
+      "text": "SWP",
+      "normalized_text": "SWP",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3847,
+        "y_min": 3304,
+        "x_max": 3883,
+        "y_max": 3319
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "degraded",
+      "id": "ocr_000409"
+    },
+    {
+      "text": "SWP",
+      "normalized_text": "SWP",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3847,
+        "y_min": 3164,
+        "x_max": 3872,
+        "y_max": 3178
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "degraded",
+      "id": "ocr_000375"
+    },
+    {
+      "text": "DWG. DSGN.",
+      "normalized_text": "DWG. DSGN.",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 4508,
+        "y_min": 3137,
+        "x_max": 4646,
+        "y_max": 3151
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000371"
+    },
+    {
+      "text": "SWP",
+      "normalized_text": "SWP",
+      "class": "unknown",
+      "confidence": 0.5,
+      "bbox": {
+        "x_min": 3847,
+        "y_min": 3340,
+        "x_max": 3883,
+        "y_max": 3354
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000420"
+    },
+    {
+      "text": "PCV",
+      "normalized_text": "PCV",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 2514,
+        "y_min": 847,
+        "x_max": 2558,
+        "y_max": 864
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000086"
+    },
+    {
+      "text": "X",
+      "normalized_text": "X",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 2244,
+        "y_min": 1394,
+        "x_max": 2261,
+        "y_max": 1427
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "degraded",
+      "id": "ocr_000147"
+    },
+    {
+      "text": "X'HA",
+      "normalized_text": "X'HA",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 2214,
+        "y_min": 1138,
+        "x_max": 2316,
+        "y_max": 1160
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "degraded",
+      "id": "ocr_000124"
+    },
+    {
+      "text": "X",
+      "normalized_text": "X",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 676,
+        "y_min": 2377,
+        "x_max": 692,
+        "y_max": 2414
+      },
+      "rotation": 0,
+      "reading_direction": "vertical",
+      "legibility": "degraded",
+      "id": "ocr_000302"
+    },
+    {
+      "text": "X",
+      "normalized_text": "X",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 1409,
+        "y_min": 1632,
+        "x_max": 1437,
+        "y_max": 1648
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "degraded",
+      "id": "ocr_000208"
+    },
+    {
+      "text": "LG-",
+      "normalized_text": "LG-",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 1835,
+        "y_min": 1691,
+        "x_max": 1861,
+        "y_max": 1709
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "degraded",
+      "id": "ocr_000219"
+    },
+    {
+      "text": "R02B",
+      "normalized_text": "R02B",
+      "class": "instrument_tag",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 2309,
+        "y_min": 1621,
+        "x_max": 2362,
+        "y_max": 1641
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000201"
+    },
+    {
+      "text": "HLL",
+      "normalized_text": "HLL",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 2033,
+        "y_min": 1682,
+        "x_max": 2072,
+        "y_max": 1699
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000216"
+    },
+    {
+      "text": "NLL",
+      "normalized_text": "NLL",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 2033,
+        "y_min": 1729,
+        "x_max": 2072,
+        "y_max": 1746
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000226"
+    },
+    {
+      "text": "PWHT",
+      "normalized_text": "PWHT",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 2150,
+        "y_min": 2100,
+        "x_max": 2210,
+        "y_max": 2117
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000286"
+    },
+    {
+      "text": "X",
+      "normalized_text": "X",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 1965,
+        "y_min": 1827,
+        "x_max": 1990,
+        "y_max": 1840
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "degraded",
+      "id": "ocr_000249"
+    },
+    {
+      "text": "X",
+      "normalized_text": "X",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 1614,
+        "y_min": 1995,
+        "x_max": 1647,
+        "y_max": 2013
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "degraded",
+      "id": "ocr_000277"
+    },
+    {
+      "text": "[ 3\"X6\"",
+      "normalized_text": "[ 3\"X6\"",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 3423,
+        "y_min": 1732,
+        "x_max": 3484,
+        "y_max": 1753
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "degraded",
+      "id": "ocr_000227"
+    },
+    {
+      "text": "JGC",
+      "normalized_text": "JGC",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 3778,
+        "y_min": 3093,
+        "x_max": 3810,
+        "y_max": 3107
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000360"
+    },
+    {
+      "text": "JGC",
+      "normalized_text": "JGC",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 3778,
+        "y_min": 3128,
+        "x_max": 3811,
+        "y_max": 3143
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000367"
+    },
+    {
+      "text": "JGC",
+      "normalized_text": "JGC",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 3778,
+        "y_min": 3164,
+        "x_max": 3811,
+        "y_max": 3178
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000374"
+    },
+    {
+      "text": "JGC",
+      "normalized_text": "JGC",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 3778,
+        "y_min": 3199,
+        "x_max": 3811,
+        "y_max": 3213
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000384"
+    },
+    {
+      "text": "JGC",
+      "normalized_text": "JGC",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 3778,
+        "y_min": 3234,
+        "x_max": 3811,
+        "y_max": 3248
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000391"
+    },
+    {
+      "text": "JGC",
+      "normalized_text": "JGC",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 3778,
+        "y_min": 3269,
+        "x_max": 3811,
+        "y_max": 3283
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000398"
+    },
+    {
+      "text": "JGC",
+      "normalized_text": "JGC",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 3778,
+        "y_min": 3304,
+        "x_max": 3811,
+        "y_max": 3319
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000408"
+    },
+    {
+      "text": "JGC",
+      "normalized_text": "JGC",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 3778,
+        "y_min": 3340,
+        "x_max": 3811,
+        "y_max": 3354
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000419"
+    },
+    {
+      "text": "JSC",
+      "normalized_text": "JSC",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 3920,
+        "y_min": 3128,
+        "x_max": 3951,
+        "y_max": 3143
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000369"
+    },
+    {
+      "text": "JSC",
+      "normalized_text": "JSC",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 3920,
+        "y_min": 3164,
+        "x_max": 3951,
+        "y_max": 3178
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000376"
+    },
+    {
+      "text": "JSC",
+      "normalized_text": "JSC",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 3920,
+        "y_min": 3199,
+        "x_max": 3951,
+        "y_max": 3213
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000386"
+    },
+    {
+      "text": "JSC",
+      "normalized_text": "JSC",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 3920,
+        "y_min": 3234,
+        "x_max": 3951,
+        "y_max": 3248
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000393"
+    },
+    {
+      "text": "JSC",
+      "normalized_text": "JSC",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 3920,
+        "y_min": 3269,
+        "x_max": 3951,
+        "y_max": 3283
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000400"
+    },
+    {
+      "text": "JSC",
+      "normalized_text": "JSC",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 3920,
+        "y_min": 3304,
+        "x_max": 3951,
+        "y_max": 3319
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000410"
+    },
+    {
+      "text": "JSC",
+      "normalized_text": "JSC",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 3920,
+        "y_min": 3340,
+        "x_max": 3951,
+        "y_max": 3354
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000421"
+    },
+    {
+      "text": "Z1",
+      "normalized_text": "Z1",
+      "class": "instrument_tag",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 3357,
+        "y_min": 3093,
+        "x_max": 3375,
+        "y_max": 3107
+      },
+      "rotation": 90,
+      "reading_direction": "rotated",
+      "legibility": "degraded",
+      "id": "ocr_000358"
+    },
+    {
+      "text": "Uop",
+      "normalized_text": "Uop",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 4163,
+        "y_min": 2899,
+        "x_max": 4263,
+        "y_max": 2943
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000343"
+    },
+    {
+      "text": "JSC",
+      "normalized_text": "JSC",
+      "class": "unknown",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 3920,
+        "y_min": 3093,
+        "x_max": 3951,
+        "y_max": 3107
+      },
+      "rotation": 0,
+      "reading_direction": "horizontal",
+      "legibility": "degraded",
+      "id": "ocr_000362"
+    },
+    {
+      "text": "Z1",
+      "normalized_text": "Z1",
+      "class": "instrument_tag",
+      "confidence": 0.3,
+      "bbox": {
+        "x_min": 4746,
+        "y_min": 3346,
+        "x_max": 4769,
+        "y_max": 3366
+      },
+      "rotation": 0,
+      "reading_direction": "unknown",
+      "legibility": "degraded",
+      "id": "ocr_000425"
+    }
+  ]
+}

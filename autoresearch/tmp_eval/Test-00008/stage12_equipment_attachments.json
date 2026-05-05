@@ -1,0 +1,88 @@
+{
+  "image_id": "Test-00008.jpg",
+  "pass_type": "sheet",
+  "accepted": [
+    {
+      "det_id": "obj_000157",
+      "class_name": "pump",
+      "bbox": [
+        3297,
+        1797,
+        3453,
+        1887
+      ],
+      "accepted": true,
+      "reason": "best candidate selected",
+      "anchor_name": "top",
+      "anchor_xy": [
+        3375.0,
+        1797
+      ],
+      "edge_id": "endpoint_486__junction_182__21",
+      "nearest_point_xy": [
+        3383.0,
+        1795.0
+      ],
+      "connection_anchor_xy": [
+        3375.0,
+        1797.0
+      ],
+      "attachment_stub_xy": [
+        [
+          3383.0,
+          1795.0
+        ],
+        [
+          3375.0,
+          1797.0
+        ]
+      ],
+      "distance_px": 8.246211251235321,
+      "score": 2.871678513552157,
+      "segment_index": 0,
+      "t": 0.0
+    },
+    {
+      "det_id": "obj_000158",
+      "class_name": "pump",
+      "bbox": [
+        3657,
+        1798,
+        3815,
+        1886
+      ],
+      "accepted": true,
+      "reason": "best candidate selected",
+      "anchor_name": "top",
+      "anchor_xy": [
+        3736.0,
+        1798
+      ],
+      "edge_id": "endpoint_477__junction_183__3",
+      "nearest_point_xy": [
+        3730.0,
+        1775.0
+      ],
+      "connection_anchor_xy": [
+        3736.0,
+        1798.0
+      ],
+      "attachment_stub_xy": [
+        [
+          3730.0,
+          1775.0
+        ],
+        [
+          3736.0,
+          1798.0
+        ]
+      ],
+      "distance_px": 23.769728648009426,
+      "score": 2.0902791936075324,
+      "segment_index": 0,
+      "t": 0.0
+    }
+  ],
+  "rejected": [],
+  "equipment_detection_stage": "stage4 (provisional until Stage 4.1 exists)"
+}

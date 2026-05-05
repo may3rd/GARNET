@@ -1,0 +1,19 @@
+{
+  "image_id": "sample.png",
+  "pass_type": "sheet",
+  "objects": [
+    {
+      "id": "obj_000001",
+      "class_name": "valve",
+      "confidence": 0.88,
+      "bbox": {
+        "x_min": 5,
+        "y_min": 6,
+        "x_max": 20,
+        "y_max": 30
+      },
+      "source_model": "ultralytics",
+      "source_weight": "yolo_weights/yolo11n_PPCL_640_20250204.pt"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "image_id": "Test-00007.jpg",
+  "pass_type": "sheet",
+  "candidate_count": 396,
+  "confirmed_junction_count": 311,
+  "non_connecting_crossing_count": 61,
+  "unresolved_candidate_count": 24,
+  "unresolved_reason_counts": {
+    "branch_merge_instability": 2,
+    "four_way_tie": 23,
+    "insufficient_branches": 1,
+    "junction_marker_present": 1,
+    "paired_crossing_vs_blob_junction_tie": 23,
+    "strong_center_blob": 23
+  },
+  "branch_stub_length_px": 8,
+  "branch_merge_angle_tolerance_deg": 18.0,
+  "opposite_angle_tolerance_deg": 50.0,
+  "center_blob_radius_px": 4,
+  "center_blob_threshold": 0.5,
+  "stage4_marker_match_distance_px": 24.0,
+  "source_artifacts": [
+    "stage4_topology_markers.json",
+    "stage6_pipe_mask_sealed.png",
+    "stage7_pipe_skeleton.png",
+    "stage9_node_clusters.json"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "image_id": "input.png",
+  "pass_type": "sheet",
+  "nodes": [],
+  "edges": [],
+  "unresolved_junction_ids": [],
+  "crossings": [],
+  "equipment_attachments": [],
+  "connection_attachments": [],
+  "text_attachments": [],
+  "instrument_tag_attachments": [],
+  "edge_terminals": [],
+  "edge_connections": [],
+  "edge_components": []
+}
