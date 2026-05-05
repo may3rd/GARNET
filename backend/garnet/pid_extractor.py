@@ -1082,6 +1082,10 @@ class PIDPipeline:
             "stage12_page_connector_labels",
             {"connectors": []},
         )
+        connection_attachments_payload = self._load_json_artifact_or_default(
+            "stage12_connection_attachments",
+            {"accepted": []},
+        )
         normalization_summary = self._load_json_artifact("stage1_normalization_summary")
         graph_v1_payload = build_graph_v1_payload(
             stage12_graph=graph_payload,
@@ -1089,6 +1093,7 @@ class PIDPipeline:
             line_numbers_payload=line_number_payload,
             instrument_tags_payload=instrument_tag_payload,
             page_connector_labels_payload=page_connector_labels_payload,
+            connection_attachments_payload=connection_attachments_payload,
             image_dimensions=normalization_summary.get("dimensions", {}),
         )
         self._save_json("stage12b_graph_v1", graph_v1_payload)

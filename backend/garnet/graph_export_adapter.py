@@ -258,13 +258,93 @@ def _tiling_payload(image_dimensions: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
+
+def _exit_terminal_for_anchor(anchor_name: str) -> str:
+    """Map anchor_name to exit_terminal value."""
+    # anchor_name corresponds to which edge terminal the off-page connector is attached to
+    # top/bottom anchors → destination terminal (pipe going out the sheet top/bottom)
+    # left/right anchors → source terminal (pipe coming from left/right boundary)
+    if anchor_name in ("top", "bottom"):
+        return "destination"
+    return "source"
+
+
+def _build_off_page_connector_map(
+    connection_attachments_payload: dict[str, Any] | None,
+) -> dict[str, dict[str, Any]]:
+    """Build a map from edge_id → off_page_connector dict for page-connection edges.
+
+    Only page connection attachments with resolved labels (non-empty labels list)
+    get off_page_connector fields. Edges without labels remain unmapped.
+    """
+    if not connection_attachments_payload:
+        return {}
+
+    by_object_id: dict[str, dict[str, Any]] = {}
+    for att in connection_attachments_payload.get("accepted", []):
+        if att.get("class_name") != "page connection":
+            continue
+        obj_id = str(att.get("det_id") or att.get("object_id") or "")
+        bbox = att.get("bbox", [])
+        anchor_name = str(att.get("anchor_name", ""))
+        by_object_id[obj_id] = {
+            "anchor_name": anchor_name,
+            "bbox": {
+                "x_min": bbox[0] if len(bbox) > 0 else 0,
+                "y_min": bbox[1] if len(bbox) > 1 else 0,
+                "x_max": bbox[2] if len(bbox) > 2 else 0,
+                "y_max": bbox[3] if len(bbox) > 3 else 0,
+            },
+        }
+
+    pc_labels = _page_connector_labels_by_object_id(
+        {"connectors": []},
+    )
+
+    result: dict[str, dict[str, Any]] = {}
+    for att in connection_attachments_payload.get("accepted", []):
+        if att.get("class_name") != "page connection":
+            continue
+        edge_id = str(att.get("edge_id", ""))
+        if not edge_id or edge_id.startswith("attach_edge::"):
+            continue
+        obj_id = str(att.get("det_id") or att.get("object_id") or "")
+        labels = pc_labels.get(obj_id, [])
+        if not labels:
+            continue
+
+        first_label = labels[0]
+        ref = first_label.get("page_reference")
+        if not ref:
+            continue
+
+        ref_type = str(ref.get("reference_type", "sheet") or "sheet")
+        ref_value = str(ref.get("reference_value") or "")
+        if not ref_value:
+            continue
+
+        anchor_name = str(att.get("anchor_name", ""))
+        exit_terminal = _exit_terminal_for_anchor(anchor_name)
+        direction = "output" if exit_terminal == "source" else "input"
+
+        result[edge_id] = {
+            "reference_type": ref_type,
+            "reference_value": ref_value,
+            "direction": direction,
+            "exit_terminal": exit_terminal,
+            "local_edge_id": edge_id,
+        }
+
+    return result
+
+
 def build_graph_v1_payload(
-    *,
     stage12_graph: dict[str, Any],
     objects_payload: dict[str, Any] | None = None,
     line_numbers_payload: dict[str, Any] | None = None,
     instrument_tags_payload: dict[str, Any] | None = None,
     page_connector_labels_payload: dict[str, Any] | None = None,
+    connection_attachments_payload: dict[str, Any] | None = None,
     image_dimensions: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     objects = (objects_payload or {}).get("objects", [])
@@ -315,19 +395,22 @@ def build_graph_v1_payload(
         node.setdefault("tags", {})["page_reference"] = first_label.get("page_reference") if first_label else None
 
     edges: list[dict[str, Any]] = []
+    off_page_by_edge = _build_off_page_connector_map(connection_attachments_payload)
     for source_edge in stage12_graph.get("edges", []):
-        edges.append(
-            {
-                "id": str(source_edge.get("id", "")),
-                "src": str(source_edge.get("source", "")),
-                "dst": str(source_edge.get("target", "")),
-                "type": map_edge_type(source_edge),
-                "confidence": compute_edge_confidence(source_edge),
-                "directed": source_edge.get("flow_direction") is not None,
-                "provenance": build_provenance(f"stage12 edge review_state={source_edge.get('review_state', '')}"),
-                "geometry": {"polyline": reproject_polyline(source_edge.get("polyline", []))},
-            }
-        )
+        edge_id = str(source_edge.get("id", ""))
+        edge_node = {
+            "id": edge_id,
+            "src": str(source_edge.get("source", "")),
+            "dst": str(source_edge.get("target", "")),
+            "type": map_edge_type(source_edge),
+            "confidence": compute_edge_confidence(source_edge),
+            "directed": source_edge.get("flow_direction") is not None,
+            "provenance": build_provenance(f"stage12 edge review_state={source_edge.get('review_state', '')}"),
+            "geometry": {"polyline": reproject_polyline(source_edge.get("polyline", []))},
+        }
+        if edge_id in off_page_by_edge:
+            edge_node["off_page_connector"] = off_page_by_edge[edge_id]
+        edges.append(edge_node)
 
     return {
         "schema_version": "graph_v1",
