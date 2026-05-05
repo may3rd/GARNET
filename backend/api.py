@@ -46,6 +46,7 @@ from garnet.model_defaults import pick_default_weight_file
 from garnet.pid_extractor import PIDPipeline, PipelineConfig
 from garnet.review_state import empty_review_state, load_review_state, save_review_state
 from garnet.reviewed_outputs import generate_reviewed_outputs
+from garnet.pipe_sheet_merge import resolve_merge_pairs
 from garnet.utils import rotate_image
 
 # =============================================================================
@@ -1094,6 +1095,47 @@ async def create_pipeline_job(
 @app.get("/api/pipeline/jobs/{job_id}")
 async def get_pipeline_job(job_id: str):
     return _serialize_pipeline_job(job_id)
+
+
+class MergeSheetsRequest(BaseModel):
+    job_ids: list[str] = Field(..., description="Pipeline job IDs to merge. Each must have a stage12b_graph_v1.json artifact.")
+
+
+@app.post("/api/pipeline/merge", response_model=dict[str, Any])
+async def post_pipeline_merge(request: MergeSheetsRequest):
+    """Run the multi-sheet merge engine on a list of completed pipeline jobs.
+
+    Each job_id must have a ``stage12b_graph_v1.json`` artifact (stage 12b must
+    have completed).  The merge engine pairs off-page connectors by
+    ``(reference_type, reference_value)`` across different sheets and returns
+    ``cross_sheet_edges`` plus any ``merge_issues`` requiring human review.
+    """
+    graphs: list[dict[str, Any]] = []
+    missing: list[str] = []
+
+    for job_id in request.job_ids:
+        payload = _serialize_pipeline_job(job_id)
+        graph_path = os.path.join(payload["job_dir"], "stage12b_graph_v1.json")
+        if not os.path.exists(graph_path):
+            missing.append(job_id)
+            continue
+        with open(graph_path, "r", encoding="utf-8") as f:
+            graphs.append(json.load(f))
+
+    if missing:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "message": "One or more job IDs do not have stage12b_graph_v1.json artifacts.",
+                "missing_job_ids": missing,
+            },
+        )
+
+    if not graphs:
+        raise HTTPException(status_code=400, detail="No valid graph payloads found.")
+
+    result = resolve_merge_pairs(graphs)
+    return result.to_dict()
 
 
 @app.get("/api/pipeline/jobs/{job_id}/review-state")
