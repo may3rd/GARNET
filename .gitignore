@@ -191,3 +191,9 @@ frontend/dist
 # External
 DeepLSD/
 PTTEP/
+# Only keep latest output runs; prune old experiments to save repo space
+backend/output/pipeline_jobs/
+backend/output/ppcl_validate_best_20260330/
+backend/output/*
+!backend/output/pipeline_jobs/
+!backend/output/ppcl_validate_best_20260330/
