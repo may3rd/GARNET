@@ -170,7 +170,6 @@ cython_debug/
 backend/__pycache__/
 backend/*.bak
 backend/*.log
-backend/output/
 backend/out/
 backend/temp/
 backend/test/
