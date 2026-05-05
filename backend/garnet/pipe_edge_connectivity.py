@@ -391,6 +391,8 @@ def _continuation_connections(
         for endpoint_name, node_id, point, vector in _edge_endpoints(edge):
             endpoint_candidates.append((edge_id, endpoint_name, node_id, point, vector))
     connections: list[dict[str, Any]] = []
+    candidate_links: list[dict[str, Any]] = []
+    seen_candidate_keys: set[tuple[str, str, str, str, str]] = set()
     invalid_shared_junction_fallback_candidate_keys: set[tuple[str, str, str]] = set()
     seen_pairs: set[tuple[str, str]] = set()
     active_seed_edges = set(connection_seed_edge_ids or set())
@@ -412,11 +414,32 @@ def _continuation_connections(
             for other_edge_id, other_endpoint_name, other_node_id, other_point, other_vector in endpoint_candidates[idx + 1 :]:
                 if edge_id == other_edge_id:
                     continue
+                pair = tuple(sorted((edge_id, other_edge_id)))
+                endpoint_pair = tuple(sorted((f"{edge_id}:{endpoint_name}", f"{other_edge_id}:{other_endpoint_name}")))
+                candidate_key = (pair[0], pair[1], endpoint_pair[0], endpoint_pair[1], "endpoint_continuation")
                 shared_junctions = edge_junction_node_ids.get(edge_id, set()) & edge_junction_node_ids.get(other_edge_id, set())
                 if shared_junctions:
                     for shared_junction in shared_junctions:
-                        sorted_pair = tuple(sorted((edge_id, other_edge_id)))
-                        invalid_shared_junction_fallback_candidate_keys.add((shared_junction, sorted_pair[0], sorted_pair[1]))
+                        invalid_shared_junction_fallback_candidate_keys.add((shared_junction, pair[0], pair[1]))
+                    if candidate_key not in seen_candidate_keys:
+                        seen_candidate_keys.add(candidate_key)
+                        candidate_links.append(
+                            {
+                                "kind": "endpoint_continuation_candidate",
+                                "source_edge_id": pair[0],
+                                "target_edge_id": pair[1],
+                                "source_endpoint": endpoint_pair[0],
+                                "target_endpoint": endpoint_pair[1],
+                                "selected": False,
+                                "score": -100.0,
+                                "rejection_reason": "shares_junction_node",
+                                "alignment": alignment,
+                                "features": {
+                                    "shared_junction_ids": sorted(shared_junctions),
+                                    "touches_junction_owned_edge": True,
+                                },
+                            }
+                        )
                     continue
                 if _vector_alignment(other_vector) != alignment:
                     continue
@@ -428,6 +451,35 @@ def _continuation_connections(
                 if gap_px > gap_limit:
                     continue
                 opposite_error = _opposite_error(vector, other_vector)
+                if candidate_key not in seen_candidate_keys:
+                    seen_candidate_keys.add(candidate_key)
+                    seeded_candidate = edge_id in active_seed_edges or other_edge_id in active_seed_edges
+                    candidate_links.append(
+                        {
+                            "kind": "endpoint_continuation_candidate",
+                            "source_edge_id": pair[0],
+                            "target_edge_id": pair[1],
+                            "source_endpoint": endpoint_pair[0],
+                            "target_endpoint": endpoint_pair[1],
+                            "selected": False,
+                            "score": round(
+                                float(80.0 - gap_px * 0.8 - opposite_error * 40.0 + (20.0 if seeded_candidate else 0.0)),
+                                3,
+                            ),
+                            "rejection_reason": None if opposite_error <= max_opposite_error else "not_opposite_direction",
+                            "alignment": alignment,
+                            "features": {
+                                "gap_px": round(float(gap_px), 3),
+                                "gap_limit_px": round(float(gap_limit), 3),
+                                "opposite_error": round(float(opposite_error), 4),
+                                "seeded": seeded_candidate,
+                                "touches_junction_owned_edge": bool(
+                                    edge_junction_node_ids.get(pair[0], set())
+                                    or edge_junction_node_ids.get(pair[1], set())
+                                ),
+                            },
+                        }
+                    )
                 if opposite_error > max_opposite_error:
                     continue
                 key_a = (edge_id, endpoint_name)
@@ -483,8 +535,21 @@ def _continuation_connections(
                     ),
                 }
             )
+    selected_pairs_by_kind = {
+        (tuple(sorted((str(item["source_edge_id"]), str(item["target_edge_id"])))), str(item["kind"]))
+        for item in connections
+    }
+    for item in candidate_links:
+        pair = tuple(sorted((str(item["source_edge_id"]), str(item["target_edge_id"]))))
+        for selected_kind in ("gap_continuation", "connection_seeded_continuation"):
+            if (pair, selected_kind) in selected_pairs_by_kind:
+                item["selected"] = True
+                item["selected_kind"] = selected_kind
+                item["rejection_reason"] = None
+                break
     return {
         "connections": connections,
+        "candidate_links": candidate_links,
         "summary": {
             "invalid_shared_junction_fallback_candidate_count": len(invalid_shared_junction_fallback_candidate_keys),
             "junction_touching_continuation_count": len(
@@ -504,6 +569,249 @@ def _continuation_connections(
                     if item.get("touches_junction_owned_edge") and item.get("kind") == "connection_seeded_continuation"
                 ]
             ),
+        },
+    }
+
+
+def _score_selected_rule_connection(item: dict[str, Any]) -> float:
+    kind = str(item.get("kind", ""))
+    if kind == "inline_element":
+        return 120.0
+    if kind == "junction_alignment":
+        return round(
+            float(
+                110.0
+                - float(item.get("centerline_error_px", 0.0)) * 4.0
+                - float(item.get("opposite_error", 0.0)) * 30.0
+            ),
+            3,
+        )
+    if kind == "connection_seeded_continuation":
+        return round(float(100.0 - float(item.get("gap_px", 0.0)) * 0.6), 3)
+    if kind == "gap_continuation":
+        return round(float(85.0 - float(item.get("gap_px", 0.0)) * 0.8), 3)
+    return 0.0
+
+
+def _selected_connection_candidate(item: dict[str, Any]) -> dict[str, Any]:
+    pair = tuple(sorted((str(item["source_edge_id"]), str(item["target_edge_id"]))))
+    features = {
+        key: item[key]
+        for key in (
+            "alignment",
+            "connector_id",
+            "connector_class",
+            "gap_px",
+            "opposite_error",
+            "centerline_error_px",
+            "side_dot",
+            "touches_junction_owned_edge",
+        )
+        if key in item
+    }
+    return {
+        "kind": f"{item.get('kind')}_candidate",
+        "source_edge_id": pair[0],
+        "target_edge_id": pair[1],
+        "selected": True,
+        "selected_kind": str(item.get("kind", "")),
+        "score": _score_selected_rule_connection(item),
+        "rejection_reason": None,
+        "features": features,
+    }
+
+
+def _rejected_junction_candidate(item: dict[str, Any]) -> dict[str, Any]:
+    pair = tuple(sorted((str(item["source_edge_id"]), str(item["target_edge_id"]))))
+    reason = str(item.get("rejection_reason", "rejected"))
+    penalty_by_reason = {
+        "not_opposite_direction": 55.0,
+        "misses_junction_centerline": 45.0,
+        "not_opposite_sides": 50.0,
+    }
+    return {
+        "kind": "junction_alignment_candidate",
+        "source_edge_id": pair[0],
+        "target_edge_id": pair[1],
+        "selected": False,
+        "score": round(float(40.0 - penalty_by_reason.get(reason, 40.0)), 3),
+        "rejection_reason": reason,
+        "features": {
+            key: item[key]
+            for key in (
+                "connector_id",
+                "alignment",
+                "opposite_error",
+                "centerline_error_px",
+                "side_dot",
+            )
+            if key in item
+        },
+    }
+
+
+def _build_candidate_link_graph(
+    *,
+    selected_connections: list[dict[str, Any]],
+    rejected_junction_connections: list[dict[str, Any]],
+    continuation_candidates: list[dict[str, Any]],
+) -> dict[str, Any]:
+    links: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str, str | None, str | None]] = set()
+
+    def add_link(item: dict[str, Any]) -> None:
+        pair = tuple(sorted((str(item.get("source_edge_id", "")), str(item.get("target_edge_id", "")))))
+        key = (
+            str(item.get("kind", "")),
+            pair[0],
+            pair[1],
+            str(item.get("source_endpoint")) if item.get("source_endpoint") is not None else None,
+            str(item.get("target_endpoint")) if item.get("target_endpoint") is not None else None,
+        )
+        if key in seen:
+            return
+        seen.add(key)
+        links.append({"id": f"candidate_link_{len(links):05d}", **item})
+
+    for item in selected_connections:
+        add_link(_selected_connection_candidate(item))
+    for item in rejected_junction_connections:
+        add_link(_rejected_junction_candidate(item))
+    for item in continuation_candidates:
+        add_link(item)
+
+    reason_counts = Counter(str(item.get("rejection_reason")) for item in links if item.get("rejection_reason"))
+    selected_kind_counts = Counter(str(item.get("selected_kind", "unknown")) for item in links if item.get("selected"))
+    return {
+        "links": links,
+        "summary": {
+            "candidate_link_count": len(links),
+            "selected_candidate_link_count": len([item for item in links if item.get("selected")]),
+            "rejected_candidate_link_count": len([item for item in links if item.get("rejection_reason")]),
+            "rejection_reason_counts": dict(reason_counts),
+            "selected_kind_counts": dict(selected_kind_counts),
+        },
+    }
+
+
+def _candidate_pair_key(item: dict[str, Any]) -> tuple[str, str]:
+    return tuple(sorted((str(item.get("source_edge_id", "")), str(item.get("target_edge_id", "")))))
+
+
+def _candidate_connection_key(item: dict[str, Any]) -> tuple[str, str, str]:
+    pair = _candidate_pair_key(item)
+    return (str(item.get("selected_kind") or item.get("kind", "")), pair[0], pair[1])
+
+
+def _candidate_selection_priority(item: dict[str, Any]) -> tuple[float, int]:
+    selected_kind = str(item.get("selected_kind") or item.get("kind", ""))
+    priority_by_kind = {
+        "inline_element": 5,
+        "junction_alignment": 4,
+        "connection_seeded_continuation": 3,
+        "gap_continuation": 2,
+        "endpoint_continuation_candidate": 1,
+    }
+    return (float(item.get("score", 0.0)), priority_by_kind.get(selected_kind, 0))
+
+
+def _shadow_select_candidate_links(candidate_link_graph: dict[str, Any]) -> dict[str, Any]:
+    links = list(candidate_link_graph.get("links", []))
+    blocked_pairs = {
+        _candidate_pair_key(item)
+        for item in links
+        if item.get("rejection_reason") == "shares_junction_node"
+    }
+    endpoint_refs_by_pair: dict[tuple[str, str], list[str]] = {}
+    for item in links:
+        endpoints = [
+            str(item[key])
+            for key in ("source_endpoint", "target_endpoint")
+            if item.get(key) is not None
+        ]
+        if endpoints and not item.get("rejection_reason"):
+            pair = _candidate_pair_key(item)
+            endpoint_refs_by_pair.setdefault(pair, endpoints)
+    current_selected_keys = {
+        _candidate_connection_key(item)
+        for item in links
+        if item.get("selected") and item.get("selected_kind")
+    }
+    endpoint_claims: set[str] = set()
+    selected_links: list[dict[str, Any]] = []
+    rejected_links: list[dict[str, Any]] = []
+    selected_pairs: set[tuple[str, str]] = set()
+
+    selectable = [
+        item
+        for item in links
+        if not item.get("rejection_reason") and float(item.get("score", 0.0)) >= 0.0
+    ]
+    selectable.sort(key=_candidate_selection_priority, reverse=True)
+
+    for item in selectable:
+        pair = _candidate_pair_key(item)
+        rejection_reason = None
+        if pair in blocked_pairs:
+            rejection_reason = "blocked_by_same_junction_rejection"
+        elif pair in selected_pairs and str(item.get("kind")) == "endpoint_continuation_candidate":
+            rejection_reason = "duplicate_pair_lower_priority"
+        else:
+            endpoints = [
+                str(item[key])
+                for key in ("source_endpoint", "target_endpoint")
+                if item.get(key) is not None
+            ] or endpoint_refs_by_pair.get(pair, [])
+            if any(endpoint in endpoint_claims for endpoint in endpoints):
+                rejection_reason = "endpoint_already_claimed"
+
+        if rejection_reason is not None:
+            rejected_links.append({**item, "shadow_selected": False, "shadow_rejection_reason": rejection_reason})
+            continue
+
+        endpoints = [
+            str(item[key])
+            for key in ("source_endpoint", "target_endpoint")
+            if item.get(key) is not None
+        ] or endpoint_refs_by_pair.get(pair, [])
+        endpoint_claims.update(endpoints)
+        selected_pairs.add(pair)
+        selected_kind = str(item.get("selected_kind") or item.get("kind", ""))
+        selected_links.append(
+            {
+                **item,
+                "shadow_selected": True,
+                "shadow_selected_kind": selected_kind,
+                "shadow_rejection_reason": None,
+            }
+        )
+
+    selected_keys = {_candidate_connection_key(item) for item in selected_links}
+    added_keys = selected_keys - current_selected_keys
+    removed_keys = current_selected_keys - selected_keys
+    selected_kind_counts = Counter(str(item.get("shadow_selected_kind", "unknown")) for item in selected_links)
+    rejection_reason_counts = Counter(str(item.get("shadow_rejection_reason", "unknown")) for item in rejected_links)
+    diff = {
+        "added": [
+            {"selected_kind": key[0], "source_edge_id": key[1], "target_edge_id": key[2]}
+            for key in sorted(added_keys)
+        ],
+        "removed": [
+            {"selected_kind": key[0], "source_edge_id": key[1], "target_edge_id": key[2]}
+            for key in sorted(removed_keys)
+        ],
+    }
+    return {
+        "selected_links": selected_links,
+        "rejected_links": rejected_links,
+        "diff": diff,
+        "summary": {
+            "shadow_selected_candidate_link_count": len(selected_links),
+            "shadow_rejected_candidate_link_count": len(rejected_links),
+            "shadow_added_link_count": len(added_keys),
+            "shadow_removed_link_count": len(removed_keys),
+            "shadow_selected_kind_counts": dict(selected_kind_counts),
+            "shadow_rejection_reason_counts": dict(rejection_reason_counts),
         },
     }
 
@@ -572,6 +880,85 @@ def render_junction_decision_overlay(
             edge = edge_by_id.get(edge_id)
             if edge is not None:
                 _draw_edge_polyline(overlay, edge, (0, 180, 0), 3)
+    return overlay
+
+
+def _edge_endpoint_point(edge: dict[str, Any], endpoint_name: str) -> tuple[int, int] | None:
+    points = _polyline_points(edge)
+    if not points:
+        return None
+    return points[0] if endpoint_name == "start" else points[-1]
+
+
+def _candidate_endpoint_point(edge_by_id: dict[str, dict[str, Any]], endpoint_ref: str) -> tuple[int, int] | None:
+    if ":" not in endpoint_ref:
+        return None
+    edge_id, endpoint_name = endpoint_ref.rsplit(":", 1)
+    edge = edge_by_id.get(edge_id)
+    if edge is None:
+        return None
+    return _edge_endpoint_point(edge, endpoint_name)
+
+
+def render_candidate_link_overlay(
+    *,
+    image_bgr: Any,
+    edges: list[dict[str, Any]],
+    candidate_links: list[dict[str, Any]],
+) -> Any:
+    overlay = image_bgr.copy()
+    if cv2 is None:
+        return overlay
+    edge_by_id = {str(edge.get("id", "")): edge for edge in edges}
+    for item in candidate_links:
+        selected = bool(item.get("selected"))
+        reason = str(item.get("rejection_reason") or "")
+        if selected:
+            color = (0, 170, 0)
+            thickness = 2
+        elif reason == "shares_junction_node":
+            color = (0, 0, 255)
+            thickness = 1
+        else:
+            color = (0, 140, 255)
+            thickness = 1
+
+        source_edge = edge_by_id.get(str(item.get("source_edge_id", "")))
+        target_edge = edge_by_id.get(str(item.get("target_edge_id", "")))
+        if selected:
+            if source_edge is not None:
+                _draw_edge_polyline(overlay, source_edge, color, thickness)
+            if target_edge is not None:
+                _draw_edge_polyline(overlay, target_edge, color, thickness)
+
+        source_point = None
+        target_point = None
+        if item.get("source_endpoint") is not None:
+            source_point = _candidate_endpoint_point(edge_by_id, str(item.get("source_endpoint")))
+        if item.get("target_endpoint") is not None:
+            target_point = _candidate_endpoint_point(edge_by_id, str(item.get("target_endpoint")))
+        if source_point is None and source_edge is not None:
+            source_point = _edge_midpoint(source_edge)
+        if target_point is None and target_edge is not None:
+            target_point = _edge_midpoint(target_edge)
+        if source_point is not None and target_point is not None:
+            cv2.line(overlay, source_point, target_point, color, thickness, lineType=cv2.LINE_AA)
+            if not selected and reason:
+                label = reason[:24]
+                label_point = (
+                    int(round((source_point[0] + target_point[0]) / 2.0)),
+                    int(round((source_point[1] + target_point[1]) / 2.0)),
+                )
+                cv2.putText(
+                    overlay,
+                    label,
+                    label_point,
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.35,
+                    color,
+                    1,
+                    cv2.LINE_AA,
+                )
     return overlay
 
 
@@ -660,6 +1047,12 @@ def build_pipe_edge_connectivity(
         seen.add(key)
         all_connections.append(item)
     rejection_reason_counts = dict(Counter(str(item.get("rejection_reason", "unknown")) for item in rejected_junction_connections))
+    candidate_link_graph = _build_candidate_link_graph(
+        selected_connections=all_connections,
+        rejected_junction_connections=rejected_junction_connections,
+        continuation_candidates=continuation_result.get("candidate_links", []),
+    )
+    shadow_selection = _shadow_select_candidate_links(candidate_link_graph)
     return {
         "connections": all_connections,
         "summary": {
@@ -684,6 +1077,15 @@ def build_pipe_edge_connectivity(
                 [item for item in continuation_connections if item["kind"] == "connection_seeded_continuation"]
             ),
             "inline_match_distance_px": inline_match_distance_px,
+            **candidate_link_graph["summary"],
+            **shadow_selection["summary"],
         },
         "rejected_junction_connections": rejected_junction_connections,
+        "candidate_link_graph": candidate_link_graph,
+        "selected_candidate_links": {
+            "selected_candidate_links": shadow_selection["selected_links"],
+            "rejected_candidate_links": shadow_selection["rejected_links"],
+        },
+        "candidate_link_diff": shadow_selection["diff"],
+        "candidate_link_selection_summary": shadow_selection["summary"],
     }
