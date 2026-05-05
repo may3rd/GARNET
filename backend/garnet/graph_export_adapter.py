@@ -271,6 +271,7 @@ def _exit_terminal_for_anchor(anchor_name: str) -> str:
 
 def _build_off_page_connector_map(
     connection_attachments_payload: dict[str, Any] | None,
+    page_connector_labels_payload: dict[str, Any] | None,
 ) -> dict[str, dict[str, Any]]:
     """Build a map from edge_id → off_page_connector dict for page-connection edges.
 
@@ -280,28 +281,8 @@ def _build_off_page_connector_map(
     if not connection_attachments_payload:
         return {}
 
-    by_object_id: dict[str, dict[str, Any]] = {}
-    for att in connection_attachments_payload.get("accepted", []):
-        if att.get("class_name") != "page connection":
-            continue
-        obj_id = str(att.get("det_id") or att.get("object_id") or "")
-        bbox = att.get("bbox", [])
-        anchor_name = str(att.get("anchor_name", ""))
-        by_object_id[obj_id] = {
-            "anchor_name": anchor_name,
-            "bbox": {
-                "x_min": bbox[0] if len(bbox) > 0 else 0,
-                "y_min": bbox[1] if len(bbox) > 1 else 0,
-                "x_max": bbox[2] if len(bbox) > 2 else 0,
-                "y_max": bbox[3] if len(bbox) > 3 else 0,
-            },
-        }
-
-    pc_labels = _page_connector_labels_by_object_id(
-        {"connectors": []},
-    )
-
     result: dict[str, dict[str, Any]] = {}
+    pc_labels = _page_connector_labels_by_object_id(page_connector_labels_payload)
     for att in connection_attachments_payload.get("accepted", []):
         if att.get("class_name") != "page connection":
             continue
@@ -395,7 +376,10 @@ def build_graph_v1_payload(
         node.setdefault("tags", {})["page_reference"] = first_label.get("page_reference") if first_label else None
 
     edges: list[dict[str, Any]] = []
-    off_page_by_edge = _build_off_page_connector_map(connection_attachments_payload)
+    off_page_by_edge = _build_off_page_connector_map(
+        connection_attachments_payload,
+        page_connector_labels_payload,
+    )
     for source_edge in stage12_graph.get("edges", []):
         edge_id = str(source_edge.get("id", ""))
         edge_node = {
