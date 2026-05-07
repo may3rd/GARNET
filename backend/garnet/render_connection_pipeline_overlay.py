@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -26,6 +27,7 @@ import numpy as np
 BLUE_MARKER = (255, 100, 0)          # page-connection marker boxes + anchor dots
 RED_HIGHLIGHT = (0, 0, 255)           # pipeline segments connected to anchor points
 ORANGE_CONNECTOR = (0, 165, 255)    # inline element connectors
+STUB_COLOR = (180, 180, 180)       # dashed stub line from anchor dot → pipe entry
 WHITE_TEXT = (255, 255, 255)
 
 THICKNESS_HIGHLIGHT = 3
@@ -40,6 +42,31 @@ THICKNESS_TEXT = 1
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _draw_dashed_line(
+    canvas: np.ndarray,
+    p1: tuple[int, int],
+    p2: tuple[int, int],
+    color: tuple[int, int, int],
+    thickness: int,
+    *,
+    gap: int = 8,
+) -> None:
+    """Draw a dashed line segment (line-gap-line-gap...) between p1 and p2."""
+    dx = p2[0] - p1[0]
+    dy = p2[1] - p1[1]
+    length = math.sqrt(dx * dx + dy * dy)
+    if length < 1:
+        return
+    udx, udy = dx / length, dy / length
+    drawn = 0.0
+    while drawn < length:
+        seg_len = min(gap, length - drawn)
+        start = (int(p1[0] + udx * drawn), int(p1[1] + udy * drawn))
+        end = (int(p1[0] + udx * (drawn + seg_len)), int(p1[1] + udy * (drawn + seg_len)))
+        cv2.line(canvas, start, end, color, thickness)
+        drawn += gap * 2
+
 
 def load_json(path: str | Path) -> dict:
     with open(path) as f:
@@ -193,6 +220,19 @@ def render_overlay(
             cv2.rectangle(canvas, (int(x1), int(y1)), (int(x2), int(y2)),
                           BLUE_MARKER, THICKNESS_BOX)
             stats["marker_boxes_drawn"] += 1
+
+    #
+    # Stub line from anchor (bbox border) to pipe entry point — drawn after
+    # the marker box so the line has a clean entry into the dot
+    # -------------------------------------------------------------------------
+    for conn in accepted:
+        anchor_xy = conn.get("anchor_xy")
+        nearest_xy = conn.get("nearest_point_xy")
+        if anchor_xy and nearest_xy:
+            ax, ay = int(anchor_xy[0]), int(anchor_xy[1])
+            px, py = int(nearest_xy[0]), int(nearest_xy[1])
+            # Dashed stub line: anchor dot → nearest pipe point
+            _draw_dashed_line(canvas, (ax, ay), (px, py), STUB_COLOR, 1, gap=6)
 
     # --------------------------------------------------------------------------
     # Layer 4: Anchor dots + labels (blue) — always on TOP so they are visible
