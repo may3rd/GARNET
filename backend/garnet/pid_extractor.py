@@ -41,6 +41,7 @@ from garnet.pipe_edge_connectivity import (
     render_candidate_link_overlay,
     render_junction_decision_overlay,
 )
+from garnet.render_connection_pipeline_overlay import render_overlay
 from garnet.pipe_crossings import run_pipe_crossing_stage
 from garnet.pipe_junctions import run_pipe_junction_stage
 from garnet.pipe_text_attachment import (
@@ -249,6 +250,7 @@ class PIDPipeline:
             (13, "stage13_graph_qa", self.stage13_graph_qa),
             (14, "stage14_continuity_check", self.stage14_continuity_check),
             (15, "stage15_recovery_loop", self.stage15_recovery_loop),
+            (16, "stage16_connection_overlay", self.stage16_connection_overlay),
         ]
 
     def _manifest_path(self) -> Path:
@@ -1179,13 +1181,39 @@ class PIDPipeline:
         decisions = run_recovery_stage(str(self.out_dir), max_iterations=3)
         self._save_json("stage5_recovery_decisions", decisions)
 
+    # ---------- Stage 16 ----------
+    def stage16_connection_overlay(self) -> None:
+        """
+        Stage 16: render connection + pipe-segment overlay.
+
+        Uses render_overlay() from render_connection_pipeline_overlay.py to draw:
+        - Red pipe segments connected to accepted page-connection anchors
+        - Orange inline element connectors
+        - Blue page-connection marker boxes + anchor dots + labels
+
+        Runs after Stage 12 (needs connection_attachments + edge_connections)
+        and uses stage4_objects as the background reference.
+        """
+        out = self.out_dir
+        overlay_path = out / "stage16_connection_pipeline_overlay.png"
+
+        render_overlay(
+            connection_attachments_path=str(out / "stage12_connection_attachments.json"),
+            edge_connections_path=str(out / "stage12_edge_connections.json"),
+            edge_terminals_path=str(out / "stage12_edge_terminals.json"),
+            graph_path=str(out / "stage12_graph.json"),
+            objects_path=str(out / "stage4_objects.json"),
+            output_path=str(overlay_path),
+            image_base_path=str(self.image_path),
+        )
+
 
 def main() -> None:
     parser = argparse.ArgumentParser("P&ID pipeline")
     parser.add_argument("--image", required=True)
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     parser.add_argument("--ocr-route", choices=["easyocr", "gemini", "paddleocr", "ocrmac"], default="ocrmac")
-    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, or 15)")
+    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, or 16)")
     args = parser.parse_args()
     pipe = PIDPipeline(args.image, out_dir=args.out, cfg=PipelineConfig(ocr_route=args.ocr_route))
     pipe.run(stop_after=args.stop_after)

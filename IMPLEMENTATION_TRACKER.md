@@ -166,6 +166,50 @@
 
 
 
+
+
+## Sprint 6 / Phase 2 — Continuity-Aware Pipeline (2026-05-07)
+
+**Objective**
+- Add Stage 10→12 gap feedback loop: detect near-edge gaps in traced topology, feed them into graph assembly validation, resolve via the recovery engine.
+- Render the connection + pipe-segment overlay (S16) so reviewers can visually verify page connection anchoring.
+
+**Definition of done**
+- `validated_edges` > 0 in `stage10_continuity_result.json` (not 0)
+- `total_anomalies` present in `stage13_graph_qa_summary.json`
+- `stage16_connection_pipeline_overlay.png` produced per run
+- Smoke test passes on all 4 test images
+
+| ID | Task | Master-plan refs | Repo targets | Verification | Status |
+|----|------|------------------|--------------|--------------|--------|
+| S8-01 | Stage 10 post-trace continuity check: `run_post_trace_continuity_check()` classifies each edge as validated/provisional/orphan/gap_candidate; runs after `_trace_edges()` completes | B5 | `backend/garnet/pipe_edges.py`, `backend/garnet/pipe_continuity_helpers.py` | `stage10_continuity_result.json` has `validated_edges>0`, `provisional_edges>0` | ✅ DONE — commit `84d7db3` |
+| S8-02 | Fix terminal_role inference: edges have `source`/`target` node IDs but no `terminal_role` field; infer `junction_terminal` from `junction_*` prefix so junction→junction edges are validated | B5 | `backend/garnet/pipe_continuity_helpers.py` | junction→junction edge: status=validated; endpoint→endpoint: status=provisional | ✅ DONE — commit `5dd8cb3` |
+| S8-03 | `merge_continuity_into_graph()`: enrich Stage 12 edges with continuity metadata before graph assembly | C1 | `backend/garnet/continuity_aware_connections.py` | Enriched edges passed to `build_pipe_edge_connectivity()` | ✅ DONE |
+| S8-04 | `validate_connections_against_gaps()`: compare Stage 12 connections vs Stage 10 gap summary; produce `stage12_connection_validation.json` with `missed_gaps` list | C1 | `backend/garnet/continuity_aware_connections.py` | `stage12_connection_validation_summary.json` shows `missed_by_stage12` count | ✅ DONE |
+| S8-05 | Stage 14 continuity checker: 10-rule violation detector with overlay | D3 | `backend/garnet/pipe_continuity_checker.py`, `backend/garnet/run_continuity_checker_stage.py` | `stage14_continuity_result.json` + `stage14_violations.json` + `stage14_continuity_violations_overlay.png` | ✅ DONE |
+| S8-06 | `near_edge_gap` recovery handler: score gap by confidence; ≤5px auto-close, 5–15px human review, >20px skip | E2 | `backend/garnet/recovery_loop.py` | `stage5_recovery_decisions.json` has near_edge_gap items with accept/review actions | ✅ DONE |
+| S8-07 | Stage 14→15 feedback loop: feed Stage 12 connection validation → recovery engine → gap closure decisions | E2 | `backend/garnet/pid_extractor.py`, `backend/garnet/recovery_loop.py` | RecoveryEngine processes two sources: stage13_review_queue + stage12_connection_validation.json | ✅ DONE |
+| S8-08 | Stage 16 connection + pipe-segment overlay: render accepted page connections, connected pipe segments, inline element connectors on original P&ID background | V3 prep | `backend/garnet/render_connection_pipeline_overlay.py`, `backend/garnet/pid_extractor.py` | `stage16_connection_pipeline_overlay.png` saved per run (~3MB) | ✅ DONE |
+| S8-09 | Fix `total_anomalies` missing from `stage13_graph_qa_summary.json` | QA | `backend/garnet/pipe_graph_qa.py` | Field present: total_anomalies=articulation+isolated+crossings+terminals | ✅ DONE — commit `5dd8cb3` |
+
+### Smoke test results — Test-00008.jpg (2026-05-07)
+
+```
+Pipeline: 16/16 stages ✅ ~50s
+validated_edges: 652 / 783 (83%)
+total_anomalies: 274
+review_queue: 42 (31 unresolved crossings, 5 terminal edges, 4 articulations, 2 isolated)
+near_edge_gaps: 665 (gap_threshold=20px — tuning needed)
+Stage 14 violations: 1,233 (errors:254, warnings:979)
+Recovery: ACCEPT=491, HUMAN_REVIEW=197
+Page connections (accepted): 7
+```
+
+### Open: gap threshold tuning (S8-TBD)
+
+`GAP_THRESHOLD_PX=20.0` is too loose for dense P&ID drawings — generates 665 false-positive near-edge candidates (mostly parallel pipes running close together). Threshold tuning needed.
+
+
 ## Cross-sprint rules
 - Do not add new topology behavior without adding or updating stage artifacts and metrics.
 - Do not close a sprint without updating the scorecard from Sprint 0.
