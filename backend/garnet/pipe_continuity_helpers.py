@@ -187,8 +187,29 @@ def classify_edge_terminal(
     """
     src_xy = edge_endpoint_xy(edge, "source")
     tgt_xy = edge_endpoint_xy(edge, "target")
-    src_role = str(edge.get("source_terminal", {}).get("terminal_role", ""))
-    dst_role = str(edge.get("destination_terminal", {}).get("terminal_role", ""))
+    # Prefer explicit terminal_role set by pipe_edges.py.
+    # Fall back to inferring from the node ID prefix when pipe_edges.py
+    # has not yet written source_terminal/destination_terminal.
+    # node_id prefixes: "junction_*" → junction_terminal (validated),
+    # "endpoint_*" → endpoint (not in VALIDATED_TERMINAL_ROLES).
+    _src_raw = str(edge.get("source_terminal", {}).get("terminal_role", ""))
+    _dst_raw = str(edge.get("destination_terminal", {}).get("terminal_role", ""))
+    if _src_raw:
+        src_role = _src_raw
+    else:
+        src_node_id = str(edge.get("source", ""))
+        if src_node_id.startswith("junction"):
+            src_role = "junction_terminal"
+        else:
+            src_role = ""
+    if _dst_raw:
+        dst_role = _dst_raw
+    else:
+        dst_node_id = str(edge.get("target", ""))
+        if dst_node_id.startswith("junction"):
+            dst_role = "junction_terminal"
+        else:
+            dst_role = ""
     edge_id = str(edge.get("id", ""))
     seg_len = edge_polyline_length(edge)
 

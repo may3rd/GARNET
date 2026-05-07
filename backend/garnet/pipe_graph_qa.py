@@ -356,6 +356,14 @@ def run_pipe_graph_qa_stage(
             "image_id": image_id,
             "pass_type": "sheet",
             "connected_component_count": len(components),
+            # total_anomalies: sum of all graph pathology counts.
+            # This is the headline number MiniClaw's smoke test checks.
+            "total_anomalies": (
+                len(articulation_points)
+                + len(isolated_groups)
+                + len(unresolved_crossings)
+                + len(grouped_unresolved_terminal_edges)
+            ),
             "articulation_point_count": len(articulation_points),
             "isolated_node_count": len(isolated_groups),
             "unresolved_crossing_count": len(unresolved_crossings),
