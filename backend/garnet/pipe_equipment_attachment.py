@@ -102,7 +102,11 @@ def run_pipe_equipment_attachment_stage(
             "accepted": result.accepted,
             "reason": result.reason,
             "anchor_name": result.anchor_name,
-            "anchor_xy": result.anchor_xy,
+            # anchor_xy: the actual pipe-to-bbox-border intersection point.
+            # Previously this was the anchor's side-midpoint (result.anchor_xy),
+            # which placed the blue dot at the bbox center rather than where
+            # the pipe actually crosses the bbox edge.
+            "anchor_xy": connection_anchor_xy if connection_anchor_xy is not None else result.anchor_xy,
             "edge_id": result.edge_id,
             "nearest_point_xy": result.nearest_point_xy,
             "connection_anchor_xy": connection_anchor_xy,
