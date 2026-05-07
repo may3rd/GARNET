@@ -35,6 +35,7 @@ from garnet.pipe_edges import run_pipe_edge_stage
 from garnet.pipe_equipment_attachment import run_pipe_equipment_attachment_stage
 from garnet.pipe_graph import run_pipe_graph_stage
 from garnet.pipe_graph_qa import run_pipe_graph_qa_stage
+from garnet.run_continuity_checker_stage import run_continuity_checker_stage
 from garnet.pipe_edge_connectivity import (
     build_pipe_edge_connectivity,
     render_candidate_link_overlay,
@@ -246,7 +247,8 @@ class PIDPipeline:
             (12, "stage12c_page_connector_labeling", self.stage12c_page_connector_labeling),
             (12, "stage12b_graph_export", self.stage12b_graph_export),
             (13, "stage13_graph_qa", self.stage13_graph_qa),
-            (14, "stage14_recovery_loop", self.stage14_recovery_loop),
+            (14, "stage14_continuity_check", self.stage14_continuity_check),
+            (15, "stage15_recovery_loop", self.stage15_recovery_loop),
         ]
 
     def _manifest_path(self) -> Path:
@@ -739,6 +741,11 @@ class PIDPipeline:
         self._save_img("stage10_pipe_edges_overlay", edge_result["overlay_image"])
         self._save_json("stage10_pipe_edges", edge_result["edges_payload"])
         self._save_json("stage10_pipe_edge_summary", edge_result["summary"])
+        # Phase 2: continuity-aware outputs for Stage 11/12
+        if "continuity_result" in edge_result:
+            self._save_json("stage10_continuity_result", edge_result["continuity_result"])
+        if "gap_summary" in edge_result:
+            self._save_json("stage10_gap_summary", {"gaps": edge_result["gap_summary"]})
 
     def stage10b_polyline_simplification(self) -> None:
         edges_payload = self._load_json_artifact("stage10_pipe_edges")
@@ -869,8 +876,32 @@ class PIDPipeline:
             max_distance_px=self.cfg.connection_attachment_max_distance_px,
             k_candidate_edges=self.cfg.connection_attachment_k_candidate_edges,
         )
+        # Phase 2: Load Stage 10 continuity data
+        continuity_payload = self._load_json_artifact_or_default(
+            "stage10_continuity_result",
+            {"orphan_edges": 0, "gap_candidate_edges": 0, "validated_edges": 0, "provisional_edges": 0},
+        )
+        gap_summary_payload = self._load_json_artifact_or_default(
+            "stage10_gap_summary",
+            {"gaps": []},
+        )
+
+        # Phase 2: Merge Stage 10 continuity metadata into edges before graph assembly
+        from garnet.continuity_aware_connections import (
+            merge_continuity_into_graph,
+            validate_connections_against_gaps,
+        )
+        edges_raw = edges_payload.get("edges", [])
+        enriched_edges, enriched_nodes = merge_continuity_into_graph(
+            edges=edges_raw,
+            nodes=[],  # nodes built later from node_clusters
+            continuity_result=continuity_payload,
+            gap_summary=gap_summary_payload.get("gaps", []),
+        )
+
+        # Phase 2: Pass gap_summary to edge connectivity
         edge_connectivity_result = build_pipe_edge_connectivity(
-            edges=edges_payload.get("edges", []),
+            edges=enriched_edges,
             node_clusters=node_clusters_payload.get("clusters", []),
             object_regions=object_payload.get("objects", []),
             inline_connector_classes=self.cfg.graph_inline_connector_classes,
@@ -881,12 +912,19 @@ class PIDPipeline:
                 if item.get("edge_id") is not None
             },
         )
+
+        # Phase 2: Validate Stage 12 connections against Stage 10 gap summary
+        connection_validation = validate_connections_against_gaps(
+            edges=enriched_edges,
+            connections=edge_connectivity_result["connections"],
+            gap_summary=gap_summary_payload.get("gaps", []),
+        )
         overlay_edges = [
             {
                 **edge,
                 "edge_terminals": edge_terminal_map.get(str(edge.get("id", ""))),
             }
-            for edge in overlay_edges
+            for edge in enriched_edges  # Phase 2: use continuity-enriched edges
         ]
         text_attachment_result = run_pipe_text_attachment_stage(
             image_id=Path(self.image_path).name,
@@ -943,20 +981,20 @@ class PIDPipeline:
         )
         junction_decision_overlay = render_junction_decision_overlay(
             image_bgr=self._ensure_image_loaded(),
-            edges=edges_payload.get("edges", []),
+            edges=enriched_edges,
             edge_connections=edge_connectivity_result["connections"],
             rejected_junction_connections=edge_connectivity_result.get("rejected_junction_connections", []),
         )
         candidate_link_overlay = render_candidate_link_overlay(
             image_bgr=self._ensure_image_loaded(),
-            edges=edges_payload.get("edges", []),
+            edges=enriched_edges,
             candidate_links=edge_connectivity_result.get("candidate_link_graph", {}).get("links", []),
         )
 
         graph_result = run_pipe_graph_stage(
             image_id=Path(self.image_path).name,
             node_clusters=node_clusters_payload.get("clusters", []),
-            edges=edges_payload.get("edges", []),
+            edges=enriched_edges,  # Phase 2: continuity-enriched edges
             confirmed_junctions=junctions_payload.get("confirmed_junctions", []),
             unresolved_junctions=junctions_payload.get("unresolved_junctions", []),
             split_nodes=split_nodes_payload.get("nodes", []),
@@ -1046,6 +1084,12 @@ class PIDPipeline:
         self._save_img("stage12_equipment_tag_attachment_overlay", equipment_tag_attachment_result["overlay_image"])
         self._save_json("stage12_graph", graph_result["graph_payload"])
         self._save_json("stage12_graph_summary", graph_result["summary"])
+        # Phase 2: save continuity connection validation results
+        self._save_json("stage12_connection_validation", connection_validation)
+        self._save_json(
+            "stage12_connection_validation_summary",
+            connection_validation.get("gap_connection_summary", {}),
+        )
 
     def stage12c_page_connector_labeling(self) -> None:
         from garnet.page_connector import find_nearby_text
@@ -1098,7 +1142,7 @@ class PIDPipeline:
         )
         self._save_json("stage12b_graph_v1", graph_v1_payload)
 
-    # ---------- Stage 13 ----------
+    # ---------- Stage 13 + 14 ----------
     def stage13_graph_qa(self) -> None:
         graph_payload = self._load_json_artifact("stage12_graph")
         qa_result = run_pipe_graph_qa_stage(
@@ -1111,7 +1155,25 @@ class PIDPipeline:
         self._save_json("stage13_review_queue", qa_result["review_queue"])
         self._save_json("stage13_graph_qa_summary", qa_result["summary"])
 
-    def stage14_recovery_loop(self) -> None:
+    def stage14_continuity_check(self) -> None:
+        """Run pipe continuity rules (Rules 1-10) against the assembled graph."""
+        graph_payload = self._load_json_artifact("stage12_graph")
+        equip_payload = self._load_json_artifact("stage12_equipment_attachments")
+        conn_payload = self._load_json_artifact("stage12_connection_attachments")
+        continuity_result = run_continuity_checker_stage(
+            image_id=Path(self.image_path).name,
+            graph_payload=graph_payload,
+            equipment_attachments_payload=equip_payload,
+            connection_attachments_payload=conn_payload,
+            image_bgr=self._ensure_image_loaded(),
+        )
+        self._save_json("stage14_continuity_result", continuity_result["continuity_result"])
+        self._save_json("stage14_violations", continuity_result["violations"])
+        self._save_img("stage14_continuity_violations_overlay", continuity_result["overlay_image"])
+        self._save_json("stage14_continuity_summary", continuity_result["summary"])
+
+    # ---------- Stage 15 ----------
+    def stage15_recovery_loop(self) -> None:
         from garnet.recovery_loop import run_recovery_stage
 
         decisions = run_recovery_stage(str(self.out_dir), max_iterations=3)
@@ -1123,7 +1185,7 @@ def main() -> None:
     parser.add_argument("--image", required=True)
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     parser.add_argument("--ocr-route", choices=["easyocr", "gemini", "paddleocr", "ocrmac"], default="ocrmac")
-    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, or 14)")
+    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, or 15)")
     args = parser.parse_args()
     pipe = PIDPipeline(args.image, out_dir=args.out, cfg=PipelineConfig(ocr_route=args.ocr_route))
     pipe.run(stop_after=args.stop_after)

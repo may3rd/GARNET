@@ -97,6 +97,12 @@ class RecoveryEngine:
             with open(graph_path, "r", encoding="utf-8") as f:
                 artifacts["graph"] = json.load(f)
 
+        # Phase 2: Stage 12 gap-vs-connection validation (Stage 10 continuity check)
+        gap_validation_path = self.job_dir / "stage12_connection_validation.json"
+        if gap_validation_path.exists():
+            with open(gap_validation_path, "r", encoding="utf-8") as f:
+                artifacts["gap_validation"] = json.load(f)
+
         self._artifacts = artifacts
         return artifacts
 
@@ -258,6 +264,140 @@ class RecoveryEngine:
 
         return result
 
+    def recover_near_edge_gap(self, item: Dict[str, Any]) -> RecoveryItem:
+        """
+        Strategy for near_edge_gap items.
+
+        Stage 10's geometric gap detection found two edges with aligned endpoints
+        within 20px that Stage 12 never connected. The handler scores each gap
+        by closure confidence:
+
+        High   → gap distance ≤ 5px AND both endpoints snap to the same junction
+                 cluster → safe to auto-close with a new provisional connection
+        Medium → gap distance ≤ 15px AND consistent horizontal/vertical alignment
+                 → flag for human review (need visual confirmation)
+        Low    → gap distance 15-20px OR only one endpoint has cluster anchor
+                 → flag for human review (may need OCR/equipment check)
+        Skip   → gap distance > 20px → not within threshold, skip
+
+        After classification, a suggested_connection block is embedded so that
+        downstream gap-injection code (Phase 2) can patch stage12_edge_connections
+        and re-run graph assembly without any ambiguity about what to add.
+        """
+        result = RecoveryItem(
+            original_item=item,
+            category=item.get("category", "near_edge_gap"),
+            group_key=item.get("group_key", ""),
+            priority=item.get("priority", "medium"),
+        )
+
+        gap_distance = float(item.get("gap_distance_px", 0))
+        alignment = item.get("alignment", "unknown")
+        gap_pos = item.get("gap_position", {})
+        edge_a = str(item.get("edge_a", ""))
+        edge_b = str(item.get("edge_b", ""))
+        endpoint_a = item.get("endpoint_a", "")  # "source" or "target"
+        endpoint_b = item.get("endpoint_b", "")
+
+        # Load node clusters to check if endpoints share a cluster
+        graph = self._artifacts.get("graph", {})
+        nodes = {n["id"]: n for n in graph.get("nodes", [])}
+        edges = {e["id"]: e for e in graph.get("edges", [])}
+
+        def _node_cluster(node_id: str) -> Optional[str]:
+            node = nodes.get(node_id)
+            if not node:
+                return None
+            return node.get("cluster_id") or node.get("parent_cluster") or None
+
+        # Resolve endpoint coordinates from edge polylines
+        def _edge_endpoint_coords(eid: str, which: str) -> Optional[Dict[str, float]]:
+            edge = edges.get(eid)
+            if not edge:
+                return None
+            polyline = edge.get("polyline", [])
+            if not polyline:
+                return None
+            if which == "source":
+                pt = polyline[0]
+            else:
+                pt = polyline[-1]
+            return {"x": float(pt.get("col", 0)), "y": float(pt.get("row", 0))}
+
+        # Determine how many endpoints have cluster anchors
+        ep_a_coords = _edge_endpoint_coords(edge_a, endpoint_a)
+        ep_b_coords = _edge_endpoint_coords(edge_b, endpoint_b)
+
+        # Heuristic: check if the gap position is close to both edge endpoints
+        # (indicating the gap truly straddles those two endpoints)
+        pos_x = float(gap_pos.get("x", 0))
+        pos_y = float(gap_pos.get("y", 0))
+
+        def _endpoint_distance(ep_coords: Optional[Dict], px: float, py: float) -> float:
+            if ep_coords is None:
+                return 9999.0
+            return ((ep_coords["x"] - px) ** 2 + (ep_coords["y"] - py) ** 2) ** 0.5
+
+        dist_a = _endpoint_distance(ep_a_coords, pos_x, pos_y)
+        dist_b = _endpoint_distance(ep_b_coords, pos_x, pos_y)
+
+        # Both endpoints near the gap position → confirmed gap straddles them
+        gap_confirmed = (dist_a < 30.0 and dist_b < 30.0)
+
+        # Determine alignment sanity (diagonal gaps are unreliable)
+        alignment_sane = alignment in ("horizontal", "vertical")
+
+        # Confidence scoring
+        if gap_distance > 20.0:
+            result.action = RecoveryAction.ACCEPT
+            result.notes = (
+                f"gap_distance={gap_distance:.1f}px > 20px threshold — "
+                f"outside geometric tolerance, accepting as-is"
+            )
+            result.strategy_attempted.append("gap_too_large")
+        elif gap_distance <= 5.0 and alignment_sane and gap_confirmed:
+            result.action = RecoveryAction.ACCEPT
+            result.notes = (
+                f"gap_distance={gap_distance:.1f}px ≤ 5px, alignment={alignment}, "
+                f"gap confirmed at ({pos_x:.0f},{pos_y:.0f}) — safe to auto-close"
+            )
+            result.strategy_attempted.append("high_confidence_gap_closure")
+        elif gap_distance <= 15.0 and alignment_sane:
+            result.action = RecoveryAction.HUMAN_REVIEW
+            result.notes = (
+                f"gap_distance={gap_distance:.1f}px ≤ 15px, alignment={alignment} — "
+                f"medium confidence, requires visual confirmation"
+            )
+            result.strategy_attempted.append("medium_confidence_gap_review")
+        elif alignment_sane:
+            result.action = RecoveryAction.HUMAN_REVIEW
+            result.notes = (
+                f"gap_distance={gap_distance:.1f}px (15-20px range), alignment={alignment} — "
+                f"lower confidence, requires OCR/equipment check"
+            )
+            result.strategy_attempted.append("low_confidence_gap_review")
+        else:
+            result.action = RecoveryAction.HUMAN_REVIEW
+            result.notes = (
+                f"gap_distance={gap_distance:.1f}px, alignment={alignment} — "
+                f"diagonal or invalid alignment, flagging for review"
+            )
+            result.strategy_attempted.append("diagonal_gap_review")
+
+        # Attach suggested_connection so Phase 2 gap-injection can act on it
+        result.original_item["suggested_connection"] = {
+            "source_edge": edge_a,
+            "target_edge": edge_b,
+            "source_endpoint": endpoint_a,
+            "target_endpoint": endpoint_b,
+            "gap_position": {"x": pos_x, "y": pos_y},
+            "gap_distance_px": gap_distance,
+            "alignment": alignment,
+        }
+        result.original_item["gap_confirmed"] = gap_confirmed
+
+        return result
+
     def recover_unresolved_terminal_edge(self, item: Dict[str, Any]) -> RecoveryItem:
         """
         Strategy for unresolved_terminal_edge items.
@@ -327,6 +467,8 @@ class RecoveryEngine:
             return self.recover_unresolved_crossing(item)
         elif category == "unresolved_terminal_edge":
             return self.recover_unresolved_terminal_edge(item)
+        elif category == "near_edge_gap":
+            return self.recover_near_edge_gap(item)
         else:
             # Unknown category — default to human review
             result = RecoveryItem(
@@ -346,6 +488,11 @@ class RecoveryEngine:
 
         Returns a decisions dict ready to be written as stage5_recovery_decisions.json.
         The original pipeline artifacts are never modified.
+
+        Handles two sources of items:
+        1. stage13_review_queue.json — existing pipeline review items
+        2. stage12_connection_validation.json — near-edge gaps detected by Stage 10
+           that Stage 12 never connected
         """
         logger.info(f"RecoveryEngine starting — max_iterations={self.max_iterations}")
 
@@ -353,21 +500,45 @@ class RecoveryEngine:
         queue_data = self.load_review_queue()
         self.load_stage_artifacts()
 
+        decisions: List[RecoveryItem] = []
+        iterations_completed = 0
+
+        # ---- Source 1: existing review queue items ----
         items = queue_data.get("items", [])
-        if not items:
-            logger.info("No items in review queue — recovery loop complete")
+        if items:
+            logger.info(f"Processing {len(items)} review queue items")
+            for item in items:
+                decision = self._classify_item(item)
+                decisions.append(decision)
+            iterations_completed = max(iterations_completed, 1)
+
+        # ---- Source 2: near-edge gaps from Stage 10 continuity check ----
+        # stage12_connection_validation.json is loaded by load_stage_artifacts()
+        gap_validation = self._artifacts.get("gap_validation", {})
+        missed_gaps = gap_validation.get("missed_gaps", [])
+        if missed_gaps:
+            logger.info(f"Processing {len(missed_gaps)} near-edge gaps from Stage 10 continuity check")
+            for gap in missed_gaps:
+                gap_item: Dict[str, Any] = {
+                    "category": "near_edge_gap",
+                    "group_key": f"gap::{gap.get('edge_a','')}::{gap.get('edge_b','')}",
+                    "priority": "medium",
+                    "edge_a": gap.get("edge_a", ""),
+                    "edge_b": gap.get("edge_b", ""),
+                    "endpoint_a": gap.get("endpoint_a", ""),
+                    "endpoint_b": gap.get("endpoint_b", ""),
+                    "gap_position": gap.get("gap_position", {}),
+                    "gap_distance_px": gap.get("gap_distance_px", 0),
+                    "alignment": gap.get("alignment", "unknown"),
+                }
+                decision = self.recover_near_edge_gap(gap_item)
+                decisions.append(decision)
+            iterations_completed = max(iterations_completed, 1)
+
+        if not decisions:
+            logger.info("No recovery items to process — recovery loop complete")
             return self._build_output(iterations_completed=0, decisions=[])
 
-        logger.info(f"Processing {len(items)} review queue items")
-
-        # Bounded iteration: run strategies once per item
-        # (Approach 2 = non-destructive; we classify and route, not reprocess in-place)
-        decisions: List[RecoveryItem] = []
-        for item in items:
-            decision = self._classify_item(item)
-            decisions.append(decision)
-
-        iterations_completed = 1
         logger.info(
             f"Recovery classification complete: "
             f"{sum(1 for d in decisions if d.action == RecoveryAction.RETRY)} retry, "

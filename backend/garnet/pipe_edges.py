@@ -6,6 +6,15 @@ from typing import Any
 import cv2
 import numpy as np
 
+from garnet.pipe_continuity_helpers import (
+    find_near_edges_at_point,
+    nearest_point_on_polyline,
+    run_post_trace_continuity_check,
+    summarize_gaps,
+    GAP_THRESHOLD_PX,
+    SHORT_EDGE_PX,
+)
+
 
 Point = tuple[int, int]
 
@@ -412,6 +421,15 @@ def run_pipe_edge_stage(
         min_edge_length_px=min_edge_length_px,
         crossing_resolution=crossing_resolution,
     )
+
+    # ─── Phase 2 continuity check (runs after all edges traced) ─────────────
+    continuity_result = run_post_trace_continuity_check(
+        edges,
+        gap_threshold=GAP_THRESHOLD_PX,
+        short_threshold=SHORT_EDGE_PX,
+    )
+    gap_summary = summarize_gaps(edges, threshold_px=GAP_THRESHOLD_PX)
+
     return {
         "overlay_image": _draw_overlay(image_bgr, edges),
         "edges_payload": {
@@ -424,9 +442,19 @@ def run_pipe_edge_stage(
             "pass_type": "sheet",
             "edge_count": len(edges),
             "min_edge_length_px": min_edge_length_px,
+            # Continuity-aware metadata
+            "continuity_validated": continuity_result["validated_edges"],
+            "continuity_provisional": continuity_result["provisional_edges"],
+            "orphan_edges": continuity_result["orphan_edges"],
+            "gap_candidate_edges": continuity_result["gap_candidate_edges"],
+            "short_provisional_edges": continuity_result["short_provisional_edges"],
+            "unique_near_edge_candidates": continuity_result["unique_near_edge_candidates_count"],
             "source_artifacts": [
                 "stage7_pipe_skeleton.png",
                 "stage9_node_clusters.json",
             ],
         },
+        # Extra payloads for downstream stages
+        "continuity_result": continuity_result,
+        "gap_summary": gap_summary,
     }
