@@ -256,21 +256,42 @@ def _cleaned_to_binary(cleaned_gray: np.ndarray) -> np.ndarray:
 def _extract_contour_segments(binary: np.ndarray) -> list[Segment]:
     """
     Extract straight-ish line segments from connected components.
-    Uses cv2.approxPolyDP (Douglas-Peucker) to convert contour polylines
-    into piecewise straight segments.
+
+    Optimised approach (vs. original O(n_comps × image) per-component masks):
+      1. connectedComponentsWithStats for bounding-rect + area of each component.
+      2. For each component, crop to its bounding-box ROI and find contours there.
+         This avoids allocating a full-image mask per component.
+      3. Douglas-Peucker approximation on each contour → piecewise segments.
     """
-    n_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
+    n_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
         binary, connectivity=8
     )
     raw_segments: list[Segment] = []
 
+    h, w = binary.shape[:2]
     for label_id in range(1, n_labels):
         area = stats[label_id, cv2.CC_STAT_AREA]
         if area < MIN_COMPONENT_AREA or area > MAX_COMPONENT_AREA:
             continue
 
-        comp_mask = (labels == label_id).astype(np.uint8) * 255
-        contours, _ = cv2.findContours(comp_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # Crop to component bounding-box ROI.
+        x = int(stats[label_id, cv2.CC_STAT_LEFT])
+        y = int(stats[label_id, cv2.CC_STAT_TOP])
+        bw = int(stats[label_id, cv2.CC_STAT_WIDTH])
+        bh = int(stats[label_id, cv2.CC_STAT_HEIGHT])
+
+        # Clamp to image bounds
+        x1 = max(0, x)
+        y1 = max(0, y)
+        x2 = min(w, x + bw)
+        y2 = min(h, y + bh)
+
+        roi_labels = labels[y1:y2, x1:x2]
+        roi_mask = ((roi_labels == label_id) & (binary[y1:y2, x1:x2] > 0)).astype(np.uint8) * 255
+        if roi_mask.size == 0:
+            continue
+
+        contours, _ = cv2.findContours(roi_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         if not contours:
             continue
 
@@ -284,14 +305,16 @@ def _extract_contour_segments(binary: np.ndarray) -> list[Segment]:
             if len(pts) < 2:
                 continue
 
+            # Offset points back to full-image coordinates.
+            ox, oy = x1, y1
             for i in range(len(pts) - 1):
-                x1, y1 = int(pts[i][0]), int(pts[i][1])
-                x2, y2 = int(pts[i + 1][0]), int(pts[i + 1][1])
-                length = math.hypot(x2 - x1, y2 - y1)
+                x1p, y1p = int(pts[i][0]) + ox, int(pts[i][1]) + oy
+                x2p, y2p = int(pts[i + 1][0]) + ox, int(pts[i + 1][1]) + oy
+                length = math.hypot(x2p - x1p, y2p - y1p)
                 if length < 3:
                     continue
                 raw_segments.append({
-                    "x1": x1, "y1": y1, "x2": x2, "y2": y2,
+                    "x1": x1p, "y1": y1p, "x2": x2p, "y2": y2p,
                     "length": length,
                     "area_parent": area,
                 })
