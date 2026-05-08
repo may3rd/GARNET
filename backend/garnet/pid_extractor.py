@@ -234,6 +234,7 @@ class PIDPipeline:
             (4, "stage4_line_number_fusion", self.stage4_line_number_fusion),
             (4, "stage4_instrument_tag_fusion", self.stage4_instrument_tag_fusion),
             (4, "stage4_equipment_tag_fusion", self.stage4_equipment_tag_fusion),
+            (4, "stage2b_ocr_tag_refinement", self.stage2b_ocr_tag_refinement),
             (5, "stage5_pipe_mask", self.stage5_pipe_mask),
             (6, "stage6_morphological_sealing", self.stage6_morphological_sealing),
             (7, "stage7_skeleton_generation", self.stage7_skeleton_generation),
@@ -498,6 +499,41 @@ class PIDPipeline:
             self._save_json("stage2_gemini_patch_requests", ocr_result.get("patch_requests", []))
             self._save_json("stage2_gemini_patch_raw", ocr_result.get("patch_raw", []))
             self._save_json("stage2_gemini_crop_raw", ocr_result.get("crop_raw", []))
+
+    def stage2b_ocr_tag_refinement(self) -> None:
+        """Reclassify OCR unknown→instrument_tag regions near S4 instrument tag bboxes.
+
+        Runs after stage4_instrument_tag_fusion so that S4 instrument tag bboxes
+        are available for proximity-based reclassification.
+        """
+        s4_payload = self._load_json_artifact_or_default(
+            "stage4_instrument_tags", {"instrument_tags": []}
+        )
+        instrument_tag_bboxes = s4_payload.get("instrument_tags", [])
+        if not instrument_tag_bboxes:
+            print("[INFO] No S4 instrument tags found, skipping OCR refinement")
+            return
+
+        ocr_payload = self._load_json_artifact("stage2_ocr_regions")
+        text_regions = ocr_payload.get("text_regions", [])
+
+        from garnet.ocrmac_sahi import _reclassify_nearby_tags
+        refined = _reclassify_nearby_tags(text_regions, instrument_tag_bboxes, proximity_px=120.0)
+
+        # Compute reclassification stats
+        reclassified = sum(
+            1 for r, orig in zip(refined, text_regions)
+            if r.get("class") == "instrument_tag" and orig.get("class") == "unknown"
+        )
+
+        ocr_payload["text_regions"] = refined
+        self._save_json("stage2_ocr_regions", ocr_payload)
+        self._save_json("stage2_ocr_refinement_summary", {
+            "reclassified_to_instrument_tag": reclassified,
+            "total_regions": len(refined),
+            "proximity_px": 120.0,
+        })
+        print(f"[INFO] OCR refinement: {reclassified} unknown → instrument_tag")
 
     # ---------- Stage 4 ----------
     def stage4_object_detection(self) -> None:

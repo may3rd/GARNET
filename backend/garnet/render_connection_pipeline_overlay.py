@@ -222,8 +222,10 @@ def render_overlay(
             stats["marker_boxes_drawn"] += 1
 
     #
-    # Stub line from anchor (bbox border) to pipe entry point — drawn after
-    # the marker box so the line has a clean entry into the dot
+    # Stub line: anchor dot → pipe entry (L-shaped: horizontal + vertical).
+    # The corner is at (anchor_x, pipe_y) — i.e. go horizontal to the pipe's
+    # y-level first, then across to the nearest pipe point.  This correctly
+    # represents a pipe running at pipe_y and a box connection on its side.
     # -------------------------------------------------------------------------
     for conn in accepted:
         anchor_xy = conn.get("anchor_xy")
@@ -231,8 +233,11 @@ def render_overlay(
         if anchor_xy and nearest_xy:
             ax, ay = int(anchor_xy[0]), int(anchor_xy[1])
             px, py = int(nearest_xy[0]), int(nearest_xy[1])
-            # Dashed stub line: anchor dot → nearest pipe point
-            _draw_dashed_line(canvas, (ax, ay), (px, py), STUB_COLOR, 1, gap=6)
+            pipe_y = py  # y-level of the horizontal pipe
+            # Horizontal segment: anchor → (anchor_x, pipe_y)
+            _draw_dashed_line(canvas, (ax, ay), (ax, pipe_y), STUB_COLOR, 1, gap=6)
+            # Horizontal segment: (anchor_x, pipe_y) → pipe entry point
+            _draw_dashed_line(canvas, (ax, pipe_y), (px, pipe_y), STUB_COLOR, 1, gap=6)
 
     # --------------------------------------------------------------------------
     # Layer 4: Anchor dots + labels (blue) — always on TOP so they are visible

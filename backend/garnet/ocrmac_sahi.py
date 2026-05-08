@@ -154,13 +154,108 @@ def _classify_text(text: str) -> str:
     upper = token.upper()
     if not token:
         return "unknown"
-    if re.fullmatch(r"[A-Z0-9\"'./()-]+", upper) and "-" in upper and any(ch.isdigit() for ch in upper):
-        return "line_number"
-    if re.fullmatch(r"[A-Z]{1,4}-?\d{1,4}[A-Z]?", upper):
+
+    # Strip trailing punctuation that doesn't affect classification
+    clean = re.sub(r"[,;:. ]$", "", upper)
+    has_hyphen = "-" in clean
+
+    # ---- Instrument tag patterns ----
+    # Pattern: 1-4 letters, optional hyphen, 1-5 digits, optional 1-2 letter suffix
+    # e.g. "FI-0901", "PI0901", "LT-0902A", "PDI-0902", "A-0901"
+    if re.fullmatch(r"[A-Z]{1,4}-?[0-9]{1,5}[A-Z]{0,2}", clean):
         return "instrument_tag"
+    # Pattern: 2-letter tag alone (e.g., "PI", "LT", "FI", "TT", "TC")
+    # Exclude common English words
+    if re.fullmatch(r"[A-Z]{2}$", clean) and clean not in {"NO", "OF", "TO", "BY", "IF", "IN", "IS", "IT", "OR", "AS", "AT", "AN", "ON", "WE", "BE", "DO", "GO", "SO", "UP", "US", "ME", "MY"}:
+        return "instrument_tag"
+    # Pattern: single letter + digit like "A1", "B2" — instrument sub-tag
+    if re.fullmatch(r"[A-Z][0-9]{1,3}$", clean):
+        return "instrument_tag"
+    # Pattern: letter followed by dash (e.g., "FIC-" is partial tag)
+    if re.fullmatch(r"[A-Z]{1,4}-$", clean):
+        return "instrument_tag"
+
+    # ---- Line number patterns ----
+    # Line numbers: dash-separated alphanumerics, multiple segments
+    # e.g. "14780-8120-25-25-0009", "25-0008", "1-2-3"
+    if has_hyphen:
+        segments = clean.split("-")
+        if len(segments) >= 2 and all(re.match(r"^[A-Z0-9]+$", s) and len(s) >= 1 for s in segments):
+            # If segments look like line number format (mix of digits and upper letters)
+            if any(len(s) >= 2 for s in segments) or len(segments) >= 3:
+                return "line_number"
+
+    # ---- Note: multi-word sentence-like text ----
     if len(token.split()) >= 3:
         return "note"
+
     return "unknown"
+
+
+def _reclassify_nearby_tags(
+    regions: list[dict[str, Any]],
+    instrument_tag_bboxes: list[dict[str, Any]],
+    proximity_px: float = 120.0,
+) -> list[dict[str, Any]]:
+    """
+    Reclassify unknown text regions as instrument_tag if they are spatially
+    near a detected instrument tag bounding box.
+
+    This catches fragmented instrument tag text (e.g., "PI" and "0901"
+    as separate regions) and multi-part tags split by OCR.
+
+    Args:
+        regions: text_regions from OCR output
+        instrument_tag_bboxes: list of S4 instrument tag bboxes
+            e.g. [{"bbox": {"x_min":..., "x_max":..., "y_min":..., "y_max":...}}, ...]
+        proximity_px: max distance (center-to-center) for reclassification
+    """
+    if not instrument_tag_bboxes:
+        return regions
+
+    # Build proximity index from instrument tag centers
+    tag_centers = []
+    for tb in instrument_tag_bboxes:
+        bbox = tb.get("bbox", tb)
+        cx = (bbox["x_min"] + bbox["x_max"]) / 2.0
+        cy = (bbox["y_min"] + bbox["y_max"]) / 2.0
+        tag_centers.append((cx, cy))
+
+    import math
+    results = []
+    for region in regions:
+        r = dict(region)
+        if region.get("class") != "unknown":
+            results.append(r)
+            continue
+
+        text = region.get("text", "").strip()
+        if not text or len(text) < 1:
+            results.append(r)
+            continue
+
+        bbox = region.get("bbox", {})
+        rcx = (bbox.get("x_min", 0) + bbox.get("x_max", 0)) / 2.0
+        rcy = (bbox.get("y_min", 0) + bbox.get("y_max", 0)) / 2.0
+
+        # Check if any instrument tag bbox is nearby
+        for tcx, tcy in tag_centers:
+            dist = math.hypot(rcx - tcx, rcy - tcy)
+            if dist <= proximity_px:
+                # Check if text looks like an instrument tag fragment
+                upper = text.upper()
+                clean = re.sub(r"[,;:. ]$", "", upper)
+                # Accept: letter+digits, partial tags, instrument suffixes
+                if (re.match(r"^[A-Z]{1,4}-?[0-9]+[A-Z]{0,2}$", clean) or
+                    re.match(r"^[A-Z]{1,4}-$", clean) or  # partial tag with dash
+                    re.match(r"^[A-Z]{1,4}$", clean) and len(clean) <= 5 or
+                    re.match(r"^[0-9]{2,5}$", clean)):  # e.g. "0901"
+                    r["class"] = "instrument_tag"
+                    break
+
+        results.append(r)
+
+    return results
 
 
 def _exception_reasons(region: dict[str, Any]) -> list[str]:
@@ -338,6 +433,7 @@ def run_ocrmac_sahi(
     *,
     image_id: str,
     cfg: OcrMacSahiConfig = OcrMacSahiConfig(),
+    instrument_tag_bboxes: list[dict[str, Any]] | None = None,  # NEW
 ) -> dict[str, Any]:
     ocrmac = _get_ocrmac_module()
     image_path = Path(image_path)
@@ -393,6 +489,11 @@ def run_ocrmac_sahi(
 
     deduped = _nms_ios(raw_detections, cfg.postprocess_match_threshold)
     deduped = _tighten_region_bboxes(image_gray, deduped, cfg)
+
+    # NEW: proximity-based reclassification of instrument tag fragments
+    if instrument_tag_bboxes:
+        deduped = _reclassify_nearby_tags(deduped, instrument_tag_bboxes)
+
     for idx, region in enumerate(sorted(deduped, key=lambda item: (item["bbox"]["y_min"], item["bbox"]["x_min"], item["text"])), start=1):
         region["id"] = f"ocr_{idx:06d}"
 
