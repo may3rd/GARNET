@@ -585,18 +585,23 @@ def _merge_endpoint_pair(s1: Segment, s2: Segment) -> Segment | None:
 
 def _merge_nearby_endpoints(segments: list[Segment]) -> list[Segment]:
     """
-    Spatial-hash greedy merge of perpendicular nearby endpoint pairs (L-joints).
+    Single-pass union-find merge of perpendicular nearby endpoint pairs (L-joints).
 
-    Algorithm:
-      1. Build a 2D hash grid: each cell holds lists of segment indices
-         whose endpoints fall in that cell.
-      2. For each cell, find perpendicular H/V pairs with close endpoints
-         in that cell or adjacent cells (3×3 neighbourhood).
-      3. Apply all non-overlapping merges in one pass, then rebuild the grid.
-      4. Repeat until no merges found.
+    Replaces the 21-iteration greedy loop with a single scan:
+      1. Build spatial hash grid (endpoints → cells).
+      2. Scan once to find ALL perpendicular endpoint pairs within merge_px.
+      3. Only union if segments actually share an endpoint AND the merge
+         would produce a longer segment (prevents over-merging parallel
+         segments through perpendicular chains).
+      4. For each connected component, merge all segments into one by
+         taking the two farthest endpoints.
 
-    Complexity: O(n × c) per outer iteration where c = avg segments per cell.
-    For sparse distributions (typical P&ID), c ≪ n → effectively O(n).
+    Rationale: when A(H)+B(V) merge → diagonal at ~45°. A ~45° segment is
+    NOT perpendicular to any H or V segment (within 20° tolerance), so the
+    cascade naturally stops. All merges are found in the initial scan.
+
+    Complexity: O(n × c) single scan where c = avg entries per cell.
+    Previously: O(n × c × iterations) with ~21 iterations.
     """
     if not segments:
         return []
@@ -604,116 +609,135 @@ def _merge_nearby_endpoints(segments: list[Segment]) -> list[Segment]:
     cell_px = int(ENDPOINT_MERGE_PX)
     if cell_px < 1:
         cell_px = 1
+    merge_thresh_sq = ENDPOINT_MERGE_PX ** 2
     angle_tol = ENDPOINT_MERGE_ANGLE_TOLERANCE_DEG
+    n = len(segments)
 
-    segs = list(segments)
-    changed = True
-    max_iters = len(segs) * 2
-    iters = 0
+    # Build spatial hash: cell → list of (seg_idx, px, py)
+    grid: dict[tuple[int, int], list[tuple[int, int, int]]] = {}
+    seg_angles: list[float] = [0.0] * n
+    for idx, s in enumerate(segments):
+        ang = _segment_angle_deg(s)
+        seg_angles[idx] = ang
+        for px, py in [(s["x1"], s["y1"]), (s["x2"], s["y2"])]:
+            cx, cy = px // cell_px, py // cell_px
+            grid.setdefault((cx, cy), []).append((idx, px, py))
 
-    while changed and iters < max_iters:
-        changed = False
-        iters += 1
+    # Union-Find to group segments with nearby perpendicular endpoints.
+    parent = list(range(n))
+    rank = [0] * n
 
-        # Build spatial hash: cell → list of (ep_idx, seg_idx, x, y)
-        # ep_idx: 0 = (x1,y1), 1 = (x2,y2)
-        grid: dict[tuple[int, int], list[tuple[int, int, int, int]]] = {}
-        for idx, s in enumerate(segs):
-            for ep_idx, px, py in [(0, s["x1"], s["y1"]), (1, s["x2"], s["y2"])]:
-                cx, cy = px // cell_px, py // cell_px
-                grid.setdefault((cx, cy), []).append((ep_idx, idx, px, py))
+    def find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]  # path compression (halving)
+            x = parent[x]
+        return x
 
-        # Precompute angles for all segments
-        seg_angles: list[float] = []
-        for s in segs:
-            ang = _segment_angle_deg(s)
-            seg_angles.append(ang)
+    def union(a: int, b: int) -> None:
+        ra, rb = find(a), find(b)
+        if ra == rb:
+            return
+        if rank[ra] < rank[rb]:
+            ra, rb = rb, ra
+        parent[rb] = ra
+        if rank[ra] == rank[rb]:
+            rank[ra] += 1
 
-        # Find all candidate merges
-        merged_idx: set[int] = set()  # segments already merged this round
-        merges: list[tuple[int, int, Segment]] = []  # (i, j, new_seg)
-
-        processed_cells: set[tuple[int, int]] = set()
-
-        for (cx, cy), cell_entries in grid.items():
-            # Only process this cell once (use canonical ordering)
-            cell_key = (cx, cy)
-            if cell_key in processed_cells:
+    # Single grid scan to find all valid perpendicular endpoint pairs.
+    # Only union if segments share an endpoint AND produce longer segment.
+    neighbour_offsets = [(0, 0), (1, 0), (0, 1), (1, 1), (1, -1)]
+    for (cx, cy), cell_entries in grid.items():
+        for dx, dy in neighbour_offsets:
+            nk = (cx + dx, cy + dy)
+            other_cell = grid.get(nk, [])
+            if not other_cell:
                 continue
-            processed_cells.add(cell_key)
-
-            # Check against self and 5 neighbor cells (right, down, and 3 diagonal)
-            # to avoid double-counting pairs.
-            neighbor_offsets = [(0, 0), (1, 0), (0, 1), (1, 1), (1, -1)]
-
-            for dx, dy in neighbor_offsets:
-                nk = (cx + dx, cy + dy)
-                other_cell = grid.get(nk, [])
-                if not other_cell:
-                    continue
-
-                for ep_i, idx_i, px_i, py_i in cell_entries:
-                    if idx_i in merged_idx:
+            for idx_i, px_i, py_i in cell_entries:
+                ang_i = seg_angles[idx_i]
+                for idx_j, px_j, py_j in other_cell:
+                    if idx_j <= idx_i:
                         continue
-                    ang_i = seg_angles[idx_i]
+                    # Quick distance gate
+                    dd = (px_i - px_j) ** 2 + (py_i - py_j) ** 2
+                    if dd > merge_thresh_sq:
+                        continue
+                    # Angle gate (perpendicular)
+                    ang_j = seg_angles[idx_j]
+                    diff = abs(ang_i - ang_j)
+                    if diff > 90:
+                        diff = 180 - diff
+                    if abs(diff - 90) > angle_tol:
+                        continue
+                    # Must share an endpoint (inline check, avoids recomputing angles).
+                    s1 = segments[idx_i]
+                    s2 = segments[idx_j]
+                    shared = (
+                        (s1["x1"] - s2["x1"]) ** 2 + (s1["y1"] - s2["y1"]) ** 2 <= 1
+                        or (s1["x1"] - s2["x2"]) ** 2 + (s1["y1"] - s2["y2"]) ** 2 <= 1
+                        or (s1["x2"] - s2["x1"]) ** 2 + (s1["y2"] - s2["y1"]) ** 2 <= 1
+                        or (s1["x2"] - s2["x2"]) ** 2 + (s1["y2"] - s2["y2"]) ** 2 <= 1
+                    )
+                    if not shared:
+                        continue
+                    # Merge must produce a longer segment.
+                    # Inline equivalent of _merge_endpoint_pair (avoids math.hypot calls).
+                    all_pts = [
+                        (s1["x1"], s1["y1"]), (s1["x2"], s1["y2"]),
+                        (s2["x1"], s2["y1"]), (s2["x2"], s2["y2"]),
+                    ]
+                    max_d_sq = 0
+                    for pi in range(4):
+                        for pj in range(pi + 1, 4):
+                            dx = all_pts[pi][0] - all_pts[pj][0]
+                            dy = all_pts[pi][1] - all_pts[pj][1]
+                            d_sq = dx * dx + dy * dy
+                            if d_sq > max_d_sq:
+                                max_d_sq = d_sq
+                    max_len_sq = max(s1["length"] ** 2, s2["length"] ** 2)
+                    if max_d_sq <= max_len_sq:
+                        continue
+                    union(idx_i, idx_j)
 
-                    for ep_j, idx_j, px_j, py_j in other_cell:
-                        if idx_j == idx_i or idx_j in merged_idx:
-                            continue
+    # Build connected components: root → list of segment indices.
+    components: dict[int, list[int]] = {}
+    for idx in range(n):
+        root = find(idx)
+        components.setdefault(root, []).append(idx)
 
-                        pair = (min(idx_i, idx_j), max(idx_i, idx_j))
-                        # Quick distance check
-                        dd = (px_i - px_j) ** 2 + (py_i - py_j) ** 2
-                        if dd > ENDPOINT_MERGE_PX ** 2:
-                            continue
+    # Merge each component: take the two most distant endpoints.
+    result: list[Segment] = []
+    for indices in components.values():
+        if len(indices) == 1:
+            result.append(segments[indices[0]])
+            continue
+        # Collect all endpoints and find the pair with maximum distance.
+        all_pts: list[tuple[int, int]] = []
+        max_area = 0
+        for idx in indices:
+            s = segments[idx]
+            all_pts.append((s["x1"], s["y1"]))
+            all_pts.append((s["x2"], s["y2"]))
+            max_area = max(max_area, s.get("area_parent", 0))
+        # Find the pair with maximum distance (squared).
+        best_d_sq = -1
+        best_pair = (all_pts[0], all_pts[1])
+        for i in range(len(all_pts)):
+            for j in range(i + 1, len(all_pts)):
+                dx = all_pts[i][0] - all_pts[j][0]
+                dy = all_pts[i][1] - all_pts[j][1]
+                d_sq = dx * dx + dy * dy
+                if d_sq > best_d_sq:
+                    best_d_sq = d_sq
+                    best_pair = (all_pts[i], all_pts[j])
+        (x1, y1), (x2, y2) = best_pair
+        result.append({
+            "x1": x1, "y1": y1,
+            "x2": x2, "y2": y2,
+            "length": math.hypot(x2 - x1, y2 - y1),
+            "area_parent": max_area,
+        })
 
-                        # Angle gate (perpendicular)
-                        ang_j = seg_angles[idx_j]
-                        diff = abs(ang_i - ang_j)
-                        if diff > 90:
-                            diff = 180 - diff
-                        if abs(diff - 90) > angle_tol:
-                            continue
-
-                        # Full checks
-                        s1 = segs[idx_i]
-                        s2 = segs[idx_j]
-                        if not _segments_share_endpoint(s1, s2):
-                            continue
-                        candidate = _merge_endpoint_pair(s1, s2)
-                        if candidate is None:
-                            continue
-
-                        merges.append((idx_i, idx_j, candidate))
-                        merged_idx.add(idx_i)
-                        merged_idx.add(idx_j)
-
-        if not merges:
-            break
-
-        # Apply all merges
-        new_segs: list[Segment] = []
-        merge_map: dict[int, Segment] = {}  # original idx → merged segment
-        for idx_i, idx_j, merged_seg in merges:
-            merge_map[idx_i] = merged_seg
-            merge_map[idx_j] = merged_seg
-
-        # Build new segment list: merged segments (deduped) + unmerged
-        added: set[int] = set()
-        for idx_i, idx_j, merged_seg in merges:
-            merge_id = min(idx_i, idx_j)
-            if merge_id not in added:
-                new_segs.append(merged_seg)
-                added.add(merge_id)
-
-        for idx, s in enumerate(segs):
-            if idx not in merged_idx:
-                new_segs.append(s)
-
-        segs = new_segs
-        changed = True
-
-    return segs
+    return result
 
 
 def _prune_orphan_segments(
