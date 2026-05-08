@@ -29,7 +29,7 @@ class OcrMacSahiConfig:
     tighten_padding_px: int = 1
     tighten_dark_threshold: int = 200
     postprocess_match_metric: str = "IOS"
-    postprocess_match_threshold: float = 0.1
+    postprocess_match_threshold: float = 0.4  # 0.1 was too aggressive — suppressed valid overlapping detections (e.g. FT)
 
 
 _ocrmac_module: Any = None
