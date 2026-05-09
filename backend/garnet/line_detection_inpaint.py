@@ -204,10 +204,13 @@ def _assemble_inpaint_mask(
         y2 = min(h - 1, y + bh)
         cv2.rectangle(mask, (x1, y1), (x2, y2), 255, -1)
 
-    # 2. Text suppression boxes — skip "line_number" class to preserve
-    # pipe lines that run close to line number labels.
+    # 2. Text suppression boxes — skip classes that sit ON or very close
+    # to pipe lines. "line_number" and "unknown" classes contain short
+    # labels like pipe sizes ("1/2"", "3/4"P") that are drawn directly
+    # on pipe lines; masking them erases the pipe.
+    _SKIP_TEXT_CLASSES = frozenset(["line_number", "unknown"])
     for region in text_regions:
-        if region.get("class") == "line_number":
+        if region.get("class") in _SKIP_TEXT_CLASSES:
             continue
         bbox = region.get("bbox")
         if not bbox:
@@ -218,52 +221,12 @@ def _assemble_inpaint_mask(
         y_max = int(bbox["y_max"])
         cv2.rectangle(mask, (x_min, y_min), (x_max, y_max), 255, -1)
 
-    # 3. Object suppression boxes (symbol interiors) — skip classes that
-    # sit ON the pipe line itself. Inpainting them would erase the pipe.
-    # Excluded: line number, arrow (drawn on pipe lines).
-    # Hybrid approach: page connection symbols are inpainted but with a
-    # center strip preserved (where the pipe passes through). This removes
-    # the symbol text while keeping the pipe continuity.
-    _SKIP_OBJECT_CLASSES = frozenset(["line number", "arrow"])
-    _HYBRID_CLASSES = frozenset(["page connection"])
-    HYBRID_CENTER_STRIP_PX = 20  # pixels of center strip left un-inpainted
-
-    for region in object_regions:
-        cls = region.get("class_name", "")
-        if cls in _SKIP_OBJECT_CLASSES:
-            continue
-        bbox = region.get("bbox")
-        if not bbox:
-            continue
-        x_min = int(bbox["x_min"])
-        y_min = int(bbox["y_min"])
-        x_max = int(bbox["x_max"])
-        y_max = int(bbox["y_max"])
-
-        if cls in _HYBRID_CLASSES:
-            # Hybrid: only mask the sides, leave center strip for pipe
-            bw = x_max - x_min
-            bh = y_max - y_min
-            if bh > bw:  # Vertical symbol: pipe runs vertically, shrink width
-                half_strip = HYBRID_CENTER_STRIP_PX // 2
-                cx = (x_min + x_max) // 2
-                # Mask left side
-                if cx - x_min > half_strip:
-                    cv2.rectangle(mask, (x_min, y_min), (cx - half_strip, y_max), 255, -1)
-                # Mask right side
-                if x_max - cx > half_strip:
-                    cv2.rectangle(mask, (cx + half_strip, y_min), (x_max, y_max), 255, -1)
-            else:  # Horizontal symbol: pipe runs horizontally, shrink height
-                half_strip = HYBRID_CENTER_STRIP_PX // 2
-                cy = (y_min + y_max) // 2
-                # Mask top side
-                if cy - y_min > half_strip:
-                    cv2.rectangle(mask, (x_min, y_min), (x_max, cy - half_strip), 255, -1)
-                # Mask bottom side
-                if y_max - cy > half_strip:
-                    cv2.rectangle(mask, (x_min, cy + half_strip), (x_max, y_max), 255, -1)
-        else:
-            cv2.rectangle(mask, (x_min, y_min), (x_max, y_max), 255, -1)
+    # 3. Object suppression boxes — SKIP ALL. Every detected object class
+    # (reducer, gate valve, spectacle blind, node, arrow, page connection,
+    # instrument tag, instrument dcs, pressure relief valve, pump) sits ON
+    # a pipe line (16-36% pipe pixel overlap). Masking their bboxes always
+    # erases pipe pixels. Symbol removal relies on corner-point-derived
+    # bboxes (Phase 1) and text region suppression (Phase 2) instead.
 
     # 4. Dilate to close gaps between adjacent corner boxes
     if INPAINT_DILATE_KERNEL[0] > 0 or INPAINT_DILATE_KERNEL[1] > 0:

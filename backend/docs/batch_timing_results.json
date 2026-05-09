@@ -1,0 +1,90 @@
+[
+  {
+    "image": "ppcl/Test-00001.jpg",
+    "size_px": "3961x3224",
+    "total_s": 0.601,
+    "raw_segments": 27062,
+    "after_collinear": 26321,
+    "final_segments": 5699,
+    "horizontal": 1368,
+    "vertical": 4331,
+    "corners": 2000
+  },
+  {
+    "image": "ppcl/Test-00004.jpg",
+    "size_px": "4963x3509",
+    "total_s": 0.71,
+    "raw_segments": 26915,
+    "after_collinear": 26202,
+    "final_segments": 5175,
+    "horizontal": 1183,
+    "vertical": 3992,
+    "corners": 2000
+  },
+  {
+    "image": "ppcl/Test-00007.jpg",
+    "size_px": "4963x3509",
+    "total_s": 0.643,
+    "raw_segments": 26658,
+    "after_collinear": 25986,
+    "final_segments": 5195,
+    "horizontal": 1183,
+    "vertical": 4012,
+    "corners": 2000
+  },
+  {
+    "image": "ppcl/Test-00009.jpg",
+    "size_px": "4963x3509",
+    "total_s": 0.669,
+    "raw_segments": 27921,
+    "after_collinear": 27166,
+    "final_segments": 5736,
+    "horizontal": 1310,
+    "vertical": 4426,
+    "corners": 2000
+  },
+  {
+    "image": "pttep/images/PLCPP2/001.png",
+    "size_px": "9922x7016",
+    "total_s": 2.188,
+    "raw_segments": 53348,
+    "after_collinear": 52078,
+    "final_segments": 15019,
+    "horizontal": 4414,
+    "vertical": 10605,
+    "corners": 2000
+  },
+  {
+    "image": "pttep/images/PLCPP2/010.png",
+    "size_px": "9922x7016",
+    "total_s": 1.649,
+    "raw_segments": 51527,
+    "after_collinear": 50431,
+    "final_segments": 14085,
+    "horizontal": 4728,
+    "vertical": 9357,
+    "corners": 2000
+  },
+  {
+    "image": "pttep/images/PLCPP2/149.png",
+    "size_px": "9922x7016",
+    "total_s": 1.836,
+    "raw_segments": 56164,
+    "after_collinear": 54930,
+    "final_segments": 16075,
+    "horizontal": 4609,
+    "vertical": 11466,
+    "corners": 2000
+  },
+  {
+    "image": "!test01.png",
+    "size_px": "2183x1646",
+    "total_s": 0.164,
+    "raw_segments": 8285,
+    "after_collinear": 8058,
+    "final_segments": 1906,
+    "horizontal": 650,
+    "vertical": 1256,
+    "corners": 2000
+  }
+]
