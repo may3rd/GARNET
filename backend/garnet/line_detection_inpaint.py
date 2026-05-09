@@ -51,7 +51,10 @@ CORNER_MIN_DISTANCE = 8
 CORNER_GRID_CELL_PX = 40
 
 # Region dilation for inpaint mask
-INPAINT_DILATE_KERNEL = (21, 21)
+# Tighter kernel (9,9) reduces margin from ~10px to ~4px to avoid
+# eating pipe lines that run close to object bounding boxes
+# (e.g., line numbers near pipes).
+INPAINT_DILATE_KERNEL = (9, 9)
 INPAINT_RADIUS = 5
 
 # Connected-component filtering
@@ -201,8 +204,11 @@ def _assemble_inpaint_mask(
         y2 = min(h - 1, y + bh)
         cv2.rectangle(mask, (x1, y1), (x2, y2), 255, -1)
 
-    # 2. Text suppression boxes
+    # 2. Text suppression boxes — skip "line_number" class to preserve
+    # pipe lines that run close to line number labels.
     for region in text_regions:
+        if region.get("class") == "line_number":
+            continue
         bbox = region.get("bbox")
         if not bbox:
             continue
@@ -212,8 +218,18 @@ def _assemble_inpaint_mask(
         y_max = int(bbox["y_max"])
         cv2.rectangle(mask, (x_min, y_min), (x_max, y_max), 255, -1)
 
-    # 3. Object suppression boxes (symbol interiors)
+    # 3. Object suppression boxes (symbol interiors) — skip classes that
+    # sit ON the pipe line itself. Inpainting them would erase the pipe.
+    # Excluded: line number, arrow, page connection, utility connection,
+    # connection, node (junction/tee points drawn on pipes).
+    _SKIP_OBJECT_CLASSES = frozenset(
+        ["line number", "arrow", "page connection", "utility connection",
+         "connection", "node"]
+    )
     for region in object_regions:
+        cls = region.get("class_name", "")
+        if cls in _SKIP_OBJECT_CLASSES:
+            continue
         bbox = region.get("bbox")
         if not bbox:
             continue
@@ -324,6 +340,85 @@ def _extract_contour_segments(binary: np.ndarray) -> list[Segment]:
 
 # ═══════════════════════════════════════════════════════════════
 # Phase F — Collinearity merging + H / V split
+# ═══════════════════════════════════════════════════════════════
+
+
+def _is_diagonal(seg: Segment, angle_threshold: float = 15.0) -> bool:
+    """Return True if segment is NOT clearly horizontal or vertical.
+
+    Uses a tight 15° threshold because P&ID pipes are strictly H/V.
+    Any segment >15° off-axis is a contour corner artifact that should
+    be decomposed into H+V legs.
+    """
+    ang = _segment_angle_deg(seg)
+    if ang <= angle_threshold or ang >= 180 - angle_threshold:
+        return False  # horizontal
+    if abs(ang - 90.0) <= angle_threshold:
+        return False  # vertical
+    return True
+
+
+def _decompose_diagonal_segments(
+    segments: list[Segment], *, min_leg_px: float = 8.0
+) -> list[Segment]:
+    """
+    Replace diagonal segments with H+V pairs at the corner point.
+
+    For a diagonal segment (x1,y1)→(x2,y2), decompose into:
+      Horizontal leg: (x1,y1)→(x2,y1)
+      Vertical leg:   (x2,y1)→(x2,y2)
+
+    Both legs must be at least min_leg_px to be kept.
+
+    This fixes the common case where contour extraction traces
+    diagonally across 90° pipe corners instead of following the
+    two orthogonal legs separately.
+    """
+    result: list[Segment] = []
+    for seg in segments:
+        if not _is_diagonal(seg):
+            result.append(seg)
+            continue
+
+        dx = abs(seg["x2"] - seg["x1"])
+        dy = abs(seg["y2"] - seg["y1"])
+
+        if dx < min_leg_px and dy < min_leg_px:
+            continue  # too short to matter
+
+        # Try both corner choices; pick the one with longer combined legs.
+        # Corner A: (x1,y2) — H leg to (x1,y1), V leg to (x2,y2)
+        h_a = dx
+        v_a = dy
+        # Corner B: (x2,y1) — H leg to (x2,y2), V leg to (x1,y1)
+        h_b = dx
+        v_b = dy
+        # Same combined length either way; pick based on which leg
+        # direction aligns better with existing H/V segments.
+        # Simple approach: use corner at (x2, y1).
+
+        if dx >= min_leg_px:
+            result.append({
+                "x1": seg["x1"], "y1": seg["y1"],
+                "x2": seg["x2"], "y2": seg["y1"],
+                "length": float(h_a),
+                "area_parent": seg.get("area_parent", 0),
+                "decomposed": True,
+            })
+        if dy >= min_leg_px:
+            result.append({
+                "x1": seg["x2"], "y1": seg["y1"],
+                "x2": seg["x2"], "y2": seg["y2"],
+                "length": float(v_a),
+                "area_parent": seg.get("area_parent", 0),
+                "decomposed": True,
+            })
+
+    return result
+
+
+# ═══════════════════════════════════════════════════════════════
+# Internal: angle + AABB helpers
 # ═══════════════════════════════════════════════════════════════
 
 
@@ -512,19 +607,30 @@ def _merge_collinear_segments(segments: list[Segment]) -> list[Segment]:
     return result
 
 
-def _split_horizontal_vertical(segments: list[Segment]) -> tuple[list[Segment], list[Segment]]:
+def _split_horizontal_vertical(
+    segments: list[Segment], *, angle_threshold: float = 25.0
+) -> tuple[list[Segment], list[Segment]]:
     """
-    Split segments into horizontal (within HV_ANGLE_DEG of 0° or 180°)
-    and vertical (within HV_ANGLE_DEG of 90°).
+    Split segments into horizontal (within angle_threshold of 0° or 180°)
+    and vertical (within angle_threshold of 90°).
+    Default 25° is tighter than HV_ANGLE_DEG (45°) to avoid misclassifying
+    slight-angle segments.
     """
     horiz: list[Segment] = []
     vert: list[Segment] = []
     for seg in segments:
         ang = _segment_angle_deg(seg)
-        if ang <= HV_ANGLE_DEG or ang >= 180 - HV_ANGLE_DEG:
+        if ang <= angle_threshold or ang >= 180 - angle_threshold:
             horiz.append(seg)
-        else:
+        elif abs(ang - 90.0) <= angle_threshold:
             vert.append(seg)
+        else:
+            # Truly diagonal — shouldn't happen after decomposition,
+            # but classify by dominant axis as fallback.
+            if ang < 45 or ang > 135:
+                horiz.append(seg)
+            else:
+                vert.append(seg)
     return horiz, vert
 
 
@@ -798,11 +904,23 @@ def run_line_detection_inpaint(
 
     # Phase F: collinear merge + H/V split
     merged = _merge_collinear_segments(raw_segments)
-    horiz, vert = _split_horizontal_vertical(merged)
 
-    # Phase G: endpoint merge (L-joints) + orphan prune
-    all_end_merged = _merge_nearby_endpoints(horiz + vert)
-    filtered = _prune_orphan_segments(all_end_merged)
+    # Phase Fb: decompose diagonal segments into H+V pairs at corners
+    decomposed = _decompose_diagonal_segments(merged)
+
+    # Phase Fc: re-merge collinear after decomposition. Newly created H+V
+    # legs from diagonal decomposition may overlap or be near existing
+    # H/V pipe segments. A second collinear merge pass connects them.
+    remerged = _merge_collinear_segments(decomposed)
+    horiz, vert = _split_horizontal_vertical(remerged)
+
+    # Phase G: endpoint merge (L-joints) — SKIPPED after decomposition.
+    # The original endpoint merge re-created diagonals by merging
+    # perpendicular H+V pairs at shared corners. With diagonal
+    # decomposition in Phase Fb, we no longer need this step:
+    # H+V segments already meet at their endpoints.
+    filtered = _prune_orphan_segments(remerged)
+    final_horiz, final_vert = _split_horizontal_vertical(filtered)
 
     final_horiz, final_vert = _split_horizontal_vertical(filtered)
 
@@ -819,7 +937,7 @@ def run_line_detection_inpaint(
             "pass_type": "sheet",
             "raw_segments": len(raw_segments),
             "after_collinear_merge": len(merged),
-            "after_endpoint_merge": len(all_end_merged),
+            "after_decompose_diagonal": len(decomposed),
             "final_segments": len(filtered),
             "horizontal_count": len(final_horiz),
             "vertical_count": len(final_vert),

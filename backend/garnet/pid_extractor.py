@@ -51,6 +51,7 @@ from garnet.pipe_text_attachment import (
     run_node_text_attachment_stage,
     run_pipe_text_attachment_stage,
 )
+from garnet.line_detection_inpaint import run_line_detection_inpaint, render_line_overlay
 from garnet.paddle_ocr_sahi import PaddleOcrSahiConfig, run_paddle_ocr_sahi
 from garnet.pipe_mask import run_pipe_mask_stage
 from garnet.pipe_node_clusters import run_pipe_node_cluster_stage
@@ -119,6 +120,7 @@ class PipelineConfig:
     instrument_tag_fusion_max_distance_px: float = 60.0
     equipment_tag_fusion_max_distance_px: float = 60.0
     equipment_tag_attachment_max_distance_px: float = 80.0
+    use_geometric_line_detection: bool = False
     pipe_mask_ocr_padding: int = 1
     pipe_mask_object_inset: int = 1
     pipe_mask_min_component_area: int = 16
@@ -235,7 +237,7 @@ class PIDPipeline:
             (4, "stage4_instrument_tag_fusion", self.stage4_instrument_tag_fusion),
             (4, "stage4_equipment_tag_fusion", self.stage4_equipment_tag_fusion),
             (4, "stage2b_ocr_tag_refinement", self.stage2b_ocr_tag_refinement),
-            (5, "stage5_pipe_mask", self.stage5_pipe_mask),
+            (5, "stage5_pipe_mask", self.stage5_dispatcher),
             (6, "stage6_morphological_sealing", self.stage6_morphological_sealing),
             (7, "stage7_skeleton_generation", self.stage7_skeleton_generation),
             (8, "stage8_skeleton_node_detection", self.stage8_skeleton_node_detection),
@@ -635,6 +637,57 @@ class PIDPipeline:
         self._save_img("stage5_pipe_mask", pipe_mask_result["mask_image"])
         self._save_img("stage5_pipe_mask_overlay", pipe_mask_result["overlay_image"])
         self._save_json("stage5_pipe_mask_summary", pipe_mask_result["summary"])
+
+    # ---------- Stage 5: Geometric line-detection alternative ----------
+    def stage5_geometric_line_detection(self) -> None:
+        """Geometric pipeline: adaptive threshold → corner detection → Telea inpaint
+        → contour extraction → collinear + endpoint merge → segment mask."""
+        gray_path = self.out_dir / "stage1_gray.png"
+        if not gray_path.exists():
+            raise FileNotFoundError("Stage 5 (geometric) requires Stage 1 grayscale artifact")
+        if cv2 is None:
+            raise RuntimeError("cv2 is required for Stage 5 geometric line detection")
+
+        gray_image = cv2.imread(str(gray_path), cv2.IMREAD_GRAYSCALE)
+        if gray_image is None:
+            raise RuntimeError(f"Failed to load Stage 1 grayscale: {gray_path}")
+
+        ocr_regions = self._load_json_artifact("stage2_ocr_regions").get("text_regions", [])
+        object_regions = self._load_json_artifact("stage4_objects").get("objects", [])
+
+        result = run_line_detection_inpaint(
+            stage1_gray=gray_image,
+            text_regions=ocr_regions,
+            object_regions=object_regions,
+            image_id=Path(self.image_path).name,
+        )
+
+        # Render segments to binary mask so Stage 6+ consume it unchanged
+        h, w = gray_image.shape
+        mask = np.zeros((h, w), dtype=np.uint8)
+        for seg in result["segments"]:
+            cv2.line(mask, (seg["x1"], seg["y1"]), (seg["x2"], seg["y2"]), 255, thickness=2)
+        self._save_img("stage5_pipe_mask", mask)
+
+        # Save overlay for visual inspection
+        image_bgr = self._ensure_image_loaded()
+        overlay = render_line_overlay(image_bgr, result["segments"])
+        self._save_img("stage5_geometric_line_overlay", overlay)
+
+        # Save segments and summary as JSON (convert numpy ints to Python ints)
+        json_segments = [
+            {k: int(v) if isinstance(v, (np.integer,)) else v for k, v in seg.items()}
+            for seg in result["segments"]
+        ]
+        self._save_json("stage5_geometric_segments", json_segments)
+        self._save_json("stage5_geometric_summary", result["summary"])
+
+    # ---------- Stage 5 dispatcher ----------
+    def stage5_dispatcher(self) -> None:
+        if self.cfg.use_geometric_line_detection:
+            self.stage5_geometric_line_detection()
+        else:
+            self.stage5_pipe_mask()
 
     # ---------- Stage 6 ----------
     def stage6_morphological_sealing(self) -> None:
@@ -1250,8 +1303,9 @@ def main() -> None:
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     parser.add_argument("--ocr-route", choices=["easyocr", "gemini", "paddleocr", "ocrmac"], default="ocrmac")
     parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, or 16)")
+    parser.add_argument("--geometric", action="store_true", default=False, help="Use geometric line-detection pipeline for Stage 5")
     args = parser.parse_args()
-    pipe = PIDPipeline(args.image, out_dir=args.out, cfg=PipelineConfig(ocr_route=args.ocr_route))
+    pipe = PIDPipeline(args.image, out_dir=args.out, cfg=PipelineConfig(ocr_route=args.ocr_route, use_geometric_line_detection=args.geometric))
     pipe.run(stop_after=args.stop_after)
 
 
