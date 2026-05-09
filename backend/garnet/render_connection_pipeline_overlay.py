@@ -1,9 +1,9 @@
 """
-Stage 14: Connection + Pipeline Overlay Visualization
+Stage 16: Connection + Pipeline Overlay Visualization
 
 Draws a combined overlay showing:
 1. Page connection markers (blue boxes + anchor dots) from stage12_connection_attachments.json (accepted only)
-2. Connected pipeline segments (red) for each accepted attachment's edge_id
+2. FULL pipe paths (red) from each connection anchor to the nearest terminal(s) in both directions along the pipe network — not just the edge_id stub
 3. Inline element connectors (orange) from stage12_edge_connections.json
 
 Background: original P&ID image
@@ -15,6 +15,7 @@ import argparse
 import json
 import math
 import sys
+from collections import deque
 from pathlib import Path
 
 import cv2
@@ -25,9 +26,9 @@ import numpy as np
 # Colour palette (BGR, OpenCV convention)
 # ---------------------------------------------------------------------------
 BLUE_MARKER = (255, 100, 0)          # page-connection marker boxes + anchor dots
-RED_HIGHLIGHT = (0, 0, 255)           # pipeline segments connected to anchor points
+RED_HIGHLIGHT = (0, 0, 255)         # pipeline segments connected to anchor points
 ORANGE_CONNECTOR = (0, 165, 255)    # inline element connectors
-STUB_COLOR = (180, 180, 180)       # dashed stub line from anchor dot → pipe entry
+STUB_COLOR = (180, 180, 180)        # dashed stub line from anchor dot → pipe entry
 WHITE_TEXT = (255, 255, 255)
 
 THICKNESS_HIGHLIGHT = 3
@@ -37,6 +38,9 @@ CONNECTOR_RADIUS = 5
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 FONT_SCALE = 0.45
 THICKNESS_TEXT = 1
+
+# BFS limit when tracing full paths from connection anchors to terminals
+PATH_TRACE_MAX_HOPS = 20
 
 
 # ---------------------------------------------------------------------------
@@ -58,6 +62,7 @@ def _draw_dashed_line(
     length = math.sqrt(dx * dx + dy * dy)
     if length < 1:
         return
+
     udx, udy = dx / length, dy / length
     drawn = 0.0
     while drawn < length:
@@ -110,6 +115,114 @@ def draw_anchor_label(img: np.ndarray, anchor_name: str, anchor_xy: list[float],
     cv2.putText(img, label, (text_x, text_y), FONT, FONT_SCALE, color, THICKNESS_TEXT)
 
 
+def _build_junction_adjacency(edges: list[dict]) -> dict[str, list[tuple[str, dict]]]:
+    """Build adjacency list from non-attachment edges (junction ↔ junction only)."""
+    adj: dict[str, list[tuple[str, dict]]] = {}
+    for e in edges:
+        if "attachment" not in e["id"]:
+            src, tgt = e["source"], e["target"]
+            if src not in adj:
+                adj[src] = []
+            if tgt not in adj:
+                adj[tgt] = []
+            adj[src].append((tgt, e))
+            adj[tgt].append((src, e))
+    return adj
+
+
+def _bfs_find_best_path_to_terminal(
+    start_node: str,
+    adj: dict[str, list[tuple[str, dict]]],
+    node_lookup: dict,
+    max_hops: int = PATH_TRACE_MAX_HOPS,
+) -> tuple[list[dict], int]:
+    """
+    BFS from start_node to nearest terminal (endpoint or pump).
+    Returns (path_edges, total_pixel_length) for the best (longest) path found.
+    """
+    visited = {start_node}
+    queue = deque([(start_node, 0, [])])
+    best = ([], 0)
+    while queue:
+        curr, depth, path = queue.popleft()
+        if depth >= max_hops:
+            continue
+        for neighbor, edge in adj.get(curr, []):
+            if neighbor not in visited:
+                visited.add(neighbor)
+                ntype = node_lookup.get(neighbor, {}).get("type", "")
+                new_path = path + [edge]
+                if ntype in ("endpoint", "pump"):
+                    total_px = sum(ee["pixel_length"] for ee in new_path)
+                    if total_px > best[1]:
+                        best = (new_path, total_px)
+                else:
+                    queue.append((neighbor, depth + 1, new_path))
+    return best
+
+
+def _find_full_connection_paths(
+    conn: dict,
+    graph_edges: list[dict],
+    node_lookup: dict,
+    edge_lookup: dict,
+) -> list[list[dict]]:
+    """
+    For one connection, trace complete paths in BOTH directions from the
+    attachment node to the nearest terminals (endpoint/pump).
+
+    Returns a list of path edge lists. Each path is a list of edge dicts.
+    """
+    det_id = conn["det_id"]
+    attach_id = f"attach::{det_id}"
+    edge_id = conn.get("edge_id", "")
+
+    adj = _build_junction_adjacency(graph_edges)
+
+    def bfs_to_terminals(start_node: str, max_hops: int = PATH_TRACE_MAX_HOPS) -> list:
+        visited = {start_node}
+        queue = deque([(start_node, 0, [])])
+        results = []
+        while queue:
+            curr, depth, path = queue.popleft()
+            if depth >= max_hops:
+                continue
+            for neighbor, edge in adj.get(curr, []):
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    ntype = node_lookup.get(neighbor, {}).get("type", "")
+                    new_path = path + [edge]
+                    if ntype in ("endpoint", "pump"):
+                        total_px = sum(ee["pixel_length"] for ee in new_path)
+                        results.append((neighbor, ntype, depth + 1, total_px, new_path))
+                    else:
+                        queue.append((neighbor, depth + 1, new_path))
+        return results
+
+    paths = []
+
+    if edge_id and edge_id in edge_lookup:
+        attached_edge = edge_lookup[edge_id]
+        src_node = attached_edge["source"]
+        tgt_node = attached_edge["target"]
+
+        src_results = bfs_to_terminals(src_node)
+        tgt_results = bfs_to_terminals(tgt_node)
+
+        # Best path from source direction
+        if src_results:
+            best = max(src_results, key=lambda x: x[3])
+            paths.append(best[4])
+
+        # Best path from target direction (avoid duplicate if same)
+        if tgt_results:
+            best = max(tgt_results, key=lambda x: x[3])
+            if not paths or best[4] != paths[-1]:
+                paths.append(best[4])
+
+    return paths
+
+
 def render_overlay(
     connection_attachments_path: str,
     edge_connections_path: str,
@@ -145,7 +258,6 @@ def render_overlay(
         else:
             print(f"[INFO] Using background: {background_path}")
     else:
-        # Fallback: try stage4_objects_overlay.png in same directory as objects JSON
         fallback = Path(objects_path).parent / "stage4_objects_overlay.png"
         if fallback.exists():
             background_img = cv2.imread(str(fallback))
@@ -164,6 +276,7 @@ def render_overlay(
     # Build edge lookup from graph
     edges_list = graph_data.get("edges", [])
     edge_lookup = build_edge_lookup(edges_list)
+    node_lookup = {n["id"]: n for n in graph_data.get("nodes", [])}
 
     stats = {
         "connections_drawn": 0,
@@ -173,18 +286,39 @@ def render_overlay(
     }
 
     # --------------------------------------------------------------------------
-    # Layer 1: Connected pipeline segments (red) drawn FIRST — below everything
+    # Layer 1: FULL pipe paths from connection anchors (red) — drawn FIRST
+    #
+    # For each accepted connection:
+    #   anchor → equipment_attachment node → pipe junction → ... → nearest terminal
+    #
+    # Not just the short edge_id stub — traces the complete path in both
+    # directions from the connection's attachment point through the pipe network.
     # --------------------------------------------------------------------------
-    highlighted_edge_ids = set()
     for conn in accepted:
-        edge_id = conn.get("edge_id")
-        if edge_id and edge_id in edge_lookup:
-            edge = edge_lookup[edge_id]
-            polyline = edge.get("polyline", [])
-            if len(polyline) >= 2:
-                draw_polyline(canvas, polyline, RED_HIGHLIGHT, THICKNESS_HIGHLIGHT)
-                highlighted_edge_ids.add(edge_id)
-                stats["highlighted_edges"] += 1
+        det_id = conn["det_id"]
+        attach_id = f"attach::{det_id}"
+        anchor_xy = conn.get("anchor_xy", [])
+        if not anchor_xy:
+            continue
+
+        attach_node = node_lookup.get(attach_id)
+        if not attach_node:
+            continue
+
+        # Draw anchor → attachment node stub (RED_HIGHLIGHT thick line)
+        ax, ay = int(anchor_xy[0]), int(anchor_xy[1])
+        ex = int(attach_node["position"]["x"])
+        ey = int(attach_node["position"]["y"])
+        cv2.line(canvas, (ax, ay), (ex, ey), RED_HIGHLIGHT, THICKNESS_HIGHLIGHT)
+
+        # Draw full pipe paths in both directions from the attachment node
+        paths = _find_full_connection_paths(conn, edges_list, node_lookup, edge_lookup)
+        for path_edges in paths:
+            for e in path_edges:
+                poly = e.get("polyline", [])
+                if len(poly) >= 2:
+                    draw_polyline(canvas, poly, RED_HIGHLIGHT, THICKNESS_HIGHLIGHT)
+                    stats["highlighted_edges"] += 1
 
     # --------------------------------------------------------------------------
     # Layer 2: Inline element connectors (orange dotted lines + circles)
@@ -212,7 +346,7 @@ def render_overlay(
     # --------------------------------------------------------------------------
     # Layer 3: Page connection marker boxes (blue) — drawn LAST so they are
     # on top of pipes and pipeline highlights, and never overwritten
-    # --------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     for conn in accepted:
         bbox = conn.get("bbox")
         if bbox:
@@ -234,21 +368,18 @@ def render_overlay(
             ax, ay = int(anchor_xy[0]), int(anchor_xy[1])
             px, py = int(nearest_xy[0]), int(nearest_xy[1])
             pipe_y = py  # y-level of the horizontal pipe
-            # Horizontal segment: anchor → (anchor_x, pipe_y)
             _draw_dashed_line(canvas, (ax, ay), (ax, pipe_y), STUB_COLOR, 1, gap=6)
-            # Horizontal segment: (anchor_x, pipe_y) → pipe entry point
             _draw_dashed_line(canvas, (ax, pipe_y), (px, pipe_y), STUB_COLOR, 1, gap=6)
 
     # --------------------------------------------------------------------------
     # Layer 4: Anchor dots + labels (blue) — always on TOP so they are visible
     # even if a pipeline polyline passes through the anchor point
-    # --------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     for conn in accepted:
         anchor_xy = conn.get("anchor_xy")
         anchor_name = conn.get("anchor_name", "unknown")
         if anchor_xy:
             cx, cy = int(anchor_xy[0]), int(anchor_xy[1])
-            # Draw a white outline first (anti-aliasing ring), then filled dot
             cv2.circle(canvas, (cx, cy), ANCHOR_RADIUS + 2, WHITE_TEXT, 1)
             cv2.circle(canvas, (cx, cy), ANCHOR_RADIUS, BLUE_MARKER, -1)
             draw_anchor_label(canvas, anchor_name, anchor_xy, WHITE_TEXT)
@@ -274,7 +405,7 @@ def render_overlay(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Render connection + pipeline overlay for GARNET stage 14"
+        description="Render connection + pipeline overlay for GARNET stage 16"
     )
     parser.add_argument(
         "--connection-attachments",
