@@ -220,12 +220,14 @@ def _assemble_inpaint_mask(
 
     # 3. Object suppression boxes (symbol interiors) — skip classes that
     # sit ON the pipe line itself. Inpainting them would erase the pipe.
-    # Excluded: line number, arrow, page connection, utility connection,
-    # connection, node (junction/tee points drawn on pipes).
-    _SKIP_OBJECT_CLASSES = frozenset(
-        ["line number", "arrow", "page connection", "utility connection",
-         "connection", "node"]
-    )
+    # Excluded: line number, arrow (drawn on pipe lines).
+    # Hybrid approach: page connection symbols are inpainted but with a
+    # center strip preserved (where the pipe passes through). This removes
+    # the symbol text while keeping the pipe continuity.
+    _SKIP_OBJECT_CLASSES = frozenset(["line number", "arrow"])
+    _HYBRID_CLASSES = frozenset(["page connection"])
+    HYBRID_CENTER_STRIP_PX = 20  # pixels of center strip left un-inpainted
+
     for region in object_regions:
         cls = region.get("class_name", "")
         if cls in _SKIP_OBJECT_CLASSES:
@@ -237,7 +239,31 @@ def _assemble_inpaint_mask(
         y_min = int(bbox["y_min"])
         x_max = int(bbox["x_max"])
         y_max = int(bbox["y_max"])
-        cv2.rectangle(mask, (x_min, y_min), (x_max, y_max), 255, -1)
+
+        if cls in _HYBRID_CLASSES:
+            # Hybrid: only mask the sides, leave center strip for pipe
+            bw = x_max - x_min
+            bh = y_max - y_min
+            if bh > bw:  # Vertical symbol: pipe runs vertically, shrink width
+                half_strip = HYBRID_CENTER_STRIP_PX // 2
+                cx = (x_min + x_max) // 2
+                # Mask left side
+                if cx - x_min > half_strip:
+                    cv2.rectangle(mask, (x_min, y_min), (cx - half_strip, y_max), 255, -1)
+                # Mask right side
+                if x_max - cx > half_strip:
+                    cv2.rectangle(mask, (cx + half_strip, y_min), (x_max, y_max), 255, -1)
+            else:  # Horizontal symbol: pipe runs horizontally, shrink height
+                half_strip = HYBRID_CENTER_STRIP_PX // 2
+                cy = (y_min + y_max) // 2
+                # Mask top side
+                if cy - y_min > half_strip:
+                    cv2.rectangle(mask, (x_min, y_min), (x_max, cy - half_strip), 255, -1)
+                # Mask bottom side
+                if y_max - cy > half_strip:
+                    cv2.rectangle(mask, (x_min, cy + half_strip), (x_max, y_max), 255, -1)
+        else:
+            cv2.rectangle(mask, (x_min, y_min), (x_max, y_max), 255, -1)
 
     # 4. Dilate to close gaps between adjacent corner boxes
     if INPAINT_DILATE_KERNEL[0] > 0 or INPAINT_DILATE_KERNEL[1] > 0:
@@ -490,15 +516,23 @@ def _merge_segment_pair(seg_a: Segment, seg_b: Segment) -> Segment:
     }
 
 
+# Gap threshold for collinear segments that are close but not touching
+# Bridges small gaps (e.g., at page connections, valve symbols)
+# Set to 25px to handle gaps from inpainted symbols like page connections
+GAP_BRIDGE_PX = 25.0
+
+
 def _merge_collinear_segments(segments: list[Segment]) -> list[Segment]:
     """
-    Bucket + sweep-line collinear merge.
+    Bucket + sweep-line collinear merge, with gap bridging.
 
     Algorithm:
       1. Bucket segments by angle (5° resolution).
       2. Within each bucket: sort by dominant-axis min, then use a sliding
-         window to find overlapping/adjacent segments. Merge connected groups.
-      3. Flatten all buckets.
+         window to find overlapping segments. Merge connected groups.
+      3. Gap bridging: merge non-overlapping but nearby collinear segments
+         (within GAP_BRIDGE_PX) to handle pipes interrupted by symbols.
+      4. Flatten all buckets.
 
     Complexity: O(n log n) for sorting + O(n) for the sweep.
     """
@@ -542,7 +576,7 @@ def _merge_collinear_segments(segments: list[Segment]) -> list[Segment]:
             if dominant_is_x else min(s["y1"], s["y2"])
         )
 
-        # Sweep: for each segment, check forward until we're past the overlap window.
+        # Sweep: for each segment, check forward until we're past the overlap+gap window.
         n = len(bucket)
         for i in range(n):
             si = bucket[i]
@@ -551,10 +585,28 @@ def _merge_collinear_segments(segments: list[Segment]) -> list[Segment]:
             for j in range(i + 1, n):
                 sj = bucket[j]
                 sj_min = min(sj["x1"], sj["x2"]) if dominant_is_x else min(sj["y1"], sj["y2"])
-                if sj_min > si_max:
-                    break  # Past the overlap window — no more candidates for i.
+                if sj_min > si_max + GAP_BRIDGE_PX:
+                    break  # Past the overlap+gap window — no more candidates for i.
                 if _segments_are_collinear(si, sj):
                     union(i, j)
+                elif sj_min > si_max:
+                    # Non-overlapping but within gap threshold — check if close enough
+                    # on the perpendicular axis to be part of the same pipe.
+                    # For vertical segments: check x-alignment; for horizontal: check y.
+                    gap = sj_min - si_max
+                    if gap <= GAP_BRIDGE_PX:
+                        si_aabb = _aabb(si)
+                        sj_aabb = _aabb(sj)
+                        if dominant_is_x:
+                            # Horizontal segments: check y-alignment
+                            y_overlap = min(si_aabb[3], sj_aabb[3]) - max(si_aabb[2], sj_aabb[2])
+                            if y_overlap >= -5:  # allow 5px misalignment
+                                union(i, j)
+                        else:
+                            # Vertical segments: check x-alignment
+                            x_overlap = min(si_aabb[1], sj_aabb[1]) - max(si_aabb[0], sj_aabb[0])
+                            if x_overlap >= -5:  # allow 5px misalignment
+                                union(i, j)
 
         # Merge all segments in each connected component.
         components: dict[int, list[Segment]] = {}
