@@ -25,12 +25,61 @@ def _nearest_anchor_on_bbox(bbox: tuple[int, int, int, int], point_xy: tuple[flo
     return min(side_points, key=lambda item: (item[0] - px) ** 2 + (item[1] - py) ** 2)
 
 
+def _connection_anchor_for_edge(
+    bbox: tuple[int, int, int, int],
+    edge_polyline: list[tuple[float, float]],
+) -> tuple[str, tuple[float, float]] | None:
+    """
+    Compute the anchor for connection-class objects (page connection, utility connection)
+    using pipe travel direction, not proximity.
+
+    A page/utility connection symbol on a P&ID is a terminus — the pipe exits the sheet
+    boundary through it. The anchor must reflect which side of the symbol the pipe
+    enters from and exits toward, based on pipe direction.
+
+    Logic:
+      Horizontal pipe (|dx| > |dy|): exits RIGHT if dx>0, LEFT if dx<0
+      Vertical pipe   (|dy| >= |dx|): exits BOTTOM if dy>0, TOP if dy<0
+
+    This overrides any proximity-based anchor that the scoring pass may have picked.
+    """
+    if len(edge_polyline) < 2:
+        return None
+    x_min, y_min, x_max, y_max = bbox
+    bbox_cx = (x_min + x_max) / 2.0
+    bbox_cy = (y_min + y_max) / 2.0
+    p1, p2 = edge_polyline[0], edge_polyline[-1]
+    dx = p2[0] - p1[0]
+    dy = p2[1] - p1[1]
+    if abs(dx) >= abs(dy):
+        # Horizontal
+        if dx >= 0:
+            return "right", (float(x_max), bbox_cy)
+        else:
+            return "left", (float(x_min), bbox_cy)
+    else:
+        # Vertical
+        if dy >= 0:
+            return "bottom", (bbox_cx, float(y_max))
+        else:
+            return "top", (bbox_cx, float(y_min))
+
+
+def _is_connection_class(class_name: str) -> bool:
+    normalized = str(class_name or "").lower().strip()
+    return normalized in {
+        "connection",
+        "page connection",
+        "utility connection",
+    }
+
+
 def _exit_side_anchor(
     bbox: tuple[int, int, int, int],
     edge_polyline: list[tuple[float, float]],
 ) -> tuple[str, tuple[float, float]] | None:
     """
-    Compute the pipe exit side anchor for attachment connections.
+    Compute the pipe exit side anchor for equipment attachments.
 
     Three-tier strategy:
     1. Pipe-through-bbox: if pipe midpoint is inside bbox projection,
@@ -162,15 +211,7 @@ def run_pipe_equipment_attachment_stage(
     edges_by_id: dict[str, dict[str, Any]] = {str(e["id"]): e for e in edges}
 
     def _serialize(result: AssociationResult) -> dict[str, Any]:
-        # Compute the nearest border point (anchor point on bbox edge)
-        connection_anchor_xy = _nearest_anchor_on_bbox(result.bbox, result.nearest_point_xy)
-
-        # Compute exit-side anchor (where pipe would exit the bbox).
-        # This overrides the association-based anchor when the pipe is
-        # horizontally aligned with the bbox but outside vertically —
-        # the attachment should be on the EXIT side (direction the pipe
-        # would leave), not on the nearest approach side.
-        # We look up the edge polyline by edge_id from the edges list.
+        # Look up the edge polyline for this result's edge_id
         edge_polyline_raw: list[dict[str, Any]] | None = None
         if result.edge_id and edges_by_id:
             edge = edges_by_id.get(result.edge_id)
@@ -179,12 +220,43 @@ def run_pipe_equipment_attachment_stage(
         edge_polyline: list[tuple[float, float]] = [
             (float(pt["col"]), float(pt["row"])) for pt in edge_polyline_raw
         ] if edge_polyline_raw else []
+
+        # ── Connection-class: use pipe direction, not proximity ────────────
+        # Connection symbols (page connection, utility connection) are pipe
+        # terminations — the anchor must reflect which side of the symbol the
+        # pipe enters from / exits toward, based on pipe travel direction.
+        if _is_connection_class(result.class_name) and edge_polyline:
+            conn_anchor = _connection_anchor_for_edge(result.bbox, edge_polyline)
+            if conn_anchor:
+                conn_anchor_name, conn_anchor_xy = conn_anchor
+                return {
+                    "det_id": result.det_id,
+                    "class_name": result.class_name,
+                    "bbox": result.bbox,
+                    "accepted": result.accepted,
+                    "reason": result.reason,
+                    "anchor_name": conn_anchor_name,
+                    "anchor_xy": conn_anchor_xy,
+                    "edge_id": result.edge_id,
+                    "nearest_point_xy": result.nearest_point_xy,
+                    "connection_anchor_xy": conn_anchor_xy,
+                    "attachment_stub_xy": None
+                    if result.nearest_point_xy is None or conn_anchor_xy is None
+                    else [result.nearest_point_xy, conn_anchor_xy],
+                    "distance_px": result.distance_px,
+                    "score": result.score,
+                    "segment_index": result.segment_index,
+                    "t": result.t,
+                    "anchor_override_reason": "pipe_direction_connection",
+                }
+
+        # ── Equipment / other: proximity-based anchor with exit-side override ─
+        connection_anchor_xy = _nearest_anchor_on_bbox(result.bbox, result.nearest_point_xy)
         exit_anchor = _exit_side_anchor(result.bbox, edge_polyline) if edge_polyline else None
         exit_anchor_name = exit_anchor[0] if exit_anchor else None
         exit_anchor_xy = exit_anchor[1] if exit_anchor else None
 
-        # Use exit-side anchor if we computed one; otherwise fall back
-        # to the association result's anchor_name / anchor_xy.
+        # Use exit-side anchor if computed; otherwise fall back to association result
         final_anchor_name = exit_anchor_name if exit_anchor_name else result.anchor_name
         final_anchor_xy = exit_anchor_xy if exit_anchor_xy is not None else (
             connection_anchor_xy if connection_anchor_xy is not None else result.anchor_xy
