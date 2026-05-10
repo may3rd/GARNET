@@ -442,35 +442,55 @@ def render_connection_attachment_overlay(
     attachments: list[dict[str, Any]],
     edge_connections: list[dict[str, Any]] | None = None,
 ) -> np.ndarray:
+    """
+    Render visualization for connection-class objects (page connection, utility connection)
+    with anchor points, direction indicators, and pipe connectivity.
+
+    Draws:
+    - Bbox outline (magenta)
+    - Anchor side label (e.g. "top", "right") at anchor point
+    - Anchor dot (blue filled circle) at the anchor xy on the bbox edge
+    - Stub line (cyan dashed): anchor → nearest pipe point
+    - Pipe polyline (yellow, highlighted) from the connection's edge
+    - Direction arrow on the pipe polyline showing travel direction
+    - Class name label + det_id text near the bbox
+    """
     overlay = image_bgr.copy()
+    if overlay.ndim == 2:
+        overlay = cv2.cvtColor(overlay, cv2.COLOR_GRAY2BGR)
+
+    # ── Build edge adjacency for highlight propagation ──────────────────
     adjacency: dict[str, set[str]] = {}
     for item in edge_connections or []:
-        source_edge_id = str(item.get("source_edge_id", ""))
-        target_edge_id = str(item.get("target_edge_id", ""))
-        if not source_edge_id or not target_edge_id or source_edge_id == target_edge_id:
-            continue
-        adjacency.setdefault(source_edge_id, set()).add(target_edge_id)
-        adjacency.setdefault(target_edge_id, set()).add(source_edge_id)
+        src = str(item.get("source_edge_id", ""))
+        tgt = str(item.get("target_edge_id", ""))
+        if src and tgt and src != tgt:
+            adjacency.setdefault(src, set()).add(tgt)
+            adjacency.setdefault(tgt, set()).add(src)
 
-    attached_edge_ids = {str(item.get("edge_id", "")) for item in attachments if item.get("edge_id") is not None}
-    highlighted_edge_ids: set[str] = set()
-    for edge_id in attached_edge_ids:
-        if not edge_id:
+    attached_edge_ids = {str(item.get("edge_id", "")) for item in attachments if item.get("edge_id")}
+    highlighted: set[str] = set()
+    for eid in attached_edge_ids:
+        if not eid:
             continue
-        stack = [edge_id]
+        stack = [eid]
         while stack:
-            current = stack.pop()
-            if current in highlighted_edge_ids:
+            cur = stack.pop()
+            if cur in highlighted:
                 continue
-            highlighted_edge_ids.add(current)
-            stack.extend(sorted(adjacency.get(current, set()) - highlighted_edge_ids))
+            highlighted.add(cur)
+            stack.extend(sorted(adjacency.get(cur, set()) - highlighted))
 
+    # ── Draw pipe polylines ─────────────────────────────────────────────
     for edge in edges:
+        eid = str(edge.get("id", ""))
         polyline = edge.get("polyline", [])
+        if len(polyline) < 2:
+            continue
         color = (80, 80, 80)
         thickness = 1
-        if str(edge.get("id", "")) in highlighted_edge_ids:
-            color = (0, 255, 255)
+        if eid in highlighted:
+            color = (0, 255, 255)  # yellow highlight
             thickness = 2
         for start, end in zip(polyline, polyline[1:]):
             cv2.line(
@@ -481,34 +501,135 @@ def render_connection_attachment_overlay(
                 thickness,
             )
 
+    # ── Draw direction arrows on highlighted edges ──────────────────────
+    ANNOTATION_COLOR = (0, 255, 255)
+    ARROW_TOLERANCE_PX = 25.0  # only draw arrows on pipes longer than this
+
+    for edge in edges:
+        eid = str(edge.get("id", ""))
+        if eid not in highlighted:
+            continue
+        polyline = edge.get("polyline", [])
+        if len(polyline) < 2:
+            continue
+
+        # Compute pixel length
+        total_len = 0.0
+        for a, b in zip(polyline, polyline[1:]):
+            total_len += math.hypot(float(b["col"]) - float(a["col"]), float(b["row"]) - float(a["row"]))
+        if total_len < ARROW_TOLERANCE_PX:
+            continue
+
+        # Place arrow at midpoint of polyline
+        mid_idx = len(polyline) // 2
+        p_mid = polyline[mid_idx]
+        p_next = polyline[min(mid_idx + 1, len(polyline) - 1)]
+        dx = float(p_next["col"]) - float(p_mid["col"])
+        dy = float(p_next["row"]) - float(p_mid["row"])
+        length = math.hypot(dx, dy)
+        if length < 1:
+            continue
+        ux, uy = dx / length, dy / length
+        # Arrow body
+        tip_x = int(round(float(p_mid["col"]) + ux * 15))
+        tip_y = int(round(float(p_mid["row"]) + uy * 15))
+        tail_x = int(round(float(p_mid["col"]) - ux * 15))
+        tail_y = int(round(float(p_mid["row"]) - uy * 15))
+        cv2.arrowedLine(overlay, (tail_x, tail_y), (tip_x, tip_y), ANNOTATION_COLOR, 2, tipLength=0.3)
+
+    # ── Draw each attachment (connection object) ───────────────────────
+    ANCHOR_DOT_RADIUS = 7
+    ANCHOR_COLOR = (255, 100, 0)  # blue (BGR)
+    STUB_COLOR = (255, 255, 0)    # cyan (BGR)
+    BBOX_COLOR = (255, 0, 255)    # magenta (BGR)
+    TEXT_COLOR = (255, 255, 255)  # white
+    LABEL_COLOR = (200, 220, 255) # light blue
+    FONT = cv2.FONT_HERSHEY_SIMPLEX
+    FONT_SCALE_LABEL = 0.42
+    FONT_SCALE_DETAIL = 0.30
+    THICKNESS_LABEL = 1
+
     for item in attachments:
-        x_min, y_min, x_max, y_max = item.get("bbox", (0, 0, 0, 0))
-        stub_xy = item.get("attachment_stub_xy")
-        if isinstance(stub_xy, list) and len(stub_xy) == 2:
-            start_xy, end_xy = stub_xy
-            cv2.line(
+        bbox = item.get("bbox", [])
+        if len(bbox) != 4:
+            continue
+        x_min, y_min, x_max, y_max = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
+
+        # Bbox outline
+        cv2.rectangle(overlay, (x_min, y_min), (x_max, y_max), BBOX_COLOR, 2)
+
+        # Class name + det_id label
+        class_name = str(item.get("class_name", ""))[:28]
+        det_id = str(item.get("det_id", ""))
+        label_text = f"{class_name} [{det_id}]"
+        cv2.putText(overlay, label_text, (x_min + 4, max(14, y_min - 6)),
+                    FONT, FONT_SCALE_DETAIL, TEXT_COLOR, 1, cv2.LINE_AA)
+
+        # Anchor side label
+        anchor_name = str(item.get("anchor_name", ""))
+        anchor_xy = item.get("anchor_xy")
+        nearest_xy = item.get("nearest_point_xy")
+
+        if anchor_xy and len(anchor_xy) == 2:
+            ax, ay = int(round(float(anchor_xy[0]))), int(round(float(anchor_xy[1])))
+
+            # Anchor dot with white ring
+            cv2.circle(overlay, (ax, ay), ANCHOR_DOT_RADIUS + 2, TEXT_COLOR, 1)
+            cv2.circle(overlay, (ax, ay), ANCHOR_DOT_RADIUS, ANCHOR_COLOR, -1)
+
+            # Anchor side name label
+            label_offset_x = 14 if anchor_name in ("left", "right") else -50
+            label_offset_y = -10 if anchor_name in ("top", "bottom") else 0
+            label_x = ax + label_offset_x
+            label_y = ay + label_offset_y
+            cv2.rectangle(
                 overlay,
-                (int(round(float(start_xy[0]))), int(round(float(start_xy[1])))),
-                (int(round(float(end_xy[0]))), int(round(float(end_xy[1])))),
-                (255, 255, 0),
-                2,
+                (label_x - 2, label_y - 12),
+                (label_x + 50, label_y + 2),
+                (30, 30, 30),
+                -1,
             )
-        cv2.rectangle(
-            overlay,
-            (int(x_min), int(y_min)),
-            (int(x_max), int(y_max)),
-            (255, 0, 255),
-            2,
-        )
-        label = str(item.get("class_name", ""))[:32]
-        cv2.putText(
-            overlay,
-            label,
-            (int(x_min) + 4, max(12, int(y_min) - 4)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.35,
-            (255, 0, 255),
-            1,
-            cv2.LINE_AA,
-        )
+            cv2.putText(overlay, anchor_name, (label_x, label_y),
+                        FONT, FONT_SCALE_LABEL, LABEL_COLOR, THICKNESS_LABEL, cv2.LINE_AA)
+
+            # Stub line: anchor dot → nearest pipe point (dashed cyan)
+            if nearest_xy and len(nearest_xy) == 2:
+                nx, ny = int(round(float(nearest_xy[0]))), int(round(float(nearest_xy[1])))
+                _draw_dashed_line(overlay, (ax, ay), (nx, ny), STUB_COLOR, 2, gap=6)
+                # Small dot at nearest pipe point
+                cv2.circle(overlay, (nx, ny), 3, STUB_COLOR, -1)
+
+        # Override reason annotation (debug / QA marker)
+        override_reason = item.get("anchor_override_reason", "")
+        if override_reason:
+            override_text = f"[DIR] {override_reason}"
+            cv2.putText(overlay, override_text,
+                        (x_min + 4, y_max + 14),
+                        FONT, FONT_SCALE_DETAIL, (180, 180, 180), 1, cv2.LINE_AA)
+
     return overlay
+
+
+def _draw_dashed_line(
+    canvas: np.ndarray,
+    p1: tuple[int, int],
+    p2: tuple[int, int],
+    color: tuple[int, int, int],
+    thickness: int,
+    *,
+    gap: int = 6,
+) -> None:
+    """Draw a dashed line segment (line-gap-line...) between p1 and p2."""
+    dx = p2[0] - p1[0]
+    dy = p2[1] - p1[1]
+    length = math.sqrt(dx * dx + dy * dy)
+    if length < 1:
+        return
+    udx, udy = dx / length, dy / length
+    drawn = 0.0
+    while drawn < length:
+        seg_len = min(gap, length - drawn)
+        start = (int(p1[0] + udx * drawn), int(p1[1] + udy * drawn))
+        end = (int(p1[0] + udx * (drawn + seg_len)), int(p1[1] + udy * (drawn + seg_len)))
+        cv2.line(canvas, start, end, color, thickness)
+        drawn += gap * 2
