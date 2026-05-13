@@ -103,6 +103,18 @@ class RecoveryEngine:
             with open(gap_validation_path, "r", encoding="utf-8") as f:
                 artifacts["gap_validation"] = json.load(f)
 
+        # S5: Phase 3 gap detection (geometric bypass path)
+        phase3_gaps_path = self.job_dir / "phase3_gaps.json"
+        if phase3_gaps_path.exists():
+            with open(phase3_gaps_path, "r", encoding="utf-8") as f:
+                artifacts["phase3_gaps"] = json.load(f)
+
+        # S5: Phase 3 boundary terminal detection
+        phase3_boundary_path = self.job_dir / "phase3_boundary_terminals.json"
+        if phase3_boundary_path.exists():
+            with open(phase3_boundary_path, "r", encoding="utf-8") as f:
+                artifacts["phase3_boundary"] = json.load(f)
+
         self._artifacts = artifacts
         return artifacts
 
@@ -533,6 +545,75 @@ class RecoveryEngine:
                 }
                 decision = self.recover_near_edge_gap(gap_item)
                 decisions.append(decision)
+            iterations_completed = max(iterations_completed, 1)
+
+        # ---- Source 3: Phase 3 gaps (geometric bypass path) ----
+        phase3_gaps_data = self._artifacts.get("phase3_gaps", {})
+        phase3_gaps = phase3_gaps_data.get("gaps", [])
+        if phase3_gaps:
+            logger.info(f"Processing {len(phase3_gaps)} Phase 3 geometric gaps")
+            for gap in phase3_gaps:
+                gap_item: Dict[str, Any] = {
+                    "category": "near_edge_gap",
+                    "group_key": f"phase3_gap::{gap.get('edge_a','')}::{gap.get('edge_b','')}",
+                    "priority": "medium",
+                    "edge_a": gap.get("edge_a", ""),
+                    "edge_b": gap.get("edge_b", ""),
+                    "endpoint_a": gap.get("endpoint_a", ""),
+                    "endpoint_b": gap.get("endpoint_b", ""),
+                    "gap_position": gap.get("gap_position", {}),
+                    "gap_distance_px": gap.get("gap_distance_px", 0),
+                    "alignment": gap.get("alignment", "unknown"),
+                    "source": "phase3_gap_detection",
+                }
+                decision = self.recover_near_edge_gap(gap_item)
+                decisions.append(decision)
+            iterations_completed = max(iterations_completed, 1)
+
+        # ---- Source 4: Phase 3 boundary terminal enrichment ----
+        phase3_boundary_data = self._artifacts.get("phase3_boundary", {})
+        boundary_terminals = phase3_boundary_data.get("boundary_terminals", [])
+        if boundary_terminals:
+            logger.info(f"Processing {len(boundary_terminals)} Phase 3 boundary terminals")
+            for bt in boundary_terminals:
+                bt_item: Dict[str, Any] = {
+                    "category": "boundary_terminal",
+                    "group_key": f"boundary::{bt.get('edge_id','')}",
+                    "priority": "medium",
+                    "edge_id": bt.get("edge_id", ""),
+                    "source_node": bt.get("source_node", ""),
+                    "target_node": bt.get("target_node", ""),
+                    "source_boundary_side": bt.get("source_boundary_side"),
+                    "target_boundary_side": bt.get("target_boundary_side"),
+                    "source_col": bt.get("source_col"),
+                    "source_row": bt.get("source_row"),
+                    "target_col": bt.get("target_col"),
+                    "target_row": bt.get("target_row"),
+                    "source": "phase3_boundary_detection",
+                }
+                result = RecoveryItem(
+                    original_item=bt_item,
+                    category="boundary_terminal",
+                    group_key=bt_item["group_key"],
+                    priority="medium",
+                )
+                # Check if this edge already has an off_page_connector
+                edge_id = bt.get("edge_id", "")
+                graph = self._artifacts.get("graph", {})
+                edges = graph.get("edges", [])
+                edge = next((e for e in edges if e.get("id") == edge_id), None)
+                if edge and edge.get("off_page_connector"):
+                    result.action = RecoveryAction.ACCEPT
+                    result.notes = f"Edge {edge_id} already has off_page_connector"
+                    result.strategy_attempted.append("off_page_connector_present")
+                else:
+                    result.action = RecoveryAction.HUMAN_REVIEW
+                    result.notes = (
+                        f"Edge {edge_id} terminal near {bt.get('source_boundary_side') or bt.get('target_boundary_side')} image boundary "
+                        f"— likely off-page connector requiring manual verification"
+                    )
+                    result.strategy_attempted.append("boundary_proximity_check")
+                decisions.append(result)
             iterations_completed = max(iterations_completed, 1)
 
         if not decisions:

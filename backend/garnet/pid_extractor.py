@@ -37,6 +37,7 @@ from garnet.model_defaults import pick_default_weight_file
 from garnet.object_detection_sahi import DetectionSahiConfig, run_object_detection_sahi
 from garnet.ocrmac_sahi import OcrMacSahiConfig, run_ocrmac_sahi
 from garnet.pipe_edges import run_pipe_edge_stage
+from garnet.pipe_continuity_helpers import GAP_THRESHOLD_PX
 from garnet.pipe_equipment_attachment import run_pipe_equipment_attachment_stage
 from garnet.pipe_graph import run_pipe_graph_stage
 from garnet.pipe_graph_qa import run_pipe_graph_qa_stage
@@ -1030,13 +1031,30 @@ class PIDPipeline:
             },
         )
 
+        # S5-01: Detect near-edge gaps between Phase 3 edges (before graph assembly)
+        from garnet.geometric_graph_builder import detect_phase3_gaps
+
+        phase3_gaps = detect_phase3_gaps(
+            edges=directed_edges,
+            gap_threshold_px=GAP_THRESHOLD_PX,
+        )
+
         from garnet.continuity_aware_connections import validate_connections_against_gaps
 
         connection_validation = validate_connections_against_gaps(
             edges=directed_edges,
             connections=edge_connectivity_result["connections"],
-            gap_summary=[],
+            gap_summary=phase3_gaps,
         )
+
+        self._save_json("phase3_gaps", {
+            "image_id": image_id,
+            "gaps": phase3_gaps,
+            "gap_coverage_pct": round(
+                len(connection_validation.get("connected_gaps", [])) / len(phase3_gaps) * 100, 1
+            ) if phase3_gaps else 100.0,
+        })
+
         overlay_edges = [
             {
                 **edge,
@@ -1204,6 +1222,20 @@ class PIDPipeline:
         self._save_json("stage12_graph_summary", graph_result["summary"])
         self._save_json("stage12_connection_validation", connection_validation)
         self._save_json("stage12_connection_validation_summary", connection_validation.get("gap_connection_summary", {}))
+
+        # S5-02: Detect near-boundary terminals (after graph is built)
+        from garnet.geometric_graph_builder import detect_boundary_terminals
+
+        boundary_terminals = detect_boundary_terminals(
+            edges=directed_edges,
+            nodes=graph_result["graph_payload"].get("nodes", []),
+            image_shape=self._ensure_image_loaded().shape,
+            boundary_margin_px=50.0,
+        )
+        self._save_json("phase3_boundary_terminals", {
+            "image_id": image_id,
+            "boundary_terminals": boundary_terminals,
+        })
 
     # ---------- Stage 12 ----------
     def stage12_graph_assembly(self) -> None:

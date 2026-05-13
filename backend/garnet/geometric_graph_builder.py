@@ -680,3 +680,205 @@ def build_graph_from_runs_and_junctions(
         "node_clusters": [_to_node_cluster(node) for node in nodes],
         "edges_payload": {"image_id": image_id, "pass_type": "sheet", "edges": edges},
     }
+
+
+# ─── S5-01: Phase 3 gap detection ────────────────────────────────────────
+def detect_phase3_gaps(
+    edges: list[dict[str, Any]],
+    *,
+    gap_threshold_px: float = 20.0,
+) -> list[dict[str, Any]]:
+    """
+    Detect geometric gaps between Phase 3 edges: pairs of edges whose
+    endpoints are aligned (H or V) and within threshold but NOT already
+    connected via a shared junction node.
+
+    Replaces Stage 10's gap_summary for the Phase 3 geometric bypass path.
+    Uses the same spatial-grid approach as pipe_continuity_helpers.summarize_gaps.
+    """
+    if not edges:
+        return []
+
+    # Build endpoint index from polyline edges
+    endpoint_index: list[dict[str, Any]] = []
+    for edge in edges:
+        eid = str(edge.get("id", ""))
+        polyline = edge.get("polyline", [])
+        if not polyline or len(polyline) < 2:
+            continue
+        src_pt = polyline[0]
+        tgt_pt = polyline[-1]
+        try:
+            endpoint_index.append({
+                "edge_id": eid,
+                "source_xy": (float(src_pt["col"]), float(src_pt["row"])),
+                "target_xy": (float(tgt_pt["col"]), float(tgt_pt["row"])),
+                "source_node": str(edge.get("source", "")),
+                "target_node": str(edge.get("target", "")),
+            })
+        except (KeyError, TypeError, ValueError):
+            continue
+
+    if not endpoint_index:
+        return []
+
+    # Spatial grid for O(n) neighbor lookup
+    from garnet.pipe_continuity_helpers import _SpatialGrid
+
+    grid = _SpatialGrid(cell_size=gap_threshold_px)
+    for ep in endpoint_index:
+        grid.insert(ep["source_xy"][0], ep["source_xy"][1], ("src", ep))
+        grid.insert(ep["target_xy"][0], ep["target_xy"][1], ("dst", ep))
+
+    gaps: list[dict[str, Any]] = []
+    checked: set[tuple[str, str]] = set()
+
+    for ep in endpoint_index:
+        eid_a = ep["edge_id"]
+        node_a = ep["source_node"]
+        node_a_target = ep["target_node"]
+
+        for pt_label, pt_a in [("source", ep["source_xy"]), ("target", ep["target_xy"])]:
+            # Search radius slightly larger than threshold
+            candidates = grid.query_radius(pt_a[0], pt_a[1], gap_threshold_px * 1.5)
+            for ref_dist, dist in candidates:
+                label, ep_b = ref_dist
+                # Skip same edge or same endpoint type
+                if label == pt_label and ep_b["edge_id"] == eid_a:
+                    continue
+
+                eid_b = ep_b["edge_id"]
+                if eid_a >= eid_b:
+                    continue
+                pair = (eid_a, eid_b)
+                if pair in checked:
+                    continue
+
+                pt_b = ep_b["target_xy"] if pt_label == "source" else ep_b["source_xy"]
+                dx = abs(pt_a[0] - pt_b[0])
+                dy = abs(pt_a[1] - pt_b[1])
+
+                # Must be aligned: within threshold in one axis, may differ in other
+                if (dx <= gap_threshold_px or dy <= gap_threshold_px):
+                    gap_dist = math.hypot(dx, dy)
+                    if gap_dist <= gap_threshold_px * 1.5:
+                        # Determine alignment direction
+                        alignment = "horizontal" if dx <= dy else "vertical"
+                        mid_x = (pt_a[0] + pt_b[0]) / 2
+                        mid_y = (pt_a[1] + pt_b[1]) / 2
+
+                        # Check NOT already connected (no shared junction node)
+                        node_b = ep_b["source_node"]
+                        node_b_target = ep_b["target_node"]
+                        already_connected = (
+                            node_a and node_b and node_a == node_b
+                        ) or (
+                            node_a and node_b_target and node_a == node_b_target
+                        ) or (
+                            node_a_target and node_b and node_a_target == node_b
+                        ) or (
+                            node_a_target and node_b_target and node_a_target == node_b_target
+                        )
+
+                        if not already_connected:
+                            checked.add(pair)
+                            endpoint_a_label = "source" if pt_label == "target" else "target"
+                            endpoint_b_label = "source" if label == "dst" else "target"
+                            gaps.append({
+                                "edge_a": eid_a,
+                                "edge_b": eid_b,
+                                "endpoint_a": endpoint_a_label,
+                                "endpoint_b": endpoint_b_label,
+                                "edge_a_endpoint": {"col": round(pt_a[0], 1), "row": round(pt_a[1], 1)},
+                                "edge_b_endpoint": {"col": round(pt_b[0], 1), "row": round(pt_b[1], 1)},
+                                "gap_position": {"x": round(mid_x, 1), "y": round(mid_y, 1)},
+                                "gap_distance_px": round(gap_dist, 2),
+                                "alignment": alignment,
+                            })
+
+    return gaps
+
+
+def detect_boundary_terminals(
+    edges: list[dict[str, Any]],
+    nodes: list[dict[str, Any]],
+    image_shape: tuple[int, int, int],
+    boundary_margin_px: float = 50.0,
+) -> list[dict[str, Any]]:
+    """
+    S5-02: Flag edges whose endpoint is within boundary_margin_px of the
+    image edge. These are likely off-page connectors that should have an
+    off_page_connector record but don't yet.
+
+    Returns list of boundary_proximity items for each qualifying edge.
+    """
+    if not edges or not image_shape:
+        return []
+
+    height, width = image_shape[:2]
+    boundary_terminals: list[dict[str, Any]] = []
+
+    for edge in edges:
+        eid = str(edge.get("id", ""))
+        polyline = edge.get("polyline", [])
+        if not polyline or len(polyline) < 2:
+            continue
+
+        src_pt = polyline[0]
+        tgt_pt = polyline[-1]
+        try:
+            src_col, src_row = float(src_pt["col"]), float(src_pt["row"])
+            tgt_col, tgt_row = float(tgt_pt["col"]), float(tgt_pt["row"])
+        except (KeyError, TypeError, ValueError):
+            continue
+
+        src_near = (
+            src_col <= boundary_margin_px
+            or src_col >= width - boundary_margin_px
+            or src_row <= boundary_margin_px
+            or src_row >= height - boundary_margin_px
+        )
+        tgt_near = (
+            tgt_col <= boundary_margin_px
+            or tgt_col >= width - boundary_margin_px
+            or tgt_row <= boundary_margin_px
+            or tgt_row >= height - boundary_margin_px
+        )
+
+        if not (src_near or tgt_near):
+            continue
+
+        # Determine which side (left/right/top/bottom)
+        src_side = None
+        if src_col <= boundary_margin_px:
+            src_side = "left"
+        elif src_col >= width - boundary_margin_px:
+            src_side = "right"
+        elif src_row <= boundary_margin_px:
+            src_side = "top"
+        elif src_row >= height - boundary_margin_px:
+            src_side = "bottom"
+
+        tgt_side = None
+        if tgt_col <= boundary_margin_px:
+            tgt_side = "left"
+        elif tgt_col >= width - boundary_margin_px:
+            tgt_side = "right"
+        elif tgt_row <= boundary_margin_px:
+            tgt_side = "top"
+        elif tgt_row >= height - boundary_margin_px:
+            tgt_side = "bottom"
+
+        boundary_terminals.append({
+            "edge_id": eid,
+            "source_node": str(edge.get("source", "")),
+            "target_node": str(edge.get("target", "")),
+            "source_boundary_side": src_side,
+            "target_boundary_side": tgt_side,
+            "source_col": src_col,
+            "source_row": src_row,
+            "target_col": tgt_col,
+            "target_row": tgt_row,
+        })
+
+    return boundary_terminals
