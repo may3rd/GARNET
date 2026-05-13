@@ -48,7 +48,7 @@ CORNER_MIN_DISTANCE = 8
 
 # Corner bounding-box: spatial grid cell size in pixels
 # Smaller = more fine-grained boxes, larger = coarser grouping
-CORNER_GRID_CELL_PX = 40
+CORNER_GRID_CELL_PX = 40  # grid=20 broke groupRectangles (eps too small); 40 is stable
 
 # Region dilation for inpaint mask
 # Tighter kernel (9,9) reduces margin from ~10px to ~4px to avoid
@@ -73,7 +73,7 @@ ENDPOINT_MERGE_PX = 15.0
 ENDPOINT_MERGE_ANGLE_TOLERANCE_DEG = 20.0
 
 # Orphan removal
-MIN_SEGMENT_LENGTH_PX = 12.0
+MIN_SEGMENT_LENGTH_PX = 25.0  # was 12.0 — cull short text-edge fragments
 
 
 # ───────────────────────────────────────────────────────────────

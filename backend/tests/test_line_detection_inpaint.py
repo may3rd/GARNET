@@ -114,18 +114,20 @@ class TestMergeSegmentPair:
 
 class TestMergeCollinearSegments:
     def test_three_on_one_line(self):
-        # Three collinear segments with small overlaps (5px on 60px span = 8%)
-        # This is BELOW the 15% IoU threshold, so none merge.
-        # (Original test expected merge, but the threshold is correct:
-        #  these segments are genuinely barely overlapping.)
+        # Three collinear segments with small overlaps (5px on 60px span = 8%).
+        # IoU < 15% threshold for all adjacent pairs — no direct overlap merges.
+        # However, gap bridging (GAP_BRIDGE_PX=25) bridges seg1→seg3 across the
+        # 25px gap at endpoints (30→55) because they are perfectly y-aligned.
+        # seg2 sits between them but doesn't merge with either (IoU too low, and
+        # it overlaps rather than having a gap). Result: 2 groups.
         segs = [
             {"x1": 0, "y1": 0, "x2": 30, "y2": 0, "length": 30},
             {"x1": 25, "y1": 0, "x2": 60, "y2": 0, "length": 35},
             {"x1": 55, "y1": 0, "x2": 100, "y2": 0, "length": 45},
         ]
         merged = _merge_collinear_segments(segs)
-        # No merges because IoU < threshold for all adjacent pairs
-        assert len(merged) == 3
+        # Gap bridging merges seg1+seg3; seg2 stays separate
+        assert len(merged) == 2
 
     def test_three_with_good_overlap(self):
         # Three collinear segments with sufficient overlap to merge
@@ -153,13 +155,15 @@ class TestMergeCollinearSegments:
 
 class TestSplitHorizontalVertical:
     def test_basic_split(self):
+        # _split_horizontal_vertical uses a 25° threshold, not 45°.
+        # 0° → H, 90° → V, 19° → H (within 25° of horizontal)
         segs = [
             {"x1": 0, "y1": 0, "x2": 100, "y2": 0, "length": 100},  # H (0°)
             {"x1": 0, "y1": 0, "x2": 0, "y2": 100, "length": 100},   # V (90°)
-            {"x1": 0, "y1": 0, "x2": 80, "y2": 80, "length": 113},   # 45° → H bucket (≤ 45°)
+            {"x1": 0, "y1": 0, "x2": 87, "y2": 30, "length": 92},   # 19° → H (≤ 25°)
         ]
         h, v = _split_horizontal_vertical(segs)
-        assert len(h) == 2  # 0° and 45° are both ≤ HV_ANGLE_DEG (45°)
+        assert len(h) == 2  # 0° and 19° are both within 25° of horizontal
         assert len(v) == 1  # only 90° is vertical
 
 

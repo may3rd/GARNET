@@ -502,8 +502,10 @@ def render_connection_attachment_overlay(
             )
 
     # ── Draw direction arrows on highlighted edges ──────────────────────
+    # (Drawn FIRST so they are beneath stub lines and anchor dots
+    # when arrows cross the anchor point region.)
     ANNOTATION_COLOR = (0, 255, 255)
-    ARROW_TOLERANCE_PX = 25.0  # only draw arrows on pipes longer than this
+    ARROW_TOLERANCE_PX = 25.0
 
     for edge in edges:
         eid = str(edge.get("id", ""))
@@ -513,14 +515,12 @@ def render_connection_attachment_overlay(
         if len(polyline) < 2:
             continue
 
-        # Compute pixel length
         total_len = 0.0
         for a, b in zip(polyline, polyline[1:]):
             total_len += math.hypot(float(b["col"]) - float(a["col"]), float(b["row"]) - float(a["row"]))
         if total_len < ARROW_TOLERANCE_PX:
             continue
 
-        # Place arrow at midpoint of polyline
         mid_idx = len(polyline) // 2
         p_mid = polyline[mid_idx]
         p_next = polyline[min(mid_idx + 1, len(polyline) - 1)]
@@ -530,23 +530,50 @@ def render_connection_attachment_overlay(
         if length < 1:
             continue
         ux, uy = dx / length, dy / length
-        # Arrow body
         tip_x = int(round(float(p_mid["col"]) + ux * 15))
         tip_y = int(round(float(p_mid["row"]) + uy * 15))
         tail_x = int(round(float(p_mid["col"]) - ux * 15))
         tail_y = int(round(float(p_mid["row"]) - uy * 15))
         cv2.arrowedLine(overlay, (tail_x, tail_y), (tip_x, tip_y), ANNOTATION_COLOR, 2, tipLength=0.3)
 
-    # ── Draw each attachment (connection object) ───────────────────────
+    # ── Draw stub lines (dashed cyan) ───────────────────────────────────
+    # (Drawn SECOND so they appear above arrows but below anchor dots
+    # when the stub line crosses through the anchor region.)
+    STUB_COLOR = (255, 255, 0)    # cyan (BGR)
+    FONT = cv2.FONT_HERSHEY_SIMPLEX
+    FONT_SCALE_DETAIL = 0.30
+    TEXT_COLOR = (255, 255, 255)  # white
+
+    for item in attachments:
+        bbox = item.get("bbox", [])
+        if len(bbox) != 4:
+            continue
+        x_min, y_min, x_max, y_max = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
+
+        # Class name + det_id label
+        class_name = str(item.get("class_name", ""))[:28]
+        det_id = str(item.get("det_id", ""))
+        label_text = f"{class_name} [{det_id}]"
+        cv2.putText(overlay, label_text, (x_min + 4, max(14, y_min - 6)),
+                    FONT, FONT_SCALE_DETAIL, TEXT_COLOR, 1, cv2.LINE_AA)
+
+        anchor_xy = item.get("anchor_xy")
+        nearest_xy = item.get("nearest_point_xy")
+        if anchor_xy and len(anchor_xy) == 2:
+            ax, ay = int(round(float(anchor_xy[0]))), int(round(float(anchor_xy[1])))
+            if nearest_xy and len(nearest_xy) == 2:
+                nx, ny = int(round(float(nearest_xy[0]))), int(round(float(nearest_xy[1])))
+                _draw_dashed_line(overlay, (ax, ay), (nx, ny), STUB_COLOR, 2, gap=6)
+                cv2.circle(overlay, (nx, ny), 3, STUB_COLOR, -1)
+
+    # ── Draw each attachment anchor dot + bbox ───────────────────────────
+    # (Anchor dots drawn LAST so they render on top of arrows + stubs
+    # when arrows cross through the anchor point region.)
     ANCHOR_DOT_RADIUS = 7
     ANCHOR_COLOR = (255, 100, 0)  # blue (BGR)
-    STUB_COLOR = (255, 255, 0)    # cyan (BGR)
     BBOX_COLOR = (255, 0, 255)    # magenta (BGR)
-    TEXT_COLOR = (255, 255, 255)  # white
     LABEL_COLOR = (200, 220, 255) # light blue
-    FONT = cv2.FONT_HERSHEY_SIMPLEX
     FONT_SCALE_LABEL = 0.42
-    FONT_SCALE_DETAIL = 0.30
     THICKNESS_LABEL = 1
 
     for item in attachments:
@@ -558,17 +585,8 @@ def render_connection_attachment_overlay(
         # Bbox outline
         cv2.rectangle(overlay, (x_min, y_min), (x_max, y_max), BBOX_COLOR, 2)
 
-        # Class name + det_id label
-        class_name = str(item.get("class_name", ""))[:28]
-        det_id = str(item.get("det_id", ""))
-        label_text = f"{class_name} [{det_id}]"
-        cv2.putText(overlay, label_text, (x_min + 4, max(14, y_min - 6)),
-                    FONT, FONT_SCALE_DETAIL, TEXT_COLOR, 1, cv2.LINE_AA)
-
-        # Anchor side label
         anchor_name = str(item.get("anchor_name", ""))
         anchor_xy = item.get("anchor_xy")
-        nearest_xy = item.get("nearest_point_xy")
 
         if anchor_xy and len(anchor_xy) == 2:
             ax, ay = int(round(float(anchor_xy[0]))), int(round(float(anchor_xy[1])))
@@ -591,13 +609,6 @@ def render_connection_attachment_overlay(
             )
             cv2.putText(overlay, anchor_name, (label_x, label_y),
                         FONT, FONT_SCALE_LABEL, LABEL_COLOR, THICKNESS_LABEL, cv2.LINE_AA)
-
-            # Stub line: anchor dot → nearest pipe point (dashed cyan)
-            if nearest_xy and len(nearest_xy) == 2:
-                nx, ny = int(round(float(nearest_xy[0]))), int(round(float(nearest_xy[1])))
-                _draw_dashed_line(overlay, (ax, ay), (nx, ny), STUB_COLOR, 2, gap=6)
-                # Small dot at nearest pipe point
-                cv2.circle(overlay, (nx, ny), 3, STUB_COLOR, -1)
 
         # Override reason annotation (debug / QA marker)
         override_reason = item.get("anchor_override_reason", "")

@@ -204,6 +204,53 @@ class PipeEdgeTests(unittest.TestCase):
         self.assertEqual(edges[0]["target"], "endpoint_1")
         self.assertGreaterEqual(edges[0]["pixel_length"], 45)
 
+    def test_run_pipe_edge_stage_extends_dead_endpoint_to_nearby_junction(self) -> None:
+        image = np.zeros((30, 80, 3), dtype=np.uint8)
+        skeleton = np.zeros((30, 80), dtype=np.uint8)
+        skeleton[15, 10:21] = 255
+        skeleton[15, 36:51] = 255
+
+        clusters = [
+            {
+                "id": "endpoint_left",
+                "kind": "endpoint",
+                "centroid": {"x": 10.0, "y": 15.0},
+                "member_count": 1,
+                "members": [{"row": 15, "col": 10}],
+            },
+            {
+                "id": "endpoint_stub",
+                "kind": "endpoint",
+                "centroid": {"x": 20.0, "y": 15.0},
+                "member_count": 1,
+                "members": [{"row": 15, "col": 20}],
+            },
+            {
+                "id": "junction_recovered",
+                "kind": "junction",
+                "centroid": {"x": 50.0, "y": 15.0},
+                "member_count": 1,
+                "members": [{"row": 15, "col": 50}],
+            },
+        ]
+
+        result = run_pipe_edge_stage(
+            image_bgr=image,
+            skeleton_mask=skeleton,
+            node_clusters=clusters,
+            image_id="sample.png",
+            min_edge_length_px=2,
+        )
+
+        edges = result["edges_payload"]["edges"]
+        extension_edges = [edge for edge in edges if edge.get("extension")]
+        pairs = {frozenset((edge["source"], edge["target"])) for edge in extension_edges}
+
+        self.assertEqual(len(edges), 2)
+        self.assertEqual(len(extension_edges), 1)
+        self.assertIn(frozenset(("endpoint_left", "junction_recovered")), pairs)
+        self.assertGreaterEqual(extension_edges[0]["pixel_length"], 10)
+
 
 if __name__ == "__main__":
     unittest.main()

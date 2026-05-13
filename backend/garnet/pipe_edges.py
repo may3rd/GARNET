@@ -313,6 +313,168 @@ def _bridge_unmatched_corridors(
     return bridged
 
 
+def _cast_ray(
+    start: Point,
+    direction: tuple[float, float],
+    skeleton: np.ndarray,
+    max_distance: int,
+) -> Point | None:
+    """Cast a ray from start in direction and return the first skeleton hit."""
+    row, col = start
+    dy, dx = direction
+    for step in range(1, max_distance + 1):
+        probe_row = int(round(row + dy * step))
+        probe_col = int(round(col + dx * step))
+        if probe_row < 0 or probe_col < 0:
+            return None
+        if probe_row >= skeleton.shape[0] or probe_col >= skeleton.shape[1]:
+            return None
+        if skeleton[probe_row, probe_col] > 0:
+            return (probe_row, probe_col)
+    return None
+
+
+def _ray_polyline(start: Point, end: Point) -> list[dict[str, int]]:
+    row0, col0 = start
+    row1, col1 = end
+    steps = max(abs(row1 - row0), abs(col1 - col0))
+    if steps == 0:
+        return [{"row": row0, "col": col0}]
+
+    points: list[dict[str, int]] = []
+    seen: set[Point] = set()
+    for step in range(steps + 1):
+        t = step / steps
+        point = (int(round(row0 + (row1 - row0) * t)), int(round(col0 + (col1 - col0) * t)))
+        if point in seen:
+            continue
+        seen.add(point)
+        points.append({"row": point[0], "col": point[1]})
+    return points
+
+
+def _endpoint_extension_directions(polyline: list[dict[str, Any]], side: str) -> tuple[Point, list[tuple[float, float]]] | None:
+    if len(polyline) < 2:
+        return None
+
+    endpoint = polyline[0] if side == "start" else polyline[-1]
+    adjacent = polyline[1] if side == "start" else polyline[-2]
+    ep_row, ep_col = int(endpoint["row"]), int(endpoint["col"])
+    adj_row, adj_col = int(adjacent["row"]), int(adjacent["col"])
+
+    # Direction points away from the traced edge endpoint, across the skeleton gap.
+    dy = float(ep_row - adj_row)
+    dx = float(ep_col - adj_col)
+    length = math.hypot(dx, dy)
+    if length < 1.0:
+        return None
+
+    dy_norm = dy / length
+    dx_norm = dx / length
+    directions = [(dy_norm, dx_norm)]
+    return (ep_row, ep_col), directions
+
+
+def _extend_endpoints_with_raycasting(
+    skeleton: np.ndarray,
+    edges: list[dict[str, Any]],
+    node_clusters: list[dict[str, Any]],
+    *,
+    ray_max_distance_px: int = 30,
+    min_extension_length_px: int = 10,
+) -> list[dict[str, Any]]:
+    """
+    Recover missed T-junction branches by ray-casting from traced edge dead ends.
+
+    Existing tracing is intentionally left untouched. This post-pass only adds
+    short synthetic edge segments when a traced endpoint has no uncovered
+    skeleton continuation and a ray finds nearby skeleton across a small gap.
+    """
+    node_centroids = {
+        str(cluster["id"]): (float(cluster["centroid"]["y"]), float(cluster["centroid"]["x"]))
+        for cluster in node_clusters
+        if cluster.get("kind") == "junction"
+    }
+    if not node_centroids:
+        return []
+
+    covered: set[Point] = set()
+    for edge in edges:
+        for point in edge.get("polyline", []):
+            covered.add((int(point["row"]), int(point["col"])))
+
+    new_edges: list[dict[str, Any]] = []
+    seen_pairs: set[frozenset[str]] = set()
+
+    for edge in edges:
+        polyline = edge.get("polyline", [])
+        if len(polyline) < 2:
+            continue
+
+        for side in ("start", "end"):
+            extension_geometry = _endpoint_extension_directions(polyline, side)
+            if extension_geometry is None:
+                continue
+            endpoint, directions = extension_geometry
+
+            live_neighbors = [neighbor for neighbor in _neighbors(endpoint, skeleton) if neighbor not in covered]
+            if live_neighbors:
+                continue
+
+            terminal_node_id = str(edge["source"] if side == "start" else edge["target"])
+            anchor_node_id = str(edge["target"] if side == "start" else edge["source"])
+            for direction_index, direction in enumerate(directions):
+                hit = _cast_ray(endpoint, direction, skeleton, max_distance=ray_max_distance_px)
+                if hit is None:
+                    continue
+
+                hit_distance = math.hypot(hit[0] - endpoint[0], hit[1] - endpoint[1])
+                if hit_distance < min_extension_length_px:
+                    continue
+
+                nearest_node_id = None
+                nearest_distance = None
+                for node_id, (node_row, node_col) in node_centroids.items():
+                    distance = math.hypot(hit[0] - node_row, hit[1] - node_col)
+                    if nearest_distance is None or distance < nearest_distance:
+                        nearest_distance = distance
+                        nearest_node_id = node_id
+
+                if nearest_node_id is None or nearest_node_id in {terminal_node_id, anchor_node_id}:
+                    continue
+                if nearest_distance is None or nearest_distance > 20.0:
+                    continue
+
+                pair = frozenset((anchor_node_id, nearest_node_id))
+                if pair in seen_pairs:
+                    continue
+
+                base_polyline = [
+                    {"row": int(point["row"]), "col": int(point["col"])}
+                    for point in polyline
+                ]
+                extension_segment = _ray_polyline(endpoint, hit)
+                if side == "start":
+                    extension_polyline = list(reversed(base_polyline)) + extension_segment[1:]
+                else:
+                    extension_polyline = base_polyline + extension_segment[1:]
+
+                new_edges.append(
+                    {
+                        "id": f"extension::{anchor_node_id}__{nearest_node_id}__{len(extension_polyline)}__{direction_index}",
+                        "source": anchor_node_id,
+                        "target": nearest_node_id,
+                        "polyline": extension_polyline,
+                        "pixel_length": len(extension_polyline),
+                        "extension": True,
+                    }
+                )
+                seen_pairs.add(pair)
+                break
+
+    return new_edges
+
+
 def _trace_from_pixel(
     *,
     origin_node_id: str,
@@ -422,7 +584,23 @@ def run_pipe_edge_stage(
         crossing_resolution=crossing_resolution,
     )
 
-    # ─── Phase 2 continuity check (runs after all edges traced) ─────────────
+    # ─── Phase 3: ray-casting T-junction recovery ──────────────────────────
+    extended_edges = _extend_endpoints_with_raycasting(
+        skeleton_mask,
+        edges,
+        node_clusters,
+        ray_max_distance_px=30,
+        min_extension_length_px=10,
+    )
+    existing_pairs = {frozenset((str(edge["source"]), str(edge["target"]))) for edge in edges}
+    for extended_edge in extended_edges:
+        pair = frozenset((str(extended_edge["source"]), str(extended_edge["target"])))
+        if pair in existing_pairs:
+            continue
+        edges.append(extended_edge)
+        existing_pairs.add(pair)
+
+    # ─── Phase 2 continuity check (runs after all edges traced and extended) ─
     continuity_result = run_post_trace_continuity_check(
         edges,
         gap_threshold=GAP_THRESHOLD_PX,
