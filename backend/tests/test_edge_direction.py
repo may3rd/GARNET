@@ -56,10 +56,18 @@ class EdgeDirectionTests(unittest.TestCase):
 
         self.assertEqual(direction, "reverse")
 
-    def test_ambiguous_aspect_returns_unknown(self) -> None:
+    def test_ambiguous_aspect_returns_forward(self) -> None:
+        # Square arrows (aspect=1.0) are classified as vertical and canonical forward.
+        # This is intentional: portrait/square arrows on pipes represent downward
+        # or forward flow, and should be assigned a direction, not skipped.
         direction = compute_arrow_direction({"x_min": 10, "y_min": 10, "x_max": 30, "y_max": 30})
+        self.assertEqual(direction, "forward")
 
-        self.assertEqual(direction, "unknown")
+    def test_diagonal_aspect_returns_forward(self) -> None:
+        # Arrows with diagonal aspect (1.0 < aspect < 1.5) are classified as diagonal
+        # and assigned canonical forward direction.
+        direction = compute_arrow_direction({"x_min": 10, "y_min": 10, "x_max": 40, "y_max": 30})
+        self.assertEqual(direction, "forward")
 
     def test_edge_with_nearby_arrow_gets_direction(self) -> None:
         result = run_edge_direction_stage(

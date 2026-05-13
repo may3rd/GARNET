@@ -62,7 +62,7 @@ def _arrow_axis(arrow_bbox: dict[str, Any]) -> str:
         return "horizontal"
     if aspect <= 1.0:
         return "vertical"
-    return "unknown"
+    return "diagonal"
 
 
 def _arrow_axis_strict(bbox: dict[str, Any]) -> str:
@@ -97,7 +97,7 @@ def compute_arrow_direction(arrow_bbox: dict[str, Any]) -> str:
         return hint
 
     axis = _arrow_axis(bbox)
-    if axis in {"horizontal", "vertical"}:
+    if axis in {"horizontal", "vertical", "diagonal"}:
         return "forward"
     return "unknown"
 
@@ -166,6 +166,8 @@ def _direction_vector(axis: str, direction: str) -> tuple[float, float] | None:
         return (sign, 0.0)
     if axis == "vertical":
         return (0.0, sign)
+    if axis == "diagonal":
+        return (sign * 0.7071, sign * 0.7071)
     return None
 
 
@@ -186,6 +188,84 @@ def _assigned_flow_direction(edge_points: list[tuple[float, float]], arrow_axis:
     if abs(dot) < 0.5:
         return None
     return "forward" if dot > 0 else "reverse"
+
+
+def _recover_unclaimed_arrows(
+    directional_edges: list[dict[str, Any]],
+    arrows: list[dict[str, Any]],
+    assigned_arrow_ids: set[str],
+    arrow_assignments: list[dict[str, Any]],
+    arrow_proximity_px: float,
+    confidence_values: list[float],
+) -> None:
+    """
+    Second-pass recovery for arrows that lost the first-pass proximity race.
+
+    An unclaimed arrow is recovered if it can point an edge that currently has
+    no flow direction (regardless of who "won" the proximity competition).
+    This handles the case where multiple arrows sit on the same pipe at
+    slightly different distances — any valid arrow pointing the pipe wins.
+
+    Recovery strategy:
+    1. For each unclaimed arrow, scan edges by increasing distance.
+    2. If an edge has NO flow direction yet and this arrow produces a valid
+       direction, claim it.
+    3. Stop at the first claim — assign only one edge per arrow.
+    """
+    for arrow in arrows:
+        aid = arrow["id"]
+        if aid in assigned_arrow_ids:
+            continue
+
+        arrow_dir = compute_arrow_direction(arrow)
+        axis_str = str(arrow.get("_axis", "unknown"))
+        ax, ay = arrow["_center"]
+
+        # Scan all edges in order of increasing distance from this arrow
+        edge_distances: list[tuple[float, dict[str, Any]]] = []
+        for edge in directional_edges:
+            pts = _edge_points(edge)
+            if not pts:
+                continue
+            d = _nearest_point_distance((ax, ay), pts)
+            if d <= arrow_proximity_px * 2.0:  # generous scan range
+                edge_distances.append((d, edge, pts))
+
+        edge_distances.sort(key=lambda x: x[0])
+
+        for d, edge_obj, pts in edge_distances:
+            # Only claim edges that still have no flow direction
+            if edge_obj.get("flow_direction") is not None:
+                continue
+
+            assigned_dir = _assigned_flow_direction(pts, axis_str, arrow_dir)
+            if assigned_dir is None:
+                continue
+
+            confidence = (
+                max(0.0, min(1.0, 1.0 - (d / arrow_proximity_px)))
+                if arrow_proximity_px > 0
+                else 0.0
+            )
+            edge_obj["flow_direction"] = assigned_dir
+            edge_obj["flow_direction_confidence"] = confidence
+            edge_obj["assigned_arrow_id"] = aid
+
+            assigned_arrow_ids.add(aid)
+            confidence_values.append(confidence)
+            arrow_assignments.append(
+                {
+                    "arrow_id": aid,
+                    "edge_id": edge_obj["id"],
+                    "distance_px": d,
+                    "arrow_direction": arrow_dir,
+                    "edge_orientation": _edge_orientation(pts),
+                    "assigned_flow_direction": assigned_dir,
+                }
+            )
+            break  # one edge per arrow
+
+
 
 
 def run_edge_direction_stage(
@@ -251,6 +331,18 @@ def run_edge_direction_stage(
                     "assigned_flow_direction": assigned_direction,
                 }
             )
+
+    # Second pass: recover arrows that lost the proximity competition but sit
+    # on an edge that no already-assigned arrow claimed at a significantly
+    # closer distance (winning arrow >2× closer than this arrow's nearest approach).
+    _recover_unclaimed_arrows(
+        directional_edges,
+        arrows,
+        assigned_arrow_ids,
+        arrow_assignments,
+        arrow_proximity_px,
+        confidence_values,
+    )
 
     direction_counts = {
         "forward": sum(1 for edge in directional_edges if edge.get("flow_direction") == "forward"),
