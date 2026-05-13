@@ -60,6 +60,20 @@ def _arrow_axis(arrow_bbox: dict[str, Any]) -> str:
     aspect = width / height
     if aspect >= 1.5:
         return "horizontal"
+    if aspect <= 1.0:
+        return "vertical"
+    return "unknown"
+
+
+def _arrow_axis_strict(bbox: dict[str, Any]) -> str:
+    """Original threshold: vertical only when aspect < 0.7. Used for backward compat."""
+    width = bbox["x_max"] - bbox["x_min"]
+    height = bbox["y_max"] - bbox["y_min"]
+    if height <= 0:
+        return "unknown"
+    aspect = width / height
+    if aspect >= 1.5:
+        return "horizontal"
     if aspect < 0.7:
         return "vertical"
     return "unknown"
@@ -103,10 +117,30 @@ def _edge_points(edge: dict[str, Any]) -> list[tuple[float, float]]:
 
 
 def _nearest_point_distance(point_xy: tuple[float, float], edge_points: list[tuple[float, float]]) -> float:
+    """Distance from point to the nearest *segment* in the edge polyline.
+
+    Uses point-to-segment projection so arrows sitting anywhere on a pipe —
+    not just near endpoints — are correctly matched to edges.
+    """
     if not edge_points:
         return math.inf
     px, py = point_xy
-    return min(math.hypot(px - ex, py - ey) for ex, ey in edge_points)
+    if len(edge_points) == 1:
+        return math.hypot(px - edge_points[0][0], py - edge_points[0][1])
+    best = math.inf
+    for i in range(len(edge_points) - 1):
+        x1, y1 = edge_points[i]
+        x2, y2 = edge_points[i + 1]
+        dx = x2 - x1
+        dy = y2 - y1
+        if dx == 0 and dy == 0:
+            d = math.hypot(px - x1, py - y1)
+        else:
+            t = max(0.0, min(1.0, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)))
+            d = math.hypot(px - (x1 + t * dx), py - (y1 + t * dy))
+        if d < best:
+            best = d
+    return best
 
 
 def _midpoint_distance(point_xy: tuple[float, float], edge_points: list[tuple[float, float]]) -> float:
