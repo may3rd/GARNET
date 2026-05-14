@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 import math
 from collections import Counter
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 try:
     import cv2  # type: ignore
@@ -1016,6 +1019,7 @@ def build_pipe_edge_connectivity(
     inline_connector_classes: tuple[str, ...],
     inline_match_distance_px: float,
     connection_seed_edge_ids: set[str] | None = None,
+    gap_seed_connections: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     inline_connections = _inline_connections(
         edges,
@@ -1046,6 +1050,36 @@ def build_pipe_edge_connectivity(
             continue
         seen.add(key)
         all_connections.append(item)
+
+    # S5 gap_coverage: wire quality-tiered gap connections into edge connectivity
+    # gap_seed_connections come from Phase 3 gap detection (detect_phase3_gaps).
+    # Only auto-accept strict (≤8px) and good (≤15px) quality gaps to boost coverage.
+    if gap_seed_connections:
+        gap_accepted = 0
+        gap_skipped = 0
+        for gc in gap_seed_connections:
+            quality = str(gc.get("gap_quality", "weak"))
+            if quality in ("strict", "good"):
+                pair = tuple(sorted((str(gc.get("edge_a", "")), str(gc.get("edge_b", "")))))
+                key = ("gap_seed", gc.get("alignment", ""), "", "||".join(pair))
+                if key not in seen:
+                    seen.add(key)
+                    all_connections.append({
+                        "source_edge_id": gc.get("edge_a", ""),
+                        "target_edge_id": gc.get("edge_b", ""),
+                        "kind": "gap_seed",
+                        "alignment": gc.get("alignment", ""),
+                        "gap_distance_px": gc.get("gap_distance_px", 0),
+                        "gap_quality": quality,
+                        "endpoint_a": gc.get("endpoint_a", ""),
+                        "endpoint_b": gc.get("endpoint_b", ""),
+                    })
+                    gap_accepted += 1
+                else:
+                    gap_skipped += 1
+            else:
+                gap_skipped += 1
+        logger.info(f"Gap seed: {gap_accepted} accepted, {gap_skipped} skipped ({len(gap_seed_connections)} total)")
     rejection_reason_counts = dict(Counter(str(item.get("rejection_reason", "unknown")) for item in rejected_junction_connections))
     candidate_link_graph = _build_candidate_link_graph(
         selected_connections=all_connections,

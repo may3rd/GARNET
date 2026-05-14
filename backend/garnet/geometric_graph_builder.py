@@ -758,14 +758,29 @@ def detect_phase3_gaps(
                 dx = abs(pt_a[0] - pt_b[0])
                 dy = abs(pt_a[1] - pt_b[1])
 
-                # Must be aligned: within threshold in one axis, may differ in other
+                # Must be aligned: the dominant axis (larger delta) defines the
+                # pipe direction; the smaller delta must be within threshold.
+                # Horizontal pipe: |dx| >= |dy|, smaller |dy| <= threshold
+                # Vertical pipe:   |dy| >  |dx|, smaller |dx| <= threshold
                 if (dx <= gap_threshold_px or dy <= gap_threshold_px):
                     gap_dist = math.hypot(dx, dy)
                     if gap_dist <= gap_threshold_px * 1.5:
-                        # Determine alignment direction
-                        alignment = "horizontal" if dx <= dy else "vertical"
+                        # Determine alignment: dominant axis is horizontal when
+                        # |dx| >= |dy|; otherwise vertical.
+                        alignment = "horizontal" if abs(dx) >= abs(dy) else "vertical"
                         mid_x = (pt_a[0] + pt_b[0]) / 2
                         mid_y = (pt_a[1] + pt_b[1]) / 2
+
+                        # Quality tiers for gap_coverage improvement:
+                        #   strict  — gap_dist <= 8px, both endpoints snap cleanly
+                        #   good    — gap_dist <= 15px, well-aligned
+                        #   weak    — gap_dist >  15px, accept but flag for review
+                        if gap_dist <= 8.0:
+                            gap_quality = "strict"
+                        elif gap_dist <= 15.0:
+                            gap_quality = "good"
+                        else:
+                            gap_quality = "weak"
 
                         # Check NOT already connected (no shared junction node)
                         node_b = ep_b["source_node"]
@@ -794,6 +809,7 @@ def detect_phase3_gaps(
                                 "gap_position": {"x": round(mid_x, 1), "y": round(mid_y, 1)},
                                 "gap_distance_px": round(gap_dist, 2),
                                 "alignment": alignment,
+                                "gap_quality": gap_quality,
                             })
 
     return gaps

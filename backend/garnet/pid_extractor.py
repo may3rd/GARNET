@@ -1018,6 +1018,14 @@ class PIDPipeline:
             k_candidate_edges=self.cfg.connection_attachment_k_candidate_edges,
         )
 
+        # S5-01: Detect near-edge gaps between Phase 3 edges (before edge connectivity)
+        from garnet.geometric_graph_builder import detect_phase3_gaps
+
+        phase3_gaps = detect_phase3_gaps(
+            edges=directed_edges,
+            gap_threshold_px=GAP_THRESHOLD_PX,
+        )
+
         edge_connectivity_result = build_pipe_edge_connectivity(
             edges=directed_edges,
             node_clusters=node_clusters,
@@ -1029,14 +1037,8 @@ class PIDPipeline:
                 for item in connection_attachment_result["attachments_payload"].get("accepted", [])
                 if item.get("edge_id") is not None
             },
-        )
-
-        # S5-01: Detect near-edge gaps between Phase 3 edges (before graph assembly)
-        from garnet.geometric_graph_builder import detect_phase3_gaps
-
-        phase3_gaps = detect_phase3_gaps(
-            edges=directed_edges,
-            gap_threshold_px=GAP_THRESHOLD_PX,
+            # S5: wire quality-tiered gap seeds into edge connectivity to boost coverage
+            gap_seed_connections=phase3_gaps,
         )
 
         from garnet.continuity_aware_connections import validate_connections_against_gaps

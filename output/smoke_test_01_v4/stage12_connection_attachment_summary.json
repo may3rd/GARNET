@@ -1,0 +1,16 @@
+{
+  "job_id": "056e12f7360f4abca43c671ea36449f0",
+  "attachments_count": 11,
+  "edges_count": 581,
+  "edge_connections_count": 437,
+  "render_time_seconds": 0.02,
+  "anchor_dot_color": "(255, 100, 0) BGR \u2192 BLUE in RGB",
+  "stub_color": "(255, 255, 0) BGR \u2192 CYAN in RGB",
+  "arrow_color": "(0, 255, 255) BGR \u2192 YELLOW in RGB",
+  "render_order": [
+    "1. Pipe polylines (grey/yellow)",
+    "2. Direction arrows (yellow) \u2190 drawn FIRST (below anchor)",
+    "3. Stub lines (cyan dashed) \u2190 drawn SECOND",
+    "4. Anchor dots (blue) + white ring \u2190 drawn LAST (always on top)"
+  ]
+}
