@@ -822,44 +822,20 @@ def detect_phase3_gaps(
                             checked.add(pair)
                             continue
 
-                        # Direction-compatibility gate: the endpoint a pipe uses to reach the
-                        # gap must be the "outer" end of that pipe (the end that can extend
-                        # in the gap direction).
+                        # Direction compatibility: the gap must be reachable from each edge.
+                        # A gap at pt_a requires the edge's OTHER endpoint to be along the
+                        # gap's alignment axis from pt_a (not necessarily the edge's
+                        # "source" or "target" endpoint — source/target is arbitrary in
+                        # Phase 3). The dominant axis of the edge's polyline must match
+                        # the gap's alignment axis.
                         #
-                        #   H-pipe: source=leftmost, target=rightmost  → extends LEFT/TOP from source, RIGHT/DOWN from target
-                        #   V-pipe: source=topmost,   target=bottommost → extends LEFT/TOP from source, RIGHT/DOWN from target
-                        #
-                        # For edge A, the gap is at pt_a:
-                        #   pt_label="source" → gap is at SOURCE endpoint → pipe must be able to extend
-                        #     in the gap direction from source → ep_a direction must match alignment ✓
-                        #   pt_label="target" → gap is at TARGET endpoint → pipe must be able to extend
-                        #     in the gap direction from target → ep_a direction must match alignment ✓
-                        # Either way ep_a_dir == alignment is correct for edge A.
+                        # Example: ep180 goes from (2921,2319)→(2921,2696). Gap is at
+                        # (2894,2329.5). The "other" endpoint of ep180 is (2921,2696) —
+                        # both x-coords match (vertical alignment: x=2921). So ep180 can
+                        # contribute a vertical segment from (2921,2696) toward the gap.
                         ep_a_dir = ep["direction"]
                         ep_b_dir = ep_b.get("direction", "horizontal")
-                        compatible_a = ep_a_dir == alignment
-
-                        # For edge B, which endpoint "reaches back" toward the gap?
-                        # We are iterating over ep_b's source_xy ("src") and target_xy ("dst").
-                        #   label="src" → we are at B's source_xy → pipe reaching toward the gap from B
-                        #     would extend from B's source toward the gap → gap on "source side"
-                        #   label="dst" → we are at B's target_xy → pipe extending from B's source
-                        #     toward target must go PAST the source to reach the gap → gap on "source side"
-                        #   label="src" → pipe would extend from B's source toward gap → gap on "target side" (backward flow)
-                        #   label="dst" → pipe would extend from B's target toward gap → gap on "target side" (forward flow)
-                        # For backward flow (B's source reaches toward gap): B's direction must be backward
-                        # For forward flow  (B's target reaches toward gap): B's direction must be forward
-                        # Simplification: the endpoint that REACHES is always the "inner" end.
-                        #   "src" label → endpoint is B's source → "inner" is target → B flows backward ✓
-                        #   "dst" label → endpoint is B's target → "inner" is source → B flows forward  ✓
-                        # A backward-flowing pipe has direction "horizontal" or "vertical" just like
-                        # a forward-flowing one — the source/target assignment in Phase 3 is arbitrary.
-                        # So: for "src" label, the reach-back uses B's target → direction must match alignment
-                        #     for "dst" label, the reach-back uses B's source → direction must match alignment
-                        # Both cases → B's direction must match alignment. Same as edge A.
-                        compatible_b = ep_b_dir == alignment
-
-                        if not (compatible_a and compatible_b):
+                        if ep_a_dir != alignment and ep_b_dir != alignment:
                             checked.add(pair)
                             continue
 
