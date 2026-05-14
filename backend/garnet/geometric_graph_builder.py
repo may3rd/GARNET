@@ -687,14 +687,21 @@ def detect_phase3_gaps(
     edges: list[dict[str, Any]],
     *,
     gap_threshold_px: float = 20.0,
+    existing_connections: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """
     Detect geometric gaps between Phase 3 edges: pairs of edges whose
     endpoints are aligned (H or V) and within threshold but NOT already
-    connected via a shared junction node.
+    connected via a shared junction node AND NOT present in existing_connections.
 
     Replaces Stage 10's gap_summary for the Phase 3 geometric bypass path.
     Uses the same spatial-grid approach as pipe_continuity_helpers.summarize_gaps.
+
+    Args:
+        edges: Phase 3 edges with polyline + source/target node IDs.
+        gap_threshold_px: Alignment threshold in pixels.
+        existing_connections: List of edge-connection dicts from build_pipe_edge_connectivity.
+            If an edge pair already appears here (as any kind), it is skipped.
     """
     if not edges:
         return []
@@ -709,12 +716,19 @@ def detect_phase3_gaps(
         src_pt = polyline[0]
         tgt_pt = polyline[-1]
         try:
+            src_x, src_y = float(src_pt["col"]), float(src_pt["row"])
+            tgt_x, tgt_y = float(tgt_pt["col"]), float(tgt_pt["row"])
+            dx = abs(tgt_x - src_x)
+            dy = abs(tgt_y - src_y)
+            # Dominant axis of this edge (H-pipe vs V-pipe)
+            direction = "horizontal" if dx >= dy else "vertical"
             endpoint_index.append({
                 "edge_id": eid,
-                "source_xy": (float(src_pt["col"]), float(src_pt["row"])),
-                "target_xy": (float(tgt_pt["col"]), float(tgt_pt["row"])),
+                "source_xy": (src_x, src_y),
+                "target_xy": (tgt_x, tgt_y),
                 "source_node": str(edge.get("source", "")),
                 "target_node": str(edge.get("target", "")),
+                "direction": direction,
             })
         except (KeyError, TypeError, ValueError):
             continue
@@ -732,6 +746,15 @@ def detect_phase3_gaps(
 
     gaps: list[dict[str, Any]] = []
     checked: set[tuple[str, str]] = set()
+
+    # S5 gap_coverage: pre-populate checked from existing connections so gap
+    # detection skips edge pairs that edge_connectivity already handled.
+    if existing_connections:
+        for conn in existing_connections:
+            e_a = str(conn.get("source_edge_id", ""))
+            e_b = str(conn.get("target_edge_id", ""))
+            if e_a and e_b:
+                checked.add(tuple(sorted((e_a, e_b))))
 
     for ep in endpoint_index:
         eid_a = ep["edge_id"]
@@ -795,22 +818,66 @@ def detect_phase3_gaps(
                             node_a_target and node_b_target and node_a_target == node_b_target
                         )
 
-                        if not already_connected:
+                        if already_connected:
                             checked.add(pair)
-                            endpoint_a_label = "source" if pt_label == "target" else "target"
-                            endpoint_b_label = "source" if label == "dst" else "target"
-                            gaps.append({
-                                "edge_a": eid_a,
-                                "edge_b": eid_b,
-                                "endpoint_a": endpoint_a_label,
-                                "endpoint_b": endpoint_b_label,
-                                "edge_a_endpoint": {"col": round(pt_a[0], 1), "row": round(pt_a[1], 1)},
-                                "edge_b_endpoint": {"col": round(pt_b[0], 1), "row": round(pt_b[1], 1)},
-                                "gap_position": {"x": round(mid_x, 1), "y": round(mid_y, 1)},
-                                "gap_distance_px": round(gap_dist, 2),
-                                "alignment": alignment,
-                                "gap_quality": gap_quality,
-                            })
+                            continue
+
+                        # Direction-compatibility gate: the endpoint a pipe uses to reach the
+                        # gap must be the "outer" end of that pipe (the end that can extend
+                        # in the gap direction).
+                        #
+                        #   H-pipe: source=leftmost, target=rightmost  → extends LEFT/TOP from source, RIGHT/DOWN from target
+                        #   V-pipe: source=topmost,   target=bottommost → extends LEFT/TOP from source, RIGHT/DOWN from target
+                        #
+                        # For edge A, the gap is at pt_a:
+                        #   pt_label="source" → gap is at SOURCE endpoint → pipe must be able to extend
+                        #     in the gap direction from source → ep_a direction must match alignment ✓
+                        #   pt_label="target" → gap is at TARGET endpoint → pipe must be able to extend
+                        #     in the gap direction from target → ep_a direction must match alignment ✓
+                        # Either way ep_a_dir == alignment is correct for edge A.
+                        ep_a_dir = ep["direction"]
+                        ep_b_dir = ep_b.get("direction", "horizontal")
+                        compatible_a = ep_a_dir == alignment
+
+                        # For edge B, which endpoint "reaches back" toward the gap?
+                        # We are iterating over ep_b's source_xy ("src") and target_xy ("dst").
+                        #   label="src" → we are at B's source_xy → pipe reaching toward the gap from B
+                        #     would extend from B's source toward the gap → gap on "source side"
+                        #   label="dst" → we are at B's target_xy → pipe extending from B's source
+                        #     toward target must go PAST the source to reach the gap → gap on "source side"
+                        #   label="src" → pipe would extend from B's source toward gap → gap on "target side" (backward flow)
+                        #   label="dst" → pipe would extend from B's target toward gap → gap on "target side" (forward flow)
+                        # For backward flow (B's source reaches toward gap): B's direction must be backward
+                        # For forward flow  (B's target reaches toward gap): B's direction must be forward
+                        # Simplification: the endpoint that REACHES is always the "inner" end.
+                        #   "src" label → endpoint is B's source → "inner" is target → B flows backward ✓
+                        #   "dst" label → endpoint is B's target → "inner" is source → B flows forward  ✓
+                        # A backward-flowing pipe has direction "horizontal" or "vertical" just like
+                        # a forward-flowing one — the source/target assignment in Phase 3 is arbitrary.
+                        # So: for "src" label, the reach-back uses B's target → direction must match alignment
+                        #     for "dst" label, the reach-back uses B's source → direction must match alignment
+                        # Both cases → B's direction must match alignment. Same as edge A.
+                        compatible_b = ep_b_dir == alignment
+
+                        if not (compatible_a and compatible_b):
+                            checked.add(pair)
+                            continue
+
+                        checked.add(pair)
+                        endpoint_a_label = "source" if pt_label == "target" else "target"
+                        endpoint_b_label = "source" if label == "dst" else "target"
+                        gaps.append({
+                            "edge_a": eid_a,
+                            "edge_b": eid_b,
+                            "endpoint_a": endpoint_a_label,
+                            "endpoint_b": endpoint_b_label,
+                            "edge_a_endpoint": {"col": round(pt_a[0], 1), "row": round(pt_a[1], 1)},
+                            "edge_b_endpoint": {"col": round(pt_b[0], 1), "row": round(pt_b[1], 1)},
+                            "gap_position": {"x": round(mid_x, 1), "y": round(mid_y, 1)},
+                            "gap_distance_px": round(gap_dist, 2),
+                            "alignment": alignment,
+                            "gap_quality": gap_quality,
+                        })
 
     return gaps
 
