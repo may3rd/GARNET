@@ -1053,13 +1053,14 @@ def build_pipe_edge_connectivity(
 
     # S5 gap_coverage: wire quality-tiered gap connections into edge connectivity
     # gap_seed_connections come from Phase 3 gap detection (detect_phase3_gaps).
-    # Only auto-accept strict (≤8px) and good (≤15px) quality gaps to boost coverage.
+    # Accept all quality tiers to boost coverage. Strict/good auto-close (≤15px).
+    # Weak gaps (>15px) are flagged but still added — human review can reject via CLI.
     if gap_seed_connections:
         gap_accepted = 0
         gap_skipped = 0
         for gc in gap_seed_connections:
             quality = str(gc.get("gap_quality", "weak"))
-            if quality in ("strict", "good"):
+            if quality in ("strict", "good", "weak"):
                 pair = tuple(sorted((str(gc.get("edge_a", "")), str(gc.get("edge_b", "")))))
                 key = ("gap_seed", gc.get("alignment", ""), "", "||".join(pair))
                 if key not in seen:

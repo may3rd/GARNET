@@ -1018,14 +1018,8 @@ class PIDPipeline:
             k_candidate_edges=self.cfg.connection_attachment_k_candidate_edges,
         )
 
-        # S5-01: Detect near-edge gaps between Phase 3 edges (before edge connectivity)
-        from garnet.geometric_graph_builder import detect_phase3_gaps
-
-        phase3_gaps = detect_phase3_gaps(
-            edges=directed_edges,
-            gap_threshold_px=GAP_THRESHOLD_PX,
-        )
-
+        # S5: Run edge connectivity first, then detect only the gaps that
+        # weren't already handled (dedup against existing connections).
         edge_connectivity_result = build_pipe_edge_connectivity(
             edges=directed_edges,
             node_clusters=node_clusters,
@@ -1037,9 +1031,40 @@ class PIDPipeline:
                 for item in connection_attachment_result["attachments_payload"].get("accepted", [])
                 if item.get("edge_id") is not None
             },
-            # S5: wire quality-tiered gap seeds into edge connectivity to boost coverage
-            gap_seed_connections=phase3_gaps,
         )
+
+        # S5-01: Detect remaining near-edge gaps (exclude pairs already connected above)
+        from garnet.geometric_graph_builder import detect_phase3_gaps
+
+        phase3_gaps = detect_phase3_gaps(
+            edges=directed_edges,
+            gap_threshold_px=GAP_THRESHOLD_PX,
+            existing_connections=edge_connectivity_result["connections"],
+        )
+
+        # S5: Wire all detected gaps as gap_seed connections (quality filter
+        # moved to pipe_edge_connectivity — it handles strict/good/weak tiers there)
+        if phase3_gaps:
+            edge_connectivity_result_2 = build_pipe_edge_connectivity(
+                edges=directed_edges,
+                node_clusters=node_clusters,
+                object_regions=object_payload.get("objects", []),
+                inline_connector_classes=self.cfg.graph_inline_connector_classes,
+                inline_match_distance_px=self.cfg.graph_inline_connector_match_distance_px,
+                connection_seed_edge_ids={
+                    str(item.get("edge_id", ""))
+                    for item in connection_attachment_result["attachments_payload"].get("accepted", [])
+                    if item.get("edge_id") is not None
+                },
+                gap_seed_connections=phase3_gaps,
+            )
+            # Merge: take all connections from the second call that are gap_seed kind
+            existing_ids = {frozenset((c["source_edge_id"], c["target_edge_id"])) for c in edge_connectivity_result["connections"]}
+            for conn in edge_connectivity_result_2["connections"]:
+                pair = frozenset((conn["source_edge_id"], conn["target_edge_id"]))
+                if conn.get("kind") == "gap_seed" and pair not in existing_ids:
+                    edge_connectivity_result["connections"].append(conn)
+                    edge_connectivity_result["summary"]["edge_connection_count"] += 1
 
         from garnet.continuity_aware_connections import validate_connections_against_gaps
 
