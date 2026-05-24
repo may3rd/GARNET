@@ -199,7 +199,7 @@ def _is_collinear(a: float, b: float) -> bool:
     return diff <= ANGLE_TOLERANCE_DEG or abs(diff - 180.0) <= ANGLE_TOLERANCE_DEG
 
 
-def _classify_cluster(run_ids: list[str], run_by_id: dict[str, dict[str, Any]]) -> tuple[str, str, bool]:
+def _classify_cluster(run_ids: list[str], run_by_id: dict[str, dict[str, Any]]) -> tuple[str, str, str | bool]:
     run_count = len(run_ids)
     if run_count <= 1:
         return "terminal", "terminal", True
@@ -208,8 +208,10 @@ def _classify_cluster(run_ids: list[str], run_by_id: dict[str, dict[str, Any]]) 
 
     angles = [_run_angle(run_by_id[run_id]) for run_id in run_ids if run_id in run_by_id]
     if run_count == 2 and len(angles) == 2:
-        verified = _is_perpendicular(angles[0], angles[1])
-        return "junction", "L" if verified else "straight", verified
+        if _is_perpendicular(angles[0], angles[1]):
+            return "junction", "L", True
+        else:
+            return "junction", "pass_through", True
 
     if run_count == 3 and len(angles) == 3:
         collinear_pair = any(_is_collinear(angles[i], angles[j]) for i in range(3) for j in range(i + 1, 3))
@@ -638,7 +640,101 @@ def build_graph_from_runs_and_junctions(
         }
         edges.append(edge)
 
-    node_payloads = [_node_payload(node) for node in nodes]
+    # ── Collapse pass-through nodes ─────────────────────────────────────────
+    # Nodes with subtype="pass_through" and degree=2 are collinear 2-port
+    # junctions that should be merged: the two incident edges are replaced
+    # by a single edge through the node, and the node is removed.
+    pass_through_ids = {
+        n["id"]
+        for n in nodes
+        if n.get("type") == "junction" and n.get("junction_subtype") == "pass_through"
+    }
+    if pass_through_ids:
+        # Build full adjacency (all edges, including PT-incident) first
+        full_adj: dict[str, list[str]] = {n["id"]: [] for n in nodes}
+        for e in edges:
+            s, t = e["source"], e["target"]
+            full_adj[s].append(t)
+            full_adj[t].append(s)
+
+        # Identify pass-through nodes that are actually degree-2 in the graph
+        degree2_pt = [
+            pid for pid in pass_through_ids
+            if len(full_adj.get(pid, [])) == 2
+        ]
+
+        if degree2_pt:
+            new_edges: list[dict[str, Any]] = []
+            edge_by_id: dict[str, dict[str, Any]] = {e["id"]: e for e in edges}
+            collapsed_node_ids: set[str] = set()
+
+            # Classify pass-throughs: degenerate = both neighbors same node
+            # (cannot collapse without self-loop); proper = can be collapsed
+            for pid in degree2_pt:
+                neighbors = full_adj.get(pid, [])
+                if len(neighbors) != 2 or neighbors[0] == neighbors[1]:
+                    # Degenerate: keep this pass-through node, skip its edges
+                    collapsed_node_ids.add(pid)
+                # else: proper pass-through — collapse it
+
+            # Collect proper pass-through node IDs for edge rebuilding
+            proper_pt = set(degree2_pt) - collapsed_node_ids
+            collapsed_node_ids |= proper_pt
+
+            # Skip all edges incident on any pass-through node (degenerate or proper)
+            for e in edges:
+                sid, tid = e["source"], e["target"]
+                if sid in collapsed_node_ids or tid in collapsed_node_ids:
+                    continue
+                new_edges.append(e)
+
+            # Rebuild edges through proper pass-through nodes
+            for pid in proper_pt:
+                neighbors = full_adj.get(pid, [])
+                if len(neighbors) != 2 or neighbors[0] == neighbors[1]:
+                    continue
+                na, nb = neighbors
+                # Find the two edges incident on this pass-through node
+                edge_a = edge_b = None
+                for e in edges:
+                    s, t = e["source"], e["target"]
+                    if (s == pid and t == na) or (t == pid and s == na):
+                        edge_a = e
+                    if (s == pid and t == nb) or (t == pid and s == nb):
+                        edge_b = e
+
+                if edge_a is None or edge_b is None:
+                    continue
+
+                # Merge: new edge from na to nb, combined polyline
+                # The pass-through sits between the two runs; the polyline
+                # goes: na_end → pt → nb_end.  We store both original polylines.
+                pa = edge_a["polyline"]
+                pb = edge_b["polyline"]
+                merged_polyline = pa + pb[1:]  # drop duplicate midpoint
+
+                new_eid = f"geo_edge_merged_{pid}_{len(new_edges)}"
+                new_edges.append(
+                    {
+                        "id": new_eid,
+                        "source": na,
+                        "target": nb,
+                        "pixel_length": edge_a["pixel_length"] + edge_b["pixel_length"],
+                        "simplified_pixel_length": edge_a["simplified_pixel_length"] + edge_b["simplified_pixel_length"],
+                        "polyline": merged_polyline,
+                        "flow_direction": None,
+                        "flow_direction_confidence": 0.0,
+                        "assigned_arrow_id": None,
+                        "review_state": "provisional",
+                        "source_run_id": "",
+                        "member_segment_ids": edge_a.get("member_segment_ids", []) + edge_b.get("member_segment_ids", []),
+                        "merged_from_pass_through": pid,
+                    }
+                )
+
+            edges = new_edges
+
+    node_payloads = [_node_payload(node) for node in nodes if node.get("type") == "terminal" or node.get("junction_subtype") != "pass_through"]
     graph = nx.Graph()
     for node in node_payloads:
         graph.add_node(node["id"])

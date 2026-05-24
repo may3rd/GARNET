@@ -34,7 +34,7 @@ from garnet.graph_export_adapter import build_graph_v1_payload
 from garnet.instrument_tag_fusion import run_instrument_tag_fusion_stage
 from garnet.line_number_fusion import run_line_number_fusion_stage
 from garnet.model_defaults import pick_default_weight_file
-from garnet.object_detection_sahi import DetectionSahiConfig, run_object_detection_sahi
+from garnet.object_detection_sahi import DetectionSahiConfig, run_object_detection_sahi, get_connection_ports
 from garnet.ocrmac_sahi import OcrMacSahiConfig, run_ocrmac_sahi
 from garnet.pipe_edges import run_pipe_edge_stage
 from garnet.pipe_continuity_helpers import GAP_THRESHOLD_PX
@@ -219,13 +219,12 @@ class PIDPipeline:
     def __init__(
         self,
         image_path: str,
-        out_dir: str | Path = DEFAULT_OUT,
+        output_dir: str | Path = DEFAULT_OUT,
         cfg: PipelineConfig | None = None,
         stage_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
-        **_: Any,
     ) -> None:
         self.image_path = str(image_path)
-        self.out_dir = Path(out_dir)
+        self.out_dir = Path(output_dir)
         self.out_dir.mkdir(parents=True, exist_ok=True)
         self.cfg = cfg or PipelineConfig()
         self.stage_callback = stage_callback
@@ -346,11 +345,13 @@ class PIDPipeline:
         self._write_stage_manifest()
         self._notify_stage_callback({"event": "stage_completed", "stage": entry.copy(), "manifest": self.stage_manifest})
 
-    def run(self, stop_after: int = 1) -> None:
+    def run(self, stop_after: int | None = None) -> None:
         stages = self._stage_definitions()
-        valid_stop_after = {num for num, _, _ in stages}
-        if stop_after not in valid_stop_after:
-            raise ValueError(f"stop_after must be one of {sorted(valid_stop_after)}, got {stop_after}")
+        if stop_after is None:
+            stop_after = max(num for num, _, _ in stages)
+        valid = {num for num, _, _ in stages}
+        if stop_after not in valid:
+            raise ValueError(f"stop_after must be one of {sorted(valid)}, got {stop_after}")
         self._reset_stage_manifest(stop_after)
         for stage_num, stage_name, stage_fn in stages:
             if stage_num > stop_after:
@@ -408,6 +409,68 @@ class PIDPipeline:
             self.image_bgr = np.array(img)[:, :, ::-1]
             return self.image_bgr
         raise RuntimeError("No image backend available")  # pragma: no cover
+
+    def _add_port_markers_to_overlay(
+        self,
+        ports: dict[str, list[tuple[int, int, str]]],
+        radius: int = 8,
+    ) -> None:
+        """Draw port markers (cyan circles with labels) onto stage4_objects_overlay.
+
+        Takes the existing overlay and draws on top of it.
+        """
+        import cv2 as cv2_local
+
+        overlay_path = self.out_dir / "stage4_objects_overlay.png"
+        if not overlay_path.exists():
+            return  # nothing to annotate
+
+        overlay = cv2_local.imread(str(overlay_path), cv2_local.IMREAD_COLOR)
+        if overlay is None:
+            return
+
+        objects = self._load_json_artifact("stage4_objects").get("objects", [])
+        id_to_obj = {obj["id"]: obj for obj in objects}
+
+        port_count = 0
+        for obj_id, port_list in ports.items():
+            obj = id_to_obj.get(obj_id)
+            if obj is None:
+                continue
+
+            bbox = obj["bbox"]
+            x_min = bbox["x_min"]
+            y_min = bbox["y_min"]
+            x_max = bbox["x_max"]
+            y_max = bbox["y_max"]
+
+            # Yellow bbox for connection objects (distinguish from non-connections)
+            cv2_local.rectangle(overlay, (x_min, y_min), (x_max, y_max), (0, 255, 255), 2)
+
+            for port_x, port_y, edge_name in port_list:
+                # Filled cyan circle at the actual pipe connection point
+                cv2_local.circle(overlay, (port_x, port_y), radius, (255, 255, 0), -1)
+                # White border for contrast
+                cv2_local.circle(overlay, (port_x, port_y), radius, (255, 255, 255), 1)
+
+                # Crosshair
+                half = radius + 4
+                cv2_local.line(overlay, (port_x - half, port_y), (port_x + half, port_y), (255, 255, 255), 1)
+                cv2_local.line(overlay, (port_x, port_y - half), (port_x, port_y + half), (255, 255, 255), 1)
+
+                # Edge label
+                cv2_local.putText(
+                    overlay,
+                    edge_name[:3].upper(),
+                    (port_x + radius + 2, port_y - radius - 2),
+                    cv2_local.FONT_HERSHEY_SIMPLEX,
+                    0.35,
+                    (0, 255, 255),
+                    1,
+                )
+                port_count += 1
+
+        cv2_local.imwrite(str(overlay_path), overlay)
 
     def stage1_input_normalization(self) -> None:
         image = self._ensure_image_loaded()
@@ -574,6 +637,7 @@ class PIDPipeline:
                 postprocess_match_metric=self.cfg.detection_postprocess_match_metric,
                 postprocess_match_threshold=self.cfg.detection_postprocess_match_threshold,
             ),
+            connection_ports={},  # empty: skip midpoint heuristic ports; stage5 owns all port rendering
         )
         self._save_json("stage4_objects", detection_result["objects_payload"])
         self._save_json("stage4_objects_summary", detection_result["summary"])
@@ -705,6 +769,18 @@ class PIDPipeline:
         ]
         self._save_json("stage5_geometric_segments", json_segments)
         self._save_json("stage5_geometric_summary", result["summary"])
+
+        # Load pipe mask for mask-validation of ports
+        import cv2 as _cv2
+        pipe_mask = _cv2.imread(str(self.out_dir / "stage5_pipe_mask.png"), _cv2.IMREAD_GRAYSCALE)
+
+        # Compute actual connection ports from segment endpoints (with mask validation)
+        objects = self._load_json_artifact("stage4_objects").get("objects", [])
+        ports = get_connection_ports(objects, json_segments, pipe_mask)
+        self._save_json("stage5_connection_ports", ports)
+
+        # Overlay true port markers onto the stage4_objects_overlay image
+        self._add_port_markers_to_overlay(ports)
 
     # ---------- Stage 5 dispatcher ----------
     def stage5_dispatcher(self) -> None:
@@ -1156,38 +1232,34 @@ class PIDPipeline:
             candidate_links=edge_connectivity_result.get("candidate_link_graph", {}).get("links", []),
         )
 
-        graph_result = run_pipe_graph_stage(
-            image_id=image_id,
-            node_clusters=node_clusters,
-            edges=directed_edges,
-            confirmed_junctions=[],
-            unresolved_junctions=[],
-            split_nodes=[],
-            crossing_candidates=[],
-            equipment_attachments=attachment_result["attachments_payload"].get("accepted", []),
-            connection_attachments=connection_attachment_result["attachments_payload"].get("accepted", []),
-            text_attachments=text_attachment_result["attachments_payload"].get("accepted", []),
-            instrument_tag_attachments=instrument_tag_attachment_result["attachments_payload"].get("accepted", []),
-            equipment_tag_attachments=equipment_tag_attachment_result["attachments_payload"].get("accepted", []),
-            edge_terminals=edge_terminal_result["edge_terminals"],
-            edge_connections=edge_connectivity_result["connections"],
-        )
-        # Use cleaned nodes from geo_graph_result (post terminal-merge) for accurate counts
-        _clean_nodes = geo_graph_result["graph_payload"]["nodes"]
-        graph_result["summary"]["geometric_bypass"] = {
-            "segment_count": len(segments),
-            "run_count": len(runs),
-            "junction_count": len([n for n in _clean_nodes if n.get("type") == "junction"]),
-            "terminal_count": len([n for n in _clean_nodes if n.get("type") == "terminal"]),
+        # ── Build graph_result directly from the collapsed geo_graph ─────────────
+        # Using geo_graph_result["graph_payload"] directly preserves the pass_through
+        # collapse (merged edges, no degenerate PT nodes). Calling run_pipe_graph_stage
+        # would rebuild from node_clusters/edges and lose that collapse.
+        graph_result = {
+            "graph_payload": geo_graph_result["graph_payload"],
+            "summary": {
+                "image_id": image_id,
+                "pass_type": "sheet",
+                "node_count": len(geo_graph_result["graph_payload"]["nodes"]),
+                "edge_count": len(geo_graph_result["graph_payload"]["edges"]),
+                "merged_pass_through_count": len([e for e in geo_graph_result["graph_payload"].get("edges", []) if e.get("merged_from_pass_through")]),
+                "geometric_bypass": {
+                    "segment_count": len(segments),
+                    "run_count": len(runs),
+                    "junction_count": len([n for n in geo_graph_result["graph_payload"]["nodes"] if n.get("type") == "junction"]),
+                    "terminal_count": len([n for n in geo_graph_result["graph_payload"]["nodes"] if n.get("type") == "terminal"]),
+                },
+                "edge_direction": direction_result["summary"],
+                "source_artifacts": [
+                    "stage5_geometric_segments.json",
+                    "phase3_runs.json",
+                    "phase3_junctions.json",
+                    "phase3_pipe_edges.json",
+                    "phase3_edge_direction.json",
+                ],
+            },
         }
-        graph_result["summary"]["edge_direction"] = direction_result["summary"]
-        graph_result["summary"]["source_artifacts"] = [
-            "stage5_geometric_segments.json",
-            "phase3_runs.json",
-            "phase3_junctions.json",
-            "phase3_pipe_edges.json",
-            "phase3_edge_direction.json",
-        ]
 
         self._save_json("stage12_equipment_attachments", attachment_result["attachments_payload"])
         self._save_json("stage12_equipment_attachment_summary", attachment_result["summary"])
@@ -1653,7 +1725,7 @@ def main() -> None:
     args = parser.parse_args()
     pipe = PIDPipeline(
         args.image,
-        out_dir=args.out,
+        output_dir=args.out,
         cfg=PipelineConfig(
             ocr_route=args.ocr_route,
             use_geometric_line_detection=args.geometric,

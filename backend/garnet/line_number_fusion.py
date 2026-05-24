@@ -161,13 +161,13 @@ def _assemble_line_number_from_parts(parts: list[str]) -> str:
     return ""
 
 
-def _confirm_with_crop_ocr(image_bgr: np.ndarray, bbox: dict[str, int]) -> str:
+def _confirm_with_crop_ocr(image_bgr: np.ndarray, bbox: dict[str, int]) -> tuple[str, str]:
     crop = _crop_image(image_bgr, bbox)
     if crop is None:
-        return ""
+        return "", ""
     ocrmac = _get_ocrmac_module()
     if ocrmac is None:
-        return ""
+        return "", ""
     crops = [("crop_ocr", crop)]
     if crop.shape[0] > max(32, crop.shape[1] * 1.2):
         rotated = cv2.rotate(crop, cv2.ROTATE_90_CLOCKWISE)
@@ -176,12 +176,15 @@ def _confirm_with_crop_ocr(image_bgr: np.ndarray, bbox: dict[str, int]) -> str:
     crops.append(("crop_ocr_preprocessed", _enhance_crop_for_ocr(crop)))
 
     for source, crop_view in crops:
-        annotations = ocrmac.OCR(
-            Image.fromarray(cv2.cvtColor(crop_view, cv2.COLOR_BGR2RGB)),
-            recognition_level="accurate",
-            framework="vision",
-            language_preference=["en-US"],
-        ).recognize()
+        try:
+            annotations = ocrmac.OCR(
+                Image.fromarray(cv2.cvtColor(crop_view, cv2.COLOR_BGR2RGB)),
+                recognition_level="accurate",
+                framework="vision",
+                language_preference=["en-US"],
+            ).recognize()
+        except Exception:
+            continue
         parts = _parse_ocrmac_annotations(annotations)
         assembled = _assemble_line_number_from_parts(parts)
         if assembled:

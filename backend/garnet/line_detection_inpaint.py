@@ -917,6 +917,17 @@ def run_line_detection_inpaint(
     cleaned_binary = _cleaned_to_binary(cleaned_gray)
     raw_segments = _extract_contour_segments(cleaned_binary)
 
+    # Phase E2 (symbol_aware_splitter): cut segments at symbol bbox crossings.
+    # Unlike inpainting (removes symbols, then traces through cleaned image),
+    # this keeps both pieces of a pipe that crosses through a symbol.
+    # Integration: between contour extraction and collinear merge.
+    from garnet.symbol_aware_splitter import split_segments_at_symbols
+    raw_segments = split_segments_at_symbols(
+        raw_segments,
+        text_regions=text_regions,
+        object_regions=object_regions,
+    )
+
     # Phase F: collinear merge + H/V split
     merged = _merge_collinear_segments(raw_segments)
 
