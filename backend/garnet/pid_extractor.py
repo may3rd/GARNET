@@ -36,6 +36,7 @@ from garnet.line_number_fusion import run_line_number_fusion_stage
 from garnet.model_defaults import pick_default_weight_file
 from garnet.object_detection_sahi import DetectionSahiConfig, run_object_detection_sahi
 from garnet.visual_primitives.agent2_hybrid import compute_port_vlm
+from garnet.visual_primitives.cv_pipe_tracer import CVPipeTracer
 from garnet.ocrmac_sahi import OcrMacSahiConfig, run_ocrmac_sahi
 from garnet.pipe_edges import run_pipe_edge_stage
 from garnet.pipe_continuity_helpers import GAP_THRESHOLD_PX
@@ -250,6 +251,7 @@ class PIDPipeline:
         if self.cfg.use_geometric_line_detection:
             stages.extend(
                 [
+                    (5, "stage5b_pipe_trace", self.stage5b_pipe_trace),
                     (12, "stage12_geometric_graph_assembly", self.stage12_geometric_graph_assembly),
                     (12, "stage12c_page_connector_labeling", self.stage12c_page_connector_labeling),
                     (12, "stage12b_graph_export", self.stage12b_graph_export),
@@ -915,6 +917,166 @@ class PIDPipeline:
         logger.info("VLM port detection done: %d/%d ports found",
                  len(ports), len(conn_objects))
         return ports
+
+    # ---------- Stage 5b: CV Pipe Tracing ----------
+    def stage5b_pipe_trace(self) -> None:
+        """Trace pipes from each connection port to their terminals using CV.
+
+        Uses the pipe mask (stage5) to walk from each port pixel-by-pixel.
+        Detects turns, inline objects, and terminals (page connections,
+        instrument tags, equipment, tee junctions, sheet edges, dead ends).
+
+        Saves stage5b_trace_results.json and stage5b_trace_overlay.png.
+        """
+        from garnet.visual_primitives.cv_pipe_tracer import CVPipeTracer, TraceToken, TerminalType
+
+        import cv2 as _cv2
+        import time as _time
+
+        ports = self._load_json_artifact("stage5_connection_ports")
+        if not ports:
+            logger.warning("No connection ports found — skipping pipe trace")
+            return
+
+        objects = self._load_json_artifact("stage4_objects").get("objects", [])
+        pipe_mask = _cv2.imread(
+            str(self.out_dir / "stage5_pipe_mask.png"), _cv2.IMREAD_GRAYSCALE
+        )
+        if pipe_mask is None:
+            logger.error("Cannot load stage5_pipe_mask.png")
+            return
+
+        image = self._ensure_image_loaded()
+
+        # Separate stage4 objects by type
+        page_connections = [
+            o for o in objects
+            if o.get("class_name") in ("page_connection", "page connection",
+                                        "connection", "utility connection",
+                                        "page connection symbol")
+        ]
+        instrument_tags = [
+            o for o in objects
+            if o.get("class_name") == "instrument_tag"
+        ]
+        equipment = [
+            o for o in objects
+            if o.get("class_name") in (
+                "vessel", "column", "pump", "compressor", "blower",
+                "heat_exchanger", "tank", "reactor", "knockout_drum",
+                "filter", "strainer", "cooler", "heater",
+            )
+        ]
+
+        # Inline symbols (valves, reducers, etc.)
+        inline_classes = {
+            "gate_valve", "globe_valve", "check_valve", "ball_valve",
+            "butterfly_valve", "control_valve", "pressure_relief_valve",
+            "reducer", "spectacle_blind", "strainer",
+        }
+        inline_symbols = [
+            o for o in objects
+            if o.get("class_name") in inline_classes
+        ]
+
+        # Trace from each port
+        visited = np.zeros_like(pipe_mask)
+        all_results: dict[str, dict] = {}
+
+        logger.info("CV pipe trace: %d ports", len(ports))
+        t0 = _time.monotonic()
+
+        for obj_id, port_list in ports.items():
+            for px, py, direction in port_list:
+                tracer = CVPipeTracer(
+                    pipe_mask=pipe_mask,
+                    image=image,
+                    page_connections=page_connections,
+                    instrument_tags=instrument_tags,
+                    equipment_objects=equipment,
+                    visited_mask=visited,
+                )
+                tracer.set_inline_symbols(inline_symbols)
+
+                result = tracer.trace(px, py, direction, source_obj_id=obj_id)
+
+                all_results[obj_id] = {
+                    "port": {"x": px, "y": py, "direction": direction},
+                    "terminal_type": result.terminal_type,
+                    "terminal_x": result.terminal_x,
+                    "terminal_y": result.terminal_y,
+                    "terminal_obj_id": result.terminal_obj_id,
+                    "segments": [
+                        {
+                            "x1": s.x1, "y1": s.y1,
+                            "x2": s.x2, "y2": s.y2,
+                            "direction": s.direction,
+                            "length_px": s.length_px,
+                        }
+                        for s in result.segments
+                    ],
+                    "turns": [
+                        {"x": tx, "y": ty, "new_dir": td}
+                        for tx, ty, td in result.turns
+                    ],
+                    "hits": [
+                        {"class": h.class_name, "x": h.x, "y": h.y}
+                        for h in result.hits
+                    ],
+                    "trace_length_px": result.trace_length_px,
+                    "status": result.status,
+                }
+                logger.info(
+                    "  %s -> %s (%d px, %d segs)",
+                    obj_id, result.terminal_type,
+                    result.trace_length_px, len(result.segments),
+                )
+
+        elapsed = _time.monotonic() - t0
+        logger.info("CV pipe trace done: %d traces in %.1fs", len(all_results), elapsed)
+
+        self._save_json("stage5b_trace_results", all_results)
+
+        # Draw overlay
+        overlay = image.copy()
+        colors = {
+            "page_connection": (0, 180, 0),
+            "instrument_tag": (0, 120, 0),
+            "equipment": (0, 100, 180),
+            "tee_junction": (180, 0, 180),
+            "sheet_edge": (100, 100, 100),
+            "dead_end": (0, 0, 200),
+            "max_steps": (200, 100, 0),
+        }
+        for obj_id, data in all_results.items():
+            # Draw trace path
+            for seg in data["segments"]:
+                _cv2.line(
+                    overlay,
+                    (seg["x1"], seg["y1"]), (seg["x2"], seg["y2"]),
+                    (0, 200, 0), 2,
+                )
+                # Arrow at midpoint
+                mx = (seg["x1"] + seg["x2"]) // 2
+                my = (seg["y1"] + seg["y2"]) // 2
+                _cv2.circle(overlay, (mx, my), 3, (0, 160, 0), -1)
+
+            # Terminal marker
+            tx, ty = data["terminal_x"], data["terminal_y"]
+            ttype = data.get("terminal_type", "unknown")
+            color = colors.get(ttype, (128, 128, 128))
+            _cv2.circle(overlay, (tx, ty), 8, color, -1)
+            _cv2.circle(overlay, (tx, ty), 8, (255, 255, 255), 1)
+
+            # Label
+            label = f"{obj_id}:{ttype}"
+            _cv2.putText(
+                overlay, label,
+                (tx + 10, ty - 10),
+                _cv2.FONT_HERSHEY_SIMPLEX, 0.35, color, 2,
+            )
+
+        self._save_img("stage5b_trace_overlay", overlay)
 
     # ---------- Stage 5: Geometric line-detection alternative ----------
     def stage5_geometric_line_detection(self) -> None:
