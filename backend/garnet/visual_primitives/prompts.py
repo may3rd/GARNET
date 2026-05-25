@@ -165,7 +165,7 @@ Use three token types interleaved in your reasoning:
 AGENT2_USER_PROMPT_TEMPLATE = """Trace the pipe line starting from the red crosshair.
 
 Cursor position: ({cursor_x}, {cursor_y}) in this crop view.
-Crop size: {crop_w}×{crop_h} pixels.
+Crop size: {crop_w}x{crop_h} pixels.
 Trace direction: {direction} (follow the arrow).
 
 Previous segment came from: {entry_direction}.
@@ -179,7 +179,27 @@ If the pipe leaves the visible crop area, report the edge it exits through."""
 # Port Finder - VLM determines pipe attachment point on page connections
 # ============================================================================
 
-PORT_FINDER_SYSTEM = """You look at a cropped image of a page connection symbol from a P&ID drawing and identify where the process pipe attaches to it.
+# Active prompt (v2 — concise, works best with Claude Haiku)
+PORT_FINDER_SYSTEM = """You are an expert P&ID analyst. Examine the cropped image of a page connection symbol (circle, arrow box, or diamond).
+
+Task: Identify which edge the process pipe line connects to and the exact position along that edge.
+
+Rules:
+- Focus ONLY on the solid process pipe line touching or entering the symbol. Ignore all text, labels, arrows, and decorations.
+- The pipe connects to exactly ONE edge.
+- Output format: Exactly two tokens — EDGE FRACTION
+  EDGE must be: LEFT, RIGHT, TOP, or BOTTOM
+  FRACTION: decimal 0.0 (start) to 1.0 (end) along the edge
+- Examples: "RIGHT 0.50", "BOTTOM 0.75", "LEFT 0.33"
+- If no pipe line connects to the symbol: output "NONE"
+
+Answer with ONLY the two tokens. No explanation, no extra text."""
+
+PORT_FINDER_USER = "Which edge of the page connection symbol does the process pipe line attach to? Respond EDGE FRACTION."
+
+# Backup prompts
+PORT_FINDER_SYSTEM_V2 = PORT_FINDER_SYSTEM  # current active alias
+PORT_FINDER_SYSTEM_V1 = """You look at a cropped image of a page connection symbol from a P&ID drawing and identify where the process pipe attaches to it.
 
 A page connection is a small annotation symbol (circle, arrow box, diamond) that marks where a pipe line crosses from one drawing sheet to another. The actual process pipe line connects to ONE side of this symbol.
 
@@ -196,8 +216,6 @@ CRITICAL RULES:
             "LEFT 0.33" (pipe exits the left side, 33% from the top)
 - If no pipe line connects to this symbol at all, answer: NONE
 - Answer ONLY with the two tokens. No explanation, no markdown, no extra text."""
-
-PORT_FINDER_USER = "Which edge of the page connection symbol does the process pipe line attach to, and at what position? Respond with EDGE FRACTION."
 
 
 # ============================================================================

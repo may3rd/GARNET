@@ -182,6 +182,7 @@ def compute_port_vlm(
     crop_padding: int = 250,
     api_key: Optional[str] = None,
     max_retries: int = 3,
+    mask_bboxes: Optional[list[dict[str, int]]] = None,
 ) -> Optional[tuple[int, int, str]]:
     """Use VLM to determine the exact pipe port on a page connection symbol.
 
@@ -190,6 +191,8 @@ def compute_port_vlm(
     after all retries.
 
     Firmed process — no heuristic fallback. VLM or skip.
+    If mask_bboxes provided, fills those regions with background color to avoid
+    confusing VLM with neighboring connection symbols.
     """
     import time as _time
 
@@ -201,6 +204,17 @@ def compute_port_vlm(
     cx2 = min(w, x_max + crop_padding)
     cy2 = min(h, y_max + crop_padding)
     crop = image[cy1:cy2, cx1:cx2]
+
+    # Mask out other connection bboxes so VLM doesn't get confused
+    if mask_bboxes:
+        crop_bg = np.median(crop.reshape(-1, 3), axis=0).astype(np.uint8)
+        for mb in mask_bboxes:
+            mx1 = max(0, mb["x_min"] - cx1)
+            my1 = max(0, mb["y_min"] - cy1)
+            mx2 = min(crop.shape[1], mb["x_max"] - cx1)
+            my2 = min(crop.shape[0], mb["y_max"] - cy1)
+            if mx2 > mx1 and my2 > my1:
+                crop[my1:my2, mx1:mx2] = crop_bg
 
     for attempt in range(max_retries):
         raw = _call_vlm_raw(PORT_FINDER_SYSTEM, PORT_FINDER_USER, crop, model, max_tokens=50)
@@ -215,7 +229,7 @@ def compute_port_vlm(
         if m:
             edge = m.group(1).upper()
             if edge == "NONE":
-                return None
+                break  # fall through to larger-crop retry
             fraction = float(m.group(2))
             fraction = max(0.0, min(1.0, fraction))
         else:
@@ -228,7 +242,7 @@ def compute_port_vlm(
                 return None
             edge = m2.group(1).upper()
             if edge == "NONE":
-                return None
+                break  # fall through to larger-crop retry
             fraction = 0.50
 
         bb_w = x_max - x_min
@@ -240,6 +254,54 @@ def compute_port_vlm(
             "TOP": (x_min + int(round(fraction * bb_w)), y_min, "UP"),
         }
         return edge_map[edge]
+
+    # VLM said NONE — retry with larger crop to show more context
+    large_pad = crop_padding * 2
+    lcx1 = max(0, x_min - large_pad)
+    lcy1 = max(0, y_min - large_pad)
+    lcx2 = min(w, x_max + large_pad)
+    lcy2 = min(h, y_max + large_pad)
+    large_crop = image[lcy1:lcy2, lcx1:lcx2]
+
+    if mask_bboxes:
+        crop_bg = np.median(large_crop.reshape(-1, 3), axis=0).astype(np.uint8)
+        for mb in mask_bboxes:
+            mx1 = max(0, mb["x_min"] - lcx1)
+            my1 = max(0, mb["y_min"] - lcy1)
+            mx2 = min(large_crop.shape[1], mb["x_max"] - lcx1)
+            my2 = min(large_crop.shape[0], mb["y_max"] - lcy1)
+            if mx2 > mx1 and my2 > my1:
+                large_crop[my1:my2, mx1:mx2] = crop_bg
+
+    log.info("port_vlm retry with larger crop (%d×%d)", lcx2 - lcx1, lcy2 - lcy1)
+    raw2 = _call_vlm_raw(PORT_FINDER_SYSTEM, PORT_FINDER_USER, large_crop, model, max_tokens=50)
+    if raw2:
+        log.info("port_vlm large-crop raw: %s", raw2)
+        m = re.match(r"(LEFT|RIGHT|TOP|BOTTOM)\s+([\d.]+)", raw2, re.IGNORECASE)
+        if m:
+            fraction = max(0.0, min(1.0, float(m.group(2))))
+            edge = m.group(1).upper()
+            bb_w = x_max - x_min
+            bb_h = y_max - y_min
+            edge_map2 = {
+                "RIGHT": (x_max, y_min + int(round(fraction * bb_h)), "RIGHT"),
+                "LEFT": (x_min, y_min + int(round(fraction * bb_h)), "LEFT"),
+                "BOTTOM": (x_min + int(round(fraction * bb_w)), y_max, "DOWN"),
+                "TOP": (x_min + int(round(fraction * bb_w)), y_min, "UP"),
+            }
+            return edge_map2[edge]
+        m2 = re.match(r"(LEFT|RIGHT|TOP|BOTTOM)", raw2, re.IGNORECASE)
+        if m2:
+            edge = m2.group(1).upper()
+            bb_w = x_max - x_min
+            bb_h = y_max - y_min
+            edge_map2 = {
+                "RIGHT": (x_max, y_min + int(round(0.5 * bb_h)), "RIGHT"),
+                "LEFT": (x_min, y_min + int(round(0.5 * bb_h)), "LEFT"),
+                "BOTTOM": (x_min + int(round(0.5 * bb_w)), y_max, "DOWN"),
+                "TOP": (x_min + int(round(0.5 * bb_w)), y_min, "UP"),
+            }
+            return edge_map2[edge]
 
     return None
 

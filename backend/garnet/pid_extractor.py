@@ -104,7 +104,8 @@ class PipelineConfig:
     blur_kernel: int = 5
     ocr_route: str = "ocrmac"
     gemini_postprocess_match_threshold: float = 0.1
-    port_detection_model: str = "google/gemini-2.5-pro-preview-05-06"
+    port_detection_model: str = "anthropic/claude-haiku-4.5"
+    port_detection_mode: str = "cv"  # "vlm", "cv", or "vlm+cv"
     ocr_slice_height: int = 1600
     ocr_slice_width: int = 1600
     ocr_overlap_height_ratio: float = 0.2
@@ -449,8 +450,21 @@ class PIDPipeline:
             # Green bbox for connection objects (visible on white)
             cv2_local.rectangle(overlay, (x_min, y_min), (x_max, y_max), (0, 180, 0), 2)
 
+            # Object ID label above bbox
+            label = f"{obj_id}"
+            if obj_id not in ports or not ports[obj_id]:
+                label += " FAIL"
+                label_color = (0, 0, 220)  # red for failed
+            else:
+                label_color = (0, 120, 0)  # dark green for success
+            cv2_local.putText(
+                overlay, label,
+                (x_min, max(y_min - 8, 12)),
+                cv2_local.FONT_HERSHEY_SIMPLEX, 0.4, label_color, 2,
+            )
+
             for port_x, port_y, edge_name in port_list:
-                # Filled teal circle at the actual pipe connection point
+                # Filled dark teal circle at the actual pipe connection point
                 cv2_local.circle(overlay, (port_x, port_y), radius, (180, 100, 0), -1)
                 # White border for contrast
                 cv2_local.circle(overlay, (port_x, port_y), radius, (255, 255, 255), 1)
@@ -460,15 +474,15 @@ class PIDPipeline:
                 cv2_local.line(overlay, (port_x - half, port_y), (port_x + half, port_y), (255, 255, 255), 1)
                 cv2_local.line(overlay, (port_x, port_y - half), (port_x, port_y + half), (255, 255, 255), 1)
 
-                # Edge label
+                # Edge label — dark green, visible on white
                 cv2_local.putText(
                     overlay,
                     edge_name[:3].upper(),
                     (port_x + radius + 2, port_y - radius - 2),
                     cv2_local.FONT_HERSHEY_SIMPLEX,
                     0.35,
-                    (0, 255, 255),
-                    1,
+                    (0, 120, 0),
+                    2,
                 )
                 port_count += 1
 
@@ -732,6 +746,105 @@ class PIDPipeline:
     # VLM port detection (replaces heuristic get_connection_ports)
     # ------------------------------------------------------------------
 
+    def _detect_port_cv(
+        self, image: np.ndarray, bbox: dict[str, int], track_len: int = 60
+    ) -> Optional[tuple[int, int, str]]:
+        """Detect pipe port using edge scanning + outward tracking (no VLM).
+
+        Scans all 4 edges of the bbox for non-background pixel clusters,
+        then tracks outward perpendicular to each edge. The edge+cluster
+        with the longest contiguous non-background run wins.
+
+        Returns (x, y, direction) or None if no pipe found.
+        """
+        import cv2 as _cv2
+
+        x1, y1 = bbox["x_min"], bbox["y_min"]
+        x2, y2 = bbox["x_max"], bbox["y_max"]
+        h_img, w_img = image.shape[:2]
+
+        # Convert to grayscale for pixel checks
+        if len(image.shape) == 3:
+            gray = _cv2.cvtColor(image, _cv2.COLOR_BGR2GRAY)
+        else:
+            gray = image.copy()
+
+        # Background threshold (median of a strip outside the bbox)
+        bg_strip_y = max(0, y1 - 10)
+        bg_strip = gray[bg_strip_y:y1, x1:x2] if y1 > 10 else gray[0:10, x1:x2]
+        bg_val = float(np.median(bg_strip)) if bg_strip.size > 0 else 200
+
+        # Define edges: (name, start_xy, end_xy, step_direction, track_dx, track_dy)
+        edges = [
+            ("TOP",    (x1, y1), (x2, y1), (1, 0),   (0, -1)),
+            ("BOTTOM", (x1, y2), (x2, y2), (1, 0),   (0,  1)),
+            ("LEFT",   (x1, y1), (x1, y2), (0, 1),   (-1, 0)),
+            ("RIGHT",  (x2, y1), (x2, y2), (0, 1),   (1,  0)),
+        ]
+
+        best_score = 0
+        best_result = None
+
+        for edge_name, start, end, step_dir, track_dir in edges:
+            sx, sy = start
+            ex, ey = end
+            length = max(abs(ex - sx), abs(ey - sy))
+
+            for i in range(length):
+                px = sx + i * step_dir[0]
+                py = sy + i * step_dir[1]
+                if px < 0 or px >= w_img or py < 0 or py >= h_img:
+                    continue
+
+                # Check if this pixel is pipe (dark)
+                pixel_val = gray[py, px]
+                if pixel_val > bg_val * 0.7:  # near background → skip
+                    continue
+
+                # Found a dark pixel — track outward
+                track_count = 0
+                tx, ty = px, py
+                for _ in range(track_len):
+                    tx += track_dir[0]
+                    ty += track_dir[1]
+                    if tx < 0 or tx >= w_img or ty < 0 or ty >= h_img:
+                        break
+                    if gray[ty, tx] < bg_val * 0.6:
+                        track_count += 1
+                    else:
+                        break  # hit background
+
+                if track_count > best_score:
+                    best_score = track_count
+                    direction = {"TOP": "UP", "BOTTOM": "DOWN", "LEFT": "LEFT", "RIGHT": "RIGHT"}[edge_name]
+                    best_result = (px, py, direction)
+
+                # Skip the rest of this cluster
+                while i + 1 < length:
+                    nx = sx + (i + 1) * step_dir[0]
+                    ny = sy + (i + 1) * step_dir[1]
+                    if nx < 0 or nx >= w_img or ny < 0 or ny >= h_img:
+                        i += 1
+                        continue
+                    if gray[ny, nx] > bg_val * 0.7:
+                        break
+                    i += 1
+
+        if best_result and best_score >= 3:
+            px, py, direction = best_result
+            # Snap to bbox edge
+            if direction == "UP":
+                py = y1
+            elif direction == "DOWN":
+                py = y2
+            elif direction == "LEFT":
+                px = x1
+            elif direction == "RIGHT":
+                px = x2
+            return (int(px), int(py), direction)
+
+        return None
+
     def _compute_connection_ports_vlm(
         self, objects: list[dict[str, Any]]
     ) -> dict[str, list[tuple[int, int, str]]]:
@@ -747,25 +860,56 @@ class PIDPipeline:
         conn_objects = [
             o for o in objects
             if o.get("class_name") in ("page_connection", "page connection",
-                                        "connection", "utility connection")
+                                        "connection", "utility connection",
+                                        "page connection symbol")
         ]
         if not conn_objects:
+            # Log what classes are present for debugging
+            all_classes = {o.get("class_name", "?") for o in objects}
+            logger.info("No connection objects found. Stage4 classes: %s", sorted(all_classes))
             return ports
 
-        logger.info("VLM port detection: %d connection objects", len(conn_objects))
-        for obj in conn_objects:
+        logger.info("Port detection (%s): %d connection objects", self.cfg.port_detection_mode, len(conn_objects))
+        for i, obj in enumerate(conn_objects):
             obj_id = obj["id"]
             bbox = obj["bbox"]
+
+            if self.cfg.port_detection_mode == "cv":
+                # CV edge-scan only
+                result = self._detect_port_cv(image, bbox)
+                if result:
+                    px, py, direction = result
+                    ports[obj_id] = [(px, py, direction)]
+                    logger.info("  %s -> %s (%d,%d) [CV]", obj_id, direction, px, py)
+                else:
+                    logger.warning("  %s -> CV failed, skipping", obj_id)
+                continue
+
+            # VLM mode (with CV fallback if vlm+cv)
+            other_bboxes = [
+                o["bbox"] for j, o in enumerate(conn_objects)
+                if j != i
+            ]
+
             result = compute_port_vlm(
                 image, bbox,
                 model=self.cfg.port_detection_model,
+                mask_bboxes=other_bboxes if other_bboxes else None,
             )
             if result:
                 px, py, direction = result
                 ports[obj_id] = [(px, py, direction)]
-                logger.info("  %s -> %s (%d,%d)", obj_id, direction, px, py)
+                logger.info("  %s -> %s (%d,%d) [VLM]", obj_id, direction, px, py)
+            elif self.cfg.port_detection_mode == "vlm+cv":
+                result_cv = self._detect_port_cv(image, bbox)
+                if result_cv:
+                    px, py, direction = result_cv
+                    ports[obj_id] = [(px, py, direction)]
+                    logger.info("  %s -> %s (%d,%d) [CV fallback]", obj_id, direction, px, py)
+                else:
+                    logger.warning("  %s -> VLM+CV both failed, skipping", obj_id)
             else:
-                logger.warning("  %s -> VLM port detection failed, skipping", obj_id)
+                logger.warning("  %s -> VLM failed, skipping", obj_id)
             _time.sleep(0.5)  # rate limit
 
         logger.info("VLM port detection done: %d/%d ports found",

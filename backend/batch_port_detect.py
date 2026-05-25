@@ -32,7 +32,7 @@ from garnet.visual_primitives.prompts import PORT_FINDER_SYSTEM, PORT_FINDER_USE
 
 load_dotenv(Path.home() / ".env")
 API_KEY = os.environ["OPENROUTER_API_KEY"]
-MODEL = "google/gemini-2.5-pro-preview-05-06"
+MODEL = "anthropic/claude-haiku-4.5"
 
 TEST_DIR = Path("test/ppcl")
 OUTPUT_DIR = Path("output/port_detected")
