@@ -1285,6 +1285,39 @@ class PIDPipeline:
             )
         ]
 
+        # Load LabelMe equipment bboxes (YOLO PPCL lacks vessel/column/HEX classes)
+        equip_labels = {
+            "vessel", "column", "pump", "compressor", "blower",
+            "heat exchanger", "tank", "reactor", "mixer", "pot",
+            "knockout drum", "filter", "cooler", "heater",
+            "injection pump",
+        }
+        labelme_shapes = self._load_equipment_labelme()
+        for i, shape in enumerate(labelme_shapes):
+            label = shape.get("label", "").strip()
+            if label.lower() not in equip_labels:
+                continue
+            pts = shape.get("points", [])
+            if len(pts) != 2:
+                continue
+            x1 = int(round(pts[0][0]))
+            y1 = int(round(pts[0][1]))
+            x2 = int(round(pts[1][0]))
+            y2 = int(round(pts[1][1]))
+            equipment.append({
+                "id": f"equip_{i}_{label.replace(' ', '_')}",
+                "class_name": label,
+                "bbox": {
+                    "x_min": min(x1, x2), "y_min": min(y1, y2),
+                    "x_max": max(x1, x2), "y_max": max(y1, y2),
+                },
+            })
+        if labelme_shapes:
+            logger.info("Added %d LabelMe equipment bboxes for tracer terminals",
+                         len([s for s in labelme_shapes
+                              if s.get("label", "").strip().lower() in equip_labels
+                              and len(s.get("points", [])) == 2]))
+
         # Inline symbols (valves, reducers, etc.)
         inline_classes = {
             "gate_valve", "globe_valve", "check_valve", "ball_valve",

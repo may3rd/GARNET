@@ -501,10 +501,13 @@ class CVPipeTracer:
 
         # Equipment
         for eq in self.equipment_objects:
+            eq_id = eq.get("id", "")
+            if eq_id == source_obj_id:
+                continue
             eq_bbox = eq["bbox"]
             if (eq_bbox["x_min"] - 30 <= x <= eq_bbox["x_max"] + 30 and
                 eq_bbox["y_min"] - 30 <= y <= eq_bbox["y_max"] + 30):
-                return (TerminalType.EQUIPMENT.value, eq.get("id", ""))
+                return (TerminalType.EQUIPMENT.value, eq_id)
 
         # --- Second: directional scan ahead ---
         for offset in range(0, look_ahead, 5):
@@ -526,10 +529,13 @@ class CVPipeTracer:
 
             # Check equipment (large bboxes — wider margin)
             for eq in self.equipment_objects:
+                eq_id = eq.get("id", "")
+                if eq_id == source_obj_id:
+                    continue
                 eq_bbox = eq["bbox"]
                 if (eq_bbox["x_min"] - 20 <= tx <= eq_bbox["x_max"] + 20 and
                     eq_bbox["y_min"] - 20 <= ty <= eq_bbox["y_max"] + 20):
-                    return (TerminalType.EQUIPMENT.value, eq.get("id", ""))
+                    return (TerminalType.EQUIPMENT.value, eq_id)
 
         return None
 
