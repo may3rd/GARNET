@@ -196,6 +196,7 @@ class CVPipeTracer:
             "gate_valve", "globe_valve", "check_valve", "ball_valve",
             "butterfly_valve", "control_valve", "pressure_relief_valve",
             "reducer", "spectacle_blind", "strainer",
+            "arrow",
         }
         self._inline_symbols = [
             o for o in objects

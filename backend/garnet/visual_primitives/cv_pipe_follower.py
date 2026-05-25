@@ -327,6 +327,7 @@ class CVPipeFollower:
             "instrument", "indicator", "transmitter", "controller",
             "solenoid", "actuator", "reducer", "strainer",
             "spectacle blind", "sampling point",
+            "arrow",
         }
         return cls in inline
 
