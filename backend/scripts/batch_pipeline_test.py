@@ -40,11 +40,18 @@ def run_one(label: str, image_path: Path, geometric: bool) -> dict:
     out_dir = OUTPUT_ROOT / label / ("geometric" if geometric else "default")
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    cfg = PipelineConfig(use_geometric_line_detection=geometric)
-    pipe = PIDPipeline(str(image_path), out_dir=str(out_dir), cfg=cfg)
+    cfg = PipelineConfig(use_geometric_line_detection=geometric, ocr_route="easyocr")
+
+    # Change to out_dir so PIDPipeline's relative "output" path resolves correctly.
+    # Without this, the pipeline writes to backend/output/ (relative to CWD) instead
+    # of the intended OUTPUT_ROOT subdirectory.
+    import os as _os
+    _os.chdir(str(out_dir))
+
+    pipe = PIDPipeline(str(image_path), out_dir="output", cfg=cfg)
 
     t0 = time.time()
-    pipe.run(stop_after=10)  # Through Stage 10d
+    pipe.run()  # Full pipeline through all stages
     elapsed = time.time() - t0
 
     # Collect key artifacts

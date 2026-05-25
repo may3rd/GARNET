@@ -1,7 +1,0 @@
-{
-  "image_id": "sample.png",
-  "pass_type": "sheet",
-  "route": "ultralytics",
-  "object_count": 0,
-  "source_weight": "yolo_weights/custom-selected.pt"
-}

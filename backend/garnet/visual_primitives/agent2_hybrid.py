@@ -181,100 +181,73 @@ def compute_port_vlm(
     model: str = DEFAULT_MODEL,
     crop_padding: int = 250,
     api_key: Optional[str] = None,
+    max_retries: int = 3,
 ) -> Optional[tuple[int, int, str]]:
     """Use VLM to determine the exact pipe port on a page connection symbol.
 
     Crops around the bbox, sends to VLM, parses the EDGE [FRACTION] response.
-    Returns (x, y, direction) in image pixel coordinates, or None if VLM fails.
+    Returns (x, y, direction) in image pixel coordinates, or None if VLM fails
+    after all retries.
+
+    Firmed process — no heuristic fallback. VLM or skip.
     """
+    import time as _time
+
     h, w = image.shape[:2]
-    x_min = bbox["x_min"]
-    y_min = bbox["y_min"]
-    x_max = bbox["x_max"]
-    y_max = bbox["y_max"]
+    x_min, y_min, x_max, y_max = bbox["x_min"], bbox["y_min"], bbox["x_max"], bbox["y_max"]
 
     cx1 = max(0, x_min - crop_padding)
     cy1 = max(0, y_min - crop_padding)
     cx2 = min(w, x_max + crop_padding)
     cy2 = min(h, y_max + crop_padding)
-
     crop = image[cy1:cy2, cx1:cx2]
 
-    raw = _call_vlm_raw(PORT_FINDER_SYSTEM, PORT_FINDER_USER, crop, model, max_tokens=50)
-    if raw is None:
-        return None
+    for attempt in range(max_retries):
+        raw = _call_vlm_raw(PORT_FINDER_SYSTEM, PORT_FINDER_USER, crop, model, max_tokens=50)
+        if raw is None:
+            _time.sleep(1.0 * (attempt + 1))
+            continue
 
-    log.info("port_vlm raw: %s", raw)
+        log.info("port_vlm attempt %d/%d raw: %s", attempt + 1, max_retries, raw)
 
-    # Parse "EDGE [FRACTION]" — fraction is optional, defaults to 0.50
-    m = re.match(r"(LEFT|RIGHT|TOP|BOTTOM|NONE)\s+([\d.]+)", raw, re.IGNORECASE)
-    if m:
-        edge = m.group(1).upper()
-        if edge == "NONE":
-            return None
-        fraction = float(m.group(2))
-        fraction = max(0.0, min(1.0, fraction))
-    else:
-        m2 = re.match(r"(LEFT|RIGHT|TOP|BOTTOM|NONE)", raw, re.IGNORECASE)
-        if not m2:
-            log.warning("port_vlm unparseable: %s", raw)
-            return None
-        edge = m2.group(1).upper()
-        if edge == "NONE":
-            return None
-        fraction = 0.50
+        # Parse "EDGE [FRACTION]"
+        m = re.match(r"(LEFT|RIGHT|TOP|BOTTOM|NONE)\s+([\d.]+)", raw, re.IGNORECASE)
+        if m:
+            edge = m.group(1).upper()
+            if edge == "NONE":
+                return None
+            fraction = float(m.group(2))
+            fraction = max(0.0, min(1.0, fraction))
+        else:
+            m2 = re.match(r"(LEFT|RIGHT|TOP|BOTTOM|NONE)", raw, re.IGNORECASE)
+            if not m2:
+                if attempt < max_retries - 1:
+                    _time.sleep(1.0 * (attempt + 1))
+                    continue
+                log.warning("port_vlm unparseable after %d attempts: %s", max_retries, raw)
+                return None
+            edge = m2.group(1).upper()
+            if edge == "NONE":
+                return None
+            fraction = 0.50
 
-    bb_w = x_max - x_min
-    bb_h = y_max - y_min
-
-    edge_map = {
-        "RIGHT": (x_max, y_min + int(round(fraction * bb_h)), "RIGHT"),
-        "LEFT": (x_min, y_min + int(round(fraction * bb_h)), "LEFT"),
-        "BOTTOM": (x_min + int(round(fraction * bb_w)), y_max, "DOWN"),
-        "TOP": (x_min + int(round(fraction * bb_w)), y_min, "UP"),
-    }
-    return edge_map[edge]
-
-
-# ---------------------------------------------------------------------------
-# Port detection (heuristic fallback)
-# ---------------------------------------------------------------------------
-
-
-def compute_port_from_bbox(
-    bbox: dict[str, int],
-    image_w: int,
-    image_h: int,
-) -> tuple[int, int, str]:
-    """Heuristic port detection — midpoint of bbox edge facing inward."""
-    x_min = bbox["x_min"]
-    y_min = bbox["y_min"]
-    x_max = bbox["x_max"]
-    y_max = bbox["y_max"]
-    center_y = (y_min + y_max) // 2
-    center_x = (x_min + x_max) // 2
-
-    if x_min < SHEET_EDGE_THRESHOLD_PX:
-        return (x_max, center_y, "RIGHT")
-    elif x_max > image_w - SHEET_EDGE_THRESHOLD_PX:
-        return (x_min, center_y, "LEFT")
-    elif y_min < SHEET_EDGE_THRESHOLD_PX:
-        return (center_x, y_max, "DOWN")
-    elif y_max > image_h - SHEET_EDGE_THRESHOLD_PX:
-        return (center_x, y_min, "UP")
-    else:
         bb_w = x_max - x_min
         bb_h = y_max - y_min
-        if bb_w > bb_h:
-            if x_min < image_w / 2:
-                return (x_max, center_y, "RIGHT")
-            return (x_min, center_y, "LEFT")
-        else:
-            if y_min < image_h / 2:
-                return (center_x, y_max, "DOWN")
-            return (center_x, y_min, "UP")
+        edge_map = {
+            "RIGHT": (x_max, y_min + int(round(fraction * bb_h)), "RIGHT"),
+            "LEFT": (x_min, y_min + int(round(fraction * bb_h)), "LEFT"),
+            "BOTTOM": (x_min + int(round(fraction * bb_w)), y_max, "DOWN"),
+            "TOP": (x_min + int(round(fraction * bb_w)), y_min, "UP"),
+        }
+        return edge_map[edge]
+
+    return None
 
 
+# ---------------------------------------------------------------------------
+# Port detection — VLM only (firmed process, no heuristic fallback)
+# ---------------------------------------------------------------------------
+# Legacy: compute_port_from_bbox removed. Use compute_port_vlm() exclusively.
 # ---------------------------------------------------------------------------
 # Equipment classifier (VLM)
 # ---------------------------------------------------------------------------
@@ -533,16 +506,15 @@ class HybridPipelineTracer:
         for pc in self.page_connections:
             bbox = pc["bbox"]
 
-            # VLM port detection
+            # VLM port detection (firmed — no heuristic fallback)
             vlm_port = compute_port_vlm(self.image, bbox, model=self.model, api_key=self.api_key)
             self.vlm_call_count += 1
 
-            if vlm_port:
-                port_x, port_y, direction = vlm_port
-            else:
-                port_x, port_y, direction = compute_port_from_bbox(
-                    bbox, self.image_w, self.image_h
-                )
+            if vlm_port is None:
+                log.warning("VLM port detection failed for %s — skipping", pc.get("id", "unknown"))
+                continue
+
+            port_x, port_y, direction = vlm_port
 
             # Nudge port slightly into the pipe
             offset = min(self.crop_size // 4, 30)
@@ -985,7 +957,7 @@ class HybridPipelineTracer:
             (0, 255, 255, 200),   # cyan
             (255, 0, 255, 200),   # magenta
             (0, 255, 0, 200),     # green
-            (255, 255, 0, 200),   # yellow
+            (0, 180, 180, 200),   # teal (was yellow)
             (255, 128, 0, 200),   # orange
             (128, 0, 255, 200),   # purple
         ]
