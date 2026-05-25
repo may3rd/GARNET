@@ -1182,8 +1182,8 @@ class PIDPipeline:
             label = f"{obj_id}:{ttype}"
             _cv2.putText(
                 overlay, label,
-                (tx + 10, ty - 10),
-                _cv2.FONT_HERSHEY_SIMPLEX, 0.35, color, 2,
+                (tx + 12, ty - 12),
+                _cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2,
             )
 
         self._save_img("stage5b_trace_overlay", overlay)
