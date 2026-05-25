@@ -1063,14 +1063,17 @@ class PIDPipeline:
             ex, ey = end
             length = max(abs(ex - sx), abs(ey - sy))
 
-            for i in range(length):
+            i = 0
+            while i < length:
                 px = sx + i * step_dir[0]
                 py = sy + i * step_dir[1]
                 if px < 0 or px >= w_img or py < 0 or py >= h_img:
+                    i += 1
                     continue
 
                 pixel_val = gray[py, px]
                 if pixel_val > bg_val * 0.7:
+                    i += 1
                     continue
 
                 # Track outward
@@ -1088,7 +1091,6 @@ class PIDPipeline:
 
                 if track_count >= 3:
                     direction = direction_map[edge_name]
-                    # Snap to edge
                     out_x, out_y = px, py
                     if direction == "UP":
                         out_y = y1
@@ -1100,16 +1102,9 @@ class PIDPipeline:
                         out_x = x2
                     all_ports.append((int(out_x), int(out_y), direction))
 
-                # Skip rest of this cluster
-                while i + 1 < length:
-                    nx = sx + (i + 1) * step_dir[0]
-                    ny = sy + (i + 1) * step_dir[1]
-                    if nx < 0 or nx >= w_img or ny < 0 or ny >= h_img:
-                        i += 1
-                        continue
-                    if gray[ny, nx] > bg_val * 0.7:
-                        break
-                    i += 1
+                # Skip 15 px ahead — equipment nozzles are well-separated
+                i += 15
+                continue
 
         return all_ports
 
@@ -1183,31 +1178,45 @@ class PIDPipeline:
         logger.info("Connection port detection: %d/%d ports found",
                  len(ports), len(conn_objects))
 
-        # --- Equipment port detection (multi-port per object) ---
-        equip_classes = {
+        # --- Equipment port detection from LabelMe ground truth ---
+        # YOLO PPCL model currently lacks vessel/column/HEX classes, so we use
+        # the LabelMe JSON as the source of truth for equipment bboxes.
+        equip_labels = {
             "vessel", "column", "pump", "compressor", "blower",
-            "heat_exchanger", "heat exchanger", "tank", "reactor",
-            "knockout_drum", "knockout drum", "filter", "cooler", "heater",
+            "heat exchanger", "tank", "reactor", "mixer", "pot",
+            "knockout drum", "filter", "cooler", "heater",
+            "injection pump",
         }
-        equip_objects = [o for o in objects if o.get("class_name", "") in equip_classes]
-        if equip_objects:
-            logger.info("Equipment port detection: %d equipment objects", len(equip_objects))
-            for eq in equip_objects:
-                eq_id = eq["id"]
-                eq_bbox = eq["bbox"]
-                eq_ports = self._detect_equipment_ports_cv(image, eq_bbox)
+        equip_shapes = self._load_equipment_labelme()
+        if equip_shapes:
+            logger.info("Equipment port detection (LabelMe): %d equipment shapes", len(equip_shapes))
+            for i, shape in enumerate(equip_shapes):
+                label = shape.get("label", "").strip()
+                if label.lower() not in equip_labels:
+                    continue
+                pts = shape.get("points", [])
+                if len(pts) != 2:
+                    continue
+                x1 = int(round(pts[0][0]))
+                y1 = int(round(pts[0][1]))
+                x2 = int(round(pts[1][0]))
+                y2 = int(round(pts[1][1]))
+                bbox = {"x_min": min(x1, x2), "y_min": min(y1, y2),
+                        "x_max": max(x1, x2), "y_max": max(y1, y2)}
+                eq_id = f"equip_{i}_{label.replace(' ', '_')}"
+                eq_ports = self._detect_equipment_ports_cv(image, bbox)
                 if eq_ports:
                     ports[eq_id] = eq_ports
                     port_str = ", ".join(f"{d}({x},{y})" for x, y, d in eq_ports)
                     logger.info("  %s (%s) -> %d ports: %s",
-                              eq_id, eq.get("class_name", "?"), len(eq_ports), port_str)
+                              eq_id, label, len(eq_ports), port_str)
                 else:
-                    logger.info("  %s (%s) -> no ports detected", eq_id, eq.get("class_name", "?"))
+                    logger.info("  %s (%s) -> no ports detected", eq_id, label)
 
+        equip_port_ids = {k for k in ports if k.startswith("equip_")}
+        conn_port_ids = {k for k in ports if not k.startswith("equip_")}
         logger.info("Total ports: %d objects (%d conn + %d equip)",
-                 len(ports),
-                 sum(1 for k in ports if k in {o["id"] for o in conn_objects}),
-                 sum(1 for k in ports if k in {o["id"] for o in equip_objects}))
+                 len(ports), len(conn_port_ids), len(equip_port_ids))
         return ports
 
     # ---------- Stage 5b: CV Pipe Tracing ----------
@@ -2556,27 +2565,31 @@ class PIDPipeline:
             return json_path
         return None
 
+    def _load_equipment_labelme(self) -> list[dict]:
+        """Load LabelMe equipment shapes for the current image.
+
+        Returns all shapes (not just equipment — filtering happens at call site).
+        """
+        import json as _json
+        json_path = self._find_equipment_json()
+        if json_path is None:
+            return []
+        with open(json_path, "r", encoding="utf-8") as f:
+            data = _json.load(f)
+        return data.get("shapes", [])
+
     def _draw_equipment_port_markers(
         self, overlay: np.ndarray, ports: dict[str, list[tuple[int, int, str]]]
     ) -> None:
         """Draw equipment port markers (cyan circles) on the trace overlay.
 
         Equipment ports come from stage5_connection_ports.json and are
-        distinguished from connection-object ports by object ID prefix
-        (equipment IDs don't start with obj_0001XX/obj_0002XX patterns).
-        Simply: any port whose object isn't in the trace results.
+        identified by the 'equip_' prefix in their object ID.
         """
         import cv2 as _cv2
-        equip_classes = {
-            "vessel", "column", "pump", "compressor", "blower",
-            "heat_exchanger", "heat exchanger", "tank", "reactor",
-            "knockout_drum", "knockout drum", "filter", "cooler", "heater",
-        }
-        objects = self._load_json_artifact("stage4_objects").get("objects", [])
-        equip_ids = {o["id"] for o in objects if o.get("class_name", "") in equip_classes}
 
         for obj_id, port_list in ports.items():
-            if obj_id not in equip_ids:
+            if not obj_id.startswith("equip_"):
                 continue
             for px, py, direction in port_list:
                 # Cyan filled circle with white outline
