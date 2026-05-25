@@ -1108,7 +1108,16 @@ class PIDPipeline:
         import cv2 as _cv2
         import time as _time
 
-        ports = self._load_json_artifact("stage5_connection_ports")
+        # Compute connection ports if not already cached
+        ports_path = self.out_dir / "stage5_connection_ports.json"
+        if not ports_path.exists():
+            logger.info("Computing connection ports (first run)")
+            objects_all = self._load_json_artifact("stage4_objects").get("objects", [])
+            ports = self._compute_connection_ports_vlm(objects_all)
+            self._save_json("stage5_connection_ports", ports)
+        else:
+            ports = self._load_json_artifact("stage5_connection_ports")
+
         if not ports:
             logger.warning("No connection ports found — skipping pipe trace")
             return
@@ -1334,6 +1343,9 @@ class PIDPipeline:
                 (tx + 12, ty - 12),
                 _cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2,
             )
+
+        # Draw equipment bboxes from LabelMe ground truth
+        self._draw_equipment_ground_truth(overlay)
 
         self._save_img("stage5b_trace_overlay", overlay)
 
@@ -2412,6 +2424,57 @@ class PIDPipeline:
     def stage12_graph_assembly(self) -> None:
         """Placeholder — non-geometric graph assembly not yet implemented."""
         raise NotImplementedError("stage12_graph_assembly: use --geometric path")
+
+    def _find_equipment_json(self) -> Optional[str]:
+        """Find the LabelMe equipment JSON matching the current image."""
+        import glob as _glob
+        import os as _os
+
+        stem = _os.path.splitext(_os.path.basename(self.image_path))[0]
+        json_path = _os.path.join(_os.path.dirname(self.image_path), f"{stem}.json")
+        if _os.path.isfile(json_path):
+            return json_path
+        return None
+
+    def _draw_equipment_ground_truth(self, overlay: np.ndarray) -> None:
+        """Draw LabelMe equipment bboxes on the trace overlay."""
+        import json as _json
+        import os as _os
+
+        json_path = self._find_equipment_json()
+        if json_path is None:
+            return
+
+        with open(json_path, "r", encoding="utf-8") as f:
+            data = _json.load(f)
+
+        # Equipment that gets distinct overlay styling
+        equip_labels = {
+            "vessel", "pump", "compressor", "blower", "column",
+            "heat exchanger", "tank", "reactor", "mixer", "pot",
+            "knockout drum", "filter", "cooler", "heater",
+            "injection pump",
+        }
+        equip_color = (220, 120, 0)  # orange
+        equip_thickness = 2
+
+        import cv2 as _cv2
+
+        for shape in data.get("shapes", []):
+            label = shape.get("label", "").strip()
+            if label.lower() not in equip_labels:
+                continue
+            pts = shape.get("points", [])
+            if len(pts) != 2:
+                continue
+            x1, y1 = int(round(pts[0][0])), int(round(pts[0][1]))
+            x2, y2 = int(round(pts[1][0])), int(round(pts[1][1]))
+            _cv2.rectangle(overlay, (x1, y1), (x2, y2), equip_color, equip_thickness)
+            _cv2.putText(
+                overlay, label.title(),
+                (x1, y1 - 8),
+                _cv2.FONT_HERSHEY_SIMPLEX, 0.55, equip_color, 2,
+            )
 
 
 def main() -> None:

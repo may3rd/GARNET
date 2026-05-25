@@ -209,7 +209,11 @@ class CVPipeTracer:
         result.terminal_type = None
 
         x, y = start_x, start_y
-        direction = start_dir
+        direction = start_dir.upper()
+        if direction not in DIRECTION_DELTA:
+            # Map alternate names
+            alt_map = {"TOP": "UP", "BOTTOM": "DOWN"}
+            direction = alt_map.get(direction, direction)
         dx, dy = DIRECTION_DELTA[direction]
 
         # Verify start point is on pipe
@@ -249,17 +253,25 @@ class CVPipeTracer:
                 self.visited[y, x] = 1
 
             # Check for inline symbols (valve, reducer) — these are
-            # traversed through, not terminals
-            inline = self._check_inline(x, y)
-            if inline:
-                result.hits.append(inline)
-                # Jump past inline object
-                jump_px = 60
-                nx = x + jump_px * dx
-                ny = y + jump_px * dy
-                if _is_pipe(self.mask, nx, ny):
-                    x, y = nx, ny
-                    continue
+            # traversed through, not terminals.  Compute the exit position
+            # on the far side of the inline object (or overlapping group).
+            inline_hits = self._find_inline_overlap(x, y, direction)
+            if inline_hits:
+                # Record the first hit's class for reporting
+                result.hits.append(InlineHit(
+                    class_name=inline_hits[0].get("class_name", "unknown"),
+                    x=x, y=y,
+                ))
+                # Exit position: far edge of the furthest overlapping inline obj
+                far_x, far_y = self._compute_inline_exit(x, y, direction, inline_hits)
+                if _is_pipe(self.mask, far_x, far_y) or _is_pipe_band(self.mask, far_x, far_y, direction):
+                    x, y = far_x, far_y
+                else:
+                    # Fallback: jump by the object extent
+                    extent = self._inline_group_extent(direction, inline_hits)
+                    x += dx * (extent + 10)
+                    y += dy * (extent + 10)
+                continue
 
             # Look ahead — what's in front?
             forward_ok = _has_line_of_sight(self.mask, x, y, direction, self.min_step)
@@ -530,6 +542,88 @@ class CVPipeTracer:
                     x=x, y=y, bbox=bbox,
                 )
         return None
+
+    def _find_inline_overlap(self, x: int, y: int,
+                             direction: str) -> list[dict]:
+        """Return ALL inline symbols whose bbox contains (x,y).
+
+        For overlapping inline symbols, returns the entire overlapping group
+        so the tracer can jump past the furthest extent.
+        """
+        hits = []
+        for sym in self._inline_symbols:
+            bbox = sym["bbox"]
+            if _check_bbox_hit(x, y, bbox, margin=2):
+                hits.append(sym)
+
+        if len(hits) <= 1:
+            return hits
+
+        # Merge overlapping bboxes into groups
+        def _overlap(a: dict, b: dict) -> bool:
+            ab, bb = a["bbox"], b["bbox"]
+            return not (
+                ab["x_max"] < bb["x_min"] or bb["x_max"] < ab["x_min"]
+                or ab["y_max"] < bb["y_min"] or bb["y_max"] < ab["y_min"]
+            )
+
+        groups = []
+        used = set()
+        for i, h in enumerate(hits):
+            if i in used:
+                continue
+            group = [h]
+            used.add(i)
+            for j in range(i + 1, len(hits)):
+                if j in used:
+                    continue
+                if any(_overlap(g, hits[j]) for g in group):
+                    group.append(hits[j])
+                    used.add(j)
+            groups.append(group)
+
+        # Return the group containing our hit — or all hits
+        for g in groups:
+            for h in g:
+                if _check_bbox_hit(x, y, h["bbox"], margin=2):
+                    return g
+        return hits
+
+    def _inline_group_extent(self, direction: str,
+                             group: list[dict]) -> int:
+        """Return the pixel extent of an overlapping inline group in the travel
+        direction (width for LEFT/RIGHT, height for UP/DOWN)."""
+        bboxes = [s["bbox"] for s in group]
+        if direction in ("LEFT", "RIGHT"):
+            x_min = min(b["x_min"] for b in bboxes)
+            x_max = max(b["x_max"] for b in bboxes)
+            return x_max - x_min
+        else:
+            y_min = min(b["y_min"] for b in bboxes)
+            y_max = max(b["y_max"] for b in bboxes)
+            return y_max - y_min
+
+    def _compute_inline_exit(self, x: int, y: int, direction: str,
+                             group: list[dict]) -> tuple[int, int]:
+        """Compute exit coordinates just past the far edge of the inline group.
+
+        For LEFT/RIGHT travel, exits at the same y with x just past the
+        far bbox edge.  For UP/DOWN, exits at the same x with y just past.
+        """
+        margin = 6
+        bboxes = [s["bbox"] for s in group]
+        if direction == "LEFT":
+            far_x = min(b["x_min"] for b in bboxes) - margin
+            return (max(0, far_x), y)
+        elif direction == "RIGHT":
+            far_x = max(b["x_max"] for b in bboxes) + margin
+            return (min(self.w - 1, far_x), y)
+        elif direction == "UP":
+            far_y = min(b["y_min"] for b in bboxes) - margin
+            return (x, max(0, far_y))
+        else:  # DOWN
+            far_y = max(b["y_max"] for b in bboxes) + margin
+            return (x, min(self.h - 1, far_y))
 
     def _is_sheet_edge(self, x: int, y: int, direction: str) -> bool:
         """Check if we're at the image boundary."""
