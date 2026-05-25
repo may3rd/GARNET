@@ -415,6 +415,96 @@ class PIDPipeline:
             return self.image_bgr
         raise RuntimeError("No image backend available")  # pragma: no cover
 
+    @staticmethod
+    def _extend_mask_to_terminals(
+        mask: "np.ndarray",
+        terminals: list[dict],
+        max_gap: int = 80,
+    ) -> "np.ndarray":
+        """Fill terminal bbox entry regions so the CV tracer can walk in.
+
+        Instead of drawing long bridge lines (which can create loops),
+        this fills a small rectangular pad at the bbox edge closest to
+        the nearest pipe pixel. The tracer walks into the pad, the
+        position-inside-bbox check fires, and the terminal is classified.
+
+        Args:
+            mask: Binary pipe mask (0/255).
+            terminals: Stage4 objects with bbox dicts.
+            max_gap: Max pixel distance from mask to terminal center
+                     to create a bridge.
+
+        Returns:
+            Modified mask (new array, original unchanged).
+        """
+        import cv2 as _cv2
+
+        pipe_ys, pipe_xs = np.where(mask > 0)
+        if len(pipe_xs) == 0:
+            return mask
+
+        result = mask.copy()
+        h, w = result.shape
+        pad_size = 20  # px to fill at the entry edge
+
+        for obj in terminals:
+            b = obj["bbox"]
+            bx1 = max(0, b["x_min"])
+            by1 = max(0, b["y_min"])
+            bx2 = min(w, b["x_max"])
+            by2 = min(h, b["y_max"])
+            cx = (bx1 + bx2) // 2
+            cy = (by1 + by2) // 2
+
+            dists = np.sqrt((pipe_xs - cx) ** 2 + (pipe_ys - cy) ** 2)
+            min_idx = np.argmin(dists)
+            min_dist = dists[min_idx]
+
+            if min_dist > max_gap:
+                continue
+
+            px = int(pipe_xs[min_idx])
+            py = int(pipe_ys[min_idx])
+
+            # Which bbox edge is closest to the pipe pixel?
+            dist_left   = abs(px - bx1)
+            dist_right  = abs(px - bx2)
+            dist_top    = abs(py - by1)
+            dist_bottom = abs(py - by2)
+            min_edge = min(dist_left, dist_right, dist_top, dist_bottom)
+
+            # Fill a pad at that edge so the tracer enters the bbox
+            if min_edge == dist_left:
+                fill_x1 = bx1
+                fill_x2 = min(bx1 + pad_size, bx2)
+                fill_y1 = max(0, cy - pad_size // 2)
+                fill_y2 = min(h, cy + pad_size // 2)
+            elif min_edge == dist_right:
+                fill_x1 = max(bx1, bx2 - pad_size)
+                fill_x2 = bx2
+                fill_y1 = max(0, cy - pad_size // 2)
+                fill_y2 = min(h, cy + pad_size // 2)
+            elif min_edge == dist_top:
+                fill_x1 = max(0, cx - pad_size // 2)
+                fill_x2 = min(w, cx + pad_size // 2)
+                fill_y1 = by1
+                fill_y2 = min(by1 + pad_size, by2)
+            else:  # dist_bottom
+                fill_x1 = max(0, cx - pad_size // 2)
+                fill_x2 = min(w, cx + pad_size // 2)
+                fill_y1 = max(by1, by2 - pad_size)
+                fill_y2 = by2
+
+            # Also draw a short connector from pipe to the pad
+            target_x = (fill_x1 + fill_x2) // 2
+            target_y = (fill_y1 + fill_y2) // 2
+            _cv2.line(result, (px, py), (target_x, target_y), 255, thickness=4)
+
+            # Fill the pad
+            result[fill_y1:fill_y2, fill_x1:fill_x2] = 255
+
+        return result
+
     def _add_port_markers_to_overlay(
         self,
         ports: dict[str, list[tuple[int, int, str]]],
@@ -957,14 +1047,16 @@ class PIDPipeline:
         ]
         instrument_tags = [
             o for o in objects
-            if o.get("class_name") == "instrument_tag"
+            if o.get("class_name") in (
+                "instrument tag", "instrument dcs", "instrument logic",
+            )
         ]
         equipment = [
             o for o in objects
             if o.get("class_name") in (
                 "vessel", "column", "pump", "compressor", "blower",
                 "heat_exchanger", "tank", "reactor", "knockout_drum",
-                "filter", "strainer", "cooler", "heater",
+                "filter", "cooler", "heater",
             )
         ]
 
@@ -978,6 +1070,19 @@ class PIDPipeline:
             o for o in objects
             if o.get("class_name") in inline_classes
         ]
+
+        # Extend pipe mask into equipment and instrument bboxes
+        # so the tracer can walk into terminal objects instead of
+        # stopping at the mask edge.
+        _all_terminals = equipment + instrument_tags
+        if _all_terminals:
+            pipe_mask = self._extend_mask_to_terminals(
+                pipe_mask, _all_terminals, max_gap=80,
+            )
+            logger.info(
+                "Extended pipe mask toward %d terminals",
+                len(_all_terminals),
+            )
 
         # Trace from each port
         visited = np.zeros_like(pipe_mask)

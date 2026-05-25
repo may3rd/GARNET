@@ -227,8 +227,7 @@ class CVPipeTracer:
             if terminal:
                 result.terminal_type = terminal[0]
                 result.terminal_x, result.terminal_y = x, y
-                if len(terminal) > 2:
-                    result.terminal_obj_id = terminal[2]
+                result.terminal_obj_id = terminal[1] if len(terminal) > 1 else None
 
                 # Save final segment
                 seg_len = max(abs(x - seg_start_x), abs(y - seg_start_y))
@@ -342,8 +341,7 @@ class CVPipeTracer:
             if terminal:
                 result.terminal_type = terminal[0]
                 result.terminal_x, result.terminal_y = x, y
-                if len(terminal) > 2:
-                    result.terminal_obj_id = terminal[2]
+                result.terminal_obj_id = terminal[1] if len(terminal) > 1 else None
                 break
 
             # Ray-cast: look ahead for next pipe pixel (bridge mask gaps)
@@ -362,8 +360,7 @@ class CVPipeTracer:
                     if terminal2:
                         result.terminal_type = terminal2[0]
                         result.terminal_x, result.terminal_y = x, y
-                        if len(terminal2) > 2:
-                            result.terminal_obj_id = terminal2[2]
+                        result.terminal_obj_id = terminal2[1] if len(terminal2) > 1 else None
                         # Can't break outer while from here, set flag
                         steps = self.max_steps  # force exit
                     break
@@ -376,8 +373,7 @@ class CVPipeTracer:
             if terminal3:
                 result.terminal_type = terminal3[0]
                 result.terminal_x, result.terminal_y = x, y
-                if len(terminal3) > 2:
-                    result.terminal_obj_id = terminal3[2]
+                result.terminal_obj_id = terminal3[1] if len(terminal3) > 1 else None
             elif self._is_sheet_edge(x, y, direction):
                 result.terminal_type = TerminalType.SHEET_EDGE.value
                 result.terminal_x, result.terminal_y = x, y
@@ -394,11 +390,34 @@ class CVPipeTracer:
 
     def _check_terminals(self, x: int, y: int, direction: str,
                          source_obj_id: str = "", look_ahead: int = 40) -> Optional[tuple]:
-        """Check if position or area ahead is a terminal. Returns (type, ...) or None."""
+        """Check if position or area ahead is a terminal. Returns (type, obj_id) or None."""
         dx, dy = DIRECTION_DELTA.get(direction, (0, 0))
 
-        # Check at current position and ahead (pipe stops at mask edge,
-        # terminal bbox may be just beyond)
+        # --- First: check if we're *already inside* any terminal bbox ---
+        # This catches cases where the mask extension draws the tracer
+        # into a bbox but the directional scan would miss it.
+
+        # Page connections (skip source)
+        for pc in self.page_connections:
+            pc_id = pc.get("id", "")
+            if pc_id == source_obj_id:
+                continue
+            if _check_bbox_hit(x, y, pc["bbox"], margin=12):
+                return (TerminalType.PAGE_CONNECTION.value, pc_id)
+
+        # Instrument tags
+        for tag in self.instrument_tags:
+            if _check_bbox_hit(x, y, tag["bbox"], margin=12):
+                return (TerminalType.INSTRUMENT_TAG.value, tag.get("id", ""))
+
+        # Equipment
+        for eq in self.equipment_objects:
+            eq_bbox = eq["bbox"]
+            if (eq_bbox["x_min"] - 30 <= x <= eq_bbox["x_max"] + 30 and
+                eq_bbox["y_min"] - 30 <= y <= eq_bbox["y_max"] + 30):
+                return (TerminalType.EQUIPMENT.value, eq.get("id", ""))
+
+        # --- Second: directional scan ahead ---
         for offset in range(0, look_ahead, 5):
             tx = x + offset * dx
             ty = y + offset * dy
