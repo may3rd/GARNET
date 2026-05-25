@@ -111,6 +111,30 @@ def _is_pipe(mask: np.ndarray, x: int, y: int) -> bool:
     return bool(mask[y, x])
 
 
+def _is_pipe_band(mask: np.ndarray, x: int, y: int,
+                  direction: str, band_width: int = 3) -> bool:
+    """Check for pipe in a band perpendicular to travel direction.
+
+    For horizontal traces (LEFT/RIGHT), checks y-band_width to y+band_width.
+    For vertical traces (UP/DOWN), checks x-band_width to x+band_width.
+    Tolerates 1-3px line offsets common in scanned P&IDs.
+    """
+    h, w = mask.shape
+    if x < 0 or x >= w or y < 0 or y >= h:
+        return False
+    if direction in ("LEFT", "RIGHT"):
+        for dy in range(-band_width, band_width + 1):
+            ny = y + dy
+            if 0 <= ny < h and mask[ny, x] > 0:
+                return True
+    else:  # UP, DOWN
+        for dx in range(-band_width, band_width + 1):
+            nx = x + dx
+            if 0 <= nx < w and mask[y, nx] > 0:
+                return True
+    return False
+
+
 def _has_line_of_sight(mask: np.ndarray, x: int, y: int,
                        direction: str, distance: int = 8) -> bool:
     """Check if pipe exists for at least `distance` pixels in `direction`."""
@@ -222,27 +246,8 @@ class CVPipeTracer:
             if 0 <= y < self.h and 0 <= x < self.w:
                 self.visited[y, x] = 1
 
-            # Check terminal conditions at current position
-            terminal = self._check_terminals(x, y, direction, source_obj_id)
-            if terminal:
-                result.terminal_type = terminal[0]
-                result.terminal_x, result.terminal_y = x, y
-                result.terminal_obj_id = terminal[1] if len(terminal) > 1 else None
-
-                # Save final segment
-                seg_len = max(abs(x - seg_start_x), abs(y - seg_start_y))
-                if seg_len >= self.min_step:
-                    result.segments.append(TraceSegment(
-                        x1=seg_start_x, y1=seg_start_y,
-                        x2=x, y2=y, direction=direction,
-                        length_px=seg_len,
-                    ))
-                    result.trace_length_px += seg_len
-                # Don't count the terminal step as a step
-                steps -= 1
-                break
-
-            # Check for inline symbols (valve, reducer)
+            # Check for inline symbols (valve, reducer) — these are
+            # traversed through, not terminals
             inline = self._check_inline(x, y)
             if inline:
                 result.hits.append(inline)
@@ -266,7 +271,28 @@ class CVPipeTracer:
                         self.visited[y, x] = 1
                 continue
 
-            # Forward blocked — check for turns
+            # Forward blocked — check for terminals BEFORE turns.
+            # This order matters: a pipe that ends at equipment is a
+            # terminal, not a dead-end followed by a turn.
+            terminal = self._check_terminals(x, y, direction, source_obj_id)
+            if terminal:
+                result.terminal_type = terminal[0]
+                result.terminal_x, result.terminal_y = x, y
+                result.terminal_obj_id = terminal[1] if len(terminal) > 1 else None
+
+                # Save final segment
+                seg_len = max(abs(x - seg_start_x), abs(y - seg_start_y))
+                if seg_len >= self.min_step:
+                    result.segments.append(TraceSegment(
+                        x1=seg_start_x, y1=seg_start_y,
+                        x2=x, y2=y, direction=direction,
+                        length_px=seg_len,
+                    ))
+                    result.trace_length_px += seg_len
+                steps -= 1
+                break
+
+            # Check for turns
             left_dir = TURN_LEFT[direction]
             right_dir = TURN_RIGHT[direction]
             left_ok = _has_line_of_sight(self.mask, x, y, left_dir, self.min_step)
@@ -344,13 +370,15 @@ class CVPipeTracer:
                 result.terminal_obj_id = terminal[1] if len(terminal) > 1 else None
                 break
 
-            # Ray-cast: look ahead for next pipe pixel (bridge mask gaps)
-            ray_max = 200
+            # Ray-cast: look ahead for next pipe pixel (bridge mask gaps
+            # from text suppression, corners, and thin line breaks).
+            # Uses band check to tolerate 1-3px line offsets.
+            ray_max = 400
             found_pipe = False
             for ray_dist in range(5, ray_max, 2):
                 rx = x + ray_dist * dx
                 ry = y + ray_dist * dy
-                if _is_pipe(self.mask, rx, ry):
+                if _is_pipe_band(self.mask, rx, ry, direction):
                     # Found pipe — jump to it and continue
                     x, y = rx, ry
                     seg_start_x, seg_start_y = x, y

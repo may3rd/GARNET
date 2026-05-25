@@ -1036,6 +1036,11 @@ class PIDPipeline:
             logger.error("Cannot load stage5_pipe_mask.png")
             return
 
+        # Morphological close: bridge 1-2px gaps at corners and text edges
+        # without merging distinct parallel pipes (3x3 kernel is safe).
+        kernel = _cv2.getStructuringElement(_cv2.MORPH_RECT, (3, 3))
+        pipe_mask = _cv2.morphologyEx(pipe_mask, _cv2.MORPH_CLOSE, kernel)
+
         image = self._ensure_image_loaded()
 
         # Separate stage4 objects by type
