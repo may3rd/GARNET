@@ -1022,6 +1022,97 @@ class PIDPipeline:
 
         return None
 
+    def _detect_equipment_ports_cv(
+        self, image: np.ndarray, bbox: dict[str, int], track_len: int = 60
+    ) -> list[tuple[int, int, str]]:
+        """Detect ALL pipe attachment ports on an equipment bbox.
+
+        Unlike page connections (single pipe), equipment can have multiple
+        nozzles — inlet, outlet, drain, vent, etc.  Returns all valid ports
+        found on any edge of the bbox.
+
+        Returns list of (x, y, direction) — empty if no pipes found.
+        """
+        import cv2 as _cv2
+
+        x1, y1 = bbox["x_min"], bbox["y_min"]
+        x2, y2 = bbox["x_max"], bbox["y_max"]
+        h_img, w_img = image.shape[:2]
+
+        if len(image.shape) == 3:
+            gray = _cv2.cvtColor(image, _cv2.COLOR_BGR2GRAY)
+        else:
+            gray = image.copy()
+
+        bg_strip_y = max(0, y1 - 10)
+        bg_strip = gray[bg_strip_y:y1, x1:x2] if y1 > 10 else gray[0:10, x1:x2]
+        bg_val = float(np.median(bg_strip)) if bg_strip.size > 0 else 200
+
+        edges = [
+            ("TOP",    (x1, y1), (x2, y1), (1, 0),   (0, -1)),
+            ("BOTTOM", (x1, y2), (x2, y2), (1, 0),   (0,  1)),
+            ("LEFT",   (x1, y1), (x1, y2), (0, 1),   (-1, 0)),
+            ("RIGHT",  (x2, y1), (x2, y2), (0, 1),   (1,  0)),
+        ]
+        direction_map = {"TOP": "UP", "BOTTOM": "DOWN", "LEFT": "LEFT", "RIGHT": "RIGHT"}
+
+        all_ports: list[tuple[int, int, str]] = []
+
+        for edge_name, start, end, step_dir, track_dir in edges:
+            sx, sy = start
+            ex, ey = end
+            length = max(abs(ex - sx), abs(ey - sy))
+
+            for i in range(length):
+                px = sx + i * step_dir[0]
+                py = sy + i * step_dir[1]
+                if px < 0 or px >= w_img or py < 0 or py >= h_img:
+                    continue
+
+                pixel_val = gray[py, px]
+                if pixel_val > bg_val * 0.7:
+                    continue
+
+                # Track outward
+                track_count = 0
+                tx, ty = px, py
+                for _ in range(track_len):
+                    tx += track_dir[0]
+                    ty += track_dir[1]
+                    if tx < 0 or tx >= w_img or ty < 0 or ty >= h_img:
+                        break
+                    if gray[ty, tx] < bg_val * 0.6:
+                        track_count += 1
+                    else:
+                        break
+
+                if track_count >= 3:
+                    direction = direction_map[edge_name]
+                    # Snap to edge
+                    out_x, out_y = px, py
+                    if direction == "UP":
+                        out_y = y1
+                    elif direction == "DOWN":
+                        out_y = y2
+                    elif direction == "LEFT":
+                        out_x = x1
+                    elif direction == "RIGHT":
+                        out_x = x2
+                    all_ports.append((int(out_x), int(out_y), direction))
+
+                # Skip rest of this cluster
+                while i + 1 < length:
+                    nx = sx + (i + 1) * step_dir[0]
+                    ny = sy + (i + 1) * step_dir[1]
+                    if nx < 0 or nx >= w_img or ny < 0 or ny >= h_img:
+                        i += 1
+                        continue
+                    if gray[ny, nx] > bg_val * 0.7:
+                        break
+                    i += 1
+
+        return all_ports
+
     def _compute_connection_ports_vlm(
         self, objects: list[dict[str, Any]]
     ) -> dict[str, list[tuple[int, int, str]]]:
@@ -1089,8 +1180,34 @@ class PIDPipeline:
                 logger.warning("  %s -> VLM failed, skipping", obj_id)
             _time.sleep(0.5)  # rate limit
 
-        logger.info("VLM port detection done: %d/%d ports found",
+        logger.info("Connection port detection: %d/%d ports found",
                  len(ports), len(conn_objects))
+
+        # --- Equipment port detection (multi-port per object) ---
+        equip_classes = {
+            "vessel", "column", "pump", "compressor", "blower",
+            "heat_exchanger", "heat exchanger", "tank", "reactor",
+            "knockout_drum", "knockout drum", "filter", "cooler", "heater",
+        }
+        equip_objects = [o for o in objects if o.get("class_name", "") in equip_classes]
+        if equip_objects:
+            logger.info("Equipment port detection: %d equipment objects", len(equip_objects))
+            for eq in equip_objects:
+                eq_id = eq["id"]
+                eq_bbox = eq["bbox"]
+                eq_ports = self._detect_equipment_ports_cv(image, eq_bbox)
+                if eq_ports:
+                    ports[eq_id] = eq_ports
+                    port_str = ", ".join(f"{d}({x},{y})" for x, y, d in eq_ports)
+                    logger.info("  %s (%s) -> %d ports: %s",
+                              eq_id, eq.get("class_name", "?"), len(eq_ports), port_str)
+                else:
+                    logger.info("  %s (%s) -> no ports detected", eq_id, eq.get("class_name", "?"))
+
+        logger.info("Total ports: %d objects (%d conn + %d equip)",
+                 len(ports),
+                 sum(1 for k in ports if k in {o["id"] for o in conn_objects}),
+                 sum(1 for k in ports if k in {o["id"] for o in equip_objects}))
         return ports
 
     # ---------- Stage 5b: CV Pipe Tracing ----------
@@ -1343,6 +1460,9 @@ class PIDPipeline:
                 (tx + 12, ty - 12),
                 _cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2,
             )
+
+        # Draw equipment ports (cyan markers from stage5_connection_ports)
+        self._draw_equipment_port_markers(overlay, ports)
 
         # Draw equipment bboxes from LabelMe ground truth
         self._draw_equipment_ground_truth(overlay)
@@ -2435,6 +2555,39 @@ class PIDPipeline:
         if _os.path.isfile(json_path):
             return json_path
         return None
+
+    def _draw_equipment_port_markers(
+        self, overlay: np.ndarray, ports: dict[str, list[tuple[int, int, str]]]
+    ) -> None:
+        """Draw equipment port markers (cyan circles) on the trace overlay.
+
+        Equipment ports come from stage5_connection_ports.json and are
+        distinguished from connection-object ports by object ID prefix
+        (equipment IDs don't start with obj_0001XX/obj_0002XX patterns).
+        Simply: any port whose object isn't in the trace results.
+        """
+        import cv2 as _cv2
+        equip_classes = {
+            "vessel", "column", "pump", "compressor", "blower",
+            "heat_exchanger", "heat exchanger", "tank", "reactor",
+            "knockout_drum", "knockout drum", "filter", "cooler", "heater",
+        }
+        objects = self._load_json_artifact("stage4_objects").get("objects", [])
+        equip_ids = {o["id"] for o in objects if o.get("class_name", "") in equip_classes}
+
+        for obj_id, port_list in ports.items():
+            if obj_id not in equip_ids:
+                continue
+            for px, py, direction in port_list:
+                # Cyan filled circle with white outline
+                _cv2.circle(overlay, (px, py), 6, (255, 200, 0), -1)
+                _cv2.circle(overlay, (px, py), 6, (255, 255, 255), 1)
+                # Direction arrow
+                dd = {"UP": (0, -18), "DOWN": (0, 18), "LEFT": (-18, 0), "RIGHT": (18, 0)}
+                if direction in dd:
+                    ax = px + dd[direction][0]
+                    ay = py + dd[direction][1]
+                    _cv2.arrowedLine(overlay, (px, py), (ax, ay), (255, 200, 0), 2, tipLength=0.3)
 
     def _draw_equipment_ground_truth(self, overlay: np.ndarray) -> None:
         """Draw LabelMe equipment bboxes on the trace overlay."""
