@@ -240,7 +240,7 @@ class PIDPipeline:
         **kwargs: Any,
     ) -> None:
         self.image_path = str(image_path)
-        self.out_dir = Path(out_dir)
+        self.out_dir = Path(output_dir)
         self.cfg = cfg or PipelineConfig()
         self.stage_callback = stage_callback
         if kwargs:
@@ -253,7 +253,7 @@ class PIDPipeline:
     # ---------- Stage runner ----------
     def _stage_definitions(self) -> List[Tuple[int, str, Callable[[], None]]]:
         """Return the ordered stage list executed by the pipeline."""
-        return [
+        stages = [
             (1, "stage1_input_normalization", self.stage1_input_normalization),
             (2, "stage2_ocr_discovery", self.stage2_ocr_discovery),
             # Stage 4 sub-stages share the same number intentionally.
@@ -270,22 +270,22 @@ class PIDPipeline:
             (11, "stage11_junction_review", self.stage11_junction_review),
             (12, "stage12_edge_topology", self.stage12_edge_topology),
             (13, "stage13_text_attachment", self.stage13_text_attachment),
-            (14, "stage14_graph_assembly", self.stage14_graph_assembly),
-            (15, "stage15_graph_qa", self.stage15_graph_qa),
         ]
         if self.cfg.use_geometric_line_detection:
-            stages.extend(
-                [
-                    (5, "stage5b_pipe_trace", self.stage5b_pipe_trace),
-                    (12, "stage12_geometric_graph_assembly", self.stage12_geometric_graph_assembly),
-                    (12, "stage12c_page_connector_labeling", self.stage12c_page_connector_labeling),
-                    (12, "stage12b_graph_export", self.stage12b_graph_export),
-                    (13, "stage13_graph_qa", self.stage13_graph_qa),
-                    (14, "stage14_continuity_check", self.stage14_continuity_check),
-                    (15, "stage15_recovery_loop", self.stage15_recovery_loop),
-                    (16, "stage16_connection_overlay", self.stage16_connection_overlay),
-                ]
+            # Insert geometric stages inline — stage5b replaces stage6+
+            stages.insert(
+                stages.index((5, "stage5_pipe_mask", self.stage5_pipe_mask)) + 1,
+                (5, "stage5b_pipe_trace", self.stage5b_pipe_trace),
             )
+            stages.extend([
+                (12, "stage12_geometric_graph_assembly", self.stage12_geometric_graph_assembly),
+                (12, "stage12c_page_connector_labeling", self.stage12c_page_connector_labeling),
+                (12, "stage12b_graph_export", self.stage12b_graph_export),
+                (13, "stage13_graph_qa", self.stage13_graph_qa),
+                (14, "stage14_continuity_check", self.stage14_continuity_check),
+                (15, "stage15_recovery_loop", self.stage15_recovery_loop),
+                (16, "stage16_connection_overlay", self.stage16_connection_overlay),
+            ])
             return stages
         stages.extend(
             [
@@ -1243,7 +1243,66 @@ class PIDPipeline:
             "dead_end": (0, 0, 200),
             "max_steps": (200, 100, 0),
         }
+        # Build object lookup for source bbox drawing
+        id_to_obj = {o["id"]: o for o in objects}
+
+        # Human-readable P&ID labels
+        _CLASS_LABEL_MAP = {
+            "gate_valve": "Gate Valve",
+            "globe_valve": "Globe Valve",
+            "check_valve": "Check Valve",
+            "ball_valve": "Ball Valve",
+            "butterfly_valve": "Butterfly Valve",
+            "control_valve": "Control Valve",
+            "pressure_relief_valve": "Pressure Relief Valve",
+            "reducer": "Reducer",
+            "spectacle_blind": "Spectacle Blind",
+            "strainer": "Strainer",
+            "pump": "Pump",
+            "vessel": "Vessel",
+            "column": "Column",
+            "heat_exchanger": "Heat Exchanger",
+            "tank": "Tank",
+            "compressor": "Compressor",
+            "blower": "Blower",
+            "filter": "Filter",
+            "cooler": "Cooler",
+            "heater": "Heater",
+            "reactor": "Reactor",
+            "knockout_drum": "Knockout Drum",
+            "page connection": "Page Conn.",
+            "connection": "Connection",
+            "utility connection": "Utility Conn.",
+            "instrument tag": "Instr. Tag",
+            "instrument dcs": "Instr. (DCS)",
+            "instrument logic": "Instr. (Logic)",
+            "line number": "Line No.",
+            "arrow": "Flow Arrow",
+            "node": "Node",
+            "sampling point": "Samp. Point",
+        }
+
         for obj_id, data in all_results.items():
+            # --- Draw source object bbox ---
+            src_obj = id_to_obj.get(obj_id)
+            if src_obj:
+                src_bbox = src_obj["bbox"]
+                _cv2.rectangle(
+                    overlay,
+                    (src_bbox["x_min"], src_bbox["y_min"]),
+                    (src_bbox["x_max"], src_bbox["y_max"]),
+                    (0, 200, 0), 2,
+                )
+                # Human-readable class label above bbox
+                cls_raw = src_obj.get("class_name", "?")
+                cls_label = _CLASS_LABEL_MAP.get(cls_raw, cls_raw.replace("_", " ").title())
+                label_text = f"{cls_label} ({obj_id})"
+                _cv2.putText(
+                    overlay, label_text,
+                    (src_bbox["x_min"], src_bbox["y_min"] - 6),
+                    _cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 200, 0), 2,
+                )
+
             # Draw trace path
             for seg in data["segments"]:
                 _cv2.line(
@@ -1255,6 +1314,11 @@ class PIDPipeline:
                 mx = (seg["x1"] + seg["x2"]) // 2
                 my = (seg["y1"] + seg["y2"]) // 2
                 _cv2.circle(overlay, (mx, my), 3, (0, 160, 0), -1)
+
+            # Port marker (start point)
+            px, py = data["port"]["x"], data["port"]["y"]
+            _cv2.circle(overlay, (px, py), 5, (0, 255, 0), -1)
+            _cv2.circle(overlay, (px, py), 5, (255, 255, 255), 1)
 
             # Terminal marker
             tx, ty = data["terminal_x"], data["terminal_y"]
@@ -2345,6 +2409,10 @@ class PIDPipeline:
             image_base_path=str(self.image_path),
         )
 
+    def stage12_graph_assembly(self) -> None:
+        """Placeholder — non-geometric graph assembly not yet implemented."""
+        raise NotImplementedError("stage12_graph_assembly: use --geometric path")
+
 
 def main() -> None:
     parser = argparse.ArgumentParser("P&ID pipeline")
@@ -2352,6 +2420,8 @@ def main() -> None:
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     parser.add_argument("--ocr-route", choices=["easyocr", "gemini", "paddleocr", "ocrmac"], default="ocrmac")
     parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, or 15)")
+    parser.add_argument("--geometric", action="store_true", default=False,
+                        help="Use geometric line detection in stage 5")
     args = parser.parse_args()
     pipe = PIDPipeline(
         args.image,

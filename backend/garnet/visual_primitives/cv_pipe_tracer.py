@@ -168,6 +168,7 @@ class CVPipeTracer:
         visited_mask: Optional[np.ndarray] = None,
         max_steps: int = 5000,
         min_step: int = 5,
+        turn_min_step: int = 3,
         lookahead: int = 30,
     ):
         self.mask = pipe_mask
@@ -175,6 +176,7 @@ class CVPipeTracer:
         self.h, self.w = pipe_mask.shape
         self.max_steps = max_steps
         self.min_step = min_step
+        self.turn_min_step = turn_min_step
         self.lookahead = lookahead
 
         # Terminal candidates
@@ -351,6 +353,52 @@ class CVPipeTracer:
                 dx, dy = DIRECTION_DELTA[direction]
                 seg_start_x, seg_start_y = x, y
                 continue
+
+            # Corner creep: if forward blocked and no turn found at current
+            # position, walk to the last contiguous pipe pixel and re-check.
+            # Mask gaps at corners can leave only 1–2 px clearance for turns
+            # from the current position but 5+ px from the edge pixel.
+            orig_x, orig_y = x, y
+            crept = 0
+            for i in range(1, self.min_step):
+                nx = x + i * dx
+                ny = y + i * dy
+                if _is_pipe(self.mask, nx, ny):
+                    crept = i
+                else:
+                    break
+            if crept > 0:
+                x += crept * dx
+                y += crept * dy
+                left_ok2 = _has_line_of_sight(self.mask, x, y, left_dir, self.min_step)
+                right_ok2 = _has_line_of_sight(self.mask, x, y, right_dir, self.min_step)
+
+                if left_ok2 or right_ok2:
+                    seg_len2 = max(abs(x - seg_start_x), abs(y - seg_start_y))
+                    if seg_len2 >= self.min_step:
+                        result.segments.append(TraceSegment(
+                            x1=seg_start_x, y1=seg_start_y,
+                            x2=x, y2=y, direction=direction,
+                            length_px=seg_len2,
+                        ))
+                        result.trace_length_px += seg_len2
+
+                    if left_ok2 and right_ok2:
+                        result.terminal_type = TerminalType.TEE_JUNCTION.value
+                        result.terminal_x, result.terminal_y = x, y
+                        break
+
+                    chosen_dir = left_dir if left_ok2 else right_dir
+                    x += DIRECTION_DELTA[chosen_dir][0] * self.min_step
+                    y += DIRECTION_DELTA[chosen_dir][1] * self.min_step
+                    result.turns.append((x, y, chosen_dir))
+                    direction = chosen_dir
+                    dx, dy = DIRECTION_DELTA[direction]
+                    seg_start_x, seg_start_y = x, y
+                    continue
+
+                # No turn at crept position — restore
+                x, y = orig_x, orig_y
 
             # No forward, no turns — try ray-cast to bridge mask gap
             seg_len = max(abs(x - seg_start_x), abs(y - seg_start_y))
