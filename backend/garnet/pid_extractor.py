@@ -34,7 +34,8 @@ from garnet.graph_export_adapter import build_graph_v1_payload
 from garnet.instrument_tag_fusion import run_instrument_tag_fusion_stage
 from garnet.line_number_fusion import run_line_number_fusion_stage
 from garnet.model_defaults import pick_default_weight_file
-from garnet.object_detection_sahi import DetectionSahiConfig, run_object_detection_sahi, get_connection_ports
+from garnet.object_detection_sahi import DetectionSahiConfig, run_object_detection_sahi
+from garnet.visual_primitives.agent2_hybrid import compute_port_vlm
 from garnet.ocrmac_sahi import OcrMacSahiConfig, run_ocrmac_sahi
 from garnet.pipe_edges import run_pipe_edge_stage
 from garnet.pipe_continuity_helpers import GAP_THRESHOLD_PX
@@ -103,6 +104,7 @@ class PipelineConfig:
     blur_kernel: int = 5
     ocr_route: str = "ocrmac"
     gemini_postprocess_match_threshold: float = 0.1
+    port_detection_model: str = "google/gemini-2.5-pro-preview-05-06"
     ocr_slice_height: int = 1600
     ocr_slice_width: int = 1600
     ocr_overlap_height_ratio: float = 0.2
@@ -444,12 +446,12 @@ class PIDPipeline:
             x_max = bbox["x_max"]
             y_max = bbox["y_max"]
 
-            # Yellow bbox for connection objects (distinguish from non-connections)
-            cv2_local.rectangle(overlay, (x_min, y_min), (x_max, y_max), (0, 255, 255), 2)
+            # Green bbox for connection objects (visible on white)
+            cv2_local.rectangle(overlay, (x_min, y_min), (x_max, y_max), (0, 180, 0), 2)
 
             for port_x, port_y, edge_name in port_list:
-                # Filled cyan circle at the actual pipe connection point
-                cv2_local.circle(overlay, (port_x, port_y), radius, (255, 255, 0), -1)
+                # Filled teal circle at the actual pipe connection point
+                cv2_local.circle(overlay, (port_x, port_y), radius, (180, 100, 0), -1)
                 # White border for contrast
                 cv2_local.circle(overlay, (port_x, port_y), radius, (255, 255, 255), 1)
 
@@ -726,6 +728,50 @@ class PIDPipeline:
         self._save_img("stage5_pipe_mask_overlay", pipe_mask_result["overlay_image"])
         self._save_json("stage5_pipe_mask_summary", pipe_mask_result["summary"])
 
+    # ------------------------------------------------------------------
+    # VLM port detection (replaces heuristic get_connection_ports)
+    # ------------------------------------------------------------------
+
+    def _compute_connection_ports_vlm(
+        self, objects: list[dict[str, Any]]
+    ) -> dict[str, list[tuple[int, int, str]]]:
+        """Use VLM to determine pipe ports on all page connection symbols.
+
+        Returns {object_id: [(port_x, port_y, direction), ...]} — same format
+        as get_connection_ports so downstream consumers are unchanged.
+        """
+        import time as _time
+        ports: dict[str, list[tuple[int, int, str]]] = {}
+        image = self._ensure_image_loaded()
+
+        conn_objects = [
+            o for o in objects
+            if o.get("class_name") in ("page_connection", "page connection",
+                                        "connection", "utility connection")
+        ]
+        if not conn_objects:
+            return ports
+
+        logger.info("VLM port detection: %d connection objects", len(conn_objects))
+        for obj in conn_objects:
+            obj_id = obj["id"]
+            bbox = obj["bbox"]
+            result = compute_port_vlm(
+                image, bbox,
+                model=self.cfg.port_detection_model,
+            )
+            if result:
+                px, py, direction = result
+                ports[obj_id] = [(px, py, direction)]
+                logger.info("  %s -> %s (%d,%d)", obj_id, direction, px, py)
+            else:
+                logger.warning("  %s -> VLM port detection failed, skipping", obj_id)
+            _time.sleep(0.5)  # rate limit
+
+        logger.info("VLM port detection done: %d/%d ports found",
+                 len(ports), len(conn_objects))
+        return ports
+
     # ---------- Stage 5: Geometric line-detection alternative ----------
     def stage5_geometric_line_detection(self) -> None:
         """Geometric pipeline: adaptive threshold → corner detection → Telea inpaint
@@ -774,9 +820,9 @@ class PIDPipeline:
         import cv2 as _cv2
         pipe_mask = _cv2.imread(str(self.out_dir / "stage5_pipe_mask.png"), _cv2.IMREAD_GRAYSCALE)
 
-        # Compute actual connection ports from segment endpoints (with mask validation)
+        # Compute connection ports using VLM (firmed process)
         objects = self._load_json_artifact("stage4_objects").get("objects", [])
-        ports = get_connection_ports(objects, json_segments, pipe_mask)
+        ports = self._compute_connection_ports_vlm(objects)
         self._save_json("stage5_connection_ports", ports)
 
         # Overlay true port markers onto the stage4_objects_overlay image
