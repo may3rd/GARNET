@@ -709,6 +709,16 @@ class PIDPipeline:
     # ---------- Stage 2 ----------
     def stage2_ocr_discovery(self) -> None:
         """Run the configured OCR route on Stage 1 grayscale to discover text regions."""
+        # Skip if OCR regions already exist
+        ocr_regions_path = self.out_dir / "stage2_ocr_regions.json"
+        if ocr_regions_path.exists():
+            logger.info(f"Skipping Stage 2 OCR discovery: {ocr_regions_path} already exists")
+            # Still need to load and verify the Stage 1 input exists for consistency
+            stage1_input = self.out_dir / "stage1_gray.png"
+            if not stage1_input.exists():
+                raise FileNotFoundError(f"Stage 2 requires Stage 1 artifact: {stage1_input}")
+            return
+
         stage1_input = self.out_dir / "stage1_gray.png"
         if not stage1_input.exists():
             raise FileNotFoundError(f"Stage 2 requires Stage 1 artifact: {stage1_input}")
