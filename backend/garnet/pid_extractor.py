@@ -933,6 +933,79 @@ class PIDPipeline:
     # VLM port detection (replaces heuristic get_connection_ports)
     # ------------------------------------------------------------------
 
+    def _snap_port_to_pipe_centerline(
+        self,
+        pipe_mask: np.ndarray,
+        port: tuple[int, int, str],
+        search_radius: int = 12,
+    ) -> tuple[int, int, str]:
+        """Move a bbox-edge port onto the center of the local pipe thickness."""
+        x, y, direction = port
+        direction = direction.upper()
+        h, w = pipe_mask.shape
+        if not (0 <= x < w and 0 <= y < h):
+            return (int(x), int(y), direction)
+
+        def _closest_run(values: list[int], current: int) -> Optional[tuple[int, int]]:
+            if not values:
+                return None
+            values = sorted(set(values))
+            runs: list[tuple[int, int]] = []
+            start = prev = values[0]
+            for value in values[1:]:
+                if value == prev + 1:
+                    prev = value
+                    continue
+                runs.append((start, prev))
+                start = prev = value
+            runs.append((start, prev))
+            return min(
+                runs,
+                key=lambda r: (
+                    0
+                    if r[0] <= current <= r[1]
+                    else min(abs(current - r[0]), abs(current - r[1]))
+                ),
+            )
+
+        if direction in ("UP", "DOWN"):
+            cols = [
+                cx for cx in range(max(0, x - search_radius), min(w, x + search_radius + 1))
+                if pipe_mask[y, cx] > 0
+            ]
+            run = _closest_run(cols, x)
+            if run:
+                x = (run[0] + run[1]) // 2
+        else:
+            rows = [
+                cy for cy in range(max(0, y - search_radius), min(h, y + search_radius + 1))
+                if pipe_mask[cy, x] > 0
+            ]
+            run = _closest_run(rows, y)
+            if run:
+                y = (run[0] + run[1]) // 2
+        return (int(x), int(y), direction)
+
+    def _snap_ports_to_pipe_centerlines(
+        self,
+        ports: dict[str, list],
+        pipe_mask: np.ndarray,
+    ) -> dict[str, list[tuple[int, int, str]]]:
+        snapped: dict[str, list[tuple[int, int, str]]] = {}
+        for obj_id, port_list in ports.items():
+            snapped[obj_id] = []
+            for port in port_list:
+                if len(port) != 3:
+                    continue
+                px, py, direction = port
+                snapped[obj_id].append(
+                    self._snap_port_to_pipe_centerline(
+                        pipe_mask,
+                        (int(px), int(py), str(direction)),
+                    )
+                )
+        return snapped
+
     def _detect_port_cv(
         self, image: np.ndarray, bbox: dict[str, int], track_len: int = 60
     ) -> Optional[tuple[int, int, str]]:
@@ -1244,21 +1317,6 @@ class PIDPipeline:
         import cv2 as _cv2
         import time as _time
 
-        # Compute connection ports if not already cached
-        ports_path = self.out_dir / "stage5_connection_ports.json"
-        if not ports_path.exists():
-            logger.info("Computing connection ports (first run)")
-            objects_all = self._load_json_artifact("stage4_objects").get("objects", [])
-            ports = self._compute_connection_ports_vlm(objects_all)
-            self._save_json("stage5_connection_ports", ports)
-        else:
-            ports = self._load_json_artifact("stage5_connection_ports")
-
-        if not ports:
-            logger.warning("No connection ports found — skipping pipe trace")
-            return
-
-        objects = self._load_json_artifact("stage4_objects").get("objects", [])
         pipe_mask = _cv2.imread(
             str(self.out_dir / "stage5_pipe_mask.png"), _cv2.IMREAD_GRAYSCALE
         )
@@ -1271,6 +1329,23 @@ class PIDPipeline:
         kernel = _cv2.getStructuringElement(_cv2.MORPH_RECT, (3, 3))
         pipe_mask = _cv2.morphologyEx(pipe_mask, _cv2.MORPH_CLOSE, kernel)
 
+        # Compute connection ports if not already cached
+        ports_path = self.out_dir / "stage5_connection_ports.json"
+        if not ports_path.exists():
+            logger.info("Computing connection ports (first run)")
+            objects_all = self._load_json_artifact("stage4_objects").get("objects", [])
+            ports = self._compute_connection_ports_vlm(objects_all)
+        else:
+            ports = self._load_json_artifact("stage5_connection_ports")
+
+        if not ports:
+            logger.warning("No connection ports found — skipping pipe trace")
+            return
+
+        ports = self._snap_ports_to_pipe_centerlines(ports, pipe_mask)
+        self._save_json("stage5_connection_ports", ports)
+
+        objects = self._load_json_artifact("stage4_objects").get("objects", [])
         image = self._ensure_image_loaded()
 
         # Separate stage4 objects by type
@@ -1575,6 +1650,8 @@ class PIDPipeline:
         # Compute connection ports using VLM (firmed process)
         objects = self._load_json_artifact("stage4_objects").get("objects", [])
         ports = self._compute_connection_ports_vlm(objects)
+        if pipe_mask is not None:
+            ports = self._snap_ports_to_pipe_centerlines(ports, pipe_mask)
         self._save_json("stage5_connection_ports", ports)
 
         # Overlay true port markers onto the stage4_objects_overlay image
