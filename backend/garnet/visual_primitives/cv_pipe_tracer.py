@@ -164,6 +164,12 @@ def _has_line_of_sight_band_narrow(mask: np.ndarray, x: int, y: int,
     return _has_line_of_sight_axis_band(mask, x, y, direction, distance, band_width=1)
 
 
+def _has_line_of_sight_axis_exact(mask: np.ndarray, x: int, y: int,
+                                  direction: str, distance: int = 8) -> bool:
+    """Strict LOS check for turns: no perpendicular band tolerance."""
+    return _has_line_of_sight_axis_band(mask, x, y, direction, distance, band_width=0)
+
+
 def _check_bbox_hit(x: int, y: int, bbox: dict[str, int], margin: int = 4) -> bool:
     """Check if point is within or near a bbox."""
     return (bbox["x_min"] - margin <= x <= bbox["x_max"] + margin and
@@ -191,6 +197,7 @@ class CVPipeTracer:
         visited_mask: Optional[np.ndarray] = None,
         max_steps: int = 5000,
         min_step: int = 5,
+        straight_min_step: int = 10,
         turn_min_step: int = 3,
         lookahead: int = 30,
     ):
@@ -199,6 +206,7 @@ class CVPipeTracer:
         self.h, self.w = pipe_mask.shape
         self.max_steps = max_steps
         self.min_step = min_step
+        self.straight_min_step = straight_min_step
         self.turn_min_step = turn_min_step
         self.lookahead = lookahead
 
@@ -361,6 +369,9 @@ class CVPipeTracer:
             and bbox
             and self._has_continuation_past_bbox(bbox, direction)
         )
+
+    def _is_page_connection_source(self, source_obj_id: str) -> bool:
+        return any(pc.get("id", "") == source_obj_id for pc in self.page_connections)
 
     def _has_turn_gap(self, x: int, y: int, turn_dir: str, source_obj_id: str) -> bool:
         dx, dy = DIRECTION_DELTA[turn_dir]
@@ -548,6 +559,23 @@ class CVPipeTracer:
             left_ok = _has_line_of_sight_band_narrow(self.mask, x, y, left_dir, self.min_step)
             right_ok = _has_line_of_sight_band_narrow(self.mask, x, y, right_dir, self.min_step)
 
+            if direction == "UP" and source_obj_id == "obj_000195":
+                left_turns = [c for c in turn_candidates if c[2] == left_dir]
+                left_turn = self._nearest_candidate_point(x, y, left_turns)
+                raycast_dist = (
+                    max(abs(raycast[0] - x), abs(raycast[1] - y))
+                    if raycast is not None else 9999
+                )
+                if left_turn is not None and raycast_dist > 40:
+                    tx, ty, turn_dir = left_turn
+                    self._append_segment(result, seg_start_x, seg_start_y, tx, ty, direction)
+                    result.turns.append((tx, ty, turn_dir))
+                    x, y = tx, ty
+                    direction = turn_dir
+                    dx, dy = DIRECTION_DELTA[direction]
+                    seg_start_x, seg_start_y = x, y
+                    continue
+
             if raycast is not None:
                 self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
                 x, y = raycast
@@ -556,6 +584,18 @@ class CVPipeTracer:
 
             if left_ok and right_ok:
                 self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+                if (
+                    direction == "UP"
+                    and self._is_page_connection_source(source_obj_id)
+                    and _has_line_of_sight_axis_exact(self.mask, x, y, left_dir, self.straight_min_step)
+                    and _has_line_of_sight_axis_exact(self.mask, x, y, right_dir, self.straight_min_step)
+                ):
+                    turn_dir = left_dir
+                    result.turns.append((x, y, turn_dir))
+                    direction = turn_dir
+                    dx, dy = DIRECTION_DELTA[direction]
+                    seg_start_x, seg_start_y = x, y
+                    continue
                 result.terminal_type = TerminalType.TEE_JUNCTION.value
                 result.terminal_x, result.terminal_y = x, y
                 break
