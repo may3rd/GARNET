@@ -200,3 +200,4 @@ backend/output/*
 
 # Completely ignore all pipeline output — managed locally, never push
 backend/output/
+backend/output_debug/

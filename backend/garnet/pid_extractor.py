@@ -1098,6 +1098,9 @@ class PIDPipeline:
             if candidate["status"] == "queued":
                 match["status"] = "queued"
                 match["reason"] = candidate["reason"]
+            if candidate.get("node_obj_id") and not match.get("node_obj_id"):
+                match["node_obj_id"] = candidate["node_obj_id"]
+                match["reason"] = candidate.get("reason", match["reason"])
         return clusters
 
     def _detect_stage5b_branch_candidates(
@@ -1105,6 +1108,8 @@ class PIDPipeline:
         pipe_mask: np.ndarray,
         all_results: dict[str, dict],
         inline_symbols: list[dict[str, Any]],
+        node_symbols: Optional[list[dict[str, Any]]] = None,
+        equipment_objects: Optional[list[dict[str, Any]]] = None,
         sample_step: int = 5,
         min_branch_run: int = 25,
     ) -> list[dict[str, Any]]:
@@ -1124,6 +1129,7 @@ class PIDPipeline:
             for result in all_results.values()
             for turn in result.get("turns", [])
         ]
+        existing_points = tee_points + turn_points
 
         raw_candidates: list[dict[str, Any]] = []
         for obj_id, result in all_results.items():
@@ -1154,7 +1160,10 @@ class PIDPipeline:
 
                         status = "queued"
                         reason = "untraced_branch"
-                        if any(abs(x - tx) <= 10 and abs(y - ty) <= 10 for tx, ty in tee_points):
+                        if self._point_inside_any_bbox(x, y, equipment_objects or [], margin=2):
+                            status = "rejected_inside_equipment"
+                            reason = "candidate_inside_equipment_bbox"
+                        elif any(abs(x - tx) <= 10 and abs(y - ty) <= 10 for tx, ty in tee_points):
                             status = "done_existing_tee"
                             reason = "near_existing_tee_terminal"
                         elif any(abs(x - tx) <= 8 and abs(y - ty) <= 8 for tx, ty in turn_points):
@@ -1177,6 +1186,47 @@ class PIDPipeline:
                             "reason": reason,
                         })
 
+        for node in node_symbols or []:
+            bbox = node.get("bbox")
+            if not bbox:
+                continue
+            x = int(round((bbox["x_min"] + bbox["x_max"]) / 2))
+            y = int(round((bbox["y_min"] + bbox["y_max"]) / 2))
+            if any(abs(x - px) <= 10 and abs(y - py) <= 10 for px, py in existing_points):
+                continue
+            if self._point_inside_any_bbox(x, y, equipment_objects or [], margin=2):
+                continue
+
+            matched_segment: Optional[tuple[str, int, dict[str, Any]]] = None
+            for obj_id, result in all_results.items():
+                for seg_index, seg in enumerate(result.get("segments", [])):
+                    if self._point_near_segment(x, y, seg, tolerance=12):
+                        matched_segment = (obj_id, seg_index, seg)
+                        break
+                if matched_segment:
+                    break
+            if not matched_segment:
+                continue
+
+            source_obj_id, source_segment_index, source_seg = matched_segment
+            source_direction = str(source_seg["direction"])
+            for branch_direction in (TURN_LEFT[source_direction], TURN_RIGHT[source_direction]):
+                if not _has_connected_side_pipe(
+                    pipe_mask, x, y, branch_direction, min_run=min_branch_run
+                ):
+                    continue
+                raw_candidates.append({
+                    "x": x,
+                    "y": y,
+                    "branch_direction": branch_direction,
+                    "source_trace_id": source_obj_id,
+                    "source_segment_index": source_segment_index,
+                    "source_direction": source_direction,
+                    "status": "queued",
+                    "reason": "node_object_branch",
+                    "node_obj_id": node.get("id", ""),
+                })
+
         candidates = self._cluster_branch_candidates(raw_candidates)
         for index, candidate in enumerate(candidates, start=1):
             candidate["id"] = f"branch_{index:06d}"
@@ -1187,15 +1237,42 @@ class PIDPipeline:
         self,
         image: np.ndarray,
         candidates: list[dict[str, Any]],
+        branch_results: Optional[dict[str, dict]] = None,
     ) -> np.ndarray:
         import cv2 as _cv2
 
         overlay = image.copy()
+        for branch_id, data in (branch_results or {}).items():
+            if data.get("status") != "traced":
+                continue
+            for seg in data.get("segments", []):
+                _cv2.line(
+                    overlay,
+                    (int(seg["x1"]), int(seg["y1"])),
+                    (int(seg["x2"]), int(seg["y2"])),
+                    (0, 0, 255),
+                    3,
+                )
+            tx = int(data.get("terminal_x", 0))
+            ty = int(data.get("terminal_y", 0))
+            _cv2.circle(overlay, (tx, ty), 6, (0, 0, 255), -1)
+            _cv2.putText(
+                overlay,
+                f"{branch_id}:branch",
+                (tx + 8, ty + 14),
+                _cv2.FONT_HERSHEY_SIMPLEX,
+                0.45,
+                (0, 0, 255),
+                1,
+            )
+
         colors = {
             "queued": (0, 0, 255),
             "done_existing_tee": (0, 180, 0),
             "done_existing_turn": (0, 180, 0),
             "done_already_traced": (0, 180, 0),
+            "done_branch_connection": (0, 180, 0),
+            "done_used_by_branch": (0, 180, 0),
         }
         deltas = {
             "UP": (0, -16), "DOWN": (0, 16),
@@ -1229,6 +1306,297 @@ class PIDPipeline:
                 1,
             )
         return overlay
+
+    def _trace_stage5b_branch_candidates(
+        self,
+        pipe_mask: np.ndarray,
+        image: np.ndarray,
+        candidates: list[dict[str, Any]],
+        page_connections: list[dict[str, Any]],
+        instrument_tags: list[dict[str, Any]],
+        equipment: list[dict[str, Any]],
+        inline_symbols: list[dict[str, Any]],
+        node_symbols: list[dict[str, Any]],
+        visited: np.ndarray,
+    ) -> dict[str, dict]:
+        from garnet.visual_primitives.cv_pipe_tracer import (
+            CVPipeTracer,
+            TURN_LEFT,
+            TURN_RIGHT,
+            _has_connected_side_pipe,
+        )
+
+        deltas = {
+            "UP": (0, -1), "DOWN": (0, 1),
+            "LEFT": (-1, 0), "RIGHT": (1, 0),
+        }
+        h_mask, w_mask = pipe_mask.shape
+        node_ids = {str(node.get("id", "")) for node in node_symbols}
+        branch_results: dict[str, dict] = {}
+        candidate_by_id = {str(candidate["id"]): candidate for candidate in candidates}
+        used_branch_pairs: dict[str, str] = {}
+        pending_branch_pairs: dict[str, str] = {}
+        for candidate in candidates:
+            branch_id = candidate["id"]
+            if branch_id in used_branch_pairs and branch_id not in pending_branch_pairs:
+                candidate["status"] = "done_used_by_branch"
+                candidate["reason"] = "paired_branch_already_traced"
+                candidate["paired_branch_id"] = used_branch_pairs[branch_id]
+                branch_results[branch_id] = {
+                    "status": "skipped",
+                    "skip_reason": "done_used_by_branch",
+                    "paired_branch_id": used_branch_pairs[branch_id],
+                    "candidate": candidate,
+                }
+                continue
+            if candidate.get("status") != "queued":
+                branch_results[branch_id] = {
+                    "status": "skipped",
+                    "skip_reason": candidate.get("status"),
+                    "candidate": candidate,
+                }
+                continue
+
+            direction = str(candidate["branch_direction"]).upper()
+            dx, dy = deltas[direction]
+            start_x = int(candidate["x"]) + dx * 3
+            start_y = int(candidate["y"]) + dy * 3
+            found_start = False
+            for offset in range(3, 31):
+                tx = int(candidate["x"]) + dx * offset
+                ty = int(candidate["y"]) + dy * offset
+                if 0 <= tx < w_mask and 0 <= ty < h_mask and pipe_mask[ty, tx] > 0:
+                    start_x, start_y = tx, ty
+                    found_start = True
+                    break
+            if not found_start:
+                branch_results[branch_id] = {
+                    "status": "skipped",
+                    "skip_reason": "no_pipe_at_branch_start",
+                    "candidate": candidate,
+                }
+                continue
+
+            branch_terminals = []
+            for other in candidates:
+                other_id = other.get("id")
+                if other_id == branch_id:
+                    continue
+                ox = int(other["x"])
+                oy = int(other["y"])
+                branch_terminals.append({
+                    "id": other_id,
+                    "class_name": "branch_candidate",
+                    "bbox": {
+                        "x_min": ox - 8,
+                        "y_min": oy - 8,
+                        "x_max": ox + 8,
+                        "y_max": oy + 8,
+                    },
+                })
+            node_terminals = []
+            for node in node_symbols:
+                bbox = node.get("bbox")
+                if not bbox:
+                    continue
+                node_terminals.append({
+                    "id": node.get("id", ""),
+                    "class_name": "node",
+                    "bbox": bbox,
+                })
+
+            tracer = CVPipeTracer(
+                pipe_mask=pipe_mask,
+                image=image,
+                page_connections=page_connections + branch_terminals + node_terminals,
+                instrument_tags=instrument_tags,
+                equipment_objects=equipment,
+                visited_mask=visited,
+            )
+            tracer.set_inline_symbols(inline_symbols)
+            result = tracer.trace(
+                start_x,
+                start_y,
+                direction,
+                source_obj_id=branch_id,
+            )
+            extra_turns = []
+            extra_result = None
+            recovery_point = None
+            if result.terminal_type == "dead_end" and result.segments:
+                last_seg = result.segments[-1]
+                last_dir = last_seg.direction
+                sdx, sdy = deltas[last_dir]
+                for backtrack in range(0, 21):
+                    bx = result.terminal_x - sdx * backtrack
+                    by = result.terminal_y - sdy * backtrack
+                    for turn_dir in (TURN_LEFT[last_dir], TURN_RIGHT[last_dir]):
+                        if not _has_connected_side_pipe(pipe_mask, bx, by, turn_dir, min_run=25):
+                            continue
+                        tdx, tdy = deltas[turn_dir]
+                        cont_x = bx + tdx * 3
+                        cont_y = by + tdy * 3
+                        found_cont = False
+                        for offset in range(3, 31):
+                            tx = bx + tdx * offset
+                            ty = by + tdy * offset
+                            if 0 <= tx < w_mask and 0 <= ty < h_mask and pipe_mask[ty, tx] > 0:
+                                cont_x, cont_y = tx, ty
+                                found_cont = True
+                                break
+                        if not found_cont:
+                            continue
+                        recovery_tracer = CVPipeTracer(
+                            pipe_mask=pipe_mask,
+                            image=image,
+                            page_connections=page_connections + branch_terminals + node_terminals,
+                            instrument_tags=instrument_tags,
+                            equipment_objects=equipment,
+                            visited_mask=visited,
+                        )
+                        recovery_tracer.set_inline_symbols(inline_symbols)
+                        extra_result = recovery_tracer.trace(
+                            cont_x,
+                            cont_y,
+                            turn_dir,
+                            source_obj_id=branch_id,
+                        )
+                        recovery_point = (bx, by, turn_dir)
+                        extra_turns.append({"x": bx, "y": by, "new_dir": turn_dir})
+                        break
+                    if extra_result is not None:
+                        break
+
+            segments = [
+                {
+                    "x1": s.x1, "y1": s.y1,
+                    "x2": s.x2, "y2": s.y2,
+                    "direction": s.direction,
+                    "length_px": s.length_px,
+                }
+                for s in result.segments
+            ]
+            trace_length = result.trace_length_px
+            terminal_type = result.terminal_type
+            terminal_x = result.terminal_x
+            terminal_y = result.terminal_y
+            terminal_obj_id = result.terminal_obj_id
+            turns = [
+                {"x": tx, "y": ty, "new_dir": td}
+                for tx, ty, td in result.turns
+            ]
+            hits = [
+                {"class": h.class_name, "x": h.x, "y": h.y}
+                for h in result.hits
+            ]
+            if extra_result is not None and recovery_point is not None and segments:
+                bx, by, turn_dir = recovery_point
+                last = segments[-1]
+                old_len = int(last["length_px"])
+                new_len = max(abs(bx - int(last["x1"])), abs(by - int(last["y1"])))
+                last["x2"] = bx
+                last["y2"] = by
+                last["length_px"] = new_len
+                trace_length += new_len - old_len
+                turns.extend(extra_turns)
+                turns.extend(
+                    {"x": tx, "y": ty, "new_dir": td}
+                    for tx, ty, td in extra_result.turns
+                )
+                hits.extend(
+                    {"class": h.class_name, "x": h.x, "y": h.y}
+                    for h in extra_result.hits
+                )
+                extra_segments = [
+                    {
+                        "x1": s.x1, "y1": s.y1,
+                        "x2": s.x2, "y2": s.y2,
+                        "direction": s.direction,
+                        "length_px": s.length_px,
+                    }
+                    for s in extra_result.segments
+                ]
+                segments.extend(extra_segments)
+                trace_length += extra_result.trace_length_px
+                terminal_type = extra_result.terminal_type
+                terminal_x = extra_result.terminal_x
+                terminal_y = extra_result.terminal_y
+                terminal_obj_id = extra_result.terminal_obj_id
+
+            if (terminal_obj_id or "").startswith("branch_"):
+                terminal_type = "branch_connection"
+                paired_branch_id = str(terminal_obj_id)
+                used_branch_pairs[branch_id] = paired_branch_id
+                used_branch_pairs[paired_branch_id] = branch_id
+                candidate["status"] = "done_branch_connection"
+                candidate["reason"] = "traced_to_branch_candidate"
+                candidate["paired_branch_id"] = paired_branch_id
+                paired_candidate = candidate_by_id.get(paired_branch_id)
+                if paired_candidate is not None:
+                    paired_candidate["paired_branch_id"] = branch_id
+                    if paired_branch_id in branch_results:
+                        paired_candidate["status"] = "done_used_by_branch"
+                        paired_candidate["reason"] = "reverse_branch_trace_preferred"
+                    else:
+                        paired_candidate["status"] = "pending_branch_connection"
+                        paired_candidate["reason"] = "paired_branch_candidate_pending_reverse_check"
+                        pending_branch_pairs[paired_branch_id] = branch_id
+            elif terminal_type == "page_connection" and str(terminal_obj_id or "") in node_ids:
+                terminal_type = "tee_junction"
+            branch_results[branch_id] = {
+                "status": "traced",
+                "candidate": candidate,
+                "port": {"x": start_x, "y": start_y, "direction": direction},
+                "terminal_type": terminal_type,
+                "terminal_x": terminal_x,
+                "terminal_y": terminal_y,
+                "terminal_obj_id": terminal_obj_id,
+                "segments": segments,
+                "turns": turns,
+                "hits": hits,
+                "trace_length_px": trace_length,
+            }
+            if branch_id in pending_branch_pairs and terminal_type == "branch_connection":
+                previous_branch_id = pending_branch_pairs.pop(branch_id)
+                previous_result = branch_results.get(previous_branch_id)
+                if previous_result is not None:
+                    previous_candidate = candidate_by_id.get(previous_branch_id)
+                    if previous_candidate is not None:
+                        previous_candidate["status"] = "done_used_by_branch"
+                        previous_candidate["reason"] = "reverse_branch_trace_preferred"
+                        previous_candidate["paired_branch_id"] = branch_id
+                    previous_result["status"] = "skipped"
+                    previous_result["skip_reason"] = "done_used_by_branch"
+                    previous_result["paired_branch_id"] = branch_id
+                    previous_result["preferred_branch_id"] = branch_id
+                candidate["status"] = "done_branch_connection"
+                candidate["reason"] = "reverse_branch_trace_preferred"
+                candidate["paired_branch_id"] = previous_branch_id
+            if terminal_type == "branch_connection" and terminal_obj_id in branch_results:
+                previous_result = branch_results.get(str(terminal_obj_id))
+                if previous_result is not None:
+                    previous_result["status"] = "skipped"
+                    previous_result["skip_reason"] = "done_used_by_branch"
+                    previous_result["paired_branch_id"] = branch_id
+                    previous_result["preferred_branch_id"] = branch_id
+                paired_candidate = candidate_by_id.get(str(terminal_obj_id))
+                if paired_candidate is not None:
+                    paired_candidate["status"] = "done_used_by_branch"
+                    paired_candidate["reason"] = "reverse_branch_trace_preferred"
+                    paired_candidate["paired_branch_id"] = branch_id
+
+        for pending_branch_id, traced_branch_id in pending_branch_pairs.items():
+            pending_candidate = candidate_by_id.get(pending_branch_id)
+            if pending_candidate is not None and pending_candidate.get("status") == "pending_branch_connection":
+                pending_candidate["status"] = "done_branch_connection"
+                pending_candidate["reason"] = "paired_branch_candidate_traced"
+                pending_candidate["paired_branch_id"] = traced_branch_id
+            pending_result = branch_results.get(pending_branch_id)
+            if pending_result is not None and pending_result.get("status") == "skipped":
+                pending_result["skip_reason"] = "done_used_by_branch"
+                pending_result["paired_branch_id"] = traced_branch_id
+                pending_result["preferred_branch_id"] = traced_branch_id
+        return branch_results
 
     def _detect_port_cv(
         self, image: np.ndarray, bbox: dict[str, int], track_len: int = 60
@@ -1640,6 +2008,10 @@ class PIDPipeline:
             o for o in objects
             if o.get("class_name") in inline_classes
         ]
+        node_symbols = [
+            o for o in objects
+            if o.get("class_name") == "node"
+        ]
 
         # Extend pipe mask into equipment and instrument bboxes
         # so the tracer can walk into terminal objects instead of
@@ -1715,6 +2087,19 @@ class PIDPipeline:
             pipe_mask=pipe_mask,
             all_results=all_results,
             inline_symbols=inline_symbols,
+            node_symbols=node_symbols,
+            equipment_objects=equipment,
+        )
+        branch_results = self._trace_stage5b_branch_candidates(
+            pipe_mask=pipe_mask,
+            image=image,
+            candidates=branch_candidates,
+            page_connections=page_connections,
+            instrument_tags=instrument_tags,
+            equipment=equipment,
+            inline_symbols=inline_symbols,
+            node_symbols=node_symbols,
+            visited=visited,
         )
         self._save_json("stage5b_branch_candidates", {
             "candidates": branch_candidates,
@@ -1722,6 +2107,15 @@ class PIDPipeline:
                 "total": len(branch_candidates),
                 "queued": len([c for c in branch_candidates if c.get("status") == "queued"]),
                 "done": len([c for c in branch_candidates if str(c.get("status", "")).startswith("done_")]),
+                "rejected": len([c for c in branch_candidates if str(c.get("status", "")).startswith("rejected_")]),
+            },
+        })
+        self._save_json("stage5b_branch_trace_results", {
+            "branches": branch_results,
+            "summary": {
+                "total": len(branch_results),
+                "traced": len([r for r in branch_results.values() if r.get("status") == "traced"]),
+                "skipped": len([r for r in branch_results.values() if r.get("status") == "skipped"]),
             },
         })
 
@@ -1838,6 +2232,7 @@ class PIDPipeline:
         branch_overlay = self._draw_stage5b_branch_candidate_overlay(
             overlay,
             branch_candidates,
+            branch_results,
         )
         self._save_img("stage5b_branch_candidates_overlay", branch_overlay)
 
