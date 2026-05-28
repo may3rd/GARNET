@@ -1006,6 +1006,230 @@ class PIDPipeline:
                 )
         return snapped
 
+    def _point_near_segment(
+        self,
+        x: int,
+        y: int,
+        seg: dict[str, Any],
+        tolerance: int = 5,
+    ) -> bool:
+        x1 = int(seg["x1"])
+        y1 = int(seg["y1"])
+        x2 = int(seg["x2"])
+        y2 = int(seg["y2"])
+        if seg["direction"] in ("LEFT", "RIGHT"):
+            return (
+                min(x1, x2) - tolerance <= x <= max(x1, x2) + tolerance
+                and abs(y - y1) <= tolerance
+            )
+        return (
+            min(y1, y2) - tolerance <= y <= max(y1, y2) + tolerance
+            and abs(x - x1) <= tolerance
+        )
+
+    def _point_inside_any_bbox(
+        self,
+        x: int,
+        y: int,
+        objects: list[dict[str, Any]],
+        margin: int = 4,
+    ) -> bool:
+        for obj in objects:
+            bbox = obj.get("bbox")
+            if not bbox:
+                continue
+            if (
+                bbox["x_min"] - margin <= x <= bbox["x_max"] + margin
+                and bbox["y_min"] - margin <= y <= bbox["y_max"] + margin
+            ):
+                return True
+        return False
+
+    def _branch_already_traced(
+        self,
+        x: int,
+        y: int,
+        branch_direction: str,
+        all_results: dict[str, dict],
+        source_obj_id: str,
+        source_segment_index: int,
+        tolerance: int = 5,
+    ) -> bool:
+        dx, dy = {
+            "UP": (0, -1), "DOWN": (0, 1),
+            "LEFT": (-1, 0), "RIGHT": (1, 0),
+        }[branch_direction]
+        probe_x = x + dx * 12
+        probe_y = y + dy * 12
+        for obj_id, result in all_results.items():
+            for seg_index, seg in enumerate(result.get("segments", [])):
+                if obj_id == source_obj_id and seg_index == source_segment_index:
+                    continue
+                if seg.get("direction") not in (branch_direction,):
+                    continue
+                if self._point_near_segment(probe_x, probe_y, seg, tolerance=tolerance):
+                    return True
+        return False
+
+    def _cluster_branch_candidates(
+        self,
+        raw_candidates: list[dict[str, Any]],
+        radius: int = 8,
+    ) -> list[dict[str, Any]]:
+        clusters: list[dict[str, Any]] = []
+        for candidate in raw_candidates:
+            match = None
+            for cluster in clusters:
+                if cluster["branch_direction"] != candidate["branch_direction"]:
+                    continue
+                if (
+                    abs(cluster["x"] - candidate["x"]) <= radius
+                    and abs(cluster["y"] - candidate["y"]) <= radius
+                ):
+                    match = cluster
+                    break
+            if match is None:
+                clusters.append({**candidate, "members": [candidate]})
+                continue
+            match["members"].append(candidate)
+            members = match["members"]
+            match["x"] = int(round(sum(m["x"] for m in members) / len(members)))
+            match["y"] = int(round(sum(m["y"] for m in members) / len(members)))
+            if candidate["status"] == "queued":
+                match["status"] = "queued"
+                match["reason"] = candidate["reason"]
+        return clusters
+
+    def _detect_stage5b_branch_candidates(
+        self,
+        pipe_mask: np.ndarray,
+        all_results: dict[str, dict],
+        inline_symbols: list[dict[str, Any]],
+        sample_step: int = 5,
+        min_branch_run: int = 25,
+    ) -> list[dict[str, Any]]:
+        from garnet.visual_primitives.cv_pipe_tracer import (
+            TURN_LEFT,
+            TURN_RIGHT,
+            _has_connected_side_pipe,
+        )
+
+        tee_points = [
+            (int(result["terminal_x"]), int(result["terminal_y"]))
+            for result in all_results.values()
+            if result.get("terminal_type") == "tee_junction"
+        ]
+        turn_points = [
+            (int(turn["x"]), int(turn["y"]))
+            for result in all_results.values()
+            for turn in result.get("turns", [])
+        ]
+
+        raw_candidates: list[dict[str, Any]] = []
+        for obj_id, result in all_results.items():
+            for seg_index, seg in enumerate(result.get("segments", [])):
+                direction = seg["direction"]
+                branch_dirs = (TURN_LEFT[direction], TURN_RIGHT[direction])
+                x1 = int(seg["x1"])
+                y1 = int(seg["y1"])
+                x2 = int(seg["x2"])
+                y2 = int(seg["y2"])
+                length = max(abs(x2 - x1), abs(y2 - y1))
+                if length < min_branch_run:
+                    continue
+                dx = 0 if x1 == x2 else (1 if x2 > x1 else -1)
+                dy = 0 if y1 == y2 else (1 if y2 > y1 else -1)
+
+                for dist in range(min_branch_run, max(min_branch_run, length - min_branch_run) + 1, sample_step):
+                    x = x1 + dx * dist
+                    y = y1 + dy * dist
+                    if self._point_inside_any_bbox(x, y, inline_symbols, margin=6):
+                        continue
+
+                    for branch_direction in branch_dirs:
+                        if not _has_connected_side_pipe(
+                            pipe_mask, x, y, branch_direction, min_run=min_branch_run
+                        ):
+                            continue
+
+                        status = "queued"
+                        reason = "untraced_branch"
+                        if any(abs(x - tx) <= 10 and abs(y - ty) <= 10 for tx, ty in tee_points):
+                            status = "done_existing_tee"
+                            reason = "near_existing_tee_terminal"
+                        elif any(abs(x - tx) <= 8 and abs(y - ty) <= 8 for tx, ty in turn_points):
+                            status = "done_existing_turn"
+                            reason = "near_existing_turn"
+                        elif self._branch_already_traced(
+                            x, y, branch_direction, all_results, obj_id, seg_index
+                        ):
+                            status = "done_already_traced"
+                            reason = "branch_direction_covered_by_existing_segment"
+
+                        raw_candidates.append({
+                            "x": int(x),
+                            "y": int(y),
+                            "branch_direction": branch_direction,
+                            "source_trace_id": obj_id,
+                            "source_segment_index": seg_index,
+                            "source_direction": direction,
+                            "status": status,
+                            "reason": reason,
+                        })
+
+        candidates = self._cluster_branch_candidates(raw_candidates)
+        for index, candidate in enumerate(candidates, start=1):
+            candidate["id"] = f"branch_{index:06d}"
+            candidate["member_count"] = len(candidate.pop("members", []))
+        return candidates
+
+    def _draw_stage5b_branch_candidate_overlay(
+        self,
+        image: np.ndarray,
+        candidates: list[dict[str, Any]],
+    ) -> np.ndarray:
+        import cv2 as _cv2
+
+        overlay = image.copy()
+        colors = {
+            "queued": (0, 0, 255),
+            "done_existing_tee": (0, 180, 0),
+            "done_existing_turn": (0, 180, 0),
+            "done_already_traced": (0, 180, 0),
+        }
+        deltas = {
+            "UP": (0, -16), "DOWN": (0, 16),
+            "LEFT": (-16, 0), "RIGHT": (16, 0),
+        }
+        for candidate in candidates:
+            x = int(candidate["x"])
+            y = int(candidate["y"])
+            status = candidate.get("status", "queued")
+            color = colors.get(status, (128, 128, 128))
+            _cv2.circle(overlay, (x, y), 7, color, -1)
+            _cv2.circle(overlay, (x, y), 7, (255, 255, 255), 1)
+            dx, dy = deltas.get(candidate.get("branch_direction", ""), (0, 0))
+            if dx or dy:
+                _cv2.arrowedLine(
+                    overlay,
+                    (x, y),
+                    (x + dx, y + dy),
+                    color,
+                    2,
+                    tipLength=0.35,
+                )
+            label = candidate.get("id", "").replace("branch_", "b")
+            _cv2.putText(
+                overlay,
+                label,
+                (x + 9, y - 9),
+                _cv2.FONT_HERSHEY_SIMPLEX,
+                0.45,
+                color,
+                1,
+            )
+        return overlay
+
     def _detect_port_cv(
         self, image: np.ndarray, bbox: dict[str, int], track_len: int = 60
     ) -> Optional[tuple[int, int, str]]:
@@ -1487,6 +1711,19 @@ class PIDPipeline:
         logger.info("CV pipe trace done: %d traces in %.1fs", len(all_results), elapsed)
 
         self._save_json("stage5b_trace_results", all_results)
+        branch_candidates = self._detect_stage5b_branch_candidates(
+            pipe_mask=pipe_mask,
+            all_results=all_results,
+            inline_symbols=inline_symbols,
+        )
+        self._save_json("stage5b_branch_candidates", {
+            "candidates": branch_candidates,
+            "summary": {
+                "total": len(branch_candidates),
+                "queued": len([c for c in branch_candidates if c.get("status") == "queued"]),
+                "done": len([c for c in branch_candidates if str(c.get("status", "")).startswith("done_")]),
+            },
+        })
 
         # Draw overlay
         overlay = image.copy()
@@ -1598,6 +1835,11 @@ class PIDPipeline:
         self._draw_equipment_ground_truth(overlay)
 
         self._save_img("stage5b_trace_overlay", overlay)
+        branch_overlay = self._draw_stage5b_branch_candidate_overlay(
+            overlay,
+            branch_candidates,
+        )
+        self._save_img("stage5b_branch_candidates_overlay", branch_overlay)
 
     # ---------- Stage 5: Geometric line-detection alternative ----------
     def stage5_geometric_line_detection(self) -> None:
