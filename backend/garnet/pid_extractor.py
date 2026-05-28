@@ -1333,6 +1333,9 @@ class PIDPipeline:
             "gate_valve", "globe_valve", "check_valve", "ball_valve",
             "butterfly_valve", "control_valve", "pressure_relief_valve",
             "reducer", "spectacle_blind", "strainer",
+            "gate valve", "globe valve", "check valve", "ball valve",
+            "butterfly valve", "control valve", "pressure relief valve",
+            "spectacle blind",
         }
         inline_symbols = [
             o for o in objects
