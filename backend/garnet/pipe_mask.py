@@ -69,6 +69,22 @@ def _suppress_object_interiors(mask: np.ndarray, boxes: list[dict[str, Any]], in
     return suppressed, removed
 
 
+def _is_inline_object(item: dict[str, Any]) -> bool:
+    normalized_class = _normalize_class_name(str(item.get("class_name", "")))
+    return normalized_class in {
+        "gate valve",
+        "globe valve",
+        "check valve",
+        "ball valve",
+        "butterfly valve",
+        "control valve",
+        "pressure relief valve",
+        "reducer",
+        "spectacle blind",
+        "strainer",
+    }
+
+
 def _select_object_regions_for_suppression(
     object_regions: list[dict[str, Any]],
     *,
@@ -169,6 +185,7 @@ def run_pipe_mask_stage(
     image_id: str,
     ocr_padding: int = 1,
     object_inset: int = 1,
+    inline_object_inset: int = 12,
     min_component_area: int = 16,
     preserve_ocr_classes: tuple[str, ...] = (),
     preserve_object_classes: tuple[str, ...] = (),
@@ -186,12 +203,26 @@ def run_pipe_mask_stage(
         object_regions,
         preserve_classes=preserve_object_classes,
     )
+    inline_object_regions = [
+        item for item in suppressible_object_regions
+        if _is_inline_object(item)
+    ]
+    other_object_regions = [
+        item for item in suppressible_object_regions
+        if not _is_inline_object(item)
+    ]
     object_suppressed, object_removed = _suppress_object_interiors(
         ocr_suppressed,
-        suppressible_object_regions,
+        other_object_regions,
         inset=object_inset,
     )
-    filtered_mask, small_component_removals = _filter_small_components(object_suppressed, min_component_area)
+    inline_suppressed, inline_removed = _suppress_object_interiors(
+        object_suppressed,
+        inline_object_regions,
+        inset=inline_object_inset,
+    )
+    object_removed += inline_removed
+    filtered_mask, small_component_removals = _filter_small_components(inline_suppressed, min_component_area)
 
     return {
         "mask_image": filtered_mask,
@@ -221,6 +252,7 @@ def run_pipe_mask_stage(
             ],
             "ocr_padding": ocr_padding,
             "object_inset": object_inset,
+            "inline_object_inset": inline_object_inset,
             "min_component_area": min_component_area,
             "preserve_ocr_classes": list(preserve_ocr_classes),
             "preserve_object_classes": list(preserve_object_classes),

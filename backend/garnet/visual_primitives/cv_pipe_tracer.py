@@ -555,6 +555,20 @@ class CVPipeTracer:
                         class_name=hit.get("class_name", "unknown"),
                         x=x, y=y,
                     ))
+                psv_exit = (
+                    self._compute_pressure_relief_exit(x, y, direction, inline_hits)
+                    if self._is_pressure_relief_group(inline_hits)
+                    else None
+                )
+                if psv_exit is not None:
+                    far_x, far_y, exit_dir = psv_exit
+                    self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+                    result.turns.append((x, y, exit_dir))
+                    x, y = self._snap_to_centerline(far_x, far_y, exit_dir)
+                    direction = exit_dir
+                    dx, dy = DIRECTION_DELTA[direction]
+                    seg_start_x, seg_start_y = x, y
+                    continue
                 # Exit position: far edge of the furthest overlapping inline obj
                 far_x, far_y = self._compute_inline_exit(x, y, direction, inline_hits)
                 if _is_pipe(self.mask, far_x, far_y) or _is_pipe_band(self.mask, far_x, far_y, direction):
@@ -603,6 +617,20 @@ class CVPipeTracer:
                         class_name=hit.get("class_name", "unknown"),
                         x=x, y=y,
                     ))
+                psv_exit = (
+                    self._compute_pressure_relief_exit(x, y, direction, inline_hits)
+                    if self._is_pressure_relief_group(inline_hits)
+                    else None
+                )
+                if psv_exit is not None:
+                    far_x, far_y, exit_dir = psv_exit
+                    self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+                    result.turns.append((x, y, exit_dir))
+                    x, y = self._snap_to_centerline(far_x, far_y, exit_dir)
+                    direction = exit_dir
+                    dx, dy = DIRECTION_DELTA[direction]
+                    seg_start_x, seg_start_y = x, y
+                    continue
                 far_x, far_y = self._compute_inline_exit(x, y, direction, inline_hits)
                 self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
                 if _is_pipe(self.mask, far_x, far_y) or _is_pipe_band(self.mask, far_x, far_y, direction):
@@ -906,6 +934,70 @@ class CVPipeTracer:
         else:  # DOWN
             far_y = max(b["y_max"] for b in bboxes) + margin
             return (x, min(self.h - 1, far_y))
+
+    def _is_pressure_relief_group(self, group: list[dict]) -> bool:
+        return any(
+            str(sym.get("class_name", "")).replace("_", " ").lower() == "pressure relief valve"
+            for sym in group
+        )
+
+    def _score_pipe_exit(
+        self,
+        x: int,
+        y: int,
+        direction: str,
+        distance: int = 80,
+    ) -> tuple[int, int, int]:
+        dx, dy = DIRECTION_DELTA[direction]
+        score = 0
+        first_pipe: Optional[tuple[int, int]] = None
+        for step in range(0, distance):
+            px = x + dx * step
+            py = y + dy * step
+            if _is_pipe_band(self.mask, px, py, direction, band_width=1):
+                score += 1
+                if first_pipe is None:
+                    first_pipe = self._snap_to_centerline(px, py, direction)
+        if first_pipe is None:
+            first_pipe = (x, y)
+        return (score, first_pipe[0], first_pipe[1])
+
+    def _compute_pressure_relief_exit(
+        self,
+        x: int,
+        y: int,
+        direction: str,
+        group: list[dict],
+    ) -> Optional[tuple[int, int, str]]:
+        """PSV ports are typically perpendicular: bottom plus left/right."""
+        bboxes = [s["bbox"] for s in group]
+        x_min = min(b["x_min"] for b in bboxes)
+        x_max = max(b["x_max"] for b in bboxes)
+        y_min = min(b["y_min"] for b in bboxes)
+        y_max = max(b["y_max"] for b in bboxes)
+        cx = (x_min + x_max) // 2
+        cy = (y_min + y_max) // 2
+        margin = 6
+
+        if direction in ("UP", "DOWN"):
+            candidates = [
+                (max(0, x_min - margin), cy, "LEFT"),
+                (min(self.w - 1, x_max + margin), cy, "RIGHT"),
+            ]
+        else:
+            candidates = [
+                (cx, min(self.h - 1, y_max + margin), "DOWN"),
+                (cx, max(0, y_min - margin), "UP"),
+            ]
+
+        scored = [
+            (*self._score_pipe_exit(px, py, exit_dir), exit_dir)
+            for px, py, exit_dir in candidates
+        ]
+        score, pipe_x, pipe_y, exit_dir = max(scored, key=lambda item: item[0])
+        if score < self.min_step:
+            return None
+        return (pipe_x, pipe_y, exit_dir)
 
     def _is_sheet_edge(self, x: int, y: int, direction: str) -> bool:
         """Check if we're at the image boundary."""
