@@ -866,6 +866,26 @@ class CVPipeTracer:
             forward_ok = _has_line_of_sight_axis_band(self.mask, x, y, direction, self.min_step, band_width=1)
 
             current_leg_len = max(abs(x - seg_start_x), abs(y - seg_start_y))
+            if source_obj_id.startswith("branch_") and current_leg_len > 60:
+                junction_obj_id = self._check_junction_marker(x, y, source_obj_id)
+                if junction_obj_id:
+                    left_dir = TURN_LEFT[direction]
+                    right_dir = TURN_RIGHT[direction]
+                    connected_turn_min = max(25, self.straight_min_step)
+                    left_connected = _has_connected_side_pipe(
+                        self.mask, x, y, left_dir, connected_turn_min
+                    )
+                    right_connected = _has_connected_side_pipe(
+                        self.mask, x, y, right_dir, connected_turn_min
+                    )
+                    if left_connected and right_connected:
+                        marker_id, marker_x, marker_y = junction_obj_id
+                        self._append_segment(result, seg_start_x, seg_start_y, marker_x, marker_y, direction)
+                        result.terminal_type = TerminalType.TEE_JUNCTION.value
+                        result.terminal_x, result.terminal_y = marker_x, marker_y
+                        result.terminal_obj_id = marker_id
+                        break
+
             junction_obj_id = (
                 self._check_junction_marker(x, y, source_obj_id)
                 if result.turns
@@ -1088,16 +1108,47 @@ class CVPipeTracer:
                     x, y = self._enter_turn_leg(x, y, direction)
                     seg_start_x, seg_start_y = x, y
                     continue
-            if direction == "UP" and source_obj_id == "obj_000195":
-                left_turns = [c for c in turn_candidates if c[2] == left_dir]
-                left_turn = self._nearest_candidate_point(x, y, left_turns)
-                raycast = self._find_straight_raycast_candidate(x, y, direction, source_obj_id)
+            candidate_turn_dirs = {c[2] for c in turn_candidates if c[2] in (left_dir, right_dir)}
+            if len(candidate_turn_dirs) == 1 and direction == "UP":
+                turn_dir = next(iter(candidate_turn_dirs))
+                turn = self._nearest_candidate_point(
+                    x,
+                    y,
+                    [c for c in turn_candidates if c[2] == turn_dir],
+                )
                 raycast_dist = (
                     max(abs(raycast[0] - x), abs(raycast[1] - y))
                     if raycast is not None else 9999
                 )
-                if left_turn is not None and raycast_dist > 40:
-                    tx, ty, turn_dir = left_turn
+                turn_target = (
+                    self._find_straight_raycast_candidate(
+                        turn[0],
+                        turn[1],
+                        turn_dir,
+                        source_obj_id,
+                        ray_start=5,
+                        ray_max=80,
+                        ray_step=1,
+                        relaxed_band=True,
+                    )
+                    if turn is not None else None
+                )
+                if (
+                    turn is not None
+                    and turn_dir == left_dir
+                    and raycast_dist > 40
+                    and turn_target is not None
+                    and _has_line_of_sight_axis_band(
+                        self.mask,
+                        turn_target[0],
+                        turn_target[1],
+                        turn_dir,
+                        40,
+                        band_width=1,
+                    )
+                    and not self._is_backtrack_turn(result, turn[0], turn[1], turn_dir)
+                ):
+                    tx, ty, turn_dir = turn
                     self._append_segment(result, seg_start_x, seg_start_y, tx, ty, direction)
                     result.turns.append((tx, ty, turn_dir))
                     direction = turn_dir

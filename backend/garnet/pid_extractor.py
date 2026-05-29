@@ -1677,6 +1677,7 @@ class PIDPipeline:
         existing_results: dict[str, dict],
         min_distance_from_start: int = 30,
         tolerance: int = 5,
+        min_straight_continuation: int = 25,
     ) -> Optional[tuple[int, int, int, int, str]]:
         """Find the first point where a branch reaches an already traced path."""
         deltas = {
@@ -1709,6 +1710,9 @@ class PIDPipeline:
                         ):
                             continue
                         if self._point_near_segment(px, py, existing_seg, tolerance=tolerance):
+                            remaining_on_seg = max(0, seg_len - step)
+                            if remaining_on_seg >= min_straight_continuation:
+                                continue
                             return seg_index, px, py, path_distance, str(existing_id)
             distance_from_start += seg_len
         return None
@@ -1723,6 +1727,11 @@ class PIDPipeline:
         truncated = [dict(seg) for seg in segments[:seg_index + 1]]
         if truncated:
             last = truncated[-1]
+            direction = str(last.get("direction", "")).upper()
+            if direction in ("UP", "DOWN"):
+                ix = int(last["x1"])
+            elif direction in ("LEFT", "RIGHT"):
+                iy = int(last["y1"])
             last["x2"] = ix
             last["y2"] = iy
             last["length_px"] = max(abs(ix - int(last["x1"])), abs(iy - int(last["y1"])))
@@ -2273,6 +2282,15 @@ class PIDPipeline:
             if not segments:
                 continue
             last = segments[-1]
+            same_axis = (
+                last["direction"] in ("LEFT", "RIGHT")
+                and abs(int(last["y2"]) - terminal_y) <= 3
+            ) or (
+                last["direction"] in ("UP", "DOWN")
+                and abs(int(last["x2"]) - terminal_x) <= 3
+            )
+            if not same_axis:
+                continue
             old_len = int(last.get("length_px", 0))
             last["x2"] = terminal_x
             last["y2"] = terminal_y
