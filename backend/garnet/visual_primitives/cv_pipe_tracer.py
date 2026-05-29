@@ -266,19 +266,102 @@ class CVPipeTracer:
         # Inline symbol bboxes (valves, reducers, etc.) — from stage4
         self._inline_symbols: list[dict] = []  # set via set_inline_symbols()
 
-    def _snap_to_centerline(self, x: int, y: int, direction: str) -> tuple[int, int]:
-        """Snap to nearest local centerline to avoid drifting to adjacent lines."""
+    def _center_of_nearest_run(self, values: list[int], target: int) -> Optional[int]:
+        if not values:
+            return None
+        runs: list[list[int]] = []
+        current: list[int] = []
+        for value in sorted(values):
+            if not current or value == current[-1] + 1:
+                current.append(value)
+                continue
+            runs.append(current)
+            current = [value]
+        if current:
+            runs.append(current)
+        best_run = min(
+            runs,
+            key=lambda run: (
+                0 if run[0] <= target <= run[-1] else min(abs(target - run[0]), abs(target - run[-1])),
+                abs(((run[0] + run[-1]) / 2.0) - target),
+            ),
+        )
+        return int(round((best_run[0] + best_run[-1]) / 2.0))
+
+    def _line_support_score(self, x: int, y: int, direction: str, radius: int = 8) -> int:
+        """Count local pipe pixels along the current travel axis."""
+        score = 0
         if direction in ("UP", "DOWN"):
-            cols = [cx for cx in range(x - 5, x + 6)
-                    if 0 <= cx < self.w and 0 <= y < self.h and self.mask[y, cx] > 0]
-            if cols:
-                return (min(cols, key=lambda cx: abs(cx - x)), y)
+            for cy in range(y - radius, y + radius + 1):
+                if 0 <= cy < self.h and 0 <= x < self.w and self.mask[cy, x] > 0:
+                    score += 1
         else:
-            rows = [cy for cy in range(y - 5, y + 6)
+            for cx in range(x - radius, x + radius + 1):
+                if 0 <= cx < self.w and 0 <= y < self.h and self.mask[y, cx] > 0:
+                    score += 1
+        return score
+
+    def _center_of_best_axis_support(
+        self,
+        candidates: list[int],
+        target: int,
+        score_at,
+    ) -> Optional[int]:
+        """Return midpoint of the nearest best-supported contiguous candidate run."""
+        if not candidates:
+            return None
+
+        scored = [(value, score_at(value)) for value in sorted(set(candidates))]
+        if not scored:
+            return None
+        best_score = max(score for _, score in scored)
+        if best_score <= 0:
+            return None
+
+        strong_values = [value for value, score in scored if score == best_score]
+        return self._center_of_nearest_run(strong_values, target)
+
+    def _snap_to_centerline(self, x: int, y: int, direction: str) -> tuple[int, int]:
+        """Snap to the centerline using support along the current travel axis.
+
+        A perpendicular row/column midpoint is unstable at elbows because the
+        orthogonal leg contaminates the local stroke width.  Scoring candidates
+        by same-axis continuity keeps vertical walks on vertical strokes and
+        horizontal walks on horizontal strokes.
+        """
+        if direction in ("UP", "DOWN"):
+            cols = [cx for cx in range(x - 8, x + 9)
+                    if 0 <= cx < self.w and 0 <= y < self.h and self.mask[y, cx] > 0]
+            center = self._center_of_best_axis_support(
+                cols,
+                x,
+                lambda cx: self._line_support_score(cx, y, direction),
+            )
+            if center is not None:
+                return (center, y)
+        else:
+            rows = [cy for cy in range(y - 8, y + 9)
                     if 0 <= cy < self.h and 0 <= x < self.w and self.mask[cy, x] > 0]
-            if rows:
-                return (x, min(rows, key=lambda cy: abs(cy - y)))
+            center = self._center_of_best_axis_support(
+                rows,
+                y,
+                lambda cy: self._line_support_score(x, cy, direction),
+            )
+            if center is not None:
+                return (x, center)
         return (x, y)
+
+    def _enter_turn_leg(self, x: int, y: int, turn_dir: str) -> tuple[int, int]:
+        dx, dy = DIRECTION_DELTA[turn_dir]
+        probe_x = x
+        probe_y = y
+        for step in range(1, self.min_step + 1):
+            nx = x + dx * step
+            ny = y + dy * step
+            if _is_pipe_band(self.mask, nx, ny, turn_dir, band_width=1):
+                probe_x, probe_y = nx, ny
+                break
+        return self._snap_to_centerline(probe_x, probe_y, turn_dir)
 
 
     def set_inline_symbols(self, objects: list[dict]) -> None:
@@ -344,6 +427,14 @@ class CVPipeTracer:
 
     def _append_segment(self, result: TraceResult, x1: int, y1: int,
                         x2: int, y2: int, direction: str) -> None:
+        if direction in ("UP", "DOWN"):
+            cx = int(round((x1 + x2) / 2.0))
+            x1 = cx
+            x2 = cx
+        elif direction in ("LEFT", "RIGHT"):
+            cy = int(round((y1 + y2) / 2.0))
+            y1 = cy
+            y2 = cy
         seg_len = max(abs(x2 - x1), abs(y2 - y1))
         if seg_len >= self.min_step:
             result.segments.append(TraceSegment(
@@ -362,14 +453,23 @@ class CVPipeTracer:
         ray_start: int = 20,
         ray_max: int = 50,
         ray_step: int = 2,
+        allow_nearby_instrument: bool = False,
+        relaxed_band: bool = False,
     ) -> Optional[tuple[int, int]]:
         dx, dy = DIRECTION_DELTA[direction]
         for ray_dist in range(ray_start, ray_max, ray_step):
             rx = x + ray_dist * dx
             ry = y + ray_dist * dy
-            is_pipe_target = _is_pipe(self.mask, rx, ry) and _has_line_of_sight_axis_band(
-                self.mask, rx, ry, direction, self.turn_min_step, band_width=1
-            )
+            sx, sy = self._snap_to_centerline(rx, ry, direction)
+            if relaxed_band:
+                is_pipe_target = _is_pipe_band(self.mask, rx, ry, direction, band_width=4) and _has_line_of_sight_axis_band(
+                    self.mask, sx, sy, direction, self.turn_min_step, band_width=1
+                )
+            else:
+                is_pipe_target = _is_pipe(self.mask, rx, ry) and _has_line_of_sight_axis_band(
+                    self.mask, rx, ry, direction, self.turn_min_step, band_width=1
+                )
+                sx, sy = self._snap_to_centerline(rx, ry, direction)
             is_inline_target = self._is_inline_target(rx, ry)
             if not (is_pipe_target or is_inline_target):
                 continue
@@ -382,8 +482,18 @@ class CVPipeTracer:
                 and not is_inline_target
                 and not self._terminal_is_pass_through(hit_terminal, direction)
             ):
-                continue
-            return self._snap_to_centerline(rx, ry, direction)
+                terminal_obj_id = hit_terminal[1] if len(hit_terminal) > 1 else None
+                terminal_bbox = self._terminal_bbox_by_type(hit_terminal[0], terminal_obj_id)
+                is_nearby_instrument = (
+                    allow_nearby_instrument
+                    and
+                    hit_terminal[0] == TerminalType.INSTRUMENT_TAG.value
+                    and terminal_bbox
+                    and not _is_inside_bbox_exact(rx, ry, terminal_bbox)
+                )
+                if not is_nearby_instrument:
+                    continue
+            return sx, sy
         return None
 
     def _has_continuation_past_bbox(self, bbox: dict[str, int], direction: str) -> bool:
@@ -436,6 +546,24 @@ class CVPipeTracer:
             ty = y + dy * step
             terminal = self._check_terminals(tx, ty, turn_dir, source_obj_id, look_ahead=0)
             if terminal and not self._terminal_is_pass_through(terminal, turn_dir):
+                return True
+        return False
+
+    def _turn_hits_terminal_type(
+        self,
+        x: int,
+        y: int,
+        turn_dir: str,
+        source_obj_id: str,
+        terminal_type: str,
+        distance: int = 160,
+    ) -> bool:
+        dx, dy = DIRECTION_DELTA[turn_dir]
+        for step in range(1, distance + 1):
+            tx = x + dx * step
+            ty = y + dy * step
+            terminal = self._check_terminals(tx, ty, turn_dir, source_obj_id, look_ahead=0)
+            if terminal and terminal[0] == terminal_type:
                 return True
         return False
 
@@ -560,6 +688,81 @@ class CVPipeTracer:
             return None
         return min(candidates, key=lambda c: abs(c[0] - x) + abs(c[1] - y))
 
+    def _connected_continuation_dirs(self, x: int, y: int, direction: str) -> set[str]:
+        dirs: set[str] = set()
+        if _has_line_of_sight_axis_band(self.mask, x, y, direction, self.min_step, band_width=1):
+            dirs.add(direction)
+        left_dir = TURN_LEFT[direction]
+        right_dir = TURN_RIGHT[direction]
+        connected_turn_min = max(25, self.straight_min_step)
+        if _has_connected_side_pipe(self.mask, x, y, left_dir, connected_turn_min):
+            dirs.add(left_dir)
+        if _has_connected_side_pipe(self.mask, x, y, right_dir, connected_turn_min):
+            dirs.add(right_dir)
+        return dirs
+
+    def _find_bidirectional_side_junction(
+        self,
+        x: int,
+        y: int,
+        direction: str,
+        search_px: int = 8,
+    ) -> Optional[tuple[int, int]]:
+        """Find a nearby point where both side directions are connected.
+
+        The walker can overshoot a black-dot tee by a few pixels before forward
+        blocks.  Search backward and forward along the current line so a true
+        bidirectional tee is not downgraded to a one-sided elbow.
+        """
+        dx, dy = DIRECTION_DELTA[direction]
+        left_dir = TURN_LEFT[direction]
+        right_dir = TURN_RIGHT[direction]
+        connected_turn_min = max(25, self.straight_min_step)
+        candidates: list[tuple[int, int]] = []
+        for offset in range(-search_px, search_px + 1):
+            px = x + dx * offset
+            py = y + dy * offset
+            if not _is_pipe_band(self.mask, px, py, direction, band_width=1):
+                continue
+            if (
+                _has_connected_side_pipe(self.mask, px, py, left_dir, connected_turn_min)
+                and _has_connected_side_pipe(self.mask, px, py, right_dir, connected_turn_min)
+            ):
+                candidates.append((px, py))
+        if not candidates:
+            return None
+        return min(candidates, key=lambda p: abs(p[0] - x) + abs(p[1] - y))
+
+    def _is_backtrack_turn(
+        self,
+        result: TraceResult,
+        x: int,
+        y: int,
+        turn_dir: str,
+        tolerance: int = 10,
+    ) -> bool:
+        opposite_dir = OPPOSITE.get(turn_dir)
+        if opposite_dir is None:
+            return False
+        for segment in result.segments:
+            if segment.direction != opposite_dir:
+                continue
+            if turn_dir in ("LEFT", "RIGHT"):
+                if abs(segment.y1 - y) > tolerance and abs(segment.y2 - y) > tolerance:
+                    continue
+                seg_min = min(segment.x1, segment.x2)
+                seg_max = max(segment.x1, segment.x2)
+                if seg_min - tolerance <= x <= seg_max + tolerance:
+                    return True
+            else:
+                if abs(segment.x1 - x) > tolerance and abs(segment.x2 - x) > tolerance:
+                    continue
+                seg_min = min(segment.y1, segment.y2)
+                seg_max = max(segment.y1, segment.y2)
+                if seg_min - tolerance <= y <= seg_max + tolerance:
+                    return True
+        return False
+
     def trace(self, start_x: int, start_y: int, start_dir: str,
               source_obj_id: str = "") -> TraceResult:
         """Trace from port to terminal. source_obj_id is excluded from terminal checks."""
@@ -592,6 +795,7 @@ class CVPipeTracer:
         x, y = self._snap_to_centerline(x, y, direction)
         seg_start_x, seg_start_y = x, y
         steps = 0
+        state_counts: dict[tuple[int, int, str], int] = {}
 
         # Walk clear of source symbol before first terminal check
         warmup_steps = 20
@@ -615,6 +819,13 @@ class CVPipeTracer:
 
             # Keep walker centered before evaluating/advancing.
             x, y = self._snap_to_centerline(x, y, direction)
+            state_key = (int(round(x / 3)), int(round(y / 3)), direction)
+            state_counts[state_key] = state_counts.get(state_key, 0) + 1
+            if state_counts[state_key] > 3:
+                self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+                result.terminal_type = TerminalType.DEAD_END.value
+                result.terminal_x, result.terminal_y = x, y
+                break
 
             # Check for inline symbols (valve, reducer) — these are
             # traversed through, not terminals.  Compute the exit position
@@ -651,6 +862,9 @@ class CVPipeTracer:
                     y += dy * (extent + 10)
                 continue
 
+            # Look ahead — what's in front?
+            forward_ok = _has_line_of_sight_axis_band(self.mask, x, y, direction, self.min_step, band_width=1)
+
             current_leg_len = max(abs(x - seg_start_x), abs(y - seg_start_y))
             junction_obj_id = (
                 self._check_junction_marker(x, y, source_obj_id)
@@ -659,16 +873,17 @@ class CVPipeTracer:
                 and not source_obj_id.startswith("equip_")
                 else None
             )
-            if junction_obj_id:
+            if (
+                junction_obj_id
+                and not forward_ok
+                and len(self._connected_continuation_dirs(x, y, direction)) > 1
+            ):
                 marker_id, marker_x, marker_y = junction_obj_id
                 self._append_segment(result, seg_start_x, seg_start_y, marker_x, marker_y, direction)
                 result.terminal_type = TerminalType.TEE_JUNCTION.value
                 result.terminal_x, result.terminal_y = marker_x, marker_y
                 result.terminal_obj_id = marker_id
                 break
-
-            # Look ahead — what's in front?
-            forward_ok = _has_line_of_sight_axis_band(self.mask, x, y, direction, self.min_step, band_width=1)
 
             if forward_ok:
                 side_turn = self._find_branch_terminal_side_turn(x, y, direction, source_obj_id)
@@ -697,6 +912,20 @@ class CVPipeTracer:
                 raycast = self._find_straight_raycast_candidate(x, y, direction, source_obj_id)
                 terminal_obj_id = terminal[1] if len(terminal) > 1 else None
                 terminal_bbox = self._terminal_bbox_by_type(terminal[0], terminal_obj_id)
+                if (
+                    raycast is None
+                    and terminal[0] == TerminalType.INSTRUMENT_TAG.value
+                    and terminal_bbox
+                    and not _is_inside_bbox_exact(x, y, terminal_bbox)
+                ):
+                    raycast = self._find_straight_raycast_candidate(
+                        x,
+                        y,
+                        direction,
+                        source_obj_id,
+                        allow_nearby_instrument=True,
+                        relaxed_band=True,
+                    )
                 if (
                     raycast is not None
                     and terminal[0] == TerminalType.INSTRUMENT_TAG.value
@@ -773,6 +1002,20 @@ class CVPipeTracer:
                 self.mask, x, y, right_dir, connected_turn_min
             )
 
+            side_junction = self._find_bidirectional_side_junction(x, y, direction)
+            if side_junction is not None:
+                raycast = self._find_straight_raycast_candidate(x, y, direction, source_obj_id)
+                if raycast is not None:
+                    self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+                    x, y = raycast
+                    seg_start_x, seg_start_y = x, y
+                    continue
+                jx, jy = side_junction
+                self._append_segment(result, seg_start_x, seg_start_y, jx, jy, direction)
+                result.terminal_type = TerminalType.TEE_JUNCTION.value
+                result.terminal_x, result.terminal_y = jx, jy
+                break
+
             # Once a trace has already taken multiple elbows, a multi-direction
             # side branch is a tee terminal. A single exact side continuation is
             # still a normal elbow.
@@ -799,21 +1042,52 @@ class CVPipeTracer:
             elif right_connected and not left_connected:
                 exact_turn_dir = right_dir
             if exact_turn_dir is not None:
-                if (
-                    raycast is not None
-                    and self._turn_hits_blocking_terminal(x, y, exact_turn_dir, source_obj_id)
-                ):
+                if self._is_backtrack_turn(result, x, y, exact_turn_dir):
+                    exact_turn_dir = None
+                else:
+                    turn_hits_blocking_terminal = self._turn_hits_blocking_terminal(
+                        x, y, exact_turn_dir, source_obj_id
+                    )
+                    if raycast is None and turn_hits_blocking_terminal:
+                        raycast = self._find_straight_raycast_candidate(
+                            x,
+                            y,
+                            direction,
+                            source_obj_id,
+                            ray_start=5,
+                            ray_max=50,
+                            ray_step=1,
+                            relaxed_band=True,
+                        )
+                    if (
+                        self._is_page_connection_source(source_obj_id)
+                        and self._turn_hits_terminal_type(
+                            x,
+                            y,
+                            exact_turn_dir,
+                            source_obj_id,
+                            TerminalType.PAGE_CONNECTION.value,
+                        )
+                    ):
+                        self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+                        result.terminal_type = TerminalType.TEE_JUNCTION.value
+                        result.terminal_x, result.terminal_y = x, y
+                        break
+                    if (
+                        raycast is not None
+                        and turn_hits_blocking_terminal
+                    ):
+                        self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+                        x, y = raycast
+                        seg_start_x, seg_start_y = x, y
+                        continue
                     self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
-                    x, y = raycast
+                    result.turns.append((x, y, exact_turn_dir))
+                    direction = exact_turn_dir
+                    dx, dy = DIRECTION_DELTA[direction]
+                    x, y = self._enter_turn_leg(x, y, direction)
                     seg_start_x, seg_start_y = x, y
                     continue
-                self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
-                result.turns.append((x, y, exact_turn_dir))
-                direction = exact_turn_dir
-                dx, dy = DIRECTION_DELTA[direction]
-                seg_start_x, seg_start_y = x, y
-                continue
-
             if direction == "UP" and source_obj_id == "obj_000195":
                 left_turns = [c for c in turn_candidates if c[2] == left_dir]
                 left_turn = self._nearest_candidate_point(x, y, left_turns)
@@ -826,15 +1100,31 @@ class CVPipeTracer:
                     tx, ty, turn_dir = left_turn
                     self._append_segment(result, seg_start_x, seg_start_y, tx, ty, direction)
                     result.turns.append((tx, ty, turn_dir))
-                    x, y = tx, ty
                     direction = turn_dir
                     dx, dy = DIRECTION_DELTA[direction]
+                    x, y = self._enter_turn_leg(tx, ty, direction)
                     seg_start_x, seg_start_y = x, y
                     continue
 
             if raycast is not None:
                 self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
                 x, y = raycast
+                seg_start_x, seg_start_y = x, y
+                continue
+
+            relaxed_straight = self._find_straight_raycast_candidate(
+                x,
+                y,
+                direction,
+                source_obj_id,
+                ray_start=5,
+                ray_max=50,
+                ray_step=1,
+                relaxed_band=True,
+            )
+            if relaxed_straight is not None:
+                self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+                x, y = relaxed_straight
                 seg_start_x, seg_start_y = x, y
                 continue
 
@@ -852,6 +1142,9 @@ class CVPipeTracer:
                 if (left_raycast is not None) != (right_raycast is not None):
                     turn_dir = left_dir if left_raycast is not None else right_dir
                     turn_target = left_raycast if left_raycast is not None else right_raycast
+                    if self._is_backtrack_turn(result, x, y, turn_dir):
+                        turn_target = None
+                if (left_raycast is not None) != (right_raycast is not None) and turn_target is not None:
                     self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
                     result.turns.append((x, y, turn_dir))
                     x, y = turn_target
@@ -870,6 +1163,7 @@ class CVPipeTracer:
                     result.turns.append((x, y, turn_dir))
                     direction = turn_dir
                     dx, dy = DIRECTION_DELTA[direction]
+                    x, y = self._enter_turn_leg(x, y, direction)
                     seg_start_x, seg_start_y = x, y
                     continue
                 result.terminal_type = TerminalType.TEE_JUNCTION.value
@@ -879,9 +1173,14 @@ class CVPipeTracer:
             turn = self._nearest_candidate_point(x, y, turn_candidates)
             if turn is not None:
                 tx, ty, turn_dir = turn
+                if self._is_backtrack_turn(result, tx, ty, turn_dir):
+                    turn = None
+            if turn is not None:
+                tx, ty, turn_dir = turn
                 turn_leg_len = max(abs(tx - seg_start_x), abs(ty - seg_start_y))
                 self._append_segment(result, seg_start_x, seg_start_y, tx, ty, direction)
-                if len(result.turns) == 1 and turn_leg_len < 200:
+                candidate_dirs = {c[2] for c in turn_candidates}
+                if len(result.turns) == 1 and turn_leg_len < 200 and len(candidate_dirs) > 1:
                     if (
                         source_obj_id.startswith("equip_")
                         and turn_leg_len < 20
@@ -921,6 +1220,13 @@ class CVPipeTracer:
                          source_obj_id: str = "", look_ahead: int = 0) -> Optional[tuple]:
         """Check if position or area ahead is a terminal. Returns (type, obj_id) or None."""
         dx, dy = DIRECTION_DELTA.get(direction, (0, 0))
+        current_page_margin = 2
+        current_tag_margin = 4
+        current_dcs_margin = 6
+        current_equipment_margin = 4
+        ahead_page_margin = 2
+        ahead_equipment_margin = 4
+        ahead_tag_margin = 2
 
         # --- First: check if we're *already inside* any terminal bbox ---
         # This catches cases where the mask extension draws the tracer
@@ -931,7 +1237,7 @@ class CVPipeTracer:
             pc_id = pc.get("id", "")
             if pc_id == source_obj_id:
                 continue
-            if _check_bbox_hit(x, y, pc["bbox"], margin=12):
+            if _check_bbox_hit(x, y, pc["bbox"], margin=current_page_margin):
                 return (TerminalType.PAGE_CONNECTION.value, pc_id)
 
         # Exact equipment hit wins over nearby labels.
@@ -943,21 +1249,22 @@ class CVPipeTracer:
             if _is_inside_bbox_exact(x, y, eq_bbox):
                 return (TerminalType.EQUIPMENT.value, eq_id)
 
-        # Instrument tags can be attached just off the pipe; allow a wider
-        # current-position margin before expanded equipment margins.
+        # Instrument tags can sit just off the pipe, but dense P&IDs need
+        # small margins so nearby labels do not steal the current trace.
         for tag in self.instrument_tags:
-            margin = 40 if tag.get("class_name") == "instrument dcs" else 30
+            margin = current_dcs_margin if tag.get("class_name") == "instrument dcs" else current_tag_margin
             if _check_bbox_hit(x, y, tag["bbox"], margin=margin):
                 return (TerminalType.INSTRUMENT_TAG.value, tag.get("id", ""))
 
-        # Expanded equipment hit catches pipe entering large equipment bboxes.
+        # Expanded equipment hit catches pipe entering large equipment bboxes
+        # without letting nearby objects interfere with dense look-ahead.
         for eq in self.equipment_objects:
             eq_id = eq.get("id", "")
             if eq_id == source_obj_id:
                 continue
             eq_bbox = eq["bbox"]
-            if (eq_bbox["x_min"] - 30 <= x <= eq_bbox["x_max"] + 30 and
-                eq_bbox["y_min"] - 30 <= y <= eq_bbox["y_max"] + 30):
+            if (eq_bbox["x_min"] - current_equipment_margin <= x <= eq_bbox["x_max"] + current_equipment_margin and
+                eq_bbox["y_min"] - current_equipment_margin <= y <= eq_bbox["y_max"] + current_equipment_margin):
                 return (TerminalType.EQUIPMENT.value, eq_id)
 
         # --- Second: directional scan ahead ---
@@ -970,22 +1277,22 @@ class CVPipeTracer:
                 pc_id = pc.get("id", "")
                 if pc_id == source_obj_id:
                     continue
-                if _check_bbox_hit(tx, ty, pc["bbox"], margin=8):
+                if _check_bbox_hit(tx, ty, pc["bbox"], margin=ahead_page_margin):
                     return (TerminalType.PAGE_CONNECTION.value, pc_id)
 
-            # Check equipment (large bboxes — wider margin)
+            # Check equipment with only a small bbox expansion.
             for eq in self.equipment_objects:
                 eq_id = eq.get("id", "")
                 if eq_id == source_obj_id:
                     continue
                 eq_bbox = eq["bbox"]
-                if (eq_bbox["x_min"] - 20 <= tx <= eq_bbox["x_max"] + 20 and
-                    eq_bbox["y_min"] - 20 <= ty <= eq_bbox["y_max"] + 20):
+                if (eq_bbox["x_min"] - ahead_equipment_margin <= tx <= eq_bbox["x_max"] + ahead_equipment_margin and
+                    eq_bbox["y_min"] - ahead_equipment_margin <= ty <= eq_bbox["y_max"] + ahead_equipment_margin):
                     return (TerminalType.EQUIPMENT.value, eq_id)
 
             # Check instrument tags
             for tag in self.instrument_tags:
-                if _check_bbox_hit(tx, ty, tag["bbox"], margin=8):
+                if _check_bbox_hit(tx, ty, tag["bbox"], margin=ahead_tag_margin):
                     return (TerminalType.INSTRUMENT_TAG.value, tag.get("id", ""))
 
         return None

@@ -71,6 +71,8 @@ from garnet.pipe_seal import run_pipe_seal_stage
 from garnet.pipe_skeleton import run_pipe_skeleton_stage
 from garnet.pipe_terminals import classify_pipe_edge_terminals
 from garnet.topology_markers import run_topology_marker_router
+from garnet.trace_graph_builder import build_trace_graph_from_stage11, render_stage12_graph_overlay
+from garnet.trace_graph_qa import run_stage12_trace_graph_qa
 
 try:
     import cv2  # type: ignore
@@ -1077,7 +1079,13 @@ class PIDPipeline:
             for seg_index, seg in enumerate(result.get("segments", [])):
                 if obj_id == source_obj_id and seg_index == source_segment_index:
                     continue
-                if seg.get("direction") not in (branch_direction,):
+                opposite = {
+                    "UP": "DOWN",
+                    "DOWN": "UP",
+                    "LEFT": "RIGHT",
+                    "RIGHT": "LEFT",
+                }
+                if seg.get("direction") not in (branch_direction, opposite[branch_direction]):
                     continue
                 if self._point_near_segment(probe_x, probe_y, seg, tolerance=tolerance):
                     return True
@@ -1451,10 +1459,28 @@ class PIDPipeline:
         self,
         image: np.ndarray,
         candidates: list[dict[str, Any]],
+        base_results: Optional[dict[str, dict]] = None,
+        branch_results: Optional[dict[str, dict]] = None,
     ) -> np.ndarray:
         import cv2 as _cv2
 
         overlay = image.copy()
+        self._draw_stage5b_result_paths(
+            overlay,
+            base_results or {},
+            line_color=(0, 170, 0),
+            terminal_color=(0, 120, 0),
+            thickness=2,
+            label_terminals=False,
+        )
+        self._draw_stage5b_result_paths(
+            overlay,
+            branch_results or {},
+            line_color=(0, 0, 255),
+            terminal_color=(0, 0, 255),
+            thickness=3,
+            label_terminals=True,
+        )
         colors = {
             "queued": (0, 0, 255),
             "done_existing_tee": (0, 180, 0),
@@ -1496,6 +1522,45 @@ class PIDPipeline:
                 1,
             )
         return overlay
+
+    def _draw_stage5b_result_paths(
+        self,
+        overlay: np.ndarray,
+        results: dict[str, dict],
+        line_color: tuple[int, int, int],
+        terminal_color: tuple[int, int, int],
+        thickness: int,
+        label_terminals: bool,
+    ) -> None:
+        import cv2 as _cv2
+
+        for trace_id, data in (results or {}).items():
+            if not data.get("segments"):
+                continue
+            if data.get("status") not in (None, "ok", "traced"):
+                continue
+            for seg in data.get("segments", []):
+                _cv2.line(
+                    overlay,
+                    (int(seg["x1"]), int(seg["y1"])),
+                    (int(seg["x2"]), int(seg["y2"])),
+                    line_color,
+                    thickness,
+                )
+            tx = int(data.get("terminal_x", 0))
+            ty = int(data.get("terminal_y", 0))
+            if tx or ty:
+                _cv2.circle(overlay, (tx, ty), 4 + thickness, terminal_color, -1)
+                if label_terminals:
+                    _cv2.putText(
+                        overlay,
+                        str(trace_id).replace("branch_", "b"),
+                        (tx + 8, ty + 14),
+                        _cv2.FONT_HERSHEY_SIMPLEX,
+                        0.45,
+                        terminal_color,
+                        1,
+                    )
 
     def _draw_stage5b_branch_trace_overlay(
         self,
@@ -1563,6 +1628,106 @@ class PIDPipeline:
             "status": result.get("status"),
         }
 
+    def _stage5b_branch_start_reached_by_prior_result(
+        self,
+        candidate: dict[str, Any],
+        branch_results: dict[str, dict],
+        tolerance: int = 12,
+    ) -> Optional[tuple[str, dict]]:
+        node_obj_id = str(candidate.get("node_obj_id") or "")
+        branch_direction = str(candidate.get("branch_direction") or "").upper()
+        opposite = {
+            "UP": "DOWN",
+            "DOWN": "UP",
+            "LEFT": "RIGHT",
+            "RIGHT": "LEFT",
+        }
+        if branch_direction not in opposite:
+            return None
+
+        cx = int(candidate.get("x", 0))
+        cy = int(candidate.get("y", 0))
+        for prior_id, prior in branch_results.items():
+            if prior.get("status") != "traced":
+                continue
+            terminal_matches = False
+            if node_obj_id and str(prior.get("terminal_obj_id") or "") == node_obj_id:
+                terminal_matches = True
+            elif (
+                prior.get("terminal_x") is not None
+                and prior.get("terminal_y") is not None
+                and abs(int(prior["terminal_x"]) - cx) <= tolerance
+                and abs(int(prior["terminal_y"]) - cy) <= tolerance
+            ):
+                terminal_matches = True
+            if not terminal_matches:
+                continue
+            segments = prior.get("segments") or []
+            if not segments:
+                continue
+            last_dir = str(segments[-1].get("direction") or "").upper()
+            if last_dir == opposite[branch_direction]:
+                return prior_id, prior
+        return None
+
+    def _find_stage5b_existing_path_intersection(
+        self,
+        candidate: dict[str, Any],
+        segments: list[dict[str, Any]],
+        existing_results: dict[str, dict],
+        min_distance_from_start: int = 30,
+        tolerance: int = 5,
+    ) -> Optional[tuple[int, int, int, int, str]]:
+        """Find the first point where a branch reaches an already traced path."""
+        deltas = {
+            "UP": (0, -1), "DOWN": (0, 1),
+            "LEFT": (-1, 0), "RIGHT": (1, 0),
+        }
+        source_trace_id = str(candidate.get("source_trace_id", ""))
+        source_segment_index = candidate.get("source_segment_index")
+        distance_from_start = 0
+        for seg_index, seg in enumerate(segments):
+            direction = str(seg.get("direction", "")).upper()
+            dx, dy = deltas.get(direction, (0, 0))
+            if dx == 0 and dy == 0:
+                continue
+            x1 = int(seg["x1"])
+            y1 = int(seg["y1"])
+            seg_len = int(seg.get("length_px") or max(abs(int(seg["x2"]) - x1), abs(int(seg["y2"]) - y1)))
+            for step in range(0, seg_len + 1):
+                path_distance = distance_from_start + step
+                if path_distance <= min_distance_from_start:
+                    continue
+                px = x1 + dx * step
+                py = y1 + dy * step
+                for existing_id, existing in existing_results.items():
+                    for existing_seg_index, existing_seg in enumerate(existing.get("segments", [])):
+                        if (
+                            str(existing_id) == source_trace_id
+                            and existing_seg_index == source_segment_index
+                            and path_distance <= min_distance_from_start * 2
+                        ):
+                            continue
+                        if self._point_near_segment(px, py, existing_seg, tolerance=tolerance):
+                            return seg_index, px, py, path_distance, str(existing_id)
+            distance_from_start += seg_len
+        return None
+
+    def _truncate_stage5b_branch_at_intersection(
+        self,
+        segments: list[dict[str, Any]],
+        trace_length: int,
+        intersection: tuple[int, int, int, int, str],
+    ) -> tuple[list[dict[str, Any]], int, int, int, str]:
+        seg_index, ix, iy, path_distance, existing_id = intersection
+        truncated = [dict(seg) for seg in segments[:seg_index + 1]]
+        if truncated:
+            last = truncated[-1]
+            last["x2"] = ix
+            last["y2"] = iy
+            last["length_px"] = max(abs(ix - int(last["x1"])), abs(iy - int(last["y1"])))
+        return truncated, path_distance, ix, iy, existing_id
+
     def _trace_stage5b_branch_candidates(
         self,
         pipe_mask: np.ndarray,
@@ -1575,6 +1740,7 @@ class PIDPipeline:
         node_symbols: list[dict[str, Any]],
         visited: np.ndarray,
         terminal_candidates: Optional[list[dict[str, Any]]] = None,
+        existing_trace_sources: Optional[dict[str, dict]] = None,
     ) -> dict[str, dict]:
         from garnet.visual_primitives.cv_pipe_tracer import (
             CVPipeTracer,
@@ -1633,6 +1799,22 @@ class PIDPipeline:
                 branch_results[branch_id] = {
                     "status": "skipped",
                     "skip_reason": "no_pipe_at_branch_start",
+                    "candidate": candidate,
+                }
+                continue
+            prior_reach = self._stage5b_branch_start_reached_by_prior_result(
+                candidate,
+                branch_results,
+            )
+            if prior_reach is not None:
+                prior_id, _prior = prior_reach
+                candidate["status"] = "done_used_by_branch"
+                candidate["reason"] = "source_node_reached_by_prior_branch"
+                candidate["paired_branch_id"] = prior_id
+                branch_results[branch_id] = {
+                    "status": "skipped",
+                    "skip_reason": "source_node_reached_by_prior_branch",
+                    "paired_branch_id": prior_id,
                     "candidate": candidate,
                 }
                 continue
@@ -1812,6 +1994,25 @@ class PIDPipeline:
                 terminal_y = extra_result.terminal_y
                 terminal_obj_id = extra_result.terminal_obj_id
 
+            if not str(terminal_obj_id or "").startswith("branch_"):
+                existing_paths = dict(existing_trace_sources or {})
+                existing_paths.update(branch_results)
+                intersection = self._find_stage5b_existing_path_intersection(
+                    candidate,
+                    segments,
+                    existing_paths,
+                )
+                if intersection is not None:
+                    segments, trace_length, terminal_x, terminal_y, hit_trace_id = (
+                        self._truncate_stage5b_branch_at_intersection(
+                            segments,
+                            trace_length,
+                            intersection,
+                        )
+                    )
+                    terminal_type = "tee_junction"
+                    terminal_obj_id = hit_trace_id
+
             if (terminal_obj_id or "").startswith("branch_"):
                 terminal_type = "branch_connection"
                 paired_branch_id = str(terminal_obj_id)
@@ -1964,7 +2165,9 @@ class PIDPipeline:
                 if candidate_overlay_base is not None:
                     candidate_overlay = self._draw_stage5b_branch_candidate_overlay(
                         candidate_overlay_base,
-                        all_candidates,
+                        new_candidates,
+                        base_results=base_results,
+                        branch_results=all_branch_results,
                     )
                     self._save_img("stage5b_branch_candidates_overlay", candidate_overlay)
                     self._save_img(f"stage5b_branch_candidates_iter_{iteration:02d}_overlay", candidate_overlay)
@@ -1981,12 +2184,15 @@ class PIDPipeline:
                 if candidate_overlay_base is not None:
                     candidate_overlay = self._draw_stage5b_branch_candidate_overlay(
                         candidate_overlay_base,
-                        all_candidates,
+                        new_candidates,
+                        base_results=base_results,
+                        branch_results=all_branch_results,
                     )
                     self._save_img("stage5b_branch_candidates_overlay", candidate_overlay)
                     self._save_img(f"stage5b_branch_candidates_iter_{iteration:02d}_overlay", candidate_overlay)
                 break
 
+            prior_branch_results = dict(all_branch_results)
             branch_results = self._trace_stage5b_branch_candidates(
                 pipe_mask=pipe_mask,
                 image=image,
@@ -1998,6 +2204,7 @@ class PIDPipeline:
                 node_symbols=node_symbols,
                 visited=visited,
                 terminal_candidates=all_candidates,
+                existing_trace_sources=trace_sources,
             )
             all_branch_results.update(branch_results)
 
@@ -2021,7 +2228,9 @@ class PIDPipeline:
             if candidate_overlay_base is not None:
                 candidate_overlay = self._draw_stage5b_branch_candidate_overlay(
                     candidate_overlay_base,
-                    all_candidates,
+                    new_candidates,
+                    base_results=base_results,
+                    branch_results=prior_branch_results,
                 )
                 self._save_img("stage5b_branch_candidates_overlay", candidate_overlay)
                 self._save_img(f"stage5b_branch_candidates_iter_{iteration:02d}_overlay", candidate_overlay)
@@ -2095,8 +2304,12 @@ class PIDPipeline:
         if int(last["x2"]) == int(terminal_x) and int(last["y2"]) == int(terminal_y):
             return
         old_len = int(last.get("length_px", 0))
-        last["x2"] = int(terminal_x)
-        last["y2"] = int(terminal_y)
+        if last["direction"] in ("LEFT", "RIGHT"):
+            last["x2"] = int(terminal_x)
+            last["y2"] = int(last["y1"])
+        else:
+            last["x2"] = int(last["x1"])
+            last["y2"] = int(terminal_y)
         new_len = max(
             abs(int(last["x2"]) - int(last["x1"])),
             abs(int(last["y2"]) - int(last["y1"])),
@@ -2108,9 +2321,26 @@ class PIDPipeline:
         self,
         all_results: dict[str, dict],
         obj_id: str,
+        point: Optional[tuple[int, int]] = None,
+        point_tolerance: int = 12,
     ) -> Optional[tuple[str, dict]]:
+        is_equipment_source = str(obj_id).startswith("equip_")
         for existing_trace_id, existing in all_results.items():
-            if str(existing.get("terminal_obj_id", "")) != str(obj_id):
+            terminal_matches_obj = (
+                not is_equipment_source
+                and str(existing.get("terminal_obj_id", "")) == str(obj_id)
+            )
+            terminal_matches_point = False
+            if point is not None:
+                tx = existing.get("terminal_x")
+                ty = existing.get("terminal_y")
+                terminal_matches_point = (
+                    tx is not None
+                    and ty is not None
+                    and abs(int(tx) - int(point[0])) <= point_tolerance
+                    and abs(int(ty) - int(point[1])) <= point_tolerance
+                )
+            if not (terminal_matches_obj or terminal_matches_point):
                 continue
             if existing.get("status") not in {None, "ok"}:
                 continue
@@ -2222,6 +2452,57 @@ class PIDPipeline:
             "status": "reused_existing_trace",
             "reused_trace_id": existing_trace_id,
         }
+
+    def _skip_stage5b_existing_trace_result(
+        self,
+        *,
+        obj_id: str,
+        port_index: int,
+        port: tuple[int, int, str],
+        existing_trace_id: str,
+        existing: dict[str, Any],
+        reason: str = "source_reached_by_existing_trace",
+    ) -> dict[str, Any]:
+        return {
+            "source_obj_id": obj_id,
+            "port_index": port_index,
+            "port": {"x": int(port[0]), "y": int(port[1]), "direction": str(port[2])},
+            "terminal_type": existing.get("terminal_type"),
+            "terminal_x": existing.get("terminal_x"),
+            "terminal_y": existing.get("terminal_y"),
+            "terminal_obj_id": existing.get("terminal_obj_id"),
+            "segments": [],
+            "turns": [],
+            "hits": [],
+            "trace_length_px": 0,
+            "status": "skipped_existing_trace",
+            "skip_reason": reason,
+            "reused_trace_id": existing_trace_id,
+        }
+
+    def _find_existing_stage5b_source_port_trace(
+        self,
+        all_results: dict[str, dict],
+        obj_id: str,
+        point: tuple[int, int],
+        direction: str,
+        point_tolerance: int = 35,
+    ) -> Optional[tuple[str, dict]]:
+        for existing_trace_id, existing in all_results.items():
+            if str(existing.get("source_obj_id", "")) != str(obj_id):
+                continue
+            if str((existing.get("port") or {}).get("direction", "")).upper() != direction.upper():
+                continue
+            if existing.get("status") != "skipped_existing_trace":
+                continue
+            port = existing.get("port") or {}
+            px = port.get("x")
+            py = port.get("y")
+            if px is None or py is None:
+                continue
+            if abs(int(px) - int(point[0])) <= point_tolerance and abs(int(py) - int(point[1])) <= point_tolerance:
+                return existing_trace_id, existing
+        return None
 
     def _detect_port_cv(
         self, image: np.ndarray, bbox: dict[str, int], track_len: int = 60
@@ -2661,20 +2942,32 @@ class PIDPipeline:
 
         port_items = sorted(
             ports.items(),
-            key=lambda item: (0 if str(item[0]).startswith("equip_") else 1, str(item[0])),
+            key=lambda item: (1 if str(item[0]).startswith("equip_") else 0, str(item[0])),
         )
 
         for obj_id, port_list in port_items:
             for port_index, (px, py, direction) in enumerate(port_list, start=1):
                 trace_id = obj_id if len(port_list) == 1 else f"{obj_id}:port_{port_index:02d}"
+                is_page_connection_source = any(pc.get("id") == obj_id for pc in page_connections)
                 existing_terminal = (
                     None
-                    if str(obj_id).startswith("equip_")
-                    else self._find_existing_stage5b_terminal_trace(all_results, obj_id)
+                    if is_page_connection_source
+                    else self._find_existing_stage5b_terminal_trace(
+                        all_results,
+                        obj_id,
+                        point=(int(px), int(py)),
+                    )
                 )
+                if existing_terminal is None and str(obj_id).startswith("equip_"):
+                    existing_terminal = self._find_existing_stage5b_source_port_trace(
+                        all_results,
+                        obj_id,
+                        point=(int(px), int(py)),
+                        direction=str(direction),
+                    )
                 if existing_terminal is not None:
                     existing_trace_id, existing = existing_terminal
-                    all_results[trace_id] = self._reverse_stage5b_trace_result(
+                    all_results[trace_id] = self._skip_stage5b_existing_trace_result(
                         obj_id=obj_id,
                         port_index=port_index,
                         port=(px, py, direction),
@@ -2743,6 +3036,8 @@ class PIDPipeline:
         logger.info("CV pipe trace done: %d traces in %.1fs", len(all_results), elapsed)
 
         self._save_json("stage5b_trace_results", all_results)
+        for stale_overlay in self.out_dir.glob("stage5b_branch_candidates_iter_*_overlay.png"):
+            stale_overlay.unlink()
         branch_candidates, branch_results, branch_iterations = self._trace_stage5b_branches_iterative(
             pipe_mask=pipe_mask,
             image=image,
@@ -2892,6 +3187,7 @@ class PIDPipeline:
         branch_overlay = self._draw_stage5b_branch_candidate_overlay(
             overlay,
             branch_candidates,
+            branch_results=branch_results,
         )
         self._save_img("stage5b_branch_candidates_overlay", branch_overlay)
         branch_trace_overlay = self._draw_stage5b_branch_trace_overlay(
@@ -3710,6 +4006,30 @@ class PIDPipeline:
 
     def stage12_geometric_graph_assembly(self) -> None:
         """Phase 3 geometric bypass: build Stage 12 graph directly from Stage 5 segments."""
+        stage11_path = self.out_dir / "stage11_trace_associations.json"
+        if stage11_path.exists():
+            image_id = Path(self.image_path).name
+            stage11_payload = self._load_json_artifact("stage11_trace_associations")
+            trace_graph_result = build_trace_graph_from_stage11(stage11_payload, image_id=image_id)
+            self._save_json("stage12_graph", trace_graph_result["graph_payload"])
+            self._save_json("stage12_graph_summary", trace_graph_result["summary"])
+            self._save_json("stage12_trace_edge_nodes", trace_graph_result["trace_edge_nodes_payload"])
+            self._save_json("stage12_review_queue", trace_graph_result["review_queue_payload"])
+            self._save_json("stage12_review_queue_summary", trace_graph_result["review_queue_summary"])
+            self._save_img(
+                "stage12_graph_overlay",
+                render_stage12_graph_overlay(self._ensure_image_loaded(), trace_graph_result["graph_payload"]),
+            )
+            trace_graph_qa_result = run_stage12_trace_graph_qa(
+                image_id=image_id,
+                graph_payload=trace_graph_result["graph_payload"],
+                image_bgr=self._ensure_image_loaded(),
+            )
+            self._save_json("stage12_graph_qa", trace_graph_qa_result["qa_payload"])
+            self._save_json("stage12_graph_qa_summary", trace_graph_qa_result["summary"])
+            self._save_img("stage12_graph_qa_overlay", trace_graph_qa_result["overlay_image"])
+            return
+
         object_payload = self._load_json_artifact("stage4_objects")
         text_payload = self._load_json_artifact("stage4_line_numbers")
         instrument_tag_payload = self._load_json_artifact("stage4_instrument_tags")
@@ -4523,10 +4843,19 @@ class PIDPipeline:
         for obj_id, port_list in ports.items():
             if not obj_id.startswith("equip_"):
                 continue
-            for px, py, direction in port_list:
+            for port_index, (px, py, direction) in enumerate(port_list, start=1):
                 # Cyan filled circle with white outline
                 _cv2.circle(overlay, (px, py), 6, (255, 200, 0), -1)
                 _cv2.circle(overlay, (px, py), 6, (255, 255, 255), 1)
+                _cv2.putText(
+                    overlay,
+                    f"p{port_index:02d}",
+                    (px + 8, py - 8),
+                    _cv2.FONT_HERSHEY_SIMPLEX,
+                    0.45,
+                    (0, 120, 120),
+                    2,
+                )
                 # Direction arrow
                 dd = {"UP": (0, -18), "DOWN": (0, 18), "LEFT": (-18, 0), "RIGHT": (18, 0)}
                 if direction in dd:
