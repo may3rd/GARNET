@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import os
 import time
 from dataclasses import dataclass
@@ -186,6 +187,11 @@ class PipelineConfig:
     connection_attachment_max_distance_px: float = 48.0
     connection_attachment_k_candidate_edges: int = 10
     line_text_attachment_max_distance_px: float = 80.0
+    trace_association_equipment_port_max_distance_px: float = 16.0
+    trace_association_inline_object_max_distance_px: float = 24.0
+    trace_association_text_max_distance_px: float = 100.0
+    trace_association_instrument_max_distance_px: float = 90.0
+    trace_association_arrow_max_distance_px: float = 45.0
     terminal_equipment_classes: tuple[str, ...] = (
         "pump",
         "heat exchanger",
@@ -273,12 +279,17 @@ class PIDPipeline:
             (13, "stage13_text_attachment", self.stage13_text_attachment),
         ]
         if self.cfg.use_geometric_line_detection:
-            # Insert geometric stages inline — stage5b replaces stage6+
-            stages.insert(
-                stages.index((5, "stage5_pipe_mask", self.stage5_pipe_mask)) + 1,
+            # Stage 5b is the trace source for the geometric route, so skip
+            # skeleton stages 6-10 and attach semantics directly in Stage 11.
+            return [
+                (1, "stage1_input_normalization", self.stage1_input_normalization),
+                (2, "stage2_ocr_discovery", self.stage2_ocr_discovery),
+                (4, "stage4_object_detection", self.stage4_object_detection),
+                (4, "stage4_line_number_fusion", self.stage4_line_number_fusion),
+                (4, "stage4_instrument_tag_fusion", self.stage4_instrument_tag_fusion),
+                (5, "stage5_pipe_mask", self.stage5_pipe_mask),
                 (5, "stage5b_pipe_trace", self.stage5b_pipe_trace),
-            )
-            stages.extend([
+                (11, "stage11_trace_associations", self.stage11_trace_associations),
                 (12, "stage12_geometric_graph_assembly", self.stage12_geometric_graph_assembly),
                 (12, "stage12c_page_connector_labeling", self.stage12c_page_connector_labeling),
                 (12, "stage12b_graph_export", self.stage12b_graph_export),
@@ -286,8 +297,7 @@ class PIDPipeline:
                 (14, "stage14_continuity_check", self.stage14_continuity_check),
                 (15, "stage15_recovery_loop", self.stage15_recovery_loop),
                 (16, "stage16_connection_overlay", self.stage16_connection_overlay),
-            ])
-            return stages
+            ]
         stages.extend(
             [
                 (6, "stage6_morphological_sealing", self.stage6_morphological_sealing),
@@ -1578,7 +1588,6 @@ class PIDPipeline:
             "LEFT": (-1, 0), "RIGHT": (1, 0),
         }
         h_mask, w_mask = pipe_mask.shape
-        node_ids = {str(node.get("id", "")) for node in node_symbols}
         branch_results: dict[str, dict] = {}
         all_terminal_candidates = terminal_candidates or candidates
         candidate_by_id = {
@@ -1645,23 +1654,18 @@ class PIDPipeline:
                         "y_max": oy + 8,
                     },
                 })
-            node_terminals = []
-            for node in node_symbols:
-                bbox = node.get("bbox")
-                if not bbox:
-                    continue
-                node_terminals.append({
-                    "id": node.get("id", ""),
-                    "class_name": "node",
-                    "bbox": bbox,
-                })
-
+            source_node_id = str(candidate.get("node_obj_id", ""))
+            junction_markers = [
+                node for node in node_symbols
+                if str(node.get("id", "")) != source_node_id
+            ]
             tracer = CVPipeTracer(
                 pipe_mask=pipe_mask,
                 image=image,
-                page_connections=page_connections + branch_terminals + node_terminals,
+                page_connections=page_connections + branch_terminals,
                 instrument_tags=instrument_tags,
                 equipment_objects=equipment,
+                junction_markers=junction_markers,
                 visited_mask=visited,
             )
             tracer.set_inline_symbols(inline_symbols)
@@ -1671,10 +1675,43 @@ class PIDPipeline:
                 direction,
                 source_obj_id=branch_id,
             )
+            terminal_inside_exact_bbox = False
+            terminal_margin_gap: Optional[int] = None
+            if result.terminal_type == "instrument_tag" and result.terminal_obj_id:
+                terminal_obj = next(
+                    (tag for tag in instrument_tags if tag.get("id") == result.terminal_obj_id),
+                    None,
+                )
+                terminal_bbox = terminal_obj.get("bbox") if terminal_obj else None
+                if terminal_bbox:
+                    terminal_inside_exact_bbox = (
+                        terminal_bbox["x_min"] <= result.terminal_x <= terminal_bbox["x_max"]
+                        and terminal_bbox["y_min"] <= result.terminal_y <= terminal_bbox["y_max"]
+                    )
+                    if result.segments:
+                        last_dir = result.segments[-1].direction
+                        if last_dir == "UP" and result.terminal_y > terminal_bbox["y_max"]:
+                            terminal_margin_gap = result.terminal_y - int(terminal_bbox["y_max"])
+                        elif last_dir == "DOWN" and result.terminal_y < terminal_bbox["y_min"]:
+                            terminal_margin_gap = int(terminal_bbox["y_min"]) - result.terminal_y
+                        elif last_dir == "LEFT" and result.terminal_x > terminal_bbox["x_max"]:
+                            terminal_margin_gap = result.terminal_x - int(terminal_bbox["x_max"])
+                        elif last_dir == "RIGHT" and result.terminal_x < terminal_bbox["x_min"]:
+                            terminal_margin_gap = int(terminal_bbox["x_min"]) - result.terminal_x
+
+            recover_side_turn = (
+                result.terminal_type == "dead_end"
+                or (
+                    result.terminal_type == "instrument_tag"
+                    and not terminal_inside_exact_bbox
+                    and terminal_margin_gap is not None
+                    and terminal_margin_gap <= 10
+                )
+            )
             extra_turns = []
             extra_result = None
             recovery_point = None
-            if result.terminal_type == "dead_end" and result.segments:
+            if recover_side_turn and result.segments:
                 last_seg = result.segments[-1]
                 last_dir = last_seg.direction
                 sdx, sdy = deltas[last_dir]
@@ -1700,9 +1737,10 @@ class PIDPipeline:
                         recovery_tracer = CVPipeTracer(
                             pipe_mask=pipe_mask,
                             image=image,
-                            page_connections=page_connections + branch_terminals + node_terminals,
+                            page_connections=page_connections + branch_terminals,
                             instrument_tags=instrument_tags,
                             equipment_objects=equipment,
+                            junction_markers=junction_markers,
                             visited_mask=visited,
                         )
                         recovery_tracer.set_inline_symbols(inline_symbols)
@@ -1792,8 +1830,11 @@ class PIDPipeline:
                         paired_candidate["status"] = "pending_branch_connection"
                         paired_candidate["reason"] = "paired_branch_candidate_pending_reverse_check"
                         pending_branch_pairs[paired_branch_id] = branch_id
-            elif terminal_type == "page_connection" and str(terminal_obj_id or "") in node_ids:
-                terminal_type = "tee_junction"
+                    if paired_candidate.get("node_obj_id"):
+                        terminal_type = "tee_junction"
+                        terminal_obj_id = str(paired_candidate["node_obj_id"])
+                        terminal_x = int(paired_candidate["x"])
+                        terminal_y = int(paired_candidate["y"])
             branch_results[branch_id] = {
                 "status": "traced",
                 "candidate": candidate,
@@ -1807,6 +1848,7 @@ class PIDPipeline:
                 "hits": hits,
                 "trace_length_px": trace_length,
             }
+            self._extend_stage5b_result_to_terminal(branch_results[branch_id])
             if branch_id in pending_branch_pairs and terminal_type == "branch_connection":
                 previous_branch_id = pending_branch_pairs.pop(branch_id)
                 previous_result = branch_results.get(previous_branch_id)
@@ -1988,6 +2030,198 @@ class PIDPipeline:
                 break
 
         return all_candidates, all_branch_results, iteration_summaries
+
+    def _align_stage5b_branch_node_terminals(
+        self,
+        branch_results: dict[str, dict],
+        node_symbols: list[dict[str, Any]],
+    ) -> None:
+        """Move saved tee endpoints to the node bbox center after discovery.
+
+        This keeps the iterative branch search using the raw traced geometry,
+        while the final JSON/overlay lands node terminals on the visible tee dot.
+        """
+        node_by_id = {
+            str(node.get("id", "")): node
+            for node in node_symbols
+            if node.get("bbox")
+        }
+        for result in branch_results.values():
+            if result.get("status") != "traced":
+                continue
+            if result.get("terminal_type") != "tee_junction":
+                continue
+            terminal_obj_id = str(result.get("terminal_obj_id") or "")
+            node = node_by_id.get(terminal_obj_id)
+            if not node:
+                continue
+            bbox = node["bbox"]
+            terminal_x = (int(bbox["x_min"]) + int(bbox["x_max"])) // 2
+            terminal_y = (int(bbox["y_min"]) + int(bbox["y_max"])) // 2
+            result["terminal_x"] = terminal_x
+            result["terminal_y"] = terminal_y
+            segments = result.get("segments") or []
+            if not segments:
+                continue
+            last = segments[-1]
+            old_len = int(last.get("length_px", 0))
+            last["x2"] = terminal_x
+            last["y2"] = terminal_y
+            new_len = max(
+                abs(int(last["x2"]) - int(last["x1"])),
+                abs(int(last["y2"]) - int(last["y1"])),
+            )
+            last["length_px"] = new_len
+            result["trace_length_px"] = int(result.get("trace_length_px", 0)) + new_len - old_len
+
+    def _extend_stage5b_result_to_terminal(self, result: dict[str, Any]) -> None:
+        segments = result.get("segments") or []
+        if not segments:
+            return
+        terminal_x = result.get("terminal_x")
+        terminal_y = result.get("terminal_y")
+        if terminal_x is None or terminal_y is None:
+            return
+        last = segments[-1]
+        same_axis = (
+            last["direction"] in ("LEFT", "RIGHT")
+            and abs(int(last["y2"]) - int(terminal_y)) <= 3
+        ) or (
+            last["direction"] in ("UP", "DOWN")
+            and abs(int(last["x2"]) - int(terminal_x)) <= 3
+        )
+        if not same_axis:
+            return
+        if int(last["x2"]) == int(terminal_x) and int(last["y2"]) == int(terminal_y):
+            return
+        old_len = int(last.get("length_px", 0))
+        last["x2"] = int(terminal_x)
+        last["y2"] = int(terminal_y)
+        new_len = max(
+            abs(int(last["x2"]) - int(last["x1"])),
+            abs(int(last["y2"]) - int(last["y1"])),
+        )
+        last["length_px"] = new_len
+        result["trace_length_px"] = int(result.get("trace_length_px", 0)) + new_len - old_len
+
+    def _find_existing_stage5b_terminal_trace(
+        self,
+        all_results: dict[str, dict],
+        obj_id: str,
+    ) -> Optional[tuple[str, dict]]:
+        for existing_trace_id, existing in all_results.items():
+            if str(existing.get("terminal_obj_id", "")) != str(obj_id):
+                continue
+            if existing.get("status") not in {None, "ok"}:
+                continue
+            if not existing.get("segments"):
+                continue
+            return existing_trace_id, existing
+        return None
+
+    def _align_stage5b_result_to_near_node(
+        self,
+        result: dict[str, Any],
+        node_symbols: list[dict[str, Any]],
+        max_distance: int = 20,
+    ) -> None:
+        if result.get("terminal_type") != "tee_junction":
+            return
+        if result.get("terminal_obj_id"):
+            return
+        tx = result.get("terminal_x")
+        ty = result.get("terminal_y")
+        if tx is None or ty is None:
+            return
+        nearest = None
+        nearest_dist = max_distance + 1
+        for node in node_symbols:
+            bbox = node.get("bbox")
+            if not bbox:
+                continue
+            cx = (int(bbox["x_min"]) + int(bbox["x_max"])) // 2
+            cy = (int(bbox["y_min"]) + int(bbox["y_max"])) // 2
+            dist = max(abs(int(tx) - cx), abs(int(ty) - cy))
+            if dist < nearest_dist:
+                nearest = (str(node.get("id", "")), cx, cy)
+                nearest_dist = dist
+        if nearest is None:
+            return
+        node_id, cx, cy = nearest
+        result["terminal_obj_id"] = node_id
+        result["terminal_x"] = cx
+        result["terminal_y"] = cy
+        segments = result.get("segments") or []
+        if not segments:
+            return
+        last = segments[-1]
+        old_len = int(last.get("length_px", 0))
+        last["x2"] = cx
+        last["y2"] = cy
+        new_len = max(
+            abs(int(last["x2"]) - int(last["x1"])),
+            abs(int(last["y2"]) - int(last["y1"])),
+        )
+        last["length_px"] = new_len
+        result["trace_length_px"] = int(result.get("trace_length_px", 0)) + new_len - old_len
+
+    def _reverse_stage5b_trace_result(
+        self,
+        *,
+        obj_id: str,
+        port_index: int,
+        port: tuple[int, int, str],
+        existing_trace_id: str,
+        existing: dict[str, Any],
+    ) -> dict[str, Any]:
+        opposite = {
+            "UP": "DOWN",
+            "DOWN": "UP",
+            "LEFT": "RIGHT",
+            "RIGHT": "LEFT",
+        }
+        segments = []
+        for seg in reversed(existing.get("segments") or []):
+            old_dir = str(seg.get("direction", "")).upper()
+            segments.append({
+                "x1": int(seg.get("x2", 0)),
+                "y1": int(seg.get("y2", 0)),
+                "x2": int(seg.get("x1", 0)),
+                "y2": int(seg.get("y1", 0)),
+                "direction": opposite.get(old_dir, old_dir),
+                "length_px": int(seg.get("length_px", 0)),
+            })
+
+        turns = [
+            {
+                "x": int(prev_seg["x2"]),
+                "y": int(prev_seg["y2"]),
+                "new_dir": str(next_seg.get("direction", "")),
+            }
+            for prev_seg, next_seg in zip(segments, segments[1:])
+        ]
+
+        source_port = existing.get("port") or {}
+        terminal_x = int(source_port.get("x", segments[-1]["x2"] if segments else port[0]))
+        terminal_y = int(source_port.get("y", segments[-1]["y2"] if segments else port[1]))
+        terminal_obj_id = str(existing.get("source_obj_id") or "").split(":")[0]
+        terminal_type = "equipment" if terminal_obj_id.startswith("equip_") else "page_connection"
+
+        return {
+            "source_obj_id": obj_id,
+            "port_index": port_index,
+            "port": {"x": int(port[0]), "y": int(port[1]), "direction": str(port[2])},
+            "terminal_type": terminal_type,
+            "terminal_x": terminal_x,
+            "terminal_y": terminal_y,
+            "terminal_obj_id": terminal_obj_id,
+            "segments": segments,
+            "turns": turns,
+            "hits": list(existing.get("hits") or []),
+            "trace_length_px": int(existing.get("trace_length_px") or 0),
+            "status": "reused_existing_trace",
+            "reused_trace_id": existing_trace_id,
+        }
 
     def _detect_port_cv(
         self, image: np.ndarray, bbox: dict[str, int], track_len: int = 60
@@ -2425,26 +2659,55 @@ class PIDPipeline:
         logger.info("CV pipe trace: %d objects, %d ports", len(ports), total_ports)
         t0 = _time.monotonic()
 
-        for obj_id, port_list in ports.items():
+        port_items = sorted(
+            ports.items(),
+            key=lambda item: (0 if str(item[0]).startswith("equip_") else 1, str(item[0])),
+        )
+
+        for obj_id, port_list in port_items:
             for port_index, (px, py, direction) in enumerate(port_list, start=1):
                 trace_id = obj_id if len(port_list) == 1 else f"{obj_id}:port_{port_index:02d}"
+                existing_terminal = (
+                    None
+                    if str(obj_id).startswith("equip_")
+                    else self._find_existing_stage5b_terminal_trace(all_results, obj_id)
+                )
+                if existing_terminal is not None:
+                    existing_trace_id, existing = existing_terminal
+                    all_results[trace_id] = self._reverse_stage5b_trace_result(
+                        obj_id=obj_id,
+                        port_index=port_index,
+                        port=(px, py, direction),
+                        existing_trace_id=existing_trace_id,
+                        existing=existing,
+                    )
+                    logger.info(
+                        "  %s -> reused %s (%d px, %d segs)",
+                        trace_id,
+                        existing_trace_id,
+                        all_results[trace_id]["trace_length_px"],
+                        len(all_results[trace_id]["segments"]),
+                    )
+                    continue
                 tracer = CVPipeTracer(
                     pipe_mask=pipe_mask,
                     image=image,
                     page_connections=page_connections,
                     instrument_tags=instrument_tags,
                     equipment_objects=equipment,
+                    junction_markers=node_symbols,
                     visited_mask=visited,
                 )
                 tracer.set_inline_symbols(inline_symbols)
 
                 result = tracer.trace(px, py, direction, source_obj_id=obj_id)
+                terminal_type = result.terminal_type
 
                 all_results[trace_id] = {
                     "source_obj_id": obj_id,
                     "port_index": port_index,
                     "port": {"x": px, "y": py, "direction": direction},
-                    "terminal_type": result.terminal_type,
+                    "terminal_type": terminal_type,
                     "terminal_x": result.terminal_x,
                     "terminal_y": result.terminal_y,
                     "terminal_obj_id": result.terminal_obj_id,
@@ -2468,6 +2731,8 @@ class PIDPipeline:
                     "trace_length_px": result.trace_length_px,
                     "status": result.status,
                 }
+                self._extend_stage5b_result_to_terminal(all_results[trace_id])
+                self._align_stage5b_result_to_near_node(all_results[trace_id], node_symbols)
                 logger.info(
                     "  %s -> %s (%d px, %d segs)",
                     trace_id, result.terminal_type,
@@ -2490,6 +2755,7 @@ class PIDPipeline:
             visited=visited,
             candidate_overlay_base=image,
         )
+        self._align_stage5b_branch_node_terminals(branch_results, node_symbols)
         self._save_json("stage5b_branch_candidates", {
             "candidates": branch_candidates,
             "iterations": branch_iterations,
@@ -2915,6 +3181,514 @@ class PIDPipeline:
         self._save_json("stage10d_split_summary", split_result["summary"])
 
     # ---------- Stage 11 ----------
+    def _trace_assoc_point_to_segment(
+        self,
+        px: float,
+        py: float,
+        ax: float,
+        ay: float,
+        bx: float,
+        by: float,
+    ) -> tuple[float, float, float, float]:
+        abx = bx - ax
+        aby = by - ay
+        ab_len_sq = abx * abx + aby * aby
+        if ab_len_sq <= 0:
+            return ax, ay, 0.0, math.hypot(px - ax, py - ay)
+        t = max(0.0, min(1.0, ((px - ax) * abx + (py - ay) * aby) / ab_len_sq))
+        qx = ax + t * abx
+        qy = ay + t * aby
+        return qx, qy, t, math.hypot(px - qx, py - qy)
+
+    def _trace_assoc_bbox_points(self, bbox: dict[str, Any]) -> list[tuple[float, float]]:
+        x_min = float(bbox["x_min"])
+        y_min = float(bbox["y_min"])
+        x_max = float(bbox["x_max"])
+        y_max = float(bbox["y_max"])
+        cx = (x_min + x_max) / 2.0
+        cy = (y_min + y_max) / 2.0
+        return [
+            (cx, cy),
+            (x_min, y_min),
+            (x_max, y_min),
+            (x_min, y_max),
+            (x_max, y_max),
+            (cx, y_min),
+            (cx, y_max),
+            (x_min, cy),
+            (x_max, cy),
+        ]
+
+    def _trace_assoc_polyline_from_segments(
+        self,
+        segments: list[dict[str, Any]],
+    ) -> list[list[int]]:
+        polyline: list[list[int]] = []
+        for segment in segments:
+            p1 = [int(segment["x1"]), int(segment["y1"])]
+            p2 = [int(segment["x2"]), int(segment["y2"])]
+            if not polyline or polyline[-1] != p1:
+                polyline.append(p1)
+            if polyline[-1] != p2:
+                polyline.append(p2)
+        return polyline
+
+    def _stage11_source_metadata(
+        self,
+        source_obj_id: str,
+        objects_by_id: dict[str, dict[str, Any]],
+    ) -> dict[str, Any]:
+        obj = objects_by_id.get(source_obj_id)
+        if obj is not None:
+            return {
+                "source_obj_id": source_obj_id,
+                "source_obj_type": obj.get("class_name"),
+                "source_bbox": obj.get("bbox"),
+            }
+        if source_obj_id.startswith("equip_"):
+            return {
+                "source_obj_id": source_obj_id,
+                "source_obj_type": "equipment",
+                "source_bbox": None,
+            }
+        if source_obj_id.startswith("branch_"):
+            return {
+                "source_obj_id": source_obj_id,
+                "source_obj_type": "branch_candidate",
+                "source_bbox": None,
+            }
+        return {
+            "source_obj_id": source_obj_id,
+            "source_obj_type": None,
+            "source_bbox": None,
+        }
+
+    def _load_stage5b_trace_edges(
+        self,
+        objects_by_id: Optional[dict[str, dict[str, Any]]] = None,
+    ) -> list[dict[str, Any]]:
+        objects_by_id = objects_by_id or {}
+        trace_payload = self._load_json_artifact("stage5b_trace_results")
+        branch_payload = self._load_json_artifact_or_default("stage5b_branch_trace_results", {"branches": {}})
+
+        edges: list[dict[str, Any]] = []
+        for trace_id, trace in trace_payload.items():
+            segments = trace.get("segments", [])
+            if not segments:
+                continue
+            source_obj_id = str(trace.get("source_obj_id", trace_id))
+            edges.append({
+                "trace_id": str(trace_id),
+                "trace_kind": "port",
+                **self._stage11_source_metadata(source_obj_id, objects_by_id),
+                "port_index": trace.get("port_index"),
+                "port": trace.get("port"),
+                "terminal_type": trace.get("terminal_type"),
+                "terminal_obj_id": trace.get("terminal_obj_id"),
+                "terminal_xy": [trace.get("terminal_x"), trace.get("terminal_y")],
+                "segments": segments,
+                "polyline": self._trace_assoc_polyline_from_segments(segments),
+                "turns": trace.get("turns", []),
+                "hits": trace.get("hits", []),
+                "trace_length_px": trace.get("trace_length_px", 0),
+                "status": trace.get("status", "ok"),
+                "attachments": {},
+                "warnings": [],
+            })
+
+        for branch_id, branch in branch_payload.get("branches", {}).items():
+            if branch.get("status") != "traced" or not branch.get("segments"):
+                continue
+            segments = branch.get("segments", [])
+            source_obj_id = str(branch_id)
+            edges.append({
+                "trace_id": str(branch_id),
+                "trace_kind": "branch",
+                **self._stage11_source_metadata(source_obj_id, objects_by_id),
+                "candidate": branch.get("candidate", {}),
+                "port": branch.get("port"),
+                "terminal_type": branch.get("terminal_type"),
+                "terminal_obj_id": branch.get("terminal_obj_id"),
+                "terminal_xy": [branch.get("terminal_x"), branch.get("terminal_y")],
+                "segments": segments,
+                "polyline": self._trace_assoc_polyline_from_segments(segments),
+                "turns": branch.get("turns", []),
+                "hits": branch.get("hits", []),
+                "trace_length_px": branch.get("trace_length_px", 0),
+                "status": branch.get("status", "traced"),
+                "paired_branch_id": branch.get("paired_branch_id"),
+                "attachments": {},
+                "warnings": [],
+            })
+        return edges
+
+    def _trace_assoc_nearest_segment(
+        self,
+        point: tuple[float, float],
+        edges: list[dict[str, Any]],
+    ) -> Optional[dict[str, Any]]:
+        best: Optional[dict[str, Any]] = None
+        px, py = point
+        for edge in edges:
+            cumulative = 0.0
+            for index, segment in enumerate(edge.get("segments", [])):
+                ax = float(segment["x1"])
+                ay = float(segment["y1"])
+                bx = float(segment["x2"])
+                by = float(segment["y2"])
+                qx, qy, t, distance = self._trace_assoc_point_to_segment(px, py, ax, ay, bx, by)
+                seg_len = max(abs(bx - ax), abs(by - ay))
+                along = cumulative + t * seg_len
+                if best is None or distance < best["distance_px"]:
+                    best = {
+                        "trace_id": edge["trace_id"],
+                        "trace_kind": edge["trace_kind"],
+                        "segment_index": index,
+                        "projected_xy": [round(qx, 2), round(qy, 2)],
+                        "distance_px": round(distance, 2),
+                        "t": round(t, 4),
+                        "trace_distance_px": round(along, 2),
+                    }
+                cumulative += seg_len
+        return best
+
+    def _trace_assoc_nearest_bbox(
+        self,
+        bbox: dict[str, Any],
+        edges: list[dict[str, Any]],
+    ) -> Optional[dict[str, Any]]:
+        best: Optional[dict[str, Any]] = None
+        for point in self._trace_assoc_bbox_points(bbox):
+            candidate = self._trace_assoc_nearest_segment(point, edges)
+            if candidate is None:
+                continue
+            if best is None or candidate["distance_px"] < best["distance_px"]:
+                best = candidate
+        return best
+
+    def _trace_assoc_add(
+        self,
+        edges_by_id: dict[str, dict[str, Any]],
+        trace_id: str,
+        group: str,
+        association: dict[str, Any],
+    ) -> None:
+        edge = edges_by_id.get(trace_id)
+        if edge is None:
+            return
+        edge.setdefault("attachments", {}).setdefault(group, []).append(association)
+
+    def _trace_assoc_attach_bbox_items(
+        self,
+        *,
+        edges: list[dict[str, Any]],
+        edges_by_id: dict[str, dict[str, Any]],
+        group: str,
+        items: list[dict[str, Any]],
+        max_distance_px: float,
+        id_key: str = "id",
+        class_key: str = "class_name",
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        accepted: list[dict[str, Any]] = []
+        rejected: list[dict[str, Any]] = []
+        for item in items:
+            bbox = item.get("bbox")
+            item_id = str(item.get(id_key, ""))
+            if not bbox:
+                rejected.append({"id": item_id, "reason": "missing_bbox", "source": item})
+                continue
+            nearest = self._trace_assoc_nearest_bbox(bbox, edges)
+            if nearest is None:
+                rejected.append({"id": item_id, "reason": "no_trace_edges", "source": item})
+                continue
+            association = {
+                "id": item_id,
+                "source_object_id": item.get("source_object_id", item_id),
+                "class_name": item.get(class_key, item.get("semantic_class", "")),
+                "bbox": bbox,
+                "text": item.get("text", ""),
+                "normalized_text": item.get("normalized_text", ""),
+                "confidence": item.get("confidence", item.get("fused_confidence", item.get("detection_confidence"))),
+                **nearest,
+            }
+            if nearest["distance_px"] <= max_distance_px:
+                accepted.append(association)
+                self._trace_assoc_add(edges_by_id, nearest["trace_id"], group, association)
+            else:
+                rejected.append({
+                    **association,
+                    "reason": "distance_over_threshold",
+                    "max_distance_px": max_distance_px,
+                })
+        return accepted, rejected
+
+    def _draw_stage11_trace_association_overlay(
+        self,
+        edges: list[dict[str, Any]],
+        associations: dict[str, Any],
+    ) -> np.ndarray:
+        import cv2 as _cv2
+
+        image = self._ensure_image_loaded()
+        overlay = image.copy()
+        for edge in edges:
+            color = (0, 180, 0) if edge.get("trace_kind") == "port" else (0, 0, 220)
+            for segment in edge.get("segments", []):
+                _cv2.line(
+                    overlay,
+                    (int(segment["x1"]), int(segment["y1"])),
+                    (int(segment["x2"]), int(segment["y2"])),
+                    color,
+                    2,
+                )
+
+        draw_specs = [
+            ("equipment_ports", (255, 255, 0), 4),
+            ("inline_objects", (0, 165, 255), 4),
+            ("line_numbers", (255, 0, 255), 3),
+            ("instrument_tags", (0, 255, 255), 3),
+            ("flow_arrows", (255, 0, 0), 4),
+            ("terminals", (180, 0, 180), 5),
+        ]
+        for group, color, radius in draw_specs:
+            for item in associations.get(group, {}).get("accepted", []):
+                projected = item.get("projected_xy")
+                if not projected:
+                    continue
+                x = int(round(float(projected[0])))
+                y = int(round(float(projected[1])))
+                _cv2.circle(overlay, (x, y), radius, color, -1)
+                if group == "line_numbers":
+                    label = str(item.get("normalized_text") or item.get("text") or item.get("id") or "")
+                    if len(label) > 48:
+                        label = label[:45] + "..."
+                    if label:
+                        _cv2.putText(
+                            overlay,
+                            label,
+                            (x + 8, y - 8),
+                            _cv2.FONT_HERSHEY_SIMPLEX,
+                            0.45,
+                            color,
+                            1,
+                            _cv2.LINE_AA,
+                        )
+        return overlay
+
+    def stage11_trace_associations(self) -> None:
+        """Attach semantic detections to Stage 5b traced pipe paths."""
+        image_id = Path(self.image_path).name
+        object_payload = self._load_json_artifact("stage4_objects")
+        objects = object_payload.get("objects", [])
+        objects_by_id = {str(obj.get("id", "")): obj for obj in objects}
+        edges = self._load_stage5b_trace_edges(objects_by_id)
+        edges_by_id = {edge["trace_id"]: edge for edge in edges}
+        line_payload = self._load_json_artifact_or_default("stage4_line_numbers", {"line_numbers": []})
+        instrument_payload = self._load_json_artifact_or_default("stage4_instrument_tags", {"instrument_tags": []})
+        branch_payload = self._load_json_artifact_or_default("stage5b_branch_trace_results", {"branches": {}})
+        ports_payload = self._load_json_artifact_or_default("stage5_connection_ports", {})
+
+        associations: dict[str, Any] = {
+            "equipment_ports": {"accepted": [], "rejected": []},
+            "inline_objects": {"accepted": [], "rejected": []},
+            "line_numbers": {"accepted": [], "rejected": []},
+            "instrument_tags": {"accepted": [], "rejected": []},
+            "flow_arrows": {"accepted": [], "rejected": []},
+            "terminals": {"accepted": [], "rejected": []},
+        }
+
+        # Equipment/page ports are deterministic because Stage 5b trace ids are
+        # derived from the source object id and port index.
+        for obj_id, port_list in ports_payload.items():
+            for port_index, port in enumerate(port_list, start=1):
+                if len(port) < 3:
+                    continue
+                trace_id = obj_id if len(port_list) == 1 else f"{obj_id}:port_{port_index:02d}"
+                point = (float(port[0]), float(port[1]))
+                nearest = self._trace_assoc_nearest_segment(point, edges)
+                if trace_id in edges_by_id:
+                    own_nearest = self._trace_assoc_nearest_segment(point, [edges_by_id[trace_id]])
+                    if own_nearest is not None:
+                        nearest = own_nearest
+                if nearest is None:
+                    associations["equipment_ports"]["rejected"].append({
+                        "id": f"{obj_id}:port_{port_index:02d}",
+                        "reason": "no_trace_edges",
+                        "source_obj_id": obj_id,
+                        "port_index": port_index,
+                        "port": port,
+                    })
+                    continue
+                association = {
+                    "id": f"{obj_id}:port_{port_index:02d}",
+                    "source_obj_id": obj_id,
+                    "port_index": port_index,
+                    "port_xy": [int(port[0]), int(port[1])],
+                    "direction": str(port[2]),
+                    **nearest,
+                }
+                if nearest["distance_px"] <= self.cfg.trace_association_equipment_port_max_distance_px:
+                    associations["equipment_ports"]["accepted"].append(association)
+                    self._trace_assoc_add(edges_by_id, nearest["trace_id"], "equipment_ports", association)
+                else:
+                    associations["equipment_ports"]["rejected"].append({
+                        **association,
+                        "reason": "distance_over_threshold",
+                        "max_distance_px": self.cfg.trace_association_equipment_port_max_distance_px,
+                    })
+
+        inline_classes = {
+            "gate_valve", "globe_valve", "check_valve", "ball_valve",
+            "butterfly_valve", "control_valve", "pressure_relief_valve",
+            "reducer", "spectacle_blind", "strainer",
+            "gate valve", "globe valve", "check valve", "ball valve",
+            "butterfly valve", "control valve", "pressure relief valve",
+            "spectacle blind",
+        }
+        inline_objects = [obj for obj in objects if obj.get("class_name") in inline_classes]
+        accepted, rejected = self._trace_assoc_attach_bbox_items(
+            edges=edges,
+            edges_by_id=edges_by_id,
+            group="inline_objects",
+            items=inline_objects,
+            max_distance_px=self.cfg.trace_association_inline_object_max_distance_px,
+        )
+        associations["inline_objects"]["accepted"].extend(accepted)
+        associations["inline_objects"]["rejected"].extend(rejected)
+
+        # Preserve Stage 5b inline hits even when the detector bbox was not close
+        # enough to pass the independent bbox matcher.
+        seen_inline = {
+            (item.get("trace_id"), item.get("class_name"), int(round(float(item.get("projected_xy", [0, 0])[0]))), int(round(float(item.get("projected_xy", [0, 0])[1]))))
+            for item in associations["inline_objects"]["accepted"]
+        }
+        for edge in edges:
+            for hit_index, hit in enumerate(edge.get("hits", []), start=1):
+                point = (float(hit.get("x", 0)), float(hit.get("y", 0)))
+                nearest = self._trace_assoc_nearest_segment(point, [edge])
+                if nearest is None:
+                    continue
+                key = (
+                    edge["trace_id"],
+                    hit.get("class", hit.get("class_name", "")),
+                    int(round(float(nearest["projected_xy"][0]))),
+                    int(round(float(nearest["projected_xy"][1]))),
+                )
+                if key in seen_inline:
+                    continue
+                association = {
+                    "id": f"{edge['trace_id']}:hit_{hit_index:03d}",
+                    "class_name": hit.get("class", hit.get("class_name", "")),
+                    "hit_xy": [int(point[0]), int(point[1])],
+                    "source": "stage5b_hit",
+                    **nearest,
+                }
+                associations["inline_objects"]["accepted"].append(association)
+                self._trace_assoc_add(edges_by_id, edge["trace_id"], "inline_objects", association)
+                seen_inline.add(key)
+
+        accepted, rejected = self._trace_assoc_attach_bbox_items(
+            edges=edges,
+            edges_by_id=edges_by_id,
+            group="line_numbers",
+            items=line_payload.get("line_numbers", []),
+            max_distance_px=self.cfg.trace_association_text_max_distance_px,
+        )
+        associations["line_numbers"]["accepted"] = accepted
+        associations["line_numbers"]["rejected"] = rejected
+
+        accepted, rejected = self._trace_assoc_attach_bbox_items(
+            edges=edges,
+            edges_by_id=edges_by_id,
+            group="instrument_tags",
+            items=instrument_payload.get("instrument_tags", []),
+            max_distance_px=self.cfg.trace_association_instrument_max_distance_px,
+        )
+        associations["instrument_tags"]["accepted"] = accepted
+        associations["instrument_tags"]["rejected"] = rejected
+
+        arrows = [obj for obj in objects if obj.get("class_name") == "arrow"]
+        accepted, rejected = self._trace_assoc_attach_bbox_items(
+            edges=edges,
+            edges_by_id=edges_by_id,
+            group="flow_arrows",
+            items=arrows,
+            max_distance_px=self.cfg.trace_association_arrow_max_distance_px,
+        )
+        associations["flow_arrows"]["accepted"] = accepted
+        associations["flow_arrows"]["rejected"] = rejected
+
+        for edge in edges:
+            terminal_xy = edge.get("terminal_xy") or []
+            if len(terminal_xy) != 2 or terminal_xy[0] is None or terminal_xy[1] is None:
+                continue
+            nearest = self._trace_assoc_nearest_segment((float(terminal_xy[0]), float(terminal_xy[1])), [edge])
+            if nearest is None:
+                continue
+            association = {
+                "id": f"{edge['trace_id']}:terminal",
+                "terminal_type": edge.get("terminal_type"),
+                "terminal_obj_id": edge.get("terminal_obj_id"),
+                "terminal_xy": terminal_xy,
+                **nearest,
+            }
+            associations["terminals"]["accepted"].append(association)
+            self._trace_assoc_add(edges_by_id, edge["trace_id"], "terminals", association)
+
+        skipped_branches = [
+            {"id": branch_id, **branch}
+            for branch_id, branch in branch_payload.get("branches", {}).items()
+            if branch.get("status") != "traced"
+        ]
+        traces_without_line_number = [
+            edge["trace_id"]
+            for edge in edges
+            if not edge.get("attachments", {}).get("line_numbers")
+        ]
+        dead_end_traces = [
+            edge["trace_id"]
+            for edge in edges
+            if edge.get("terminal_type") == "dead_end"
+        ]
+
+        payload = {
+            "image_id": image_id,
+            "trace_source": "stage5b",
+            "trace_edges": edges,
+            "associations": associations,
+            "unresolved": {
+                "skipped_branches": skipped_branches,
+                "traces_without_line_number": traces_without_line_number,
+                "dead_end_traces": dead_end_traces,
+                "unattached_line_numbers": associations["line_numbers"]["rejected"],
+                "unattached_instrument_tags": associations["instrument_tags"]["rejected"],
+            },
+        }
+        summary = {
+            "image_id": image_id,
+            "trace_edge_count": len(edges),
+            "port_trace_count": len([edge for edge in edges if edge.get("trace_kind") == "port"]),
+            "branch_trace_count": len([edge for edge in edges if edge.get("trace_kind") == "branch"]),
+            "skipped_branch_count": len(skipped_branches),
+            "dead_end_trace_count": len(dead_end_traces),
+            "trace_without_line_number_count": len(traces_without_line_number),
+            "accepted_counts": {
+                key: len(value.get("accepted", []))
+                for key, value in associations.items()
+            },
+            "rejected_counts": {
+                key: len(value.get("rejected", []))
+                for key, value in associations.items()
+            },
+        }
+
+        self._save_json("stage11_trace_associations", payload)
+        self._save_json("stage11_trace_association_summary", summary)
+        self._save_img(
+            "stage11_trace_association_overlay",
+            self._draw_stage11_trace_association_overlay(edges, associations),
+        )
+
     def stage11_junction_review(self) -> None:
         """Review crossing candidates and classify as confirmed junctions or unresolved."""
         crossing_payload_path = self.out_dir / "stage10_crossing_resolution.json"
