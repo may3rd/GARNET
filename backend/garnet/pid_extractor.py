@@ -73,6 +73,9 @@ from garnet.pipe_terminals import classify_pipe_edge_terminals
 from garnet.topology_markers import run_topology_marker_router
 from garnet.trace_graph_builder import build_trace_graph_from_stage11, render_stage12_graph_overlay
 from garnet.trace_graph_qa import run_stage12_trace_graph_qa
+from garnet.stage13_review_package import build_stage13_review_package, render_stage13_review_overlay
+from garnet.stage14_review_decisions import apply_stage14_review_decisions
+from garnet.stage15_process_exports import build_stage15_process_exports, render_stage15_inline_mto_overlay
 
 try:
     import cv2  # type: ignore
@@ -92,6 +95,7 @@ DEFAULT_OUT = Path("output")
 DEFAULT_OUT.mkdir(parents=True, exist_ok=True)
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 ROOT_DIR = BACKEND_DIR.parent
+LINE_NUMBER_REVIEW_ASSUMPTION = "accepted_line_numbers_are_human_reviewed"
 
 
 def load_pipeline_env() -> None:
@@ -108,6 +112,101 @@ def normalize_for_save(img: np.ndarray) -> np.ndarray:
     if img.dtype != np.uint8:
         return np.clip(img, 0, 255).astype(np.uint8)
     return img
+
+
+def _mark_line_number_review_state(association: dict[str, Any], *, accepted: bool) -> dict[str, Any]:
+    result = dict(association)
+    if accepted:
+        result.update(
+            {
+                "review_state": "accepted",
+                "review_source": "human_assumed",
+                "review_required": False,
+            }
+        )
+    else:
+        result.update(
+            {
+                "review_state": "needs_review",
+                "review_source": "system",
+                "review_required": True,
+            }
+        )
+    return result
+
+
+def build_stage11_line_number_review_payload(
+    *,
+    image_id: str,
+    accepted: list[dict[str, Any]],
+    rejected: list[dict[str, Any]],
+    traces_without_line_number: list[str],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    payload = {
+        "image_id": image_id,
+        "review_assumption": LINE_NUMBER_REVIEW_ASSUMPTION,
+        "accepted": accepted,
+        "needs_review": rejected,
+        "traces_without_line_number": traces_without_line_number,
+    }
+    summary = {
+        "image_id": image_id,
+        "accepted_count": len(accepted),
+        "needs_review_count": len(rejected),
+        "trace_without_line_number_count": len(traces_without_line_number),
+        "simulated_assignment_count": len([item for item in accepted if item.get("source") == "simulated_hitl"]),
+        "review_assumption": LINE_NUMBER_REVIEW_ASSUMPTION,
+    }
+    return payload, summary
+
+
+def _stable_choice_index(key: str, count: int) -> int:
+    if count <= 0:
+        return 0
+    return sum((index + 1) * ord(char) for index, char in enumerate(key)) % count
+
+
+def simulate_line_number_hitl_for_missing_traces(
+    edges: list[dict[str, Any]],
+    reviewed_line_numbers: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Temporary deterministic stand-in for human line-number correction."""
+    reviewed_pool = [
+        item
+        for item in reviewed_line_numbers
+        if str(item.get("review_state") or "") == "accepted" and str(item.get("id") or item.get("source_object_id") or "")
+    ]
+    if not reviewed_pool:
+        return []
+
+    assignments: list[dict[str, Any]] = []
+    for edge in edges:
+        attachments = edge.setdefault("attachments", {})
+        line_numbers = attachments.setdefault("line_numbers", [])
+        if line_numbers:
+            continue
+        trace_id = str(edge.get("trace_id") or "")
+        template = reviewed_pool[_stable_choice_index(trace_id, len(reviewed_pool))]
+        line_id = str(template.get("id") or template.get("source_object_id") or "")
+        assignment = {
+            "id": line_id,
+            "source_object_id": template.get("source_object_id", line_id),
+            "class_name": template.get("class_name", ""),
+            "bbox": template.get("bbox"),
+            "text": template.get("text", ""),
+            "normalized_text": template.get("normalized_text", template.get("text", "")),
+            "confidence": template.get("confidence"),
+            "trace_id": trace_id,
+            "trace_kind": edge.get("trace_kind"),
+            "source": "simulated_hitl",
+            "review_state": "accepted",
+            "review_source": "human_simulated",
+            "review_required": False,
+            "simulated_from_line_number_id": line_id,
+        }
+        line_numbers.append(assignment)
+        assignments.append(assignment)
+    return assignments
 
 
 @dataclass
@@ -296,8 +395,8 @@ class PIDPipeline:
                 (12, "stage12c_page_connector_labeling", self.stage12c_page_connector_labeling),
                 (12, "stage12b_graph_export", self.stage12b_graph_export),
                 (13, "stage13_graph_qa", self.stage13_graph_qa),
-                (14, "stage14_continuity_check", self.stage14_continuity_check),
-                (15, "stage15_recovery_loop", self.stage15_recovery_loop),
+                (14, "stage14_apply_review_decisions", self.stage14_apply_review_decisions),
+                (15, "stage15_process_exports", self.stage15_process_exports),
                 (16, "stage16_connection_overlay", self.stage16_connection_overlay),
             ]
         stages.extend(
@@ -3726,14 +3825,19 @@ class PIDPipeline:
                 **nearest,
             }
             if nearest["distance_px"] <= max_distance_px:
+                if group == "line_numbers":
+                    association = _mark_line_number_review_state(association, accepted=True)
                 accepted.append(association)
                 self._trace_assoc_add(edges_by_id, nearest["trace_id"], group, association)
             else:
-                rejected.append({
+                rejected_association = {
                     **association,
                     "reason": "distance_over_threshold",
                     "max_distance_px": max_distance_px,
-                })
+                }
+                if group == "line_numbers":
+                    rejected_association = _mark_line_number_review_state(rejected_association, accepted=False)
+                rejected.append(rejected_association)
         return accepted, rejected
 
     def _draw_stage11_trace_association_overlay(
@@ -3954,6 +4058,11 @@ class PIDPipeline:
             for branch_id, branch in branch_payload.get("branches", {}).items()
             if branch.get("status") != "traced"
         ]
+        simulated_line_number_assignments = simulate_line_number_hitl_for_missing_traces(
+            edges,
+            associations["line_numbers"]["accepted"],
+        )
+        associations["line_numbers"]["accepted"].extend(simulated_line_number_assignments)
         traces_without_line_number = [
             edge["trace_id"]
             for edge in edges
@@ -3964,6 +4073,12 @@ class PIDPipeline:
             for edge in edges
             if edge.get("terminal_type") == "dead_end"
         ]
+        line_number_review_payload, line_number_review_summary = build_stage11_line_number_review_payload(
+            image_id=image_id,
+            accepted=associations["line_numbers"]["accepted"],
+            rejected=associations["line_numbers"]["rejected"],
+            traces_without_line_number=traces_without_line_number,
+        )
 
         payload = {
             "image_id": image_id,
@@ -3990,6 +4105,7 @@ class PIDPipeline:
                 key: len(value.get("accepted", []))
                 for key, value in associations.items()
             },
+            "simulated_line_number_assignment_count": len(simulated_line_number_assignments),
             "rejected_counts": {
                 key: len(value.get("rejected", []))
                 for key, value in associations.items()
@@ -3998,6 +4114,8 @@ class PIDPipeline:
 
         self._save_json("stage11_trace_associations", payload)
         self._save_json("stage11_trace_association_summary", summary)
+        self._save_json("stage11_line_number_review", line_number_review_payload)
+        self._save_json("stage11_line_number_review_summary", line_number_review_summary)
         self._save_img(
             "stage11_trace_association_overlay",
             self._draw_stage11_trace_association_overlay(edges, associations),
@@ -4034,6 +4152,8 @@ class PIDPipeline:
             self._save_json("stage12_trace_edge_nodes", trace_graph_result["trace_edge_nodes_payload"])
             self._save_json("stage12_review_queue", trace_graph_result["review_queue_payload"])
             self._save_json("stage12_review_queue_summary", trace_graph_result["review_queue_summary"])
+            self._save_json("stage12_graph_normalization", trace_graph_result["normalization_payload"])
+            self._save_json("stage12_graph_normalization_summary", trace_graph_result["normalization_summary"])
             self._save_img(
                 "stage12_graph_overlay",
                 render_stage12_graph_overlay(self._ensure_image_loaded(), trace_graph_result["graph_payload"]),
@@ -4760,6 +4880,27 @@ class PIDPipeline:
     # ---------- Stage 13 + 14 ----------
     def stage13_graph_qa(self) -> None:
         graph_payload = self._load_json_artifact("stage12_graph")
+        stage12_qa_path = self.out_dir / "stage12_graph_qa.json"
+        if stage12_qa_path.exists():
+            image_id = Path(self.image_path).name
+            result = build_stage13_review_package(
+                image_id=image_id,
+                graph_payload=graph_payload,
+                stage12_qa_payload=self._load_json_artifact("stage12_graph_qa"),
+                stage12_review_queue_payload=self._load_json_artifact_or_default("stage12_review_queue", {"review_queue": []}),
+                stage11_line_number_review_payload=self._load_json_artifact_or_default(
+                    "stage11_line_number_review",
+                    {"line_number_review": []},
+                ),
+            )
+            self._save_json("stage13_review_items", result["review_items_payload"])
+            self._save_json("stage13_review_summary", result["summary"])
+            self._save_img(
+                "stage13_review_overlay",
+                render_stage13_review_overlay(self._ensure_image_loaded(), result["review_items_payload"]),
+            )
+            return
+
         qa_result = run_pipe_graph_qa_stage(
             image_id=Path(self.image_path).name,
             graph_payload=graph_payload,
@@ -4787,12 +4928,44 @@ class PIDPipeline:
         self._save_img("stage14_continuity_violations_overlay", continuity_result["overlay_image"])
         self._save_json("stage14_continuity_summary", continuity_result["summary"])
 
+    def stage14_apply_review_decisions(self) -> None:
+        """Apply Stage 13 review decisions to produce the corrected trace graph."""
+        image_id = Path(self.image_path).name
+        result = apply_stage14_review_decisions(
+            image_id=image_id,
+            graph_payload=self._load_json_artifact("stage12_graph"),
+            review_items_payload=self._load_json_artifact("stage13_review_items"),
+            decisions_payload=self._load_json_artifact_or_default("stage13_review_decisions", {"decisions": []}),
+        )
+        self._save_json("stage14_corrected_graph", result["corrected_graph_payload"])
+        self._save_json("stage14_review_resolutions", result["review_resolution_payload"])
+        self._save_json("stage14_correction_audit", result["correction_audit_payload"])
+        self._save_json("stage14_correction_summary", result["summary"])
+
     # ---------- Stage 15 ----------
     def stage15_recovery_loop(self) -> None:
         from garnet.recovery_loop import run_recovery_stage
 
         decisions = run_recovery_stage(str(self.out_dir), max_iterations=3)
         self._save_json("stage5_recovery_decisions", decisions)
+
+    def stage15_process_exports(self) -> None:
+        """Export process-facing tables from the corrected trace graph."""
+        image_id = Path(self.image_path).name
+        result = build_stage15_process_exports(
+            image_id=image_id,
+            corrected_graph_payload=self._load_json_artifact("stage14_corrected_graph"),
+        )
+        self._save_json("stage15_line_list", result["line_list_payload"])
+        self._save_json("stage15_equipment_connectivity", result["equipment_connectivity_payload"])
+        self._save_json("stage15_inline_mto", result["inline_mto_payload"])
+        self._save_json("stage15_inline_observations", result["inline_observations_payload"])
+        self._save_json("stage15_instrument_index", result["instrument_index_payload"])
+        self._save_json("stage15_process_export_summary", result["summary"])
+        self._save_img(
+            "stage15_inline_mto_overlay",
+            render_stage15_inline_mto_overlay(self._ensure_image_loaded(), result["inline_mto_payload"]),
+        )
 
     # ---------- Stage 16 ----------
     def stage16_connection_overlay(self) -> None:

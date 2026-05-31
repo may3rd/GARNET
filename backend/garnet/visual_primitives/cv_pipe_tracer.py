@@ -653,7 +653,8 @@ class CVPipeTracer:
         dx, dy = DIRECTION_DELTA[direction]
         left_dir = TURN_LEFT[direction]
         right_dir = TURN_RIGHT[direction]
-        turns: list[tuple[int, int, str]] = []
+        los_candidates: list[tuple[int, int, str]] = []
+        gap_candidates: list[tuple[int, int, str]] = []
         seen_turns: set[tuple[int, int, str]] = set()
 
         for offset in range(0, probe_px + 1):
@@ -663,13 +664,9 @@ class CVPipeTracer:
                 continue
             left_ok = _has_line_of_sight_band_narrow(self.mask, px, py, left_dir, self.min_step)
             right_ok = _has_line_of_sight_band_narrow(self.mask, px, py, right_dir, self.min_step)
-            left_gap = False if left_ok else self._has_turn_gap(px, py, left_dir, source_obj_id)
-            right_gap = False if right_ok else self._has_turn_gap(px, py, right_dir, source_obj_id)
             if left_ok and right_ok:
                 continue
             for turn_dir, ok in (
-                (left_dir, left_gap),
-                (right_dir, right_gap),
                 (left_dir, left_ok),
                 (right_dir, right_ok),
             ):
@@ -678,10 +675,23 @@ class CVPipeTracer:
                 key = (px, py, turn_dir)
                 if key in seen_turns:
                     continue
-                turns.append(key)
+                los_candidates.append(key)
+                seen_turns.add(key)
+            left_gap = False if left_ok else self._has_turn_gap(px, py, left_dir, source_obj_id)
+            right_gap = False if right_ok else self._has_turn_gap(px, py, right_dir, source_obj_id)
+            for turn_dir, ok in (
+                (left_dir, left_gap),
+                (right_dir, right_gap),
+            ):
+                if not ok:
+                    continue
+                key = (px, py, turn_dir)
+                if key in seen_turns:
+                    continue
+                gap_candidates.append(key)
                 seen_turns.add(key)
 
-        return turns
+        return los_candidates + gap_candidates
 
     def _nearest_candidate_point(self, x: int, y: int, candidates: list[tuple]) -> Optional[tuple]:
         if not candidates:
@@ -796,6 +806,8 @@ class CVPipeTracer:
         seg_start_x, seg_start_y = x, y
         steps = 0
         state_counts: dict[tuple[int, int, str], int] = {}
+        exact_positions: set[tuple[int, int, str]] = set()
+        exact_position_repeats: dict[tuple[int, int, str], int] = {}
 
         # Walk clear of source symbol before first terminal check
         warmup_steps = 20
@@ -821,7 +833,13 @@ class CVPipeTracer:
             x, y = self._snap_to_centerline(x, y, direction)
             state_key = (int(round(x / 3)), int(round(y / 3)), direction)
             state_counts[state_key] = state_counts.get(state_key, 0) + 1
-            if state_counts[state_key] > 3:
+            exact_key = (x, y, direction)
+            if exact_key in exact_positions:
+                exact_position_repeats[exact_key] = exact_position_repeats.get(exact_key, 0) + 1
+            else:
+                exact_positions.add(exact_key)
+                exact_position_repeats[exact_key] = 1
+            if state_counts[state_key] > 3 or exact_position_repeats[exact_key] > 2:
                 self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
                 result.terminal_type = TerminalType.DEAD_END.value
                 result.terminal_x, result.terminal_y = x, y
@@ -1116,9 +1134,9 @@ class CVPipeTracer:
                     y,
                     [c for c in turn_candidates if c[2] == turn_dir],
                 )
-                raycast_dist = (
-                    max(abs(raycast[0] - x), abs(raycast[1] - y))
-                    if raycast is not None else 9999
+                straight_missing_or_far = (
+                    raycast is None
+                    or max(abs(raycast[0] - x), abs(raycast[1] - y)) > 40
                 )
                 turn_target = (
                     self._find_straight_raycast_candidate(
@@ -1136,7 +1154,7 @@ class CVPipeTracer:
                 if (
                     turn is not None
                     and turn_dir == left_dir
-                    and raycast_dist > 40
+                    and straight_missing_or_far
                     and turn_target is not None
                     and _has_line_of_sight_axis_band(
                         self.mask,

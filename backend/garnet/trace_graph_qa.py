@@ -81,6 +81,18 @@ def _node_type(node: dict[str, Any] | None) -> str:
     return str((node or {}).get("type") or (node or {}).get("kind") or "").lower()
 
 
+def _node_evidence_roles(node: dict[str, Any]) -> set[str]:
+    evidence = node.get("evidence") if isinstance(node.get("evidence"), list) else []
+    return {str(item.get("role") or "") for item in evidence if isinstance(item, dict)}
+
+
+def _edge_effective_line_number_ids(edge: dict[str, Any]) -> list[str]:
+    values = edge.get("effective_line_number_ids")
+    if not values:
+        values = edge.get("line_number_ids") or []
+    return [str(value) for value in values if str(value)]
+
+
 def _issue(
     *,
     category: str,
@@ -168,8 +180,8 @@ def _near_same_endpoints(
     return same_direction or reverse_direction
 
 
-def _build_graph(graph_payload: dict[str, Any]) -> tuple[nx.Graph, dict[str, dict[str, Any]], dict[str, dict[str, Any]], list[dict[str, Any]]]:
-    graph = nx.Graph()
+def _build_graph(graph_payload: dict[str, Any]) -> tuple[nx.MultiGraph, dict[str, dict[str, Any]], dict[str, dict[str, Any]], list[dict[str, Any]]]:
+    graph = nx.MultiGraph()
     nodes_by_id: dict[str, dict[str, Any]] = {}
     edges_by_id: dict[str, dict[str, Any]] = {}
     issues: list[dict[str, Any]] = []
@@ -229,7 +241,7 @@ def run_stage12_trace_graph_qa(
     for component_id, component_nodes in enumerate(components):
         for node_id in component_nodes:
             node_to_component[node_id] = component_id
-        for source, target, attrs in graph.edges(component_nodes, data=True):
+        for source, target, _key, attrs in graph.edges(component_nodes, keys=True, data=True):
             edge_id = str(attrs.get("edge_id") or attrs.get("id") or "")
             if edge_id:
                 edge_to_component[edge_id] = component_id
@@ -252,6 +264,20 @@ def run_stage12_trace_graph_qa(
                 )
             )
         if node_type == "tee_junction" and degree < 3:
+            evidence_roles = _node_evidence_roles(node)
+            if evidence_roles and evidence_roles <= {"terminal"}:
+                issues.append(
+                    _issue(
+                        category="unmerged_tee_terminal",
+                        severity="medium",
+                        message="Trace ended at a tee-like terminal, but no corroborating branch/source path is connected there.",
+                        node_id=node_id,
+                        component_id=node_to_component.get(node_id),
+                        geometry=position,
+                        evidence={"degree": degree, "evidence_roles": sorted(evidence_roles)},
+                    )
+                )
+                continue
             issues.append(
                 _issue(
                     category="tee_degree_mismatch",
@@ -325,7 +351,7 @@ def run_stage12_trace_graph_qa(
     line_components: dict[str, set[int]] = defaultdict(set)
     for component_id, edges in component_edges.items():
         component_length = sum(_edge_length(edge) for edge in edges)
-        line_ids = {str(line_id) for edge in edges for line_id in (edge.get("line_number_ids") or [])}
+        line_ids = {line_id for edge in edges for line_id in _edge_effective_line_number_ids(edge)}
         review_edges = [edge for edge in edges if str(edge.get("review_state") or "") != "accepted"]
         component_nodes = components[component_id] if component_id < len(components) else set()
         component_node_types = {_node_type(nodes_by_id.get(node_id)) for node_id in component_nodes}

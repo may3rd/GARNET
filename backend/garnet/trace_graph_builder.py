@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from copy import deepcopy
 from collections import Counter, defaultdict
 from typing import Any
 
@@ -54,6 +55,162 @@ def _dict_polyline(polyline: Any) -> list[dict[str, float]]:
 
 def _distance(a: dict[str, float], b: dict[str, float]) -> float:
     return math.hypot(float(a["x"]) - float(b["x"]), float(a["y"]) - float(b["y"]))
+
+
+def _point_key(point: dict[str, float], *, quantum_px: float = 1.0) -> tuple[int, int]:
+    return (int(round(float(point["x"]) / quantum_px)), int(round(float(point["y"]) / quantum_px)))
+
+
+def _point_near_axis_segment(
+    point: dict[str, float],
+    start: dict[str, float],
+    end: dict[str, float],
+    tolerance_px: float,
+) -> dict[str, float] | None:
+    """Project a point onto a horizontal/vertical segment when it is close enough."""
+    px, py = float(point["x"]), float(point["y"])
+    x1, y1 = float(start["x"]), float(start["y"])
+    x2, y2 = float(end["x"]), float(end["y"])
+    tolerance = float(tolerance_px)
+
+    if abs(y1 - y2) <= tolerance and abs(py - y1) <= tolerance:
+        min_x, max_x = sorted((x1, x2))
+        if min_x - tolerance <= px <= max_x + tolerance:
+            return {"x": min(max(px, min_x), max_x), "y": (y1 + y2) / 2.0}
+
+    if abs(x1 - x2) <= tolerance and abs(px - x1) <= tolerance:
+        min_y, max_y = sorted((y1, y2))
+        if min_y - tolerance <= py <= max_y + tolerance:
+            return {"x": (x1 + x2) / 2.0, "y": min(max(py, min_y), max_y)}
+
+    return None
+
+
+def _is_endpoint(point: dict[str, float], polyline: list[dict[str, float]], tolerance_px: float) -> bool:
+    return bool(polyline) and (
+        _distance(point, polyline[0]) <= tolerance_px or _distance(point, polyline[-1]) <= tolerance_px
+    )
+
+
+def _dedupe_split_points(points: list[dict[str, float]], tolerance_px: float) -> list[dict[str, float]]:
+    deduped: list[dict[str, float]] = []
+    for point in points:
+        if any(_distance(point, existing) <= tolerance_px for existing in deduped):
+            continue
+        deduped.append({"x": float(point["x"]), "y": float(point["y"])})
+    return deduped
+
+
+def _polyline_split_locations(
+    polyline: list[dict[str, float]],
+    split_points: list[dict[str, float]],
+    tolerance_px: float,
+) -> list[tuple[int, float, dict[str, float]]]:
+    locations: list[tuple[int, float, dict[str, float]]] = []
+    for split_point in _dedupe_split_points(split_points, tolerance_px):
+        if _is_endpoint(split_point, polyline, tolerance_px):
+            continue
+        for index, (start, end) in enumerate(zip(polyline, polyline[1:])):
+            projected = _point_near_axis_segment(split_point, start, end, tolerance_px)
+            if projected is None:
+                continue
+            segment_length = _distance(start, end)
+            if segment_length <= 0:
+                continue
+            offset = _distance(start, projected) / segment_length
+            if offset <= 0.0 or offset >= 1.0:
+                continue
+            locations.append((index, offset, projected))
+            break
+    locations.sort(key=lambda item: (item[0], item[1]))
+    return locations
+
+
+def _split_polyline_at_points(
+    polyline: list[dict[str, float]],
+    split_points: list[dict[str, float]],
+    tolerance_px: float,
+    *,
+    min_split_edge_length_px: float = 8.0,
+) -> list[list[dict[str, float]]]:
+    clean_polyline = [{"x": float(point["x"]), "y": float(point["y"])} for point in polyline]
+    if len(clean_polyline) < 2:
+        return []
+
+    split_by_segment: dict[int, list[dict[str, float]]] = defaultdict(list)
+    for segment_index, _offset, projected in _polyline_split_locations(clean_polyline, split_points, tolerance_px):
+        split_by_segment[segment_index].append(projected)
+
+    if not split_by_segment:
+        return [clean_polyline]
+
+    parts: list[list[dict[str, float]]] = []
+    current: list[dict[str, float]] = [clean_polyline[0]]
+    for segment_index, end in enumerate(clean_polyline[1:]):
+        start = clean_polyline[segment_index]
+        segment_splits = split_by_segment.get(segment_index, [])
+        segment_splits.sort(key=lambda point: _distance(start, point))
+        for split_point in segment_splits:
+            if _distance(current[-1], split_point) <= 0:
+                continue
+            current.append(split_point)
+            if _polyline_length(current) >= min_split_edge_length_px:
+                parts.append(current)
+                current = [split_point]
+        current.append(end)
+    if _polyline_length(current) >= min_split_edge_length_px:
+        parts.append(current)
+    elif parts:
+        parts[-1].extend(current[1:])
+    else:
+        parts.append(clean_polyline)
+    return parts
+
+
+def _polyline_length(polyline: list[dict[str, float]]) -> float:
+    return sum(_distance(start, end) for start, end in zip(polyline, polyline[1:]))
+
+
+def _direction_between(start: dict[str, float], end: dict[str, float]) -> str:
+    dx = float(end["x"]) - float(start["x"])
+    dy = float(end["y"]) - float(start["y"])
+    if abs(dx) >= abs(dy):
+        return "RIGHT" if dx >= 0 else "LEFT"
+    return "DOWN" if dy >= 0 else "UP"
+
+
+def _segments_from_polyline(polyline: list[dict[str, float]]) -> list[dict[str, Any]]:
+    segments: list[dict[str, Any]] = []
+    for start, end in zip(polyline, polyline[1:]):
+        length = _distance(start, end)
+        if length <= 0:
+            continue
+        segments.append(
+            {
+                "x1": start["x"],
+                "y1": start["y"],
+                "x2": end["x"],
+                "y2": end["y"],
+                "direction": _direction_between(start, end),
+                "length_px": length,
+            }
+        )
+    return segments
+
+
+def _junction_stable_id(point: dict[str, float], terminal_obj_id: Any = None) -> str:
+    if terminal_obj_id:
+        return f"junction::{terminal_obj_id}"
+    return f"junction::xy::{int(round(float(point['x'])))}::{int(round(float(point['y'])))}"
+
+
+def _junction_override(point: dict[str, float], stable_id: str, *, reason: str) -> dict[str, Any]:
+    return {
+        "node_type": "tee_junction",
+        "position": {"x": float(point["x"]), "y": float(point["y"])},
+        "stable_id": stable_id,
+        "reason": reason,
+    }
 
 
 def _normalize_type(value: Any) -> str:
@@ -112,6 +269,21 @@ def _stable_terminal_node_id(edge: dict[str, Any], node_type: str) -> str | None
     return f"terminal::{node_type}::{terminal_id}"
 
 
+def _node_override(edge: dict[str, Any], key: str) -> dict[str, Any] | None:
+    override = edge.get(key)
+    return override if isinstance(override, dict) else None
+
+
+def _edge_endpoint_override(edge: dict[str, Any], key: str, fallback: dict[str, float]) -> tuple[str | None, dict[str, float] | None, str | None]:
+    override = _node_override(edge, key)
+    if override is None:
+        return None, None, None
+    node_type = str(override.get("node_type") or "")
+    position = _point_from_xy(override.get("position")) or fallback
+    stable_id = str(override.get("stable_id") or "") or None
+    return node_type, position, stable_id
+
+
 def _node_tolerance(node_type: str, tolerances: dict[str, float]) -> float:
     return float(tolerances.get(node_type, tolerances.get("terminal", 8.0)))
 
@@ -166,6 +338,182 @@ def _line_number_ids(edge: dict[str, Any]) -> list[str]:
     return result
 
 
+def _line_number_records(edge: dict[str, Any]) -> list[dict[str, Any]]:
+    items = ((edge.get("attachments") or {}).get("line_numbers") or [])
+    records: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in items:
+        item_id = str(item.get("id") or item.get("source_object_id") or "")
+        if not item_id or item_id in seen:
+            continue
+        seen.add(item_id)
+        records.append(
+            {
+                "id": item_id,
+                "source_object_id": item.get("source_object_id"),
+                "display_text": item.get("text") or item.get("normalized_text") or "",
+                "normalized_text": item.get("normalized_text") or item.get("text") or "",
+                "review_state": item.get("review_state"),
+                "review_source": item.get("review_source"),
+            }
+        )
+    return records
+
+
+def _reviewed_line_number_ids(edge: dict[str, Any]) -> list[str]:
+    items = ((edge.get("attachments") or {}).get("line_numbers") or [])
+    result: list[str] = []
+    for item in items:
+        item_id = str(item.get("id") or item.get("source_object_id") or "")
+        if not item_id:
+            continue
+        if str(item.get("review_state") or "") == "accepted":
+            result.append(item_id)
+    return result
+
+
+def _reviewed_line_number_records(edge: dict[str, Any]) -> list[dict[str, Any]]:
+    reviewed_ids = set(_reviewed_line_number_ids(edge))
+    return [record for record in _line_number_records(edge) if record["id"] in reviewed_ids]
+
+
+def _line_record_lookup(edges: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    records: dict[str, dict[str, Any]] = {}
+    for edge in edges:
+        for record in _line_number_records(edge):
+            records.setdefault(str(record["id"]), record)
+    return records
+
+
+def _records_for_ids(line_ids: list[str], records_by_id: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    return [records_by_id[line_id] for line_id in line_ids if line_id in records_by_id]
+
+
+def _component_edge_groups(edges: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
+    parent: dict[str, str] = {}
+
+    def find(node_id: str) -> str:
+        parent.setdefault(node_id, node_id)
+        if parent[node_id] != node_id:
+            parent[node_id] = find(parent[node_id])
+        return parent[node_id]
+
+    def union(a: str, b: str) -> None:
+        root_a = find(a)
+        root_b = find(b)
+        if root_a != root_b:
+            parent[root_b] = root_a
+
+    for edge in edges:
+        source = str(edge.get("source") or "")
+        target = str(edge.get("target") or "")
+        if source and target:
+            union(source, target)
+
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for edge in edges:
+        source = str(edge.get("source") or "")
+        root = find(source) if source else str(edge.get("id") or len(grouped))
+        grouped[root].append(edge)
+    return list(grouped.values())
+
+
+def _apply_line_number_component_propagation(edges: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    review_items: list[dict[str, Any]] = []
+    records_by_id = _line_record_lookup(edges)
+    for component_index, component_edges in enumerate(_component_edge_groups(edges)):
+        component_line_ids = sorted({line_id for edge in component_edges for line_id in _reviewed_line_number_ids(edge)})
+        component_trace_ids = [str(edge.get("trace_id") or edge.get("id") or "") for edge in component_edges]
+        component_edge_ids = [str(edge.get("id") or "") for edge in component_edges]
+        for edge in component_edges:
+            direct_ids = sorted(set(_reviewed_line_number_ids(edge)))
+            edge["direct_line_number_ids"] = direct_ids
+            edge["direct_line_numbers"] = _records_for_ids(direct_ids, records_by_id)
+            edge["inferred_line_number_ids"] = []
+            edge["inferred_line_numbers"] = []
+            edge["effective_line_number_ids"] = []
+            edge["effective_line_numbers"] = []
+            if len(component_line_ids) > 1:
+                edge["line_number_assignment_state"] = "conflict"
+                edge["effective_line_number_ids"] = component_line_ids
+                edge["effective_line_numbers"] = _records_for_ids(component_line_ids, records_by_id)
+            elif len(component_line_ids) == 1:
+                line_id = component_line_ids[0]
+                edge["effective_line_number_ids"] = [line_id]
+                edge["effective_line_numbers"] = _records_for_ids([line_id], records_by_id)
+                if direct_ids:
+                    edge["line_number_assignment_state"] = "direct"
+                    if edge.get("terminal_type") not in {"dead_end", "terminal"}:
+                        edge["review_state"] = "accepted"
+                else:
+                    edge["line_number_assignment_state"] = "inferred"
+                    if edge.get("terminal_type") not in {"dead_end", "terminal"}:
+                        edge["review_state"] = "accepted"
+                    edge["inferred_line_number_ids"] = [line_id]
+                    edge["inferred_line_numbers"] = _records_for_ids([line_id], records_by_id)
+                    review_items.append(
+                        _make_review_item(
+                            "line_number_inferred",
+                            str(edge.get("trace_id") or edge.get("id") or "trace"),
+                            "info",
+                            "Line number was inferred from reviewed line evidence in the same connected component.",
+                            edge_id=edge.get("id"),
+                            inferred_line_number_ids=[line_id],
+                        )
+                    )
+            else:
+                edge["line_number_assignment_state"] = "missing"
+        if len(component_line_ids) > 1:
+            review_items.append(
+                _make_review_item(
+                    "line_number_conflict",
+                    f"component_{component_index:05d}",
+                    "review",
+                    "Connected trace component has multiple reviewed line numbers.",
+                    candidate_line_number_ids=component_line_ids,
+                    component_edge_ids=component_edge_ids,
+                    component_trace_ids=component_trace_ids,
+                )
+            )
+        elif not component_line_ids:
+            review_items.append(
+                _make_review_item(
+                    "line_number_missing_after_propagation",
+                    f"component_{component_index:05d}",
+                    "review",
+                    "Connected trace component has no reviewed line number after propagation.",
+                    component_edge_ids=component_edge_ids,
+                    component_trace_ids=component_trace_ids,
+                )
+            )
+    return review_items
+
+
+def _merge_attachments(primary: dict[str, Any], duplicate: dict[str, Any]) -> dict[str, Any]:
+    merged = deepcopy(primary.get("attachments") or {})
+    duplicate_attachments = duplicate.get("attachments") or {}
+    if not isinstance(duplicate_attachments, dict):
+        return merged
+    for group, items in duplicate_attachments.items():
+        if not isinstance(items, list):
+            continue
+        existing_items = merged.setdefault(group, [])
+        if not isinstance(existing_items, list):
+            merged[group] = existing_items = []
+        seen_ids = {
+            str(item.get("id") or item.get("source_object_id") or item)
+            for item in existing_items
+            if isinstance(item, dict)
+        }
+        for item in items:
+            item_id = str(item.get("id") or item.get("source_object_id") or item) if isinstance(item, dict) else str(item)
+            if item_id in seen_ids:
+                continue
+            existing_items.append(deepcopy(item))
+            seen_ids.add(item_id)
+    return merged
+
+
 def _make_review_item(issue_type: str, trace_id: str, severity: str, message: str, **extra: Any) -> dict[str, Any]:
     item = {
         "id": f"review::{issue_type}::{trace_id}",
@@ -176,6 +524,307 @@ def _make_review_item(issue_type: str, trace_id: str, severity: str, message: st
     }
     item.update({key: value for key, value in extra.items() if value is not None})
     return item
+
+
+def _endpoints_match(
+    a_polyline: list[dict[str, float]],
+    b_polyline: list[dict[str, float]],
+    tolerance_px: float,
+) -> tuple[bool, bool]:
+    if len(a_polyline) < 2 or len(b_polyline) < 2:
+        return False, False
+    same = _distance(a_polyline[0], b_polyline[0]) <= tolerance_px and _distance(a_polyline[-1], b_polyline[-1]) <= tolerance_px
+    reversed_match = _distance(a_polyline[0], b_polyline[-1]) <= tolerance_px and _distance(a_polyline[-1], b_polyline[0]) <= tolerance_px
+    return same, reversed_match
+
+
+def _collapse_duplicate_trace_edges(
+    edges: list[dict[str, Any]],
+    *,
+    endpoint_tolerance_px: float = 8.0,
+) -> dict[str, Any]:
+    collapsed: list[dict[str, Any]] = []
+    events: list[dict[str, Any]] = []
+    review_items: list[dict[str, Any]] = []
+
+    for edge in edges:
+        polyline = _dict_polyline(edge.get("polyline"))
+        line_ids = set(_line_number_ids(edge))
+        matched = False
+        for existing in collapsed:
+            existing_polyline = _dict_polyline(existing.get("polyline"))
+            same, reversed_match = _endpoints_match(existing_polyline, polyline, endpoint_tolerance_px)
+            if not (same or reversed_match):
+                continue
+            existing_line_ids = set(_line_number_ids(existing))
+            if line_ids and existing_line_ids and line_ids != existing_line_ids:
+                review_items.append(
+                    _make_review_item(
+                        "possible_duplicate_conflicting_line_number",
+                        str(edge.get("trace_id") or "trace"),
+                        "review",
+                        "Trace geometrically duplicates another path but line-number evidence conflicts.",
+                        duplicate_of=existing.get("trace_id"),
+                    )
+                )
+                continue
+            merged_trace_ids = list(existing.get("merged_trace_ids") or [existing.get("trace_id")])
+            edge_trace_id = str(edge.get("trace_id") or "")
+            if edge_trace_id and edge_trace_id not in merged_trace_ids:
+                merged_trace_ids.append(edge_trace_id)
+            existing["merged_trace_ids"] = merged_trace_ids
+            existing["attachments"] = _merge_attachments(existing, edge)
+            existing.setdefault("duplicate_trace_ids", []).append(edge_trace_id)
+            events.append(
+                {
+                    "event": "duplicate_trace_collapsed",
+                    "trace_id": edge_trace_id,
+                    "kept_trace_id": existing.get("trace_id"),
+                    "reversed": reversed_match,
+                }
+            )
+            review_items.append(
+                _make_review_item(
+                    "duplicate_trace_collapsed",
+                    edge_trace_id,
+                    "info",
+                    "Trace was merged into an existing physical path during Stage 12 normalization.",
+                    duplicate_of=existing.get("trace_id"),
+                )
+            )
+            matched = True
+            break
+        if not matched:
+            normalized = deepcopy(edge)
+            normalized["merged_trace_ids"] = [str(normalized.get("trace_id") or "")]
+            collapsed.append(normalized)
+
+    return {
+        "trace_edges": collapsed,
+        "events": events,
+        "review_items": review_items,
+    }
+
+
+def _find_containing_edge_split(
+    target_point: dict[str, float],
+    edge: dict[str, Any],
+    *,
+    split_tolerance_px: float,
+) -> dict[str, float] | None:
+    polyline = _dict_polyline(edge.get("polyline"))
+    if len(polyline) < 2 or _is_endpoint(target_point, polyline, split_tolerance_px):
+        return None
+    for start, end in zip(polyline, polyline[1:]):
+        projected = _point_near_axis_segment(target_point, start, end, split_tolerance_px)
+        if projected is not None and not _is_endpoint(projected, polyline, split_tolerance_px):
+            return projected
+    return None
+
+
+def _add_split_point(
+    split_points_by_index: dict[int, list[dict[str, Any]]],
+    edge_index: int,
+    point: dict[str, float],
+    stable_id: str,
+    reason: str,
+) -> None:
+    existing = split_points_by_index[edge_index]
+    for item in existing:
+        if str(item.get("stable_id")) == stable_id or _distance(item["point"], point) <= 1.0:
+            return
+    existing.append({"point": {"x": float(point["x"]), "y": float(point["y"])}, "stable_id": stable_id, "reason": reason})
+
+
+def _split_point_metadata_for_part_endpoint(
+    point: dict[str, float],
+    split_points: list[dict[str, Any]],
+    tolerance_px: float,
+) -> dict[str, Any] | None:
+    for item in split_points:
+        if _distance(point, item["point"]) <= tolerance_px:
+            return item
+    return None
+
+
+def _split_trace_edge(
+    edge: dict[str, Any],
+    split_points: list[dict[str, Any]],
+    *,
+    split_tolerance_px: float,
+) -> list[dict[str, Any]]:
+    polyline = _dict_polyline(edge.get("polyline"))
+    points = [item["point"] for item in split_points]
+    parts = _split_polyline_at_points(polyline, points, split_tolerance_px)
+    if len(parts) <= 1:
+        normalized = deepcopy(edge)
+        if parts:
+            normalized["polyline"] = parts[0]
+            normalized["segments"] = _segments_from_polyline(parts[0])
+        return [normalized]
+
+    raw_trace_id = str(edge.get("trace_id") or "trace")
+    children: list[dict[str, Any]] = []
+    for index, part in enumerate(parts, start=1):
+        child = deepcopy(edge)
+        child["trace_id"] = f"{raw_trace_id}::part_{index:03d}"
+        child["original_trace_id"] = raw_trace_id
+        child["polyline"] = part
+        child["segments"] = _segments_from_polyline(part)
+        child["trace_length_px"] = _polyline_length(part)
+        child["port"] = {
+            "x": part[0]["x"],
+            "y": part[0]["y"],
+            "direction": _direction_between(part[0], part[1]) if len(part) > 1 else (edge.get("port") or {}).get("direction"),
+        }
+        child["terminal_xy"] = [part[-1]["x"], part[-1]["y"]]
+
+        source_split = _split_point_metadata_for_part_endpoint(part[0], split_points, split_tolerance_px)
+        terminal_split = _split_point_metadata_for_part_endpoint(part[-1], split_points, split_tolerance_px)
+        if source_split is not None:
+            child["_source_node_override"] = _junction_override(
+                source_split["point"],
+                str(source_split["stable_id"]),
+                reason=str(source_split.get("reason") or "trace_split"),
+            )
+        else:
+            child.pop("_source_node_override", None)
+        if terminal_split is not None:
+            child["_terminal_node_override"] = _junction_override(
+                terminal_split["point"],
+                str(terminal_split["stable_id"]),
+                reason=str(terminal_split.get("reason") or "trace_split"),
+            )
+            child["terminal_type"] = "tee_junction"
+            child["terminal_obj_id"] = str(terminal_split["stable_id"]).removeprefix("junction::")
+        else:
+            child.pop("_terminal_node_override", None)
+        children.append(child)
+    return children
+
+
+def normalize_stage11_trace_edges(
+    trace_edges: list[dict[str, Any]],
+    *,
+    split_tolerance_px: float = 10.0,
+    merge_tolerance_px: float = 12.0,
+) -> dict[str, Any]:
+    """Split Stage 11 traces at geometric branch/tee junctions before graph assembly."""
+    _ = merge_tolerance_px
+    edges = [deepcopy(edge) for edge in trace_edges if isinstance(edge, dict)]
+    split_points_by_index: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    events: list[dict[str, Any]] = []
+    synthetic_branch_source_junction_ids: set[str] = set()
+
+    for edge_index, edge in enumerate(edges):
+        trace_kind = _normalize_type(edge.get("trace_kind"))
+        source_point = _point_from_xy(edge.get("port"))
+        if trace_kind != "branch" or source_point is None:
+            continue
+        for host_index, host_edge in enumerate(edges):
+            if host_index == edge_index or _normalize_type(host_edge.get("trace_kind")) == "branch":
+                continue
+            projected = _find_containing_edge_split(source_point, host_edge, split_tolerance_px=split_tolerance_px)
+            if projected is None:
+                continue
+            stable_id = _junction_stable_id(projected)
+            synthetic_branch_source_junction_ids.add(stable_id)
+            edges[edge_index]["_source_node_override"] = _junction_override(projected, stable_id, reason="branch_source_on_trace")
+            _add_split_point(split_points_by_index, host_index, projected, stable_id, "branch_source_on_trace")
+            events.append(
+                {
+                    "event": "branch_source_merged",
+                    "branch_trace_id": edge.get("trace_id"),
+                    "host_trace_id": host_edge.get("trace_id"),
+                    "junction_id": stable_id,
+                    "point": projected,
+                }
+            )
+            break
+
+    for edge_index, edge in enumerate(edges):
+        if _normalize_type(edge.get("terminal_type")) != "tee_junction":
+            continue
+        terminal_point = _point_from_xy(edge.get("terminal_xy"))
+        if terminal_point is None:
+            continue
+        stable_id = _junction_stable_id(terminal_point, edge.get("terminal_obj_id"))
+        edges[edge_index]["_terminal_node_override"] = _junction_override(terminal_point, stable_id, reason="tee_terminal")
+        for host_index, host_edge in enumerate(edges):
+            if host_index == edge_index:
+                continue
+            projected = _find_containing_edge_split(terminal_point, host_edge, split_tolerance_px=split_tolerance_px)
+            if projected is None:
+                continue
+            _add_split_point(split_points_by_index, host_index, projected, stable_id, "tee_terminal_on_trace")
+            events.append(
+                {
+                    "event": "tee_terminal_split_host",
+                    "terminal_trace_id": edge.get("trace_id"),
+                    "host_trace_id": host_edge.get("trace_id"),
+                    "junction_id": stable_id,
+                    "point": projected,
+                }
+            )
+
+    normalized_edges: list[dict[str, Any]] = []
+    split_edge_count = 0
+    for edge_index, edge in enumerate(edges):
+        children = _split_trace_edge(edge, split_points_by_index.get(edge_index, []), split_tolerance_px=split_tolerance_px)
+        if len(children) > 1:
+            split_edge_count += 1
+        normalized_edges.extend(children)
+    collapse_result = _collapse_duplicate_trace_edges(
+        normalized_edges,
+        endpoint_tolerance_px=min(8.0, merge_tolerance_px),
+    )
+    normalized_edges = collapse_result["trace_edges"]
+    duplicate_events = collapse_result["events"]
+    duplicate_review_items = collapse_result["review_items"]
+    events.extend(duplicate_events)
+
+    return {
+        "trace_edges": normalized_edges,
+        "review_items": duplicate_review_items,
+        "metadata": {
+            "source_trace_edge_count": len(edges),
+            "normalized_trace_edge_count": len(normalized_edges),
+            "split_edge_count": split_edge_count,
+            "duplicate_edge_count": len(duplicate_events),
+            "event_count": len(events),
+            "events": events,
+            "split_tolerance_px": split_tolerance_px,
+            "synthetic_branch_source_junction_ids": sorted(synthetic_branch_source_junction_ids),
+        },
+    }
+
+
+def _downgrade_degree_two_synthetic_tees(
+    nodes: list[dict[str, Any]],
+    edges: list[dict[str, Any]],
+    synthetic_junction_ids: set[str],
+) -> list[str]:
+    if not synthetic_junction_ids:
+        return []
+    degree_by_node: Counter[str] = Counter()
+    for edge in edges:
+        degree_by_node[str(edge.get("source"))] += 1
+        degree_by_node[str(edge.get("target"))] += 1
+
+    downgraded: list[str] = []
+    for node in nodes:
+        node_id = str(node.get("id") or "")
+        if node_id not in synthetic_junction_ids:
+            continue
+        if node.get("type") != "tee_junction":
+            continue
+        if degree_by_node[node_id] >= 3:
+            continue
+        node["type"] = "junction"
+        node["kind"] = "junction"
+        node.setdefault("normalization_notes", []).append("downgraded_synthetic_branch_source_because_degree_below_3")
+        downgraded.append(node_id)
+    return downgraded
 
 
 def build_trace_graph_from_stage11(
@@ -200,8 +849,9 @@ def build_trace_graph_from_stage11(
     trace_edge_nodes: list[dict[str, Any]] = []
     review_queue: list[dict[str, Any]] = []
     excluded_edges: list[dict[str, Any]] = []
+    normalization = normalize_stage11_trace_edges(payload.get("trace_edges", []) or [])
 
-    for raw_edge in payload.get("trace_edges", []) or []:
+    for raw_edge in normalization["trace_edges"]:
         if not isinstance(raw_edge, dict):
             continue
         trace_id = str(raw_edge.get("trace_id") or f"trace_{len(graph_edges) + len(excluded_edges):05d}")
@@ -236,12 +886,24 @@ def build_trace_graph_from_stage11(
             )
             continue
 
-        source_type = _source_node_type(raw_edge)
-        terminal_type = _terminal_node_type(raw_edge)
+        source_override_type, source_override_point, source_override_id = _edge_endpoint_override(
+            raw_edge,
+            "_source_node_override",
+            source_point,
+        )
+        terminal_override_type, terminal_override_point, terminal_override_id = _edge_endpoint_override(
+            raw_edge,
+            "_terminal_node_override",
+            terminal_point,
+        )
+        source_type = source_override_type or _source_node_type(raw_edge)
+        terminal_type = terminal_override_type or _terminal_node_type(raw_edge)
+        resolved_source_point = source_override_point or source_point
+        resolved_terminal_point = terminal_override_point or terminal_point
         source_node_id = registry.add(
             node_type=source_type,
-            position=source_point,
-            stable_id=_stable_source_node_id(raw_edge, source_type),
+            position=resolved_source_point,
+            stable_id=source_override_id or _stable_source_node_id(raw_edge, source_type),
             evidence={
                 "role": "source",
                 "trace_id": trace_id,
@@ -253,8 +915,8 @@ def build_trace_graph_from_stage11(
         )
         terminal_node_id = registry.add(
             node_type=terminal_type,
-            position=terminal_point,
-            stable_id=_stable_terminal_node_id(raw_edge, terminal_type),
+            position=resolved_terminal_point,
+            stable_id=terminal_override_id or _stable_terminal_node_id(raw_edge, terminal_type),
             evidence={
                 "role": "terminal",
                 "trace_id": trace_id,
@@ -289,8 +951,13 @@ def build_trace_graph_from_stage11(
             "hits": raw_edge.get("hits") or [],
             "attachments": raw_edge.get("attachments") or {},
             "line_number_ids": line_number_ids,
+            "line_numbers": _line_number_records(raw_edge),
             "warnings": raw_edge.get("warnings") or [],
         }
+        if raw_edge.get("merged_trace_ids"):
+            edge_payload["merged_trace_ids"] = raw_edge.get("merged_trace_ids")
+        if raw_edge.get("duplicate_trace_ids"):
+            edge_payload["duplicate_trace_ids"] = raw_edge.get("duplicate_trace_ids")
         graph_edges.append(edge_payload)
         trace_edge_nodes.append(
             {
@@ -298,8 +965,8 @@ def build_trace_graph_from_stage11(
                 "edge_id": edge_payload["id"],
                 "source_node_id": source_node_id,
                 "target_node_id": terminal_node_id,
-                "source_xy": source_point,
-                "terminal_xy": terminal_point,
+                "source_xy": resolved_source_point,
+                "terminal_xy": resolved_terminal_point,
                 "terminal_type": terminal_type,
             }
         )
@@ -322,7 +989,7 @@ def build_trace_graph_from_stage11(
                     "review",
                     "Trace ended at a dead end and may need human confirmation.",
                     edge_id=edge_payload["id"],
-                    terminal_xy=terminal_point,
+                    terminal_xy=resolved_terminal_point,
                 )
             )
         if terminal_type == "terminal" or not raw_edge.get("terminal_type"):
@@ -333,9 +1000,11 @@ def build_trace_graph_from_stage11(
                     "review",
                     "Trace terminal type is missing or generic.",
                     edge_id=edge_payload["id"],
-                    terminal_xy=terminal_point,
+                    terminal_xy=resolved_terminal_point,
                 )
             )
+
+    review_queue.extend(normalization.get("review_items") or [])
 
     unresolved = payload.get("unresolved") or {}
     for item in unresolved.get("unattached_line_numbers", []) or []:
@@ -372,12 +1041,19 @@ def build_trace_graph_from_stage11(
             )
         )
 
+    downgraded_synthetic_tees = _downgrade_degree_two_synthetic_tees(
+        registry.nodes,
+        graph_edges,
+        set(normalization["metadata"].get("synthetic_branch_source_junction_ids") or []),
+    )
+    review_queue.extend(_apply_line_number_component_propagation(graph_edges))
+
     node_type_counts = Counter(str(node.get("type")) for node in registry.nodes)
     edge_terminal_counts = Counter(str(edge.get("terminal_type")) for edge in graph_edges)
     review_counts = Counter(str(item.get("issue_type")) for item in review_queue)
     line_groups: dict[str, list[str]] = defaultdict(list)
     for edge in graph_edges:
-        for line_id in edge.get("line_number_ids") or []:
+        for line_id in edge.get("effective_line_number_ids") or edge.get("line_number_ids") or []:
             line_groups[str(line_id)].append(str(edge["id"]))
 
     graph_payload = {
@@ -395,6 +1071,8 @@ def build_trace_graph_from_stage11(
             "source_artifacts": ["stage11_trace_associations.json"],
             "excluded_trace_edges": excluded_edges,
             "node_merge_tolerances_px": tolerances,
+            "normalization": normalization["metadata"],
+            "downgraded_synthetic_tee_junction_ids": downgraded_synthetic_tees,
         },
     }
     summary = {
@@ -409,6 +1087,11 @@ def build_trace_graph_from_stage11(
         "terminal_type_counts": dict(sorted(edge_terminal_counts.items())),
         "review_issue_counts": dict(sorted(review_counts.items())),
         "source_trace_edge_count": len(payload.get("trace_edges", []) or []),
+        "normalized_trace_edge_count": len(normalization["trace_edges"]),
+        "normalization_split_edge_count": normalization["metadata"].get("split_edge_count", 0),
+        "normalization_duplicate_edge_count": normalization["metadata"].get("duplicate_edge_count", 0),
+        "normalization_event_count": normalization["metadata"].get("event_count", 0),
+        "downgraded_synthetic_tee_count": len(downgraded_synthetic_tees),
     }
     trace_edge_nodes_payload = {
         "image_id": resolved_image_id,
@@ -424,12 +1107,29 @@ def build_trace_graph_from_stage11(
         "review_item_count": len(review_queue),
         "issue_counts": dict(sorted(review_counts.items())),
     }
+    normalization_payload = {
+        "image_id": resolved_image_id,
+        **normalization["metadata"],
+    }
+    normalization_summary = {
+        "image_id": resolved_image_id,
+        "source_trace_edge_count": normalization["metadata"].get("source_trace_edge_count", 0),
+        "normalized_trace_edge_count": normalization["metadata"].get("normalized_trace_edge_count", 0),
+        "split_edge_count": normalization["metadata"].get("split_edge_count", 0),
+        "duplicate_edge_count": normalization["metadata"].get("duplicate_edge_count", 0),
+        "event_count": normalization["metadata"].get("event_count", 0),
+        "split_tolerance_px": normalization["metadata"].get("split_tolerance_px"),
+        "downgraded_synthetic_tee_count": len(downgraded_synthetic_tees),
+        "downgraded_synthetic_tee_junction_ids": downgraded_synthetic_tees,
+    }
     return {
         "graph_payload": graph_payload,
         "summary": summary,
         "trace_edge_nodes_payload": trace_edge_nodes_payload,
         "review_queue_payload": review_queue_payload,
         "review_queue_summary": review_queue_summary,
+        "normalization_payload": normalization_payload,
+        "normalization_summary": normalization_summary,
     }
 
 
