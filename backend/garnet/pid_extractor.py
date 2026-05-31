@@ -366,7 +366,11 @@ class PIDPipeline:
     # ---------- Stage runner ----------
     def _stage_definitions(self) -> List[Tuple[int, str, Callable[[], None]]]:
         """Return the ordered stage list executed by the pipeline."""
+<<<<<<< HEAD
         stages = [
+=======
+        stages: list[tuple] = [
+>>>>>>> origin/main
             (1, "stage1_input_normalization", self.stage1_input_normalization),
             (2, "stage2_ocr_discovery", self.stage2_ocr_discovery),
             # Stage 4 sub-stages share the same number intentionally.
@@ -375,6 +379,7 @@ class PIDPipeline:
             (4, "stage4_line_number_fusion", self.stage4_line_number_fusion),
             (4, "stage4_instrument_tag_fusion", self.stage4_instrument_tag_fusion),
             (5, "stage5_pipe_mask", self.stage5_pipe_mask),
+<<<<<<< HEAD
             (6, "stage6_morphological_sealing", self.stage6_morphological_sealing),
             (7, "stage7_skeleton_generation", self.stage7_skeleton_generation),
             (8, "stage8_skeleton_node_detection", self.stage8_skeleton_node_detection),
@@ -396,16 +401,32 @@ class PIDPipeline:
                 (5, "stage5_pipe_mask", self.stage5_pipe_mask),
                 (5, "stage5b_pipe_trace", self.stage5b_pipe_trace),
                 (11, "stage11_trace_associations", self.stage11_trace_associations),
+=======
+        ]
+        if self.cfg.use_geometric_line_detection:
+            # Stage 5b: CV pipe tracer — runs right after pipe mask generation
+            stages.append((5, "stage5b_pipe_trace", self.stage5b_pipe_trace))
+            stages.extend([
+>>>>>>> origin/main
                 (12, "stage12_geometric_graph_assembly", self.stage12_geometric_graph_assembly),
                 (12, "stage12c_page_connector_labeling", self.stage12c_page_connector_labeling),
                 (12, "stage12b_graph_export", self.stage12b_graph_export),
                 (13, "stage13_graph_qa", self.stage13_graph_qa),
+<<<<<<< HEAD
                 (14, "stage14_apply_review_decisions", self.stage14_apply_review_decisions),
                 (15, "stage15_process_exports", self.stage15_process_exports),
                 (16, "stage16_connection_overlay", self.stage16_connection_overlay),
             ]
         stages.extend(
             [
+=======
+                (14, "stage14_continuity_check", self.stage14_continuity_check),
+                (15, "stage15_recovery_loop", self.stage15_recovery_loop),
+                (16, "stage16_connection_overlay", self.stage16_connection_overlay),
+            ])
+        else:
+            stages.extend([
+>>>>>>> origin/main
                 (6, "stage6_morphological_sealing", self.stage6_morphological_sealing),
                 (7, "stage7_skeleton_generation", self.stage7_skeleton_generation),
                 (8, "stage8_skeleton_node_detection", self.stage8_skeleton_node_detection),
@@ -422,8 +443,7 @@ class PIDPipeline:
                 (14, "stage14_continuity_check", self.stage14_continuity_check),
                 (15, "stage15_recovery_loop", self.stage15_recovery_loop),
                 (16, "stage16_connection_overlay", self.stage16_connection_overlay),
-            ]
-        )
+            ])
         return stages
 
     def _manifest_path(self) -> Path:
@@ -3206,6 +3226,22 @@ class PIDPipeline:
         import cv2 as _cv2
         import time as _time
 
+<<<<<<< HEAD
+=======
+        # Load or compute connection ports
+        ports_path = self.out_dir / "stage5_connection_ports.json"
+        if ports_path.exists():
+            ports = self._load_json_artifact("stage5_connection_ports")
+        else:
+            objects_all = self._load_json_artifact("stage4_objects").get("objects", [])
+            ports = self._compute_connection_ports_vlm(objects_all)
+            self._save_json("stage5_connection_ports", ports)
+        if not ports:
+            logger.warning("No connection ports found — skipping pipe trace")
+            return
+
+        objects = self._load_json_artifact("stage4_objects").get("objects", [])
+>>>>>>> origin/main
         pipe_mask = _cv2.imread(
             str(self.out_dir / "stage5_pipe_mask.png"), _cv2.IMREAD_GRAYSCALE
         )
@@ -3593,6 +3629,18 @@ class PIDPipeline:
         )
 
     # ---------- Stage 5: Geometric line-detection alternative ----------
+    def stage14_graph_assembly(self) -> None:
+        """Placeholder — non‑geometric graph assembly not implemented on this branch."""
+        raise NotImplementedError(
+            "stage14_graph_assembly: not implemented. Use --geometric path instead."
+        )
+
+    def stage15_graph_qa(self) -> None:
+        """Placeholder — non‑geometric graph QA not implemented on this branch."""
+        raise NotImplementedError(
+            "stage15_graph_qa: not implemented. Use --geometric path instead."
+        )
+
     def stage5_geometric_line_detection(self) -> None:
         """Geometric pipeline: adaptive threshold → corner detection → Telea inpaint
         → contour extraction → collinear + endpoint merge → segment mask."""
@@ -5388,8 +5436,12 @@ def main() -> None:
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     parser.add_argument("--ocr-route", choices=["easyocr", "gemini", "paddleocr", "ocrmac"], default="ocrmac")
     parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, or 15)")
+<<<<<<< HEAD
     parser.add_argument("--geometric", action="store_true", default=False,
                         help="Use geometric line detection in stage 5")
+=======
+    parser.add_argument("--geometric", action="store_true", help="Use geometric line detection path (includes CV pipe tracer)")
+>>>>>>> origin/main
     args = parser.parse_args()
     pipe = PIDPipeline(
         args.image,
