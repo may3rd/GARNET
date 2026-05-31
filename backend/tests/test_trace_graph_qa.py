@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from garnet.trace_graph_qa import run_stage12_trace_graph_qa
+from garnet.trace_graph_qa import render_stage12_graph_qa_overlay, run_stage12_trace_graph_qa
 
 
 class TraceGraphQATests(unittest.TestCase):
@@ -87,6 +87,36 @@ class TraceGraphQATests(unittest.TestCase):
 
         issue_categories = [issue["category"] for issue in result["qa_payload"]["issues"]]
         self.assertNotIn("missing_line_number_component", issue_categories)
+
+    def test_qa_overlay_uses_distinct_colors_for_distinct_line_numbers(self) -> None:
+        image = np.full((220, 160, 3), 255, dtype=np.uint8)
+        graph_payload = {
+            "nodes": [],
+            "edges": [
+                {
+                    "id": "edge_a",
+                    "effective_line_number_ids": ["line_a"],
+                    "polyline": [{"x": 10, "y": 120}, {"x": 150, "y": 120}],
+                },
+                {
+                    "id": "edge_b",
+                    "effective_line_number_ids": ["line_b"],
+                    "polyline": [{"x": 10, "y": 170}, {"x": 150, "y": 170}],
+                },
+            ],
+        }
+
+        overlay = render_stage12_graph_qa_overlay(
+            image_bgr=image,
+            graph_payload=graph_payload,
+            qa_payload={"issues": []},
+        )
+        color_a = tuple(int(value) for value in overlay[118, 30])
+        color_b = tuple(int(value) for value in overlay[168, 30])
+
+        self.assertNotEqual(color_a, (255, 255, 255))
+        self.assertNotEqual(color_b, (255, 255, 255))
+        self.assertNotEqual(color_a, color_b)
 
 
 if __name__ == "__main__":

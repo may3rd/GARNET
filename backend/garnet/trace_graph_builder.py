@@ -23,6 +23,25 @@ DEFAULT_NODE_MERGE_TOLERANCES = {
     "source": 8.0,
 }
 
+STAGE12_LINE_PALETTE: tuple[tuple[int, int, int], ...] = (
+    (30, 144, 255),
+    (0, 200, 0),
+    (255, 128, 0),
+    (180, 0, 255),
+    (0, 180, 220),
+    (220, 80, 80),
+    (120, 190, 40),
+    (255, 0, 160),
+    (90, 90, 255),
+    (0, 140, 140),
+    (180, 120, 0),
+    (130, 0, 180),
+    (80, 170, 255),
+    (40, 220, 120),
+    (210, 90, 170),
+    (170, 170, 0),
+)
+
 
 def _as_float(value: Any, default: float = 0.0) -> float:
     try:
@@ -110,6 +129,14 @@ def _polyline_split_locations(
     for split_point in _dedupe_split_points(split_points, tolerance_px):
         if _is_endpoint(split_point, polyline, tolerance_px):
             continue
+        vertex_match = None
+        for vertex_index, vertex in enumerate(polyline[1:-1], start=1):
+            if _distance(split_point, vertex) <= tolerance_px:
+                vertex_match = (vertex_index - 1, 1.0, {"x": float(vertex["x"]), "y": float(vertex["y"])})
+                break
+        if vertex_match is not None:
+            locations.append(vertex_match)
+            continue
         for index, (start, end) in enumerate(zip(polyline, polyline[1:])):
             projected = _point_near_axis_segment(split_point, start, end, tolerance_px)
             if projected is None:
@@ -157,7 +184,8 @@ def _split_polyline_at_points(
             if _polyline_length(current) >= min_split_edge_length_px:
                 parts.append(current)
                 current = [split_point]
-        current.append(end)
+        if _distance(current[-1], end) > 0:
+            current.append(end)
     if _polyline_length(current) >= min_split_edge_length_px:
         parts.append(current)
     elif parts:
@@ -418,10 +446,133 @@ def _component_edge_groups(edges: list[dict[str, Any]]) -> list[list[dict[str, A
     return list(grouped.values())
 
 
+def _edge_key(edge: dict[str, Any], fallback_index: int) -> str:
+    return str(edge.get("id") or edge.get("trace_id") or f"edge_{fallback_index:05d}")
+
+
+def _edge_vector_away_from_node(edge: dict[str, Any], node_id: str) -> tuple[str, int, float] | None:
+    polyline = _dict_polyline(edge.get("polyline"))
+    if len(polyline) < 2:
+        return None
+
+    if str(edge.get("source") or "") == node_id:
+        start = polyline[0]
+        toward_pipe = polyline[1]
+    elif str(edge.get("target") or "") == node_id:
+        start = polyline[-1]
+        toward_pipe = polyline[-2]
+    else:
+        return None
+
+    dx = float(toward_pipe["x"]) - float(start["x"])
+    dy = float(toward_pipe["y"]) - float(start["y"])
+    length = math.hypot(dx, dy)
+    if length <= 0:
+        return None
+    if abs(dx) >= abs(dy):
+        return ("horizontal", 1 if dx >= 0 else -1, length)
+    return ("vertical", 1 if dy >= 0 else -1, length)
+
+
+def _is_process_line_boundary_node(node_id: str) -> bool:
+    return node_id.startswith(
+        (
+            "equipment::",
+            "page_connection::",
+            "utility_connection::",
+            "connection::",
+        )
+    )
+
+
+def _process_run_edge_groups(edges: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
+    """Group edges where a reviewed line number should propagate.
+
+    A plain connected component is too broad at a tee: the main run keeps the
+    line number, while the branch is normally a different process line. For
+    degree-3+ junctions we only join collinear opposite edges; perpendicular
+    branches stay in a separate run unless they carry their own line evidence.
+    """
+    edge_by_key: dict[str, dict[str, Any]] = {}
+    parent: dict[str, str] = {}
+    incident_by_node: dict[str, list[str]] = defaultdict(list)
+
+    def find(edge_id: str) -> str:
+        parent.setdefault(edge_id, edge_id)
+        if parent[edge_id] != edge_id:
+            parent[edge_id] = find(parent[edge_id])
+        return parent[edge_id]
+
+    def union(a: str, b: str) -> None:
+        root_a = find(a)
+        root_b = find(b)
+        if root_a != root_b:
+            parent[root_b] = root_a
+
+    for index, edge in enumerate(edges):
+        edge_id = _edge_key(edge, index)
+        edge_by_key[edge_id] = edge
+        parent.setdefault(edge_id, edge_id)
+        for node_id in (str(edge.get("source") or ""), str(edge.get("target") or "")):
+            if node_id:
+                incident_by_node[node_id].append(edge_id)
+
+    for node_id, incident_edge_ids in incident_by_node.items():
+        if _is_process_line_boundary_node(node_id):
+            continue
+        unique_edge_ids = list(dict.fromkeys(incident_edge_ids))
+        if len(unique_edge_ids) <= 1:
+            continue
+        if len(unique_edge_ids) <= 2:
+            union(unique_edge_ids[0], unique_edge_ids[1])
+            continue
+
+        original_groups: dict[str, list[str]] = defaultdict(list)
+        for edge_id in unique_edge_ids:
+            original_trace_id = str(edge_by_key[edge_id].get("original_trace_id") or "")
+            if original_trace_id:
+                original_groups[original_trace_id].append(edge_id)
+        original_group_used = False
+        for original_edge_ids in original_groups.values():
+            if len(original_edge_ids) < 2:
+                continue
+            for edge_id in original_edge_ids[1:]:
+                union(original_edge_ids[0], edge_id)
+            original_group_used = True
+        if original_group_used:
+            continue
+
+        by_axis: dict[str, dict[int, list[tuple[str, float]]]] = {
+            "horizontal": {-1: [], 1: []},
+            "vertical": {-1: [], 1: []},
+        }
+        for edge_id in unique_edge_ids:
+            vector = _edge_vector_away_from_node(edge_by_key[edge_id], node_id)
+            if vector is None:
+                continue
+            axis, sign, length = vector
+            by_axis[axis][sign].append((edge_id, length))
+
+        for axis_groups in by_axis.values():
+            negative = axis_groups[-1]
+            positive = axis_groups[1]
+            if not negative or not positive:
+                continue
+            for neg_edge_id, _neg_length in negative:
+                for pos_edge_id, _pos_length in positive:
+                    union(neg_edge_id, pos_edge_id)
+
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for index, edge in enumerate(edges):
+        edge_id = _edge_key(edge, index)
+        grouped[find(edge_id)].append(edge)
+    return list(grouped.values())
+
+
 def _apply_line_number_component_propagation(edges: list[dict[str, Any]]) -> list[dict[str, Any]]:
     review_items: list[dict[str, Any]] = []
     records_by_id = _line_record_lookup(edges)
-    for component_index, component_edges in enumerate(_component_edge_groups(edges)):
+    for component_index, component_edges in enumerate(_process_run_edge_groups(edges)):
         component_line_ids = sorted({line_id for edge in component_edges for line_id in _reviewed_line_number_ids(edge)})
         component_trace_ids = [str(edge.get("trace_id") or edge.get("id") or "") for edge in component_edges]
         component_edge_ids = [str(edge.get("id") or "") for edge in component_edges]
@@ -456,7 +607,7 @@ def _apply_line_number_component_propagation(edges: list[dict[str, Any]]) -> lis
                             "line_number_inferred",
                             str(edge.get("trace_id") or edge.get("id") or "trace"),
                             "info",
-                            "Line number was inferred from reviewed line evidence in the same connected component.",
+                            "Line number was inferred from reviewed line evidence in the same process run.",
                             edge_id=edge.get("id"),
                             inferred_line_number_ids=[line_id],
                         )
@@ -469,7 +620,7 @@ def _apply_line_number_component_propagation(edges: list[dict[str, Any]]) -> lis
                     "line_number_conflict",
                     f"component_{component_index:05d}",
                     "review",
-                    "Connected trace component has multiple reviewed line numbers.",
+                    "Process run has multiple reviewed line numbers.",
                     candidate_line_number_ids=component_line_ids,
                     component_edge_ids=component_edge_ids,
                     component_trace_ids=component_trace_ids,
@@ -481,7 +632,7 @@ def _apply_line_number_component_propagation(edges: list[dict[str, Any]]) -> lis
                     "line_number_missing_after_propagation",
                     f"component_{component_index:05d}",
                     "review",
-                    "Connected trace component has no reviewed line number after propagation.",
+                    "Process run has no reviewed line number after propagation.",
                     component_edge_ids=component_edge_ids,
                     component_trace_ids=component_trace_ids,
                 )
@@ -722,7 +873,7 @@ def normalize_stage11_trace_edges(
         if trace_kind != "branch" or source_point is None:
             continue
         for host_index, host_edge in enumerate(edges):
-            if host_index == edge_index or _normalize_type(host_edge.get("trace_kind")) == "branch":
+            if host_index == edge_index:
                 continue
             projected = _find_containing_edge_split(source_point, host_edge, split_tolerance_px=split_tolerance_px)
             if projected is None:
@@ -938,6 +1089,7 @@ def build_trace_graph_from_stage11(
             "line_style": "solid",
             "review_state": review_state,
             "trace_id": trace_id,
+            "original_trace_id": raw_edge.get("original_trace_id"),
             "trace_kind": raw_edge.get("trace_kind"),
             "source_obj_id": raw_edge.get("source_obj_id"),
             "source_obj_type": raw_edge.get("source_obj_type"),
@@ -1137,15 +1289,41 @@ def _as_int_point(point: dict[str, Any]) -> tuple[int, int]:
     return int(round(_as_float(point.get("x")))), int(round(_as_float(point.get("y"))))
 
 
-def _edge_color(edge: dict[str, Any]) -> tuple[int, int, int]:
+def _edge_line_color_key(edge: dict[str, Any]) -> str:
+    line_ids = edge.get("effective_line_number_ids") or edge.get("line_number_ids") or []
+    if not isinstance(line_ids, list) or not line_ids:
+        return ""
+    clean_ids = [str(line_id) for line_id in line_ids if str(line_id)]
+    if not clean_ids:
+        return ""
+    return "+".join(sorted(clean_ids))
+
+
+def _stage12_line_color_map(graph_payload: dict[str, Any]) -> dict[str, tuple[int, int, int]]:
+    line_keys = sorted(
+        {
+            key
+            for edge in graph_payload.get("edges", []) or []
+            for key in [_edge_line_color_key(edge)]
+            if key
+        }
+    )
+    return {line_key: STAGE12_LINE_PALETTE[index % len(STAGE12_LINE_PALETTE)] for index, line_key in enumerate(line_keys)}
+
+
+def _edge_color(edge: dict[str, Any], line_color_by_key: dict[str, tuple[int, int, int]] | None = None) -> tuple[int, int, int]:
     review_state = str(edge.get("review_state") or "").lower()
     terminal_type = _normalize_type(edge.get("terminal_type"))
-    if review_state == "accepted":
-        return (0, 170, 0)
+    line_key = _edge_line_color_key(edge)
+    if line_key:
+        color = (line_color_by_key or {}).get(line_key)
+        if color is not None:
+            return color
+        return STAGE12_LINE_PALETTE[sum((index + 1) * ord(char) for index, char in enumerate(line_key)) % len(STAGE12_LINE_PALETTE)]
     if terminal_type == "dead_end":
         return (0, 0, 220)
-    if edge.get("line_number_ids"):
-        return (0, 165, 255)
+    if review_state == "accepted":
+        return (0, 170, 0)
     return (0, 80, 255)
 
 
@@ -1171,6 +1349,7 @@ def render_stage12_graph_overlay(image_bgr: np.ndarray, graph_payload: dict[str,
 
     overlay = image_bgr.copy()
     node_by_id = {str(node.get("id")): node for node in graph_payload.get("nodes", [])}
+    line_color_by_key = _stage12_line_color_map(graph_payload)
 
     for edge in graph_payload.get("edges", []) or []:
         polyline = edge.get("polyline") or []
@@ -1178,16 +1357,18 @@ def render_stage12_graph_overlay(image_bgr: np.ndarray, graph_payload: dict[str,
         points = [point for point in points if point is not None]
         if len(points) < 2:
             continue
-        color = _edge_color(edge)
+        color = _edge_color(edge, line_color_by_key)
         for start, end in zip(points, points[1:]):
             cv2.line(overlay, _as_int_point(start), _as_int_point(end), color, 4, lineType=cv2.LINE_AA)
             cv2.line(overlay, _as_int_point(start), _as_int_point(end), (255, 255, 255), 1, lineType=cv2.LINE_AA)
 
         mid = points[len(points) // 2]
         label = str(edge.get("trace_id") or edge.get("id") or "")
-        line_numbers = edge.get("line_number_ids") or []
+        line_numbers = edge.get("effective_line_number_ids") or edge.get("line_number_ids") or []
         if line_numbers:
-            label = f"{label} ln:{len(line_numbers)}"
+            label = f"{label} line:{','.join(str(item) for item in line_numbers[:2])}"
+            if len(line_numbers) > 2:
+                label = f"{label},+{len(line_numbers) - 2}"
         x, y = _as_int_point(mid)
         cv2.putText(
             overlay,
@@ -1228,13 +1409,18 @@ def render_stage12_graph_overlay(image_bgr: np.ndarray, graph_payload: dict[str,
             lineType=cv2.LINE_AA,
         )
 
-    legend_items = [
-        ("accepted", (0, 170, 0)),
-        ("review", (0, 80, 255)),
-        ("dead_end", (0, 0, 220)),
-        ("tee/branch", (255, 0, 255)),
-        ("equipment", (255, 180, 0)),
-    ]
+    legend_items = [(f"line {key[:18]}", color) for key, color in list(line_color_by_key.items())[:10]]
+    if len(line_color_by_key) > 10:
+        legend_items.append((f"+{len(line_color_by_key) - 10} more lines", (80, 80, 80)))
+    legend_items.extend(
+        [
+            ("accepted/no line", (0, 170, 0)),
+            ("review/missing line", (0, 80, 255)),
+            ("dead_end/no line", (0, 0, 220)),
+            ("tee/branch", (255, 0, 255)),
+            ("equipment", (255, 180, 0)),
+        ]
+    )
     x0, y0 = 18, 28
     for index, (label, color) in enumerate(legend_items):
         y = y0 + index * 24

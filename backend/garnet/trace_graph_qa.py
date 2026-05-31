@@ -7,6 +7,8 @@ from typing import Any
 import networkx as nx
 import numpy as np
 
+from garnet.trace_graph_builder import _edge_color, _edge_line_color_key, _stage12_line_color_map
+
 
 _COMPONENT_COLORS = [
     (0, 0, 255),
@@ -464,11 +466,15 @@ def render_stage12_graph_qa_overlay(
     overlay = image_bgr.copy()
     component_by_edge = component_by_edge or {}
     nodes_by_id = {str(node.get("id")): node for node in graph_payload.get("nodes", [])}
+    line_color_by_key = _stage12_line_color_map(graph_payload)
 
     for edge in graph_payload.get("edges", []) or []:
         edge_id = str(edge.get("id") or "")
         component_id = component_by_edge.get(edge_id, 0)
-        color = _COMPONENT_COLORS[component_id % len(_COMPONENT_COLORS)]
+        if _edge_line_color_key(edge):
+            color = _edge_color(edge, line_color_by_key)
+        else:
+            color = _COMPONENT_COLORS[component_id % len(_COMPONENT_COLORS)]
         points = _edge_polyline(edge)
         for start, end in zip(points, points[1:]):
             cv2.line(overlay, _int_point(start), _int_point(end), color, 3, lineType=cv2.LINE_AA)

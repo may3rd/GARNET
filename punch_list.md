@@ -418,3 +418,69 @@ Recommended first code slice:
    - `stage12_review_queue.json`
    - `stage12_review_queue_summary.json`
 5. Run on `Test-00001` and inspect the graph payload before adding compatibility artifacts.
+
+## Production HITL Additions
+
+These are deferred for first production hardening, not part of the current Stage 11-15 implementation.
+
+### Stage 3: Major Equipment Bounding Box HITL
+
+Add a new Stage 3 review step for human-created or human-corrected major equipment bounding boxes.
+
+Purpose:
+- Ensure vessels, columns, exchangers, pumps, compressors, and other major equipment have reliable physical extents before port detection and topology association.
+- Allow reviewers to add missing major equipment boxes, resize bad boxes, merge duplicate boxes, and assign stable equipment IDs/tags.
+
+Expected output candidates:
+- `stage3_equipment_review.json`
+- `stage3_equipment_overlay.png`
+- downstream equipment objects promoted into Stage 4/5 context.
+
+### Stage 4: Object Detection HITL
+
+Add HITL review for object detection and semantic text classes.
+
+Review scope:
+- detected inline objects and fittings
+- line numbers
+- instrument tags
+- equipment tags
+- page/utility connections
+- false positives and missing objects
+
+Required reviewer actions:
+- accept/reject object detections
+- correct class names
+- edit bounding boxes
+- add missed objects
+- correct OCR text for line numbers and tags
+
+Expected output candidates:
+- `stage4_object_review.json`
+- `stage4_line_number_review.json`
+- `stage4_instrument_tag_review.json`
+- reviewed objects become the source for Stage 5/5b and later associations.
+
+### Stage 5: Pipe/Port Geometry HITL
+
+Add HITL review for pipe mask and object port geometry before path tracing.
+
+Review scope:
+- add/remove/edit object ports
+- remove invalid detected pipe lines
+- mark non-pipe drawing lines/text artifacts
+- correct pipe gaps or bridge/crossing ambiguity where needed
+- optionally force known connection directions for equipment ports
+
+Required reviewer actions:
+- add missing ports on equipment, inline objects, page connections, and instruments
+- delete invalid ports
+- correct port direction and snap point
+- mask out invalid pipe segments/noise
+- annotate explicit keep/remove regions for pipe geometry
+
+Expected output candidates:
+- `stage5_port_review.json`
+- `stage5_pipe_geometry_review.json`
+- `stage5_review_overlay.png`
+- reviewed ports and pipe geometry become authoritative inputs for Stage 5b tracing.

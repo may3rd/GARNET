@@ -1,9 +1,12 @@
 import unittest
 
+import numpy as np
+
 from garnet.trace_graph_builder import (
     _point_near_axis_segment,
     _split_polyline_at_points,
     build_trace_graph_from_stage11,
+    render_stage12_graph_overlay,
 )
 
 
@@ -82,6 +85,20 @@ class TraceGraphBuilderNormalizationTests(unittest.TestCase):
         self.assertGreaterEqual(degree, 3)
         self.assertEqual(len([edge for edge in graph["edges"] if edge["trace_id"].startswith("obj_main")]), 2)
 
+    def test_branch_start_on_branch_trace_also_splits_host_edge(self) -> None:
+        host = _line_edge("branch_host", (0, 0), (200, 0), terminal_type="equipment", trace_kind="branch")
+        child = _line_edge("branch_child", (100, 0), (100, 100), terminal_type="equipment", trace_kind="branch")
+        payload = {"image_id": "synthetic.png", "trace_edges": [host, child]}
+
+        result = build_trace_graph_from_stage11(payload, image_id="synthetic.png")
+        graph = result["graph_payload"]
+        split_nodes = [node for node in graph["nodes"] if node["position"] == {"x": 100.0, "y": 0.0}]
+        host_parts = [edge for edge in graph["edges"] if str(edge["trace_id"]).startswith("branch_host::part_")]
+
+        self.assertEqual(len(split_nodes), 1)
+        self.assertEqual(split_nodes[0]["type"], "tee_junction")
+        self.assertEqual(len(host_parts), 2)
+
     def test_duplicate_reverse_physical_path_collapses(self) -> None:
         forward = _line_edge("branch_000001", (0, 0), (100, 0), terminal_type="tee_junction", trace_kind="branch")
         reverse = _line_edge("branch_000002", (100, 0), (0, 0), terminal_type="tee_junction", trace_kind="branch")
@@ -137,10 +154,10 @@ class TraceGraphBuilderNormalizationTests(unittest.TestCase):
         self.assertIn("equipment::equip_1:port_01", node_ids)
         self.assertIn("equipment::equip_1", node_ids)
 
-    def test_reviewed_line_number_propagates_to_connected_component(self) -> None:
-        edge_a = _line_edge("obj_a", (0, 0), (200, 0), terminal_type="equipment")
-        edge_b = _line_edge("branch_000001", (100, 0), (100, 100), terminal_type="equipment", trace_kind="branch")
-        edge_a["attachments"]["line_numbers"] = [
+    def test_reviewed_line_number_propagates_through_tee_but_not_to_branch(self) -> None:
+        main = _line_edge("obj_main", (0, 0), (200, 0), terminal_type="equipment")
+        branch = _line_edge("branch_000001", (100, 0), (100, 100), terminal_type="equipment", trace_kind="branch")
+        main["attachments"]["line_numbers"] = [
             {
                 "id": "line_1",
                 "text": '3"_PL-26-003008-NZA1_Nl',
@@ -148,19 +165,58 @@ class TraceGraphBuilderNormalizationTests(unittest.TestCase):
                 "review_state": "accepted",
             }
         ]
-        edge_b["attachments"]["line_numbers"] = []
-        payload = {"image_id": "synthetic.png", "trace_edges": [edge_a, edge_b]}
+        branch["attachments"]["line_numbers"] = []
+        payload = {"image_id": "synthetic.png", "trace_edges": [main, branch]}
 
         result = build_trace_graph_from_stage11(payload, image_id="synthetic.png")
         edges = {edge["trace_id"]: edge for edge in result["graph_payload"]["edges"]}
 
-        self.assertEqual(edges["obj_a::part_001"]["line_number_assignment_state"], "direct")
-        self.assertEqual(edges["obj_a::part_001"]["direct_line_number_ids"], ["line_1"])
-        self.assertEqual(edges["branch_000001"]["line_number_assignment_state"], "inferred")
-        self.assertEqual(edges["branch_000001"]["inferred_line_number_ids"], ["line_1"])
-        self.assertEqual(edges["branch_000001"]["effective_line_number_ids"], ["line_1"])
-        self.assertEqual(edges["obj_a::part_001"]["direct_line_numbers"][0]["display_text"], '3"_PL-26-003008-NZA1_Nl')
-        self.assertEqual(edges["branch_000001"]["effective_line_numbers"][0]["normalized_text"], '3"-PL-26-003008-NZA1-NL')
+        self.assertEqual(edges["obj_main::part_001"]["line_number_assignment_state"], "direct")
+        self.assertEqual(edges["obj_main::part_001"]["direct_line_number_ids"], ["line_1"])
+        self.assertEqual(edges["obj_main::part_002"]["line_number_assignment_state"], "direct")
+        self.assertEqual(edges["obj_main::part_002"]["effective_line_number_ids"], ["line_1"])
+        self.assertEqual(edges["branch_000001"]["line_number_assignment_state"], "missing")
+        self.assertEqual(edges["branch_000001"]["effective_line_number_ids"], [])
+        self.assertEqual(edges["obj_main::part_001"]["direct_line_numbers"][0]["display_text"], '3"_PL-26-003008-NZA1_Nl')
+        self.assertEqual(edges["obj_main::part_002"]["effective_line_numbers"][0]["normalized_text"], '3"-PL-26-003008-NZA1-NL')
+
+    def test_line_evidence_can_make_tee_through_turn_instead_of_straight(self) -> None:
+        turning_main = _line_edge("turning_main", (0, 0), (100, 100), terminal_type="equipment")
+        turning_main["polyline"] = [{"x": 0, "y": 0}, {"x": 100, "y": 0}, {"x": 100, "y": 100}]
+        turning_main["segments"] = [
+            {"x1": 0, "y1": 0, "x2": 100, "y2": 0, "direction": "RIGHT", "length_px": 100},
+            {"x1": 100, "y1": 0, "x2": 100, "y2": 100, "direction": "DOWN", "length_px": 100},
+        ]
+        turning_main["attachments"]["line_numbers"] = [{"id": "line_turn", "review_state": "accepted"}]
+        straight_branch = _line_edge("straight_branch", (100, 0), (200, 0), terminal_type="equipment", trace_kind="branch")
+        straight_branch["attachments"]["line_numbers"] = [{"id": "line_branch", "review_state": "accepted"}]
+        payload = {"image_id": "synthetic.png", "trace_edges": [turning_main, straight_branch]}
+
+        result = build_trace_graph_from_stage11(payload, image_id="synthetic.png")
+        edges = {edge["trace_id"]: edge for edge in result["graph_payload"]["edges"]}
+
+        self.assertEqual(edges["turning_main::part_001"]["line_number_assignment_state"], "direct")
+        self.assertEqual(edges["turning_main::part_001"]["effective_line_number_ids"], ["line_turn"])
+        self.assertEqual(edges["turning_main::part_002"]["line_number_assignment_state"], "direct")
+        self.assertEqual(edges["turning_main::part_002"]["effective_line_number_ids"], ["line_turn"])
+        self.assertEqual(edges["straight_branch"]["line_number_assignment_state"], "direct")
+        self.assertEqual(edges["straight_branch"]["effective_line_number_ids"], ["line_branch"])
+
+    def test_line_number_does_not_propagate_through_equipment_node(self) -> None:
+        inlet = _line_edge("inlet", (0, 0), (100, 0), terminal_type="equipment")
+        outlet = _line_edge("outlet", (200, 0), (100, 0), terminal_type="equipment")
+        inlet["terminal_obj_id"] = "equip_1"
+        outlet["terminal_obj_id"] = "equip_1"
+        inlet["attachments"]["line_numbers"] = [{"id": "line_in", "review_state": "accepted"}]
+        outlet["attachments"]["line_numbers"] = []
+        payload = {"image_id": "synthetic.png", "trace_edges": [inlet, outlet]}
+
+        result = build_trace_graph_from_stage11(payload, image_id="synthetic.png")
+        edges = {edge["trace_id"]: edge for edge in result["graph_payload"]["edges"]}
+
+        self.assertEqual(edges["inlet"]["line_number_assignment_state"], "direct")
+        self.assertEqual(edges["outlet"]["line_number_assignment_state"], "missing")
+        self.assertEqual(edges["outlet"]["effective_line_number_ids"], [])
 
     def test_conflicting_reviewed_line_numbers_mark_component_conflict(self) -> None:
         edge_a = _line_edge("obj_a", (0, 0), (200, 0), terminal_type="equipment")
@@ -170,11 +226,12 @@ class TraceGraphBuilderNormalizationTests(unittest.TestCase):
         payload = {"image_id": "synthetic.png", "trace_edges": [edge_a, edge_b]}
 
         result = build_trace_graph_from_stage11(payload, image_id="synthetic.png")
-        edges = result["graph_payload"]["edges"]
+        edges = {edge["trace_id"]: edge for edge in result["graph_payload"]["edges"]}
 
-        self.assertEqual({edge["line_number_assignment_state"] for edge in edges}, {"conflict"})
-        self.assertEqual({tuple(edge["effective_line_number_ids"]) for edge in edges}, {("line_1", "line_2")})
-        self.assertIn("line_number_conflict", result["review_queue_summary"]["issue_counts"])
+        self.assertEqual(edges["obj_a::part_001"]["line_number_assignment_state"], "direct")
+        self.assertEqual(edges["obj_a::part_002"]["line_number_assignment_state"], "direct")
+        self.assertEqual(edges["branch_000001"]["line_number_assignment_state"], "direct")
+        self.assertEqual(edges["branch_000001"]["effective_line_number_ids"], ["line_2"])
 
     def test_missing_reviewed_line_number_remains_missing(self) -> None:
         edge = _line_edge("obj_a", (0, 0), (100, 0), terminal_type="equipment")
@@ -186,6 +243,36 @@ class TraceGraphBuilderNormalizationTests(unittest.TestCase):
 
         self.assertEqual(graph_edge["line_number_assignment_state"], "missing")
         self.assertEqual(graph_edge["effective_line_number_ids"], [])
+
+    def test_stage12_overlay_uses_distinct_colors_for_distinct_line_numbers(self) -> None:
+        image = np.full((220, 160, 3), 255, dtype=np.uint8)
+        graph_payload = {
+            "nodes": [],
+            "edges": [
+                {
+                    "id": "edge_a",
+                    "trace_id": "edge_a",
+                    "review_state": "accepted",
+                    "effective_line_number_ids": ["line_a"],
+                    "polyline": [{"x": 10, "y": 120}, {"x": 150, "y": 120}],
+                },
+                {
+                    "id": "edge_b",
+                    "trace_id": "edge_b",
+                    "review_state": "accepted",
+                    "effective_line_number_ids": ["line_b"],
+                    "polyline": [{"x": 10, "y": 170}, {"x": 150, "y": 170}],
+                },
+            ],
+        }
+
+        overlay = render_stage12_graph_overlay(image, graph_payload)
+        color_a = tuple(int(value) for value in overlay[118, 30])
+        color_b = tuple(int(value) for value in overlay[168, 30])
+
+        self.assertNotEqual(color_a, (255, 255, 255))
+        self.assertNotEqual(color_b, (255, 255, 255))
+        self.assertNotEqual(color_a, color_b)
 
 
 if __name__ == "__main__":

@@ -384,3 +384,77 @@ def render_stage15_inline_mto_overlay(image_bgr: Any, inline_mto_payload: dict[s
             cv2.LINE_AA,
         )
     return overlay
+
+
+def _edge_lookup(graph_payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {
+        str(edge.get("id")): edge
+        for edge in graph_payload.get("edges", []) or []
+        if isinstance(edge, dict) and str(edge.get("id") or "")
+    }
+
+
+def _polyline_points(edge: dict[str, Any]) -> list[tuple[int, int]]:
+    points: list[tuple[int, int]] = []
+    for point in edge.get("polyline", []) or []:
+        if not isinstance(point, dict):
+            continue
+        points.append((int(round(float(point.get("x", 0)))), int(round(float(point.get("y", 0))))))
+    return points
+
+
+def render_stage15_line_number_overlay(
+    image_bgr: Any,
+    line_list_payload: dict[str, Any],
+    corrected_graph_payload: dict[str, Any],
+) -> Any:
+    try:
+        import cv2  # type: ignore
+    except Exception as exc:  # pragma: no cover
+        raise RuntimeError("OpenCV is required to render stage15_line_number_overlay") from exc
+
+    overlay = image_bgr.copy()
+    edges_by_id = _edge_lookup(corrected_graph_payload)
+    palette = [
+        (0, 255, 0),
+        (255, 0, 0),
+        (0, 165, 255),
+        (255, 0, 255),
+        (255, 255, 0),
+        (0, 255, 255),
+    ]
+    for index, line in enumerate(line_list_payload.get("lines", []) or []):
+        if not isinstance(line, dict):
+            continue
+        color = palette[index % len(palette)]
+        label_point: tuple[int, int] | None = None
+        for edge_id in line.get("edge_ids", []) or []:
+            edge = edges_by_id.get(str(edge_id))
+            if edge is None:
+                continue
+            points = _polyline_points(edge)
+            if len(points) < 2:
+                continue
+            for start, end in zip(points, points[1:]):
+                cv2.line(overlay, start, end, color, 2, cv2.LINE_AA)
+            if label_point is None:
+                label_point = points[len(points) // 2]
+        if label_point is None:
+            continue
+        display_texts = [str(text) for text in line.get("display_texts", []) or [] if str(text)]
+        first_text = display_texts[0] if display_texts else str(line.get("line_number_id") or "unassigned")
+        extra_count = max(0, len(display_texts) - 1)
+        suffix = f" +{extra_count}" if extra_count else ""
+        label = f"{line.get('line_number_id', '')}: {first_text}{suffix}"
+        cv2.circle(overlay, label_point, 4, color, -1)
+        cv2.putText(
+            overlay,
+            label[:100],
+            (label_point[0] + 6, label_point[1] - 6),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.45,
+            color,
+            1,
+            cv2.LINE_AA,
+        )
+    return overlay

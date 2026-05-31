@@ -15,6 +15,7 @@ import json
 import logging
 import math
 import os
+import shutil
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -75,7 +76,11 @@ from garnet.trace_graph_builder import build_trace_graph_from_stage11, render_st
 from garnet.trace_graph_qa import run_stage12_trace_graph_qa
 from garnet.stage13_review_package import build_stage13_review_package, render_stage13_review_overlay
 from garnet.stage14_review_decisions import apply_stage14_review_decisions
-from garnet.stage15_process_exports import build_stage15_process_exports, render_stage15_inline_mto_overlay
+from garnet.stage15_process_exports import (
+    build_stage15_process_exports,
+    render_stage15_inline_mto_overlay,
+    render_stage15_line_number_overlay,
+)
 
 try:
     import cv2  # type: ignore
@@ -1520,6 +1525,18 @@ class PIDPipeline:
                     min_run=min_branch_run,
                 ):
                     continue
+                status = "queued"
+                reason = "node_object_branch"
+                if self._branch_already_traced(
+                    x,
+                    y,
+                    branch_direction,
+                    all_results,
+                    source_obj_id,
+                    source_segment_index,
+                ):
+                    status = "done_already_traced"
+                    reason = "branch_direction_covered_by_existing_segment"
                 raw_candidates.append({
                     "x": x,
                     "y": y,
@@ -1527,8 +1544,8 @@ class PIDPipeline:
                     "source_trace_id": source_obj_id,
                     "source_segment_index": source_segment_index,
                     "source_direction": source_direction,
-                    "status": "queued",
-                    "reason": "node_object_branch",
+                    "status": status,
+                    "reason": reason,
                     "node_obj_id": node.get("id", ""),
                 })
 
@@ -1694,6 +1711,148 @@ class PIDPipeline:
             )
         return overlay
 
+    def _safe_stage5b_trace_image_name(self, trace_id: str) -> str:
+        safe = "".join(
+            ch if ch.isalnum() or ch in {"-", "_", "."} else "_"
+            for ch in str(trace_id)
+        ).strip("._")
+        return safe or "trace"
+
+    def _draw_single_stage5b_trace_path(
+        self,
+        image: np.ndarray,
+        trace_id: str,
+        data: dict[str, Any],
+        *,
+        path_color: tuple[int, int, int] = (0, 0, 255),
+    ) -> np.ndarray:
+        import cv2 as _cv2
+
+        overlay = image.copy()
+        segments = data.get("segments") or []
+        for seg in segments:
+            p1 = (int(seg["x1"]), int(seg["y1"]))
+            p2 = (int(seg["x2"]), int(seg["y2"]))
+            _cv2.line(overlay, p1, p2, path_color, 7, _cv2.LINE_AA)
+            _cv2.circle(overlay, p1, 5, path_color, -1, _cv2.LINE_AA)
+            _cv2.circle(overlay, p2, 5, path_color, -1, _cv2.LINE_AA)
+
+        for idx, turn in enumerate(data.get("turns") or [], start=1):
+            pt = (int(turn["x"]), int(turn["y"]))
+            _cv2.circle(overlay, pt, 13, (0, 180, 255), 3, _cv2.LINE_AA)
+            _cv2.putText(
+                overlay,
+                f"T{idx}:{turn.get('new_dir', '')}",
+                (pt[0] + 12, pt[1] - 12),
+                _cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 180, 255),
+                2,
+                _cv2.LINE_AA,
+            )
+
+        port = data.get("port") or {}
+        if port.get("x") is not None and port.get("y") is not None:
+            start = (int(port["x"]), int(port["y"]))
+            _cv2.circle(overlay, start, 14, (0, 180, 0), -1, _cv2.LINE_AA)
+            _cv2.putText(
+                overlay,
+                f"{trace_id} start",
+                (start[0] + 14, start[1] - 14),
+                _cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (0, 180, 0),
+                2,
+                _cv2.LINE_AA,
+            )
+
+        if data.get("terminal_x") is not None and data.get("terminal_y") is not None:
+            end = (int(data["terminal_x"]), int(data["terminal_y"]))
+            _cv2.circle(overlay, end, 16, (255, 0, 255), -1, _cv2.LINE_AA)
+            _cv2.putText(
+                overlay,
+                f"{trace_id}:{data.get('terminal_type', '')}",
+                (end[0] + 16, end[1] - 16),
+                _cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (255, 0, 255),
+                2,
+                _cv2.LINE_AA,
+            )
+
+        banner = (
+            f"{trace_id} only | {len(segments)} segs | "
+            f"terminal={data.get('terminal_type')} | "
+            f"length={data.get('trace_length_px', 0)} px"
+        )
+        _cv2.rectangle(
+            overlay,
+            (20, 20),
+            (min(overlay.shape[1] - 20, 1700), 72),
+            (255, 255, 255),
+            -1,
+        )
+        _cv2.rectangle(
+            overlay,
+            (20, 20),
+            (min(overlay.shape[1] - 20, 1700), 72),
+            path_color,
+            2,
+        )
+        _cv2.putText(
+            overlay,
+            banner,
+            (35, 55),
+            _cv2.FONT_HERSHEY_SIMPLEX,
+            0.9,
+            path_color,
+            2,
+            _cv2.LINE_AA,
+        )
+        return overlay
+
+    def _write_stage5b_individual_trace_images(
+        self,
+        image: np.ndarray,
+        all_results: dict[str, dict],
+        branch_results: dict[str, dict],
+    ) -> int:
+        if cv2 is None and Image is None:  # pragma: no cover
+            raise RuntimeError("No image backend available")
+
+        trace_dir = self.out_dir / "stage5b_traced_path"
+        if trace_dir.exists():
+            shutil.rmtree(trace_dir)
+        trace_dir.mkdir(parents=True, exist_ok=True)
+
+        written = 0
+        traces: list[tuple[str, dict[str, Any], tuple[int, int, int]]] = []
+        traces.extend((trace_id, data, (0, 160, 0)) for trace_id, data in sorted(all_results.items()))
+        traces.extend((trace_id, data, (0, 0, 255)) for trace_id, data in sorted(branch_results.items()))
+        for trace_id, data, color in traces:
+            if data.get("status") == "skipped":
+                continue
+            if not data.get("segments"):
+                continue
+            overlay = self._draw_single_stage5b_trace_path(
+                image,
+                trace_id,
+                data,
+                path_color=color,
+            )
+            filename = self._safe_stage5b_trace_image_name(trace_id) + ".png"
+            path = trace_dir / filename
+            out = normalize_for_save(overlay)
+            if cv2 is not None:
+                cv2.imwrite(str(path), out)
+            elif Image is not None:  # pragma: no cover
+                Image.fromarray(out).save(str(path))
+            written += 1
+
+        self._register_artifact("stage5b_traced_path")
+        logger.info("saved %d individual Stage 5b trace images to %s", written, trace_dir)
+        return written
+
     def _find_matching_stage5b_branch_candidate(
         self,
         candidate: dict[str, Any],
@@ -1835,6 +1994,89 @@ class PIDPipeline:
             last["y2"] = iy
             last["length_px"] = max(abs(ix - int(last["x1"])), abs(iy - int(last["y1"])))
         return truncated, path_distance, ix, iy, existing_id
+
+    def _promote_stage5b_paired_node_terminal_if_attached(
+        self,
+        result: dict[str, Any],
+        paired_candidate: dict[str, Any],
+        *,
+        endpoint_tolerance: int = 12,
+        axis_tolerance: int = 3,
+        max_axis_extension: int = 20,
+    ) -> bool:
+        if not paired_candidate.get("node_obj_id"):
+            return False
+        segments = result.get("segments") or []
+        if not segments:
+            return False
+
+        last = segments[-1]
+        terminal_x = int(paired_candidate["x"])
+        terminal_y = int(paired_candidate["y"])
+        end_x = int(last["x2"])
+        end_y = int(last["y2"])
+        distance = max(abs(end_x - terminal_x), abs(end_y - terminal_y))
+
+        direction = str(last.get("direction") or "").upper()
+        same_axis = (
+            direction in ("LEFT", "RIGHT")
+            and abs(end_y - terminal_y) <= axis_tolerance
+        ) or (
+            direction in ("UP", "DOWN")
+            and abs(end_x - terminal_x) <= axis_tolerance
+        )
+        axis_extension = (
+            abs(end_x - terminal_x)
+            if direction in ("LEFT", "RIGHT")
+            else abs(end_y - terminal_y)
+        )
+        attached = distance <= endpoint_tolerance or (
+            same_axis and axis_extension <= max_axis_extension
+        )
+        if not attached:
+            return False
+
+        result["terminal_type"] = "tee_junction"
+        result["terminal_obj_id"] = str(paired_candidate["node_obj_id"])
+        result["terminal_x"] = terminal_x
+        result["terminal_y"] = terminal_y
+
+        if not same_axis:
+            return True
+
+        old_len = int(last.get("length_px", 0))
+        if direction in ("LEFT", "RIGHT"):
+            last["x2"] = terminal_x
+            last["y2"] = int(last["y1"])
+        else:
+            last["x2"] = int(last["x1"])
+            last["y2"] = terminal_y
+        new_len = max(
+            abs(int(last["x2"]) - int(last["x1"])),
+            abs(int(last["y2"]) - int(last["y1"])),
+        )
+        last["length_px"] = new_len
+        result["trace_length_px"] = int(result.get("trace_length_px", 0)) + new_len - old_len
+        return True
+
+    def _stage5b_branch_connection_attached_to_candidate(
+        self,
+        result: dict[str, Any],
+        candidate: dict[str, Any],
+        tolerance: int = 12,
+    ) -> bool:
+        if result.get("terminal_type") != "branch_connection":
+            return False
+        if str(result.get("terminal_obj_id") or "") != str(candidate.get("id") or ""):
+            return False
+        terminal_x = result.get("terminal_x")
+        terminal_y = result.get("terminal_y")
+        if terminal_x is None or terminal_y is None:
+            return False
+        return (
+            abs(int(terminal_x) - int(candidate.get("x", 0))) <= tolerance
+            and abs(int(terminal_y) - int(candidate.get("y", 0))) <= tolerance
+        )
 
     def _trace_stage5b_branch_candidates(
         self,
@@ -2124,26 +2366,50 @@ class PIDPipeline:
             if (terminal_obj_id or "").startswith("branch_"):
                 terminal_type = "branch_connection"
                 paired_branch_id = str(terminal_obj_id)
-                used_branch_pairs[branch_id] = paired_branch_id
-                used_branch_pairs[paired_branch_id] = branch_id
-                candidate["status"] = "done_branch_connection"
-                candidate["reason"] = "traced_to_branch_candidate"
-                candidate["paired_branch_id"] = paired_branch_id
                 paired_candidate = candidate_by_id.get(paired_branch_id)
+                terminal_payload = {
+                    "terminal_type": terminal_type,
+                    "terminal_x": terminal_x,
+                    "terminal_y": terminal_y,
+                    "terminal_obj_id": terminal_obj_id,
+                    "segments": segments,
+                    "trace_length_px": trace_length,
+                }
+                attached_to_paired_candidate = (
+                    paired_candidate is not None
+                    and self._stage5b_branch_connection_attached_to_candidate(
+                        terminal_payload,
+                        paired_candidate,
+                    )
+                )
+                if attached_to_paired_candidate:
+                    used_branch_pairs[branch_id] = paired_branch_id
+                    used_branch_pairs[paired_branch_id] = branch_id
+                    candidate["status"] = "done_branch_connection"
+                    candidate["reason"] = "traced_to_branch_candidate"
+                    candidate["paired_branch_id"] = paired_branch_id
                 if paired_candidate is not None:
-                    paired_candidate["paired_branch_id"] = branch_id
-                    if paired_branch_id in branch_results:
-                        paired_candidate["status"] = "done_used_by_branch"
-                        paired_candidate["reason"] = "reverse_branch_trace_preferred"
-                    else:
-                        paired_candidate["status"] = "pending_branch_connection"
-                        paired_candidate["reason"] = "paired_branch_candidate_pending_reverse_check"
-                        pending_branch_pairs[paired_branch_id] = branch_id
-                    if paired_candidate.get("node_obj_id"):
-                        terminal_type = "tee_junction"
-                        terminal_obj_id = str(paired_candidate["node_obj_id"])
-                        terminal_x = int(paired_candidate["x"])
-                        terminal_y = int(paired_candidate["y"])
+                    if attached_to_paired_candidate:
+                        paired_candidate["paired_branch_id"] = branch_id
+                        if paired_branch_id in branch_results:
+                            paired_candidate["status"] = "done_used_by_branch"
+                            paired_candidate["reason"] = "reverse_branch_trace_preferred"
+                        else:
+                            paired_candidate["status"] = "pending_branch_connection"
+                            paired_candidate["reason"] = "paired_branch_candidate_pending_reverse_check"
+                            pending_branch_pairs[paired_branch_id] = branch_id
+                    elif candidate.get("status") == "queued":
+                        candidate["reason"] = "branch_connection_not_attached_to_candidate"
+                    if attached_to_paired_candidate:
+                        if self._promote_stage5b_paired_node_terminal_if_attached(
+                            terminal_payload,
+                            paired_candidate,
+                        ):
+                            terminal_type = terminal_payload["terminal_type"]
+                            terminal_obj_id = terminal_payload["terminal_obj_id"]
+                            terminal_x = terminal_payload["terminal_x"]
+                            terminal_y = terminal_payload["terminal_y"]
+                            trace_length = terminal_payload["trace_length_px"]
             branch_results[branch_id] = {
                 "status": "traced",
                 "candidate": candidate,
@@ -2176,13 +2442,21 @@ class PIDPipeline:
                 candidate["paired_branch_id"] = previous_branch_id
             if terminal_type == "branch_connection" and terminal_obj_id in branch_results:
                 previous_result = branch_results.get(str(terminal_obj_id))
-                if previous_result is not None:
-                    previous_result["status"] = "skipped"
-                    previous_result["skip_reason"] = "done_used_by_branch"
-                    previous_result["paired_branch_id"] = branch_id
-                    previous_result["preferred_branch_id"] = branch_id
                 paired_candidate = candidate_by_id.get(str(terminal_obj_id))
-                if paired_candidate is not None:
+                attached_to_paired_candidate = (
+                    paired_candidate is not None
+                    and self._stage5b_branch_connection_attached_to_candidate(
+                        branch_results[branch_id],
+                        paired_candidate,
+                    )
+                )
+                if previous_result is not None:
+                    if attached_to_paired_candidate:
+                        previous_result["status"] = "skipped"
+                        previous_result["skip_reason"] = "done_used_by_branch"
+                        previous_result["paired_branch_id"] = branch_id
+                        previous_result["preferred_branch_id"] = branch_id
+                if paired_candidate is not None and attached_to_paired_candidate:
                     paired_candidate["status"] = "done_used_by_branch"
                     paired_candidate["reason"] = "reverse_branch_trace_preferred"
                     paired_candidate["paired_branch_id"] = branch_id
@@ -3312,6 +3586,11 @@ class PIDPipeline:
             branch_results,
         )
         self._save_img("stage5b_branch_trace_overlay", branch_trace_overlay)
+        self._write_stage5b_individual_trace_images(
+            image,
+            all_results,
+            branch_results,
+        )
 
     # ---------- Stage 5: Geometric line-detection alternative ----------
     def stage5_geometric_line_detection(self) -> None:
@@ -4965,6 +5244,14 @@ class PIDPipeline:
         self._save_img(
             "stage15_inline_mto_overlay",
             render_stage15_inline_mto_overlay(self._ensure_image_loaded(), result["inline_mto_payload"]),
+        )
+        self._save_img(
+            "stage15_line_number_overlay",
+            render_stage15_line_number_overlay(
+                self._ensure_image_loaded(),
+                result["line_list_payload"],
+                self._load_json_artifact("stage14_corrected_graph"),
+            ),
         )
 
     # ---------- Stage 16 ----------

@@ -2,7 +2,11 @@ import unittest
 
 import numpy as np
 
-from garnet.stage15_process_exports import build_stage15_process_exports, render_stage15_inline_mto_overlay
+from garnet.stage15_process_exports import (
+    build_stage15_process_exports,
+    render_stage15_inline_mto_overlay,
+    render_stage15_line_number_overlay,
+)
 
 
 class Stage15ProcessExportsTests(unittest.TestCase):
@@ -175,6 +179,32 @@ class Stage15ProcessExportsTests(unittest.TestCase):
                         "id": "valve_1",
                         "class_name": "gate valve",
                         "bbox": {"x_min": 30, "y_min": 20, "x_max": 50, "y_max": 40},
+                    }
+                ]
+            },
+        )
+
+        self.assertEqual(overlay.shape, image.shape)
+        self.assertGreater(int(overlay.sum()), 0)
+
+    def test_render_stage15_line_number_overlay_draws_line_text_on_edges(self) -> None:
+        image = np.zeros((80, 100, 3), dtype=np.uint8)
+        overlay = render_stage15_line_number_overlay(
+            image,
+            {
+                "lines": [
+                    {
+                        "line_number_id": "line_001",
+                        "display_texts": ["LINE-001"],
+                        "edge_ids": ["e1"],
+                    }
+                ]
+            },
+            {
+                "edges": [
+                    {
+                        "id": "e1",
+                        "polyline": [{"x": 10, "y": 40}, {"x": 90, "y": 40}],
                     }
                 ]
             },
