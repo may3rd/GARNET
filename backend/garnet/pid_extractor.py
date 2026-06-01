@@ -4,6 +4,7 @@ Stage-based P&ID pipeline rebuild.
 The current implementation intentionally stays small and reviewable:
 - Stage 1: input normalization
 - Stage 2: selected OCR route discovery
+- Stage 3: HITL - create major equipment bounding box via frontend UI
 - Stage 4: fixed-baseline object detection
 - Stage 5: provisional pipe-mask generation
 """
