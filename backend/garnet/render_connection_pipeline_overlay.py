@@ -1,10 +1,10 @@
 """
-Stage 16: Connection + Pipeline Overlay Visualization
+Stage 11: Connection + Pipeline Overlay Visualization
 
 Draws a combined overlay showing:
-1. Page connection markers (blue boxes + anchor dots) from stage12_connection_attachments.json (accepted only)
+1. Page connection markers (blue boxes + anchor dots) from stage7_connection_attachments.json (accepted only)
 2. FULL pipe paths (red) from each connection anchor to the nearest terminal(s) in both directions along the pipe network — not just the edge_id stub
-3. Inline element connectors (orange) from stage12_edge_connections.json
+3. Inline element connectors (orange) from stage7_edge_connections.json
 
 Background: original P&ID image
 """
@@ -405,27 +405,27 @@ def render_overlay(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Render connection + pipeline overlay for GARNET stage 16"
+        description="Render connection + pipeline overlay for GARNET stage 11"
     )
     parser.add_argument(
         "--connection-attachments",
         required=True,
-        help="Path to stage12_connection_attachments.json",
+        help="Path to stage7_connection_attachments.json",
     )
     parser.add_argument(
         "--edge-connections",
         required=True,
-        help="Path to stage12_edge_connections.json",
+        help="Path to stage7_edge_connections.json",
     )
     parser.add_argument(
         "--edge-terminals",
         required=True,
-        help="Path to stage12_edge_terminals.json",
+        help="Path to stage7_edge_terminals.json",
     )
     parser.add_argument(
         "--graph",
         required=True,
-        help="Path to stage12_graph.json",
+        help="Path to stage7_graph.json",
     )
     parser.add_argument(
         "--objects",

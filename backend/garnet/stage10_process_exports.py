@@ -175,7 +175,7 @@ def _build_line_list(image_id: str, edges: list[dict[str, Any]]) -> dict[str, An
                 "edge_count": len(line_edges),
             }
         )
-    return {"image_id": image_id, "source": "stage15_process_exports", "lines": lines}
+    return {"image_id": image_id, "source": "stage10_process_exports", "lines": lines}
 
 
 def _build_equipment_connectivity(image_id: str, nodes_by_id: dict[str, dict[str, Any]], edges: list[dict[str, Any]]) -> dict[str, Any]:
@@ -206,7 +206,7 @@ def _build_equipment_connectivity(image_id: str, nodes_by_id: dict[str, dict[str
             line_connections.append({"line_number_id": line_id, "equipment_node_ids": equipment_node_ids})
     return {
         "image_id": image_id,
-        "source": "stage15_process_exports",
+        "source": "stage10_process_exports",
         "connections": line_connections,
         "direct_edge_connections": direct_connections,
     }
@@ -252,7 +252,7 @@ def _build_inline_mto(image_id: str, edges: list[dict[str, Any]]) -> dict[str, A
     class_counts = Counter(item["class_name"] for item in items)
     return {
         "image_id": image_id,
-        "source": "stage15_process_exports",
+        "source": "stage10_process_exports",
         "scope": "unique_physical_inline_objects_only",
         "items": sorted(items, key=lambda item: (item["class_name"], item["id"])),
         "class_counts": dict(class_counts),
@@ -284,7 +284,7 @@ def _build_inline_observations(image_id: str, edges: list[dict[str, Any]]) -> di
             )
     return {
         "image_id": image_id,
-        "source": "stage15_process_exports",
+        "source": "stage10_process_exports",
         "scope": "all_inline_graph_observations_for_qa",
         "items": items,
     }
@@ -324,10 +324,10 @@ def _build_instrument_index(image_id: str, edges: list[dict[str, Any]]) -> dict[
                 if text not in item["normalized_line_number_texts"]:
                     item["normalized_line_number_texts"].append(text)
     items = list(items_by_id.values())
-    return {"image_id": image_id, "source": "stage15_process_exports", "items": sorted(items, key=lambda item: item["instrument_id"])}
+    return {"image_id": image_id, "source": "stage10_process_exports", "items": sorted(items, key=lambda item: item["instrument_id"])}
 
 
-def build_stage15_process_exports(*, image_id: str, corrected_graph_payload: dict[str, Any]) -> dict[str, Any]:
+def build_stage10_process_exports(*, image_id: str, corrected_graph_payload: dict[str, Any]) -> dict[str, Any]:
     edges = [edge for edge in corrected_graph_payload.get("edges", []) or [] if isinstance(edge, dict)]
     nodes_by_id = _nodes_by_id(corrected_graph_payload)
     line_list_payload = _build_line_list(image_id, edges)
@@ -355,11 +355,11 @@ def build_stage15_process_exports(*, image_id: str, corrected_graph_payload: dic
     }
 
 
-def render_stage15_inline_mto_overlay(image_bgr: Any, inline_mto_payload: dict[str, Any]) -> Any:
+def render_stage10_inline_mto_overlay(image_bgr: Any, inline_mto_payload: dict[str, Any]) -> Any:
     try:
         import cv2  # type: ignore
     except Exception as exc:  # pragma: no cover
-        raise RuntimeError("OpenCV is required to render stage15_inline_mto_overlay") from exc
+        raise RuntimeError("OpenCV is required to render stage10_inline_mto_overlay") from exc
 
     overlay = image_bgr.copy()
     color = (0, 128, 255)
@@ -403,7 +403,7 @@ def _polyline_points(edge: dict[str, Any]) -> list[tuple[int, int]]:
     return points
 
 
-def render_stage15_line_number_overlay(
+def render_stage10_line_number_overlay(
     image_bgr: Any,
     line_list_payload: dict[str, Any],
     corrected_graph_payload: dict[str, Any],
@@ -411,7 +411,7 @@ def render_stage15_line_number_overlay(
     try:
         import cv2  # type: ignore
     except Exception as exc:  # pragma: no cover
-        raise RuntimeError("OpenCV is required to render stage15_line_number_overlay") from exc
+        raise RuntimeError("OpenCV is required to render stage10_line_number_overlay") from exc
 
     overlay = image_bgr.copy()
     edges_by_id = _edge_lookup(corrected_graph_payload)

@@ -739,7 +739,7 @@ def _collapse_duplicate_trace_edges(
                     "duplicate_trace_collapsed",
                     edge_trace_id,
                     "info",
-                    "Trace was merged into an existing physical path during Stage 12 normalization.",
+                    "Trace was merged into an existing physical path during Stage 7 normalization.",
                     duplicate_of=existing.get("trace_id"),
                 )
             )
@@ -860,7 +860,7 @@ def normalize_stage11_trace_edges(
     split_tolerance_px: float = 10.0,
     merge_tolerance_px: float = 12.0,
 ) -> dict[str, Any]:
-    """Split Stage 11 traces at geometric branch/tee junctions before graph assembly."""
+    """Split Stage 6 traces at geometric branch/tee junctions before graph assembly."""
     _ = merge_tolerance_px
     edges = [deepcopy(edge) for edge in trace_edges if isinstance(edge, dict)]
     split_points_by_index: dict[int, list[dict[str, Any]]] = defaultdict(list)
@@ -984,9 +984,9 @@ def build_trace_graph_from_stage11(
     image_id: str | None = None,
     node_merge_tolerances: dict[str, float] | None = None,
 ) -> dict[str, Any]:
-    """Build an inspectable Stage 12 graph from Stage 11 traced paths.
+    """Build an inspectable Stage 7 graph from Stage 6 traced paths.
 
-    Stage 11 trace edges are already topology-vetted walking results. Stage 12
+    Stage 6 trace edges are already topology-vetted walking results. Stage 7
     promotes non-empty traced paths into physical graph edges and records review
     items for missing semantic associations and unresolved terminals.
     """
@@ -1209,9 +1209,9 @@ def build_trace_graph_from_stage11(
             line_groups[str(line_id)].append(str(edge["id"]))
 
     graph_payload = {
-        "schema_version": "stage12_trace_graph_v1",
+        "schema_version": "stage7_trace_graph_v1",
         "image_id": resolved_image_id,
-        "trace_source": payload.get("trace_source") or "stage11_trace_associations",
+        "trace_source": payload.get("trace_source") or "stage6_trace_associations",
         "nodes": registry.nodes,
         "edges": graph_edges,
         "line_groups": [
@@ -1220,7 +1220,7 @@ def build_trace_graph_from_stage11(
         ],
         "review_queue": review_queue,
         "metadata": {
-            "source_artifacts": ["stage11_trace_associations.json"],
+            "source_artifacts": ["stage6_trace_associations.json"],
             "excluded_trace_edges": excluded_edges,
             "node_merge_tolerances_px": tolerances,
             "normalization": normalization["metadata"],
@@ -1229,7 +1229,7 @@ def build_trace_graph_from_stage11(
     }
     summary = {
         "image_id": resolved_image_id,
-        "source": "stage11_trace_associations",
+        "source": "stage6_trace_associations",
         "node_count": len(registry.nodes),
         "edge_count": len(graph_edges),
         "excluded_trace_edge_count": len(excluded_edges),
@@ -1341,11 +1341,11 @@ def _node_color(node_type: str) -> tuple[int, int, int]:
 
 
 def render_stage12_graph_overlay(image_bgr: np.ndarray, graph_payload: dict[str, Any]) -> np.ndarray:
-    """Render Stage 12 graph edges and nodes for visual review."""
+    """Render Stage 7 graph edges and nodes for visual review."""
     try:
         import cv2  # type: ignore
     except Exception as exc:  # pragma: no cover
-        raise RuntimeError("OpenCV is required to render stage12_graph_overlay") from exc
+        raise RuntimeError("OpenCV is required to render stage7_graph_overlay") from exc
 
     overlay = image_bgr.copy()
     node_by_id = {str(node.get("id")): node for node in graph_payload.get("nodes", [])}

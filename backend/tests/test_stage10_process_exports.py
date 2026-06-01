@@ -2,15 +2,15 @@ import unittest
 
 import numpy as np
 
-from garnet.stage15_process_exports import (
-    build_stage15_process_exports,
-    render_stage15_inline_mto_overlay,
-    render_stage15_line_number_overlay,
+from garnet.stage10_process_exports import (
+    build_stage10_process_exports,
+    render_stage10_inline_mto_overlay,
+    render_stage10_line_number_overlay,
 )
 
 
-class Stage15ProcessExportsTests(unittest.TestCase):
-    def test_build_stage15_exports_line_list_and_equipment_connectivity(self) -> None:
+class Stage10ProcessExportsTests(unittest.TestCase):
+    def test_build_stage10_exports_line_list_and_equipment_connectivity(self) -> None:
         graph_payload = {
             "image_id": "synthetic.png",
             "nodes": [
@@ -47,7 +47,7 @@ class Stage15ProcessExportsTests(unittest.TestCase):
             ],
         }
 
-        result = build_stage15_process_exports(image_id="synthetic.png", corrected_graph_payload=graph_payload)
+        result = build_stage10_process_exports(image_id="synthetic.png", corrected_graph_payload=graph_payload)
 
         self.assertEqual(result["line_list_payload"]["lines"][0]["line_number_id"], "line_001")
         self.assertEqual(result["line_list_payload"]["lines"][0]["display_texts"], ['3"_PL-26-003008-NZA1_Nl'])
@@ -62,8 +62,8 @@ class Stage15ProcessExportsTests(unittest.TestCase):
         self.assertEqual(result["inline_mto_payload"]["items"][0]["material_basis"]["status"], "pending_line_property_data")
         self.assertEqual(result["inline_mto_payload"]["items"][0]["design_condition_basis"]["status"], "pending_line_property_data")
 
-    def test_build_stage15_exports_groups_unassigned_edges(self) -> None:
-        result = build_stage15_process_exports(
+    def test_build_stage10_exports_groups_unassigned_edges(self) -> None:
+        result = build_stage10_process_exports(
             image_id="synthetic.png",
             corrected_graph_payload={
                 "image_id": "synthetic.png",
@@ -76,8 +76,8 @@ class Stage15ProcessExportsTests(unittest.TestCase):
         self.assertEqual(line["line_number_id"], "unassigned")
         self.assertEqual(line["assignment_state"], "missing")
 
-    def test_build_stage15_exports_deduplicates_inline_and_instruments_globally(self) -> None:
-        result = build_stage15_process_exports(
+    def test_build_stage10_exports_deduplicates_inline_and_instruments_globally(self) -> None:
+        result = build_stage10_process_exports(
             image_id="synthetic.png",
             corrected_graph_payload={
                 "image_id": "synthetic.png",
@@ -106,8 +106,8 @@ class Stage15ProcessExportsTests(unittest.TestCase):
         self.assertEqual(len(result["instrument_index_payload"]["items"]), 1)
         self.assertEqual(result["instrument_index_payload"]["items"][0]["edge_ids"], ["e1", "e2"])
 
-    def test_build_stage15_inline_mto_excludes_synthetic_tracer_hits(self) -> None:
-        result = build_stage15_process_exports(
+    def test_build_stage10_inline_mto_excludes_synthetic_tracer_hits(self) -> None:
+        result = build_stage10_process_exports(
             image_id="synthetic.png",
             corrected_graph_payload={
                 "image_id": "synthetic.png",
@@ -133,8 +133,8 @@ class Stage15ProcessExportsTests(unittest.TestCase):
         self.assertEqual(result["summary"]["inline_item_count"], 1)
         self.assertEqual(result["summary"]["inline_observation_count"], 2)
 
-    def test_build_stage15_inline_mto_selects_one_direct_line_when_effective_edge_has_conflict(self) -> None:
-        result = build_stage15_process_exports(
+    def test_build_stage10_inline_mto_selects_one_direct_line_when_effective_edge_has_conflict(self) -> None:
+        result = build_stage10_process_exports(
             image_id="synthetic.png",
             corrected_graph_payload={
                 "image_id": "synthetic.png",
@@ -169,9 +169,9 @@ class Stage15ProcessExportsTests(unittest.TestCase):
         self.assertEqual(item["line_number_assignment_state"], "selected")
         self.assertEqual([line["id"] for line in item["candidate_line_numbers"]], ["line_a", "line_b"])
 
-    def test_render_stage15_inline_mto_overlay_draws_object_id_and_type(self) -> None:
+    def test_render_stage10_inline_mto_overlay_draws_object_id_and_type(self) -> None:
         image = np.zeros((80, 100, 3), dtype=np.uint8)
-        overlay = render_stage15_inline_mto_overlay(
+        overlay = render_stage10_inline_mto_overlay(
             image,
             {
                 "items": [
@@ -187,9 +187,9 @@ class Stage15ProcessExportsTests(unittest.TestCase):
         self.assertEqual(overlay.shape, image.shape)
         self.assertGreater(int(overlay.sum()), 0)
 
-    def test_render_stage15_line_number_overlay_draws_line_text_on_edges(self) -> None:
+    def test_render_stage10_line_number_overlay_draws_line_text_on_edges(self) -> None:
         image = np.zeros((80, 100, 3), dtype=np.uint8)
-        overlay = render_stage15_line_number_overlay(
+        overlay = render_stage10_line_number_overlay(
             image,
             {
                 "lines": [

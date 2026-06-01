@@ -25,11 +25,6 @@ import numpy as np
 from dotenv import load_dotenv
 from garnet.easyocr_sahi import EasyOcrSahiConfig, run_easyocr_sahi
 from garnet.gemini_ocr_sahi import GeminiOcrSahiConfig, run_gemini_ocr_sahi
-from garnet.geometric_graph_builder import (
-    build_graph_from_runs_and_junctions,
-    chain_geometric_segments,
-    detect_junctions_from_runs,
-)
 from garnet.graph_export_adapter import build_graph_v1_payload
 from garnet.instrument_tag_fusion import run_instrument_tag_fusion_stage
 from garnet.line_number_fusion import run_line_number_fusion_stage
@@ -37,35 +32,21 @@ from garnet.model_defaults import pick_default_weight_file
 from garnet.object_detection_sahi import DetectionSahiConfig, run_object_detection_sahi
 from garnet.path_tracer.cv_pipe_tracer import CVPipeTracer
 from garnet.ocrmac_sahi import OcrMacSahiConfig, run_ocrmac_sahi
-from garnet.pipe_continuity_helpers import GAP_THRESHOLD_PX
-from garnet.pipe_equipment_attachment import run_pipe_equipment_attachment_stage
-from garnet.pipe_graph import run_pipe_graph_stage
-from garnet.pipe_graph_qa import run_pipe_graph_qa_stage
-from garnet.pipe_edge_connectivity import (
-    build_pipe_edge_connectivity,
-    render_candidate_link_overlay,
-    render_junction_decision_overlay,
-)
 from garnet.render_connection_pipeline_overlay import render_overlay
-from garnet.pipe_text_attachment import (
-    _filter_border_like_edges,
-    render_connection_attachment_overlay,
-    render_text_attachment_overlay,
-    run_node_text_attachment_stage,
-    run_pipe_text_attachment_stage,
-)
 from garnet.paddle_ocr_sahi import PaddleOcrSahiConfig, run_paddle_ocr_sahi
 from garnet.pipe_mask import run_pipe_mask_stage
-from garnet.pipe_terminals import classify_pipe_edge_terminals
 from garnet.topology_markers import run_topology_marker_router
-from garnet.trace_graph_builder import build_trace_graph_from_stage11, render_stage12_graph_overlay
-from garnet.trace_graph_qa import run_stage12_trace_graph_qa
-from garnet.stage13_review_package import build_stage13_review_package, render_stage13_review_overlay
-from garnet.stage14_review_decisions import apply_stage14_review_decisions
-from garnet.stage15_process_exports import (
-    build_stage15_process_exports,
-    render_stage15_inline_mto_overlay,
-    render_stage15_line_number_overlay,
+from garnet.trace_graph_builder import (
+    build_trace_graph_from_stage11 as build_trace_graph_from_stage6,
+    render_stage12_graph_overlay as render_stage7_graph_overlay,
+)
+from garnet.trace_graph_qa import run_stage12_trace_graph_qa as run_stage7_trace_graph_qa
+from garnet.stage8_review_package import build_stage8_review_package, render_stage8_review_overlay
+from garnet.stage9_review_decisions import apply_stage9_review_decisions
+from garnet.stage10_process_exports import (
+    build_stage10_process_exports,
+    render_stage10_inline_mto_overlay,
+    render_stage10_line_number_overlay,
 )
 
 try:
@@ -126,7 +107,7 @@ def _mark_line_number_review_state(association: dict[str, Any], *, accepted: boo
     return result
 
 
-def build_stage11_line_number_review_payload(
+def build_stage6_line_number_review_payload(
     *,
     image_id: str,
     accepted: list[dict[str, Any]],
@@ -358,14 +339,14 @@ class PIDPipeline:
             (4, "stage4_instrument_tag_fusion", self.stage4_instrument_tag_fusion),
             (5, "stage5_pipe_mask", self.stage5_pipe_mask),
             (5, "stage5b_pipe_trace", self.stage5b_pipe_trace),
-            (11, "stage11_trace_associations", self.stage11_trace_associations),
-            (12, "stage12_geometric_graph_assembly", self.stage12_geometric_graph_assembly),
-            (12, "stage12c_page_connector_labeling", self.stage12c_page_connector_labeling),
-            (12, "stage12b_graph_export", self.stage12b_graph_export),
-            (13, "stage13_graph_qa", self.stage13_graph_qa),
-            (14, "stage14_apply_review_decisions", self.stage14_apply_review_decisions),
-            (15, "stage15_process_exports", self.stage15_process_exports),
-            (16, "stage16_connection_overlay", self.stage16_connection_overlay),
+            (6, "stage6_trace_associations", self.stage6_trace_associations),
+            (7, "stage7_geometric_graph_assembly", self.stage7_geometric_graph_assembly),
+            (7, "stage7c_page_connector_labeling", self.stage7c_page_connector_labeling),
+            (7, "stage7b_graph_export", self.stage7b_graph_export),
+            (8, "stage8_graph_qa", self.stage8_graph_qa),
+            (9, "stage9_apply_review_decisions", self.stage9_apply_review_decisions),
+            (10, "stage10_process_exports", self.stage10_process_exports),
+            (11, "stage11_connection_overlay", self.stage11_connection_overlay),
         ]
 
     def _manifest_path(self) -> Path:
@@ -535,6 +516,21 @@ class PIDPipeline:
             return default
         with open(path, "r") as f:
             return json.load(f)
+
+    def _load_json_artifact_compat(self, name: str, legacy_name: str) -> Any:
+        """Load a renamed artifact, falling back to the pre-renumbered name."""
+        path = self.out_dir / f"{name}.json"
+        if path.exists():
+            with open(path, "r") as f:
+                return json.load(f)
+        return self._load_json_artifact(legacy_name)
+
+    def _load_json_artifact_or_default_compat(self, name: str, legacy_name: str, default: Any) -> Any:
+        path = self.out_dir / f"{name}.json"
+        if path.exists():
+            with open(path, "r") as f:
+                return json.load(f)
+        return self._load_json_artifact_or_default(legacy_name, default)
 
     # ---------- Stage 1 ----------
     def _ensure_image_loaded(self) -> np.ndarray:
@@ -3585,7 +3581,7 @@ class PIDPipeline:
                 polyline.append(p2)
         return polyline
 
-    def _stage11_source_metadata(
+    def _trace_assoc_source_metadata(
         self,
         source_obj_id: str,
         objects_by_id: dict[str, dict[str, Any]],
@@ -3632,7 +3628,7 @@ class PIDPipeline:
             edges.append({
                 "trace_id": str(trace_id),
                 "trace_kind": "port",
-                **self._stage11_source_metadata(source_obj_id, objects_by_id),
+                **self._trace_assoc_source_metadata(source_obj_id, objects_by_id),
                 "port_index": trace.get("port_index"),
                 "port": trace.get("port"),
                 "terminal_type": trace.get("terminal_type"),
@@ -3656,7 +3652,7 @@ class PIDPipeline:
             edges.append({
                 "trace_id": str(branch_id),
                 "trace_kind": "branch",
-                **self._stage11_source_metadata(source_obj_id, objects_by_id),
+                **self._trace_assoc_source_metadata(source_obj_id, objects_by_id),
                 "candidate": branch.get("candidate", {}),
                 "port": branch.get("port"),
                 "terminal_type": branch.get("terminal_type"),
@@ -3779,7 +3775,7 @@ class PIDPipeline:
                 rejected.append(rejected_association)
         return accepted, rejected
 
-    def _draw_stage11_trace_association_overlay(
+    def _draw_stage6_trace_association_overlay(
         self,
         edges: list[dict[str, Any]],
         associations: dict[str, Any],
@@ -3832,7 +3828,7 @@ class PIDPipeline:
                         )
         return overlay
 
-    def stage11_trace_associations(self) -> None:
+    def stage6_trace_associations(self) -> None:
         """Attach semantic detections to Stage 5b traced pipe paths."""
         image_id = Path(self.image_path).name
         object_payload = self._load_json_artifact("stage4_objects")
@@ -4012,7 +4008,7 @@ class PIDPipeline:
             for edge in edges
             if edge.get("terminal_type") == "dead_end"
         ]
-        line_number_review_payload, line_number_review_summary = build_stage11_line_number_review_payload(
+        line_number_review_payload, line_number_review_summary = build_stage6_line_number_review_payload(
             image_id=image_id,
             accepted=associations["line_numbers"]["accepted"],
             rejected=associations["line_numbers"]["rejected"],
@@ -4051,705 +4047,57 @@ class PIDPipeline:
             },
         }
 
-        self._save_json("stage11_trace_associations", payload)
-        self._save_json("stage11_trace_association_summary", summary)
-        self._save_json("stage11_line_number_review", line_number_review_payload)
-        self._save_json("stage11_line_number_review_summary", line_number_review_summary)
+        self._save_json("stage6_trace_associations", payload)
+        self._save_json("stage6_trace_association_summary", summary)
+        self._save_json("stage6_line_number_review", line_number_review_payload)
+        self._save_json("stage6_line_number_review_summary", line_number_review_summary)
         self._save_img(
-            "stage11_trace_association_overlay",
-            self._draw_stage11_trace_association_overlay(edges, associations),
+            "stage6_trace_association_overlay",
+            self._draw_stage6_trace_association_overlay(edges, associations),
         )
 
 
-    def stage12_geometric_graph_assembly(self) -> None:
-        """Phase 3 geometric bypass: build Stage 12 graph directly from Stage 5 segments."""
+    def stage7_geometric_graph_assembly(self) -> None:
+        """Build the geometric graph directly from Stage 6 traced paths."""
+        stage6_path = self.out_dir / "stage6_trace_associations.json"
         stage11_path = self.out_dir / "stage11_trace_associations.json"
-        if stage11_path.exists():
-            image_id = Path(self.image_path).name
-            stage11_payload = self._load_json_artifact("stage11_trace_associations")
-            trace_graph_result = build_trace_graph_from_stage11(stage11_payload, image_id=image_id)
-            self._save_json("stage12_graph", trace_graph_result["graph_payload"])
-            self._save_json("stage12_graph_summary", trace_graph_result["summary"])
-            self._save_json("stage12_trace_edge_nodes", trace_graph_result["trace_edge_nodes_payload"])
-            self._save_json("stage12_review_queue", trace_graph_result["review_queue_payload"])
-            self._save_json("stage12_review_queue_summary", trace_graph_result["review_queue_summary"])
-            self._save_json("stage12_graph_normalization", trace_graph_result["normalization_payload"])
-            self._save_json("stage12_graph_normalization_summary", trace_graph_result["normalization_summary"])
-            self._save_img(
-                "stage12_graph_overlay",
-                render_stage12_graph_overlay(self._ensure_image_loaded(), trace_graph_result["graph_payload"]),
+        if not stage6_path.exists() and not stage11_path.exists():
+            raise FileNotFoundError(
+                f"Required artifact missing: {stage6_path} "
+                f"(legacy fallback also missing: {stage11_path})"
             )
-            trace_graph_qa_result = run_stage12_trace_graph_qa(
-                image_id=image_id,
-                graph_payload=trace_graph_result["graph_payload"],
-                image_bgr=self._ensure_image_loaded(),
-            )
-            self._save_json("stage12_graph_qa", trace_graph_qa_result["qa_payload"])
-            self._save_json("stage12_graph_qa_summary", trace_graph_qa_result["summary"])
-            self._save_img("stage12_graph_qa_overlay", trace_graph_qa_result["overlay_image"])
-            return
-
-        object_payload = self._load_json_artifact("stage4_objects")
-        text_payload = self._load_json_artifact("stage4_line_numbers")
-        instrument_tag_payload = self._load_json_artifact("stage4_instrument_tags")
-        equipment_tag_payload = self._load_json_artifact_or_default("stage4_equipment_tags", {"equipment_tags": []})
-        segments_payload = self._load_json_artifact("stage5_geometric_segments")
-        if isinstance(segments_payload, dict):
-            segments = segments_payload.get("segments", [])
-        else:
-            segments = segments_payload
-        if not isinstance(segments, list):
-            raise ValueError("stage5_geometric_segments must be a list or contain a 'segments' list")
 
         image_id = Path(self.image_path).name
-        runs = chain_geometric_segments(segments)
-        junctions = detect_junctions_from_runs(runs)
-        geo_graph_result = build_graph_from_runs_and_junctions(runs, junctions, image_id=image_id)
-        node_clusters = geo_graph_result["node_clusters"]
-        raw_edges = geo_graph_result["edges_payload"].get("edges", [])
-
-        self._save_json("phase3_runs", {"image_id": image_id, "runs": runs})
-        self._save_json("phase3_junctions", {"image_id": image_id, "junctions": junctions})
-        self._save_json("phase3_graph", geo_graph_result["graph_payload"])
-        self._save_json("phase3_graph_summary", geo_graph_result["summary"])
-        self._save_json("phase3_node_clusters", {"image_id": image_id, "clusters": node_clusters})
-        self._save_json("phase3_pipe_edges", {"image_id": image_id, "pass_type": "sheet", "edges": raw_edges})
-
-        direction_result = run_edge_direction_stage(
-            edges=raw_edges,
-            objects=object_payload.get("objects", []),
+        stage6_payload = self._load_json_artifact_compat(
+            "stage6_trace_associations",
+            "stage11_trace_associations",
+        )
+        trace_graph_result = build_trace_graph_from_stage6(stage6_payload, image_id=image_id)
+        self._save_json("stage7_graph", trace_graph_result["graph_payload"])
+        self._save_json("stage7_graph_summary", trace_graph_result["summary"])
+        self._save_json("stage7_trace_edge_nodes", trace_graph_result["trace_edge_nodes_payload"])
+        self._save_json("stage7_review_queue", trace_graph_result["review_queue_payload"])
+        self._save_json("stage7_review_queue_summary", trace_graph_result["review_queue_summary"])
+        self._save_json("stage7_graph_normalization", trace_graph_result["normalization_payload"])
+        self._save_json("stage7_graph_normalization_summary", trace_graph_result["normalization_summary"])
+        self._save_img(
+            "stage7_graph_overlay",
+            render_stage7_graph_overlay(self._ensure_image_loaded(), trace_graph_result["graph_payload"]),
+        )
+        trace_graph_qa_result = run_stage7_trace_graph_qa(
             image_id=image_id,
-            arrow_proximity_px=self.cfg.arrow_proximity_px,
-        )
-        directed_edges = direction_result["edges_payload"].get("edges", [])
-        self._save_json("phase3_edge_direction", direction_result["edges_payload"])
-        self._save_json("phase3_arrow_assignments", {"arrow_assignments": direction_result["arrow_assignments"]})
-        self._save_json("phase3_edge_direction_summary", direction_result["summary"])
-
-        overlay_edge_filter_result = _filter_border_like_edges(
-            directed_edges,
-            self._ensure_image_loaded().shape,
-        )
-
-        edge_terminal_result = classify_pipe_edge_terminals(
-            edges=directed_edges,
-            node_clusters=node_clusters,
-            object_regions=object_payload.get("objects", []),
-            equipment_terminal_classes=self.cfg.terminal_equipment_classes,
-            connection_terminal_classes=self.cfg.terminal_connection_classes,
-            inline_passthrough_classes=self.cfg.terminal_inline_passthrough_classes,
-            match_distance_px=self.cfg.terminal_match_distance_px,
-        )
-        edge_terminal_map = {
-            str(item.get("edge_id", "")): item
-            for item in edge_terminal_result["edge_terminals"]
-            if item.get("edge_id") is not None
-        }
-
-        attachment_result = run_pipe_equipment_attachment_stage(
-            image_id=image_id,
-            objects=object_payload.get("objects", []),
-            edges=directed_edges,
-            attachment_classes=self.cfg.equipment_attachment_classes,
-            max_distance_px=self.cfg.equipment_attachment_max_distance_px,
-            k_candidate_edges=self.cfg.equipment_attachment_k_candidate_edges,
-        )
-        connection_attachment_result = run_pipe_equipment_attachment_stage(
-            image_id=image_id,
-            objects=object_payload.get("objects", []),
-            edges=directed_edges,
-            attachment_classes=self.cfg.connection_attachment_classes,
-            max_distance_px=self.cfg.connection_attachment_max_distance_px,
-            k_candidate_edges=self.cfg.connection_attachment_k_candidate_edges,
-        )
-
-        # S5: Run edge connectivity first, then detect only the gaps that
-        # weren't already handled (dedup against existing connections).
-        edge_connectivity_result = build_pipe_edge_connectivity(
-            edges=directed_edges,
-            node_clusters=node_clusters,
-            object_regions=object_payload.get("objects", []),
-            inline_connector_classes=self.cfg.graph_inline_connector_classes,
-            inline_match_distance_px=self.cfg.graph_inline_connector_match_distance_px,
-            connection_seed_edge_ids={
-                str(item.get("edge_id", ""))
-                for item in connection_attachment_result["attachments_payload"].get("accepted", [])
-                if item.get("edge_id") is not None
-            },
-        )
-
-        # S5-01: Detect remaining near-edge gaps (exclude pairs already connected above)
-        from garnet.geometric_graph_builder import detect_phase3_gaps
-
-        phase3_gaps = detect_phase3_gaps(
-            edges=directed_edges,
-            gap_threshold_px=GAP_THRESHOLD_PX,
-            existing_connections=edge_connectivity_result["connections"],
-        )
-
-        # S5: Wire all detected gaps as gap_seed connections (quality filter
-        # moved to pipe_edge_connectivity — it handles strict/good/weak tiers there)
-        if phase3_gaps:
-            edge_connectivity_result_2 = build_pipe_edge_connectivity(
-                edges=directed_edges,
-                node_clusters=node_clusters,
-                object_regions=object_payload.get("objects", []),
-                inline_connector_classes=self.cfg.graph_inline_connector_classes,
-                inline_match_distance_px=self.cfg.graph_inline_connector_match_distance_px,
-                connection_seed_edge_ids={
-                    str(item.get("edge_id", ""))
-                    for item in connection_attachment_result["attachments_payload"].get("accepted", [])
-                    if item.get("edge_id") is not None
-                },
-                gap_seed_connections=phase3_gaps,
-            )
-            # Merge: take all connections from the second call that are gap_seed kind
-            existing_ids = {frozenset((c["source_edge_id"], c["target_edge_id"])) for c in edge_connectivity_result["connections"]}
-            for conn in edge_connectivity_result_2["connections"]:
-                pair = frozenset((conn["source_edge_id"], conn["target_edge_id"]))
-                if conn.get("kind") == "gap_seed" and pair not in existing_ids:
-                    edge_connectivity_result["connections"].append(conn)
-                    edge_connectivity_result["summary"]["edge_connection_count"] += 1
-
-        connection_validation = validate_connections_against_gaps(
-            edges=directed_edges,
-            connections=edge_connectivity_result["connections"],
-            gap_summary=phase3_gaps,
-        )
-
-        self._save_json("phase3_gaps", {
-            "image_id": image_id,
-            "gaps": phase3_gaps,
-            "gap_coverage_pct": round(
-                len(connection_validation.get("connected_gaps", [])) / len(phase3_gaps) * 100, 1
-            ) if phase3_gaps else 100.0,
-        })
-
-        overlay_edges = [
-            {
-                **edge,
-                "edge_terminals": edge_terminal_map.get(str(edge.get("id", ""))),
-            }
-            for edge in directed_edges
-        ]
-        text_attachment_result = run_pipe_text_attachment_stage(
-            image_id=image_id,
+            graph_payload=trace_graph_result["graph_payload"],
             image_bgr=self._ensure_image_loaded(),
-            text_regions=text_payload.get("line_numbers", []),
-            edges=overlay_edges,
-            max_distance_px=self.cfg.line_text_attachment_max_distance_px,
-            text_class="line_number",
         )
-        instrument_tag_attachment_result = run_pipe_text_attachment_stage(
-            image_id=image_id,
-            image_bgr=self._ensure_image_loaded(),
-            text_regions=instrument_tag_payload.get("instrument_tags", []),
-            edges=overlay_edges,
-            max_distance_px=self.cfg.line_text_attachment_max_distance_px,
-            text_class="instrument_semantic",
-        )
+        self._save_json("stage7_graph_qa", trace_graph_qa_result["qa_payload"])
+        self._save_json("stage7_graph_qa_summary", trace_graph_qa_result["summary"])
+        self._save_img("stage7_graph_qa_overlay", trace_graph_qa_result["overlay_image"])
 
-        equipment_nodes = []
-        for attachment in attachment_result["attachments_payload"].get("accepted", []):
-            bbox = attachment.get("bbox")
-            if not isinstance(bbox, (list, tuple)) or len(bbox) < 4:
-                continue
-            equipment_nodes.append(
-                {
-                    "id": f"equipment::{attachment['det_id']}",
-                    "type": attachment.get("class_name", "equipment"),
-                    "position": {
-                        "x": float((bbox[0] + bbox[2]) / 2),
-                        "y": float((bbox[1] + bbox[3]) / 2),
-                    },
-                    "bbox": bbox,
-                }
-            )
-        equipment_tag_attachment_result = run_node_text_attachment_stage(
-            image_id=image_id,
-            image_bgr=self._ensure_image_loaded(),
-            text_regions=equipment_tag_payload.get("equipment_tags", []),
-            nodes=equipment_nodes,
-            max_distance_px=self.cfg.equipment_tag_attachment_max_distance_px,
-            text_class="equipment_tag",
-        )
-
-        combined_text_overlay = render_text_attachment_overlay(
-            image_bgr=self._ensure_image_loaded(),
-            edges=overlay_edges,
-            attachments=
-                text_attachment_result["attachments_payload"].get("accepted", [])
-                + instrument_tag_attachment_result["attachments_payload"].get("accepted", []),
-        )
-        connection_overlay = render_connection_attachment_overlay(
-            image_bgr=self._ensure_image_loaded(),
-            edges=overlay_edges,
-            attachments=connection_attachment_result["attachments_payload"].get("accepted", []),
-            edge_connections=edge_connectivity_result["connections"],
-        )
-        junction_decision_overlay = render_junction_decision_overlay(
-            image_bgr=self._ensure_image_loaded(),
-            edges=directed_edges,
-            edge_connections=edge_connectivity_result["connections"],
-            rejected_junction_connections=edge_connectivity_result.get("rejected_junction_connections", []),
-        )
-        candidate_link_overlay = render_candidate_link_overlay(
-            image_bgr=self._ensure_image_loaded(),
-            edges=directed_edges,
-            candidate_links=edge_connectivity_result.get("candidate_link_graph", {}).get("links", []),
-        )
-
-        # ── Build graph_result directly from the collapsed geo_graph ─────────────
-        # Using geo_graph_result["graph_payload"] directly preserves the pass_through
-        # collapse (merged edges, no degenerate PT nodes). Calling run_pipe_graph_stage
-        # would rebuild from node_clusters/edges and lose that collapse.
-        graph_result = {
-            "graph_payload": geo_graph_result["graph_payload"],
-            "summary": {
-                "image_id": image_id,
-                "pass_type": "sheet",
-                "node_count": len(geo_graph_result["graph_payload"]["nodes"]),
-                "edge_count": len(geo_graph_result["graph_payload"]["edges"]),
-                "merged_pass_through_count": len([e for e in geo_graph_result["graph_payload"].get("edges", []) if e.get("merged_from_pass_through")]),
-                "geometric_bypass": {
-                    "segment_count": len(segments),
-                    "run_count": len(runs),
-                    "junction_count": len([n for n in geo_graph_result["graph_payload"]["nodes"] if n.get("type") == "junction"]),
-                    "terminal_count": len([n for n in geo_graph_result["graph_payload"]["nodes"] if n.get("type") == "terminal"]),
-                },
-                "edge_direction": direction_result["summary"],
-                "source_artifacts": [
-                    "stage5_geometric_segments.json",
-                    "phase3_runs.json",
-                    "phase3_junctions.json",
-                    "phase3_pipe_edges.json",
-                    "phase3_edge_direction.json",
-                ],
-            },
-        }
-
-        self._save_json("stage12_equipment_attachments", attachment_result["attachments_payload"])
-        self._save_json("stage12_equipment_attachment_summary", attachment_result["summary"])
-        self._save_json("stage12_connection_attachments", connection_attachment_result["attachments_payload"])
-        self._save_json("stage12_connection_attachment_summary", connection_attachment_result["summary"])
-        self._save_img("stage12_connection_attachment_overlay", connection_overlay)
-        self._save_img("stage12_junction_decision_overlay", junction_decision_overlay)
-        self._save_json("stage12_edge_terminals", {"edge_terminals": edge_terminal_result["edge_terminals"]})
-        self._save_json("stage12_edge_terminal_summary", edge_terminal_result["summary"])
-        self._save_json("stage12_arrow_assignments", {"arrow_assignments": direction_result["arrow_assignments"]})
-        self._save_json("stage12_edge_connections", {"edge_connections": edge_connectivity_result["connections"]})
-        self._save_json("stage12_edge_connection_summary", edge_connectivity_result["summary"])
-        self._save_json("stage12_candidate_links", edge_connectivity_result.get("candidate_link_graph", {}))
-        self._save_json(
-            "stage12_candidate_link_summary",
-            edge_connectivity_result.get("candidate_link_graph", {}).get("summary", {}),
-        )
-        self._save_json("stage12_selected_candidate_links", edge_connectivity_result.get("selected_candidate_links", {}))
-        self._save_json("stage12_candidate_link_diff", edge_connectivity_result.get("candidate_link_diff", {}))
-        self._save_json(
-            "stage12_candidate_link_selection_summary",
-            edge_connectivity_result.get("candidate_link_selection_summary", {}),
-        )
-        self._save_img("stage12_candidate_link_overlay", candidate_link_overlay)
-        self._save_json(
-            "stage12_rejected_junction_connections",
-            {"rejected_junction_connections": edge_connectivity_result.get("rejected_junction_connections", [])},
-        )
-        self._save_json(
-            "stage12_rejected_junction_connection_summary",
-            {
-                "image_id": image_id,
-                "pass_type": "sheet",
-                "rejected_junction_alignment_connection_count": edge_connectivity_result["summary"].get(
-                    "rejected_junction_alignment_connection_count", 0
-                ),
-                "rejected_junction_alignment_reason_counts": edge_connectivity_result["summary"].get(
-                    "rejected_junction_alignment_reason_counts", {}
-                ),
-                "invalid_shared_junction_fallback_candidate_count": edge_connectivity_result["summary"].get(
-                    "invalid_shared_junction_fallback_candidate_count", 0
-                ),
-                "accepted_junction_straight_through_count": edge_connectivity_result["summary"].get(
-                    "accepted_junction_straight_through_count", 0
-                ),
-            },
-        )
-        self._save_json("stage12_text_attachments", text_attachment_result["attachments_payload"])
-        self._save_json("stage12_text_attachment_summary", text_attachment_result["summary"])
-        self._save_img("stage12_text_attachment_overlay", combined_text_overlay)
-        self._save_json("stage12_overlay_edges_filtered", overlay_edge_filter_result["filtered_edges_payload"])
-        self._save_json("stage12_overlay_edges_filtered_summary", overlay_edge_filter_result["summary"])
-        self._save_json("stage12_instrument_tag_attachments", instrument_tag_attachment_result["attachments_payload"])
-        self._save_json("stage12_instrument_tag_attachment_summary", instrument_tag_attachment_result["summary"])
-        self._save_json("stage12_equipment_tag_attachments", equipment_tag_attachment_result["attachments_payload"])
-        self._save_json("stage12_equipment_tag_attachment_summary", equipment_tag_attachment_result["summary"])
-        self._save_img("stage12_equipment_tag_attachment_overlay", equipment_tag_attachment_result["overlay_image"])
-        self._save_json("stage12_graph", graph_result["graph_payload"])
-        self._save_json("stage12_graph_summary", graph_result["summary"])
-        self._save_json("stage12_connection_validation", connection_validation)
-        self._save_json("stage12_connection_validation_summary", connection_validation.get("gap_connection_summary", {}))
-
-        # S5-02: Detect near-boundary terminals (after graph is built)
-        from garnet.geometric_graph_builder import detect_boundary_terminals
-
-        boundary_terminals = detect_boundary_terminals(
-            edges=directed_edges,
-            nodes=graph_result["graph_payload"].get("nodes", []),
-            image_shape=self._ensure_image_loaded().shape,
-            boundary_margin_px=50.0,
-        )
-        self._save_json("phase3_boundary_terminals", {
-            "image_id": image_id,
-            "boundary_terminals": boundary_terminals,
-        })
-
-    # ---------- Stage 12 ----------
-    def stage12_edge_topology(self) -> None:
-        """Classify terminals, attach objects, and bridge connectivity across connection objects."""
-        object_payload = self._load_json_artifact("stage4_objects")
-        text_payload = self._load_json_artifact("stage4_line_numbers")
-        instrument_tag_payload = self._load_json_artifact("stage4_instrument_tags")
-        equipment_tag_payload = self._load_json_artifact_or_default("stage4_equipment_tags", {"equipment_tags": []})
-        node_clusters_payload = self._load_json_artifact("stage9_node_clusters")
-        edges_payload = self._load_json_artifact("stage10d_split_edges")
-        split_nodes_payload = self._load_json_artifact("stage10d_split_nodes")
-        polyline_simplification_summary = self._load_json_artifact("stage10b_polyline_simplification_summary")
-        edge_direction_summary = self._load_json_artifact("stage10c_edge_direction_summary")
-        edge_split_summary = self._load_json_artifact("stage10d_split_summary")
-        crossing_payload = self._load_json_artifact("stage10_crossing_resolution")
-        junctions_payload = self._load_json_artifact("stage11_junctions")
-        overlay_edge_filter_result = _filter_border_like_edges(
-            edges_payload.get("edges", []),
-            self._ensure_image_loaded().shape,
-        )
-        overlay_edges = overlay_edge_filter_result["kept_edges"]
-        edge_terminal_result = classify_pipe_edge_terminals(
-            edges=edges_payload.get("edges", []),
-            node_clusters=node_clusters_payload.get("clusters", []),
-            object_regions=object_payload.get("objects", []),
-            equipment_terminal_classes=self.cfg.terminal_equipment_classes,
-            connection_terminal_classes=self.cfg.terminal_connection_classes,
-            inline_passthrough_classes=self.cfg.terminal_inline_passthrough_classes,
-            match_distance_px=self.cfg.terminal_match_distance_px,
-        )
-        edge_terminal_map = {
-            str(item.get("edge_id", "")): item
-            for item in edge_terminal_result["edge_terminals"]
-            if item.get("edge_id") is not None
-        }
-        attachment_result = run_pipe_equipment_attachment_stage(
-            image_id=Path(self.image_path).name,
-            objects=object_payload.get("objects", []),
-            edges=edges_payload.get("edges", []),
-            attachment_classes=self.cfg.equipment_attachment_classes,
-            max_distance_px=self.cfg.equipment_attachment_max_distance_px,
-            k_candidate_edges=self.cfg.equipment_attachment_k_candidate_edges,
-        )
-        connection_attachment_result = run_pipe_equipment_attachment_stage(
-            image_id=Path(self.image_path).name,
-            objects=object_payload.get("objects", []),
-            edges=edges_payload.get("edges", []),
-            attachment_classes=self.cfg.connection_attachment_classes,
-            max_distance_px=self.cfg.connection_attachment_max_distance_px,
-            k_candidate_edges=self.cfg.connection_attachment_k_candidate_edges,
-        )
-        # Phase 2: Load Stage 10 continuity data
-        continuity_payload = self._load_json_artifact_or_default(
-            "stage10_continuity_result",
-            {"orphan_edges": 0, "gap_candidate_edges": 0, "validated_edges": 0, "provisional_edges": 0},
-        )
-        gap_summary_payload = self._load_json_artifact_or_default(
-            "stage10_gap_summary",
-            {"gaps": []},
-        )
-
-        # Phase 2: Merge Stage 10 continuity metadata into edges before graph assembly
-        from garnet.continuity_aware_connections import (
-            merge_continuity_into_graph,
-            validate_connections_against_gaps,
-        )
-        edges_raw = edges_payload.get("edges", [])
-        enriched_edges, enriched_nodes = merge_continuity_into_graph(
-            edges=edges_raw,
-            nodes=[],  # nodes built later from node_clusters
-            continuity_result=continuity_payload,
-            gap_summary=gap_summary_payload.get("gaps", []),
-        )
-
-        # Phase 2: Pass gap_summary to edge connectivity
-        edge_connectivity_result = build_pipe_edge_connectivity(
-            edges=enriched_edges,
-            node_clusters=node_clusters_payload.get("clusters", []),
-            object_regions=object_payload.get("objects", []),
-            inline_connector_classes=self.cfg.graph_inline_connector_classes,
-            inline_match_distance_px=self.cfg.graph_inline_connector_match_distance_px,
-            connection_seed_edge_ids={
-                str(item.get("edge_id", ""))
-                for item in connection_attachment_result["attachments_payload"].get("accepted", [])
-                if item.get("edge_id") is not None
-            },
-        )
-
-        connection_bridges = []
-        connection_bridge_distance_px = 120.0
-        connection_classes = {"connection", "page connection", "utility connection"}
-        for obj in object_payload.get("objects", []):
-            class_name = str(obj.get("class_name", "")).strip().lower()
-            if class_name not in connection_classes:
-                continue
-            bbox = obj.get("bbox", {})
-            if not bbox:
-                continue
-            conn_center = (
-                (float(bbox["x_min"]) + float(bbox["x_max"])) / 2.0,
-                (float(bbox["y_min"]) + float(bbox["y_max"])) / 2.0,
-            )
-            nearby_endpoints = []
-            for edge in edges_payload.get("edges", []):
-                edge_id = str(edge.get("id", ""))
-                polyline = edge.get("polyline", [])
-                if len(polyline) < 2:
-                    continue
-                for endpoint_name, point in (("start", polyline[0]), ("end", polyline[-1])):
-                    dist = (
-                        (float(point["col"]) - conn_center[0]) ** 2
-                        + (float(point["row"]) - conn_center[1]) ** 2
-                    ) ** 0.5
-                    if dist <= connection_bridge_distance_px:
-                        nearby_endpoints.append((edge_id, endpoint_name, dist))
-
-            if len(nearby_endpoints) < 2:
-                continue
-            nearby_endpoints.sort(key=lambda item: item[2])
-            endpoint_a, endpoint_b = nearby_endpoints[0], nearby_endpoints[1]
-            if endpoint_a[0] == endpoint_b[0]:
-                continue
-            connection_bridges.append(
-                {
-                    "kind": "connection_object_bridge",
-                    "connection_class": class_name,
-                    "connection_id": str(obj.get("id", "")),
-                    "source_edge_id": endpoint_a[0],
-                    "source_endpoint": endpoint_a[1],
-                    "target_edge_id": endpoint_b[0],
-                    "target_endpoint": endpoint_b[1],
-                    "gap_px": round((endpoint_a[2] + endpoint_b[2]) / 2, 2),
-                }
-            )
-
-        edge_connectivity_result["connections"].extend(connection_bridges)
-        edge_connectivity_result["summary"]["connection_object_bridge_count"] = len(connection_bridges)
-        edge_connectivity_result["summary"]["edge_connection_count"] = len(edge_connectivity_result["connections"])
-
-        overlay_edges = [
-            {
-                **edge,
-                "edge_terminals": edge_terminal_map.get(str(edge.get("id", ""))),
-            }
-            for edge in enriched_edges  # Phase 2: use continuity-enriched edges
-        ]
-        connection_overlay = render_connection_attachment_overlay(
-            image_bgr=self._ensure_image_loaded(),
-            edges=overlay_edges,
-            attachments=connection_attachment_result["attachments_payload"].get("accepted", []),
-            edge_connections=edge_connectivity_result["connections"],
-        )
-        filtered_edges_payload = {
-            **overlay_edge_filter_result["filtered_edges_payload"],
-            "edges": overlay_edges,
-        }
-
-        self._save_json("stage12_filtered_edges", filtered_edges_payload)
-        self._save_json("stage12_filtered_edges_summary", overlay_edge_filter_result["summary"])
-        self._save_json("stage12_edge_terminals", {"edge_terminals": edge_terminal_result["edge_terminals"]})
-        self._save_json("stage12_edge_terminal_summary", edge_terminal_result["summary"])
-        self._save_json("stage12_equipment_attachments", attachment_result["attachments_payload"])
-        self._save_json("stage12_equipment_attachment_summary", attachment_result["summary"])
-        self._save_json("stage12_connection_attachments", connection_attachment_result["attachments_payload"])
-        self._save_json("stage12_connection_attachment_summary", connection_attachment_result["summary"])
-        self._save_img("stage12_connection_attachment_overlay", connection_overlay)
-        self._save_json("stage12_connection_bridges", {"bridges": connection_bridges})
-        self._save_json("stage12_edge_connections", {"edge_connections": edge_connectivity_result["connections"]})
-        self._save_json("stage12_edge_connection_summary", edge_connectivity_result["summary"])
-
-    # ---------- Stage 13 ----------
-    def stage13_text_attachment(self) -> None:
-        """Attach line numbers and instrument tags to pipe edges."""
-        text_payload = self._load_json_artifact("stage4_line_numbers")
-        instrument_tag_payload = self._load_json_artifact("stage4_instrument_tags")
-        filtered_edges_payload = self._load_json_artifact("stage12_filtered_edges")
-        overlay_edges = filtered_edges_payload.get("edges", [])
-
-        text_attachment_result = run_pipe_text_attachment_stage(
-            image_id=Path(self.image_path).name,
-            image_bgr=self._ensure_image_loaded(),
-            text_regions=text_payload.get("line_numbers", []),
-            edges=overlay_edges,
-            max_distance_px=self.cfg.line_text_attachment_max_distance_px,
-            text_class="line_number",
-        )
-        instrument_tag_attachment_result = run_pipe_text_attachment_stage(
-            image_id=Path(self.image_path).name,
-            image_bgr=self._ensure_image_loaded(),
-            text_regions=instrument_tag_payload.get("instrument_tags", []),
-            edges=overlay_edges,
-            max_distance_px=self.cfg.line_text_attachment_max_distance_px,
-            text_class="instrument_semantic",
-        )
-        equipment_nodes = []
-        for attachment in attachment_result["attachments_payload"].get("accepted", []):
-            bbox = attachment.get("bbox")
-            if not isinstance(bbox, (list, tuple)) or len(bbox) < 4:
-                continue
-            equipment_nodes.append(
-                {
-                    "id": f"equipment::{attachment['det_id']}",
-                    "type": attachment.get("class_name", "equipment"),
-                    "position": {
-                        "x": float((bbox[0] + bbox[2]) / 2),
-                        "y": float((bbox[1] + bbox[3]) / 2),
-                    },
-                    "bbox": bbox,
-                }
-            )
-        equipment_tag_attachment_result = run_node_text_attachment_stage(
-            image_id=Path(self.image_path).name,
-            image_bgr=self._ensure_image_loaded(),
-            text_regions=equipment_tag_payload.get("equipment_tags", []),
-            nodes=equipment_nodes,
-            max_distance_px=self.cfg.equipment_tag_attachment_max_distance_px,
-            text_class="equipment_tag",
-        )
-        combined_text_overlay = render_text_attachment_overlay(
-            image_bgr=self._ensure_image_loaded(),
-            edges=overlay_edges,
-            attachments=
-                text_attachment_result["attachments_payload"].get("accepted", [])
-                + instrument_tag_attachment_result["attachments_payload"].get("accepted", []),
-        )
-        connection_overlay = render_connection_attachment_overlay(
-            image_bgr=self._ensure_image_loaded(),
-            edges=overlay_edges,
-            attachments=connection_attachment_result["attachments_payload"].get("accepted", []),
-            edge_connections=edge_connectivity_result["connections"],
-        )
-        junction_decision_overlay = render_junction_decision_overlay(
-            image_bgr=self._ensure_image_loaded(),
-            edges=enriched_edges,
-            edge_connections=edge_connectivity_result["connections"],
-            rejected_junction_connections=edge_connectivity_result.get("rejected_junction_connections", []),
-        )
-        candidate_link_overlay = render_candidate_link_overlay(
-            image_bgr=self._ensure_image_loaded(),
-            edges=enriched_edges,
-            candidate_links=edge_connectivity_result.get("candidate_link_graph", {}).get("links", []),
-        )
-
-        graph_result = run_pipe_graph_stage(
-            image_id=Path(self.image_path).name,
-            node_clusters=node_clusters_payload.get("clusters", []),
-            edges=enriched_edges,  # Phase 2: continuity-enriched edges
-            confirmed_junctions=junctions_payload.get("confirmed_junctions", []),
-            unresolved_junctions=junctions_payload.get("unresolved_junctions", []),
-            split_nodes=split_nodes_payload.get("nodes", []),
-            crossing_candidates=crossing_payload.get("candidates", []),
-            equipment_attachments=attachment_result["attachments_payload"].get("accepted", []),
-            connection_attachments=connection_attachment_result["attachments_payload"].get("accepted", []),
-            text_attachments=text_attachment_result["attachments_payload"].get("accepted", []),
-            instrument_tag_attachments=instrument_tag_attachment_result["attachments_payload"].get("accepted", []),
-            equipment_tag_attachments=equipment_tag_attachment_result["attachments_payload"].get("accepted", []),
-            edge_terminals=edge_terminal_result["edge_terminals"],
-            edge_connections=edge_connectivity_result["connections"],
-        )
-        graph_result["summary"]["polyline_simplification"] = polyline_simplification_summary
-        graph_result["summary"]["edge_direction"] = edge_direction_summary
-        graph_result["summary"]["edge_split"] = edge_split_summary
-        graph_result["summary"]["source_artifacts"] = [
-            artifact
-            for artifact in graph_result["summary"].get("source_artifacts", [])
-            if artifact != "stage10_pipe_edges.json"
-        ] + [
-            "stage10b_pipe_edges_simplified.json",
-            "stage10b_polyline_simplification_summary.json",
-            "stage10c_edge_direction.json",
-            "stage10c_edge_direction_summary.json",
-            "stage10d_split_edges.json",
-            "stage10d_split_nodes.json",
-            "stage10d_split_summary.json",
-        ]
-        self._save_json("stage12_equipment_attachments", attachment_result["attachments_payload"])
-        self._save_json("stage12_equipment_attachment_summary", attachment_result["summary"])
-        self._save_json("stage12_connection_attachments", connection_attachment_result["attachments_payload"])
-        self._save_json("stage12_connection_attachment_summary", connection_attachment_result["summary"])
-        self._save_img("stage12_connection_attachment_overlay", connection_overlay)
-        self._save_img("stage12_junction_decision_overlay", junction_decision_overlay)
-        self._save_json("stage12_edge_terminals", {"edge_terminals": edge_terminal_result["edge_terminals"]})
-        self._save_json("stage12_edge_terminal_summary", edge_terminal_result["summary"])
-        self._save_json("stage12_arrow_assignments", self._load_json_artifact("stage10c_arrow_assignments"))
-        self._save_json("stage12_edge_connections", {"edge_connections": edge_connectivity_result["connections"]})
-        self._save_json("stage12_edge_connection_summary", edge_connectivity_result["summary"])
-        self._save_json("stage12_candidate_links", edge_connectivity_result.get("candidate_link_graph", {}))
-        self._save_json(
-            "stage12_candidate_link_summary",
-            edge_connectivity_result.get("candidate_link_graph", {}).get("summary", {}),
-        )
-        self._save_json(
-            "stage12_selected_candidate_links",
-            edge_connectivity_result.get("selected_candidate_links", {}),
-        )
-        self._save_json("stage12_candidate_link_diff", edge_connectivity_result.get("candidate_link_diff", {}))
-        self._save_json(
-            "stage12_candidate_link_selection_summary",
-            edge_connectivity_result.get("candidate_link_selection_summary", {}),
-        )
-        self._save_img("stage12_candidate_link_overlay", candidate_link_overlay)
-        self._save_json(
-            "stage12_rejected_junction_connections",
-            {"rejected_junction_connections": edge_connectivity_result.get("rejected_junction_connections", [])},
-        )
-        self._save_json(
-            "stage12_rejected_junction_connection_summary",
-            {
-                "image_id": Path(self.image_path).name,
-                "pass_type": "sheet",
-                "rejected_junction_alignment_connection_count": edge_connectivity_result["summary"].get(
-                    "rejected_junction_alignment_connection_count", 0
-                ),
-                "rejected_junction_alignment_reason_counts": edge_connectivity_result["summary"].get(
-                    "rejected_junction_alignment_reason_counts", {}
-                ),
-                "invalid_shared_junction_fallback_candidate_count": edge_connectivity_result["summary"].get(
-                    "invalid_shared_junction_fallback_candidate_count", 0
-                ),
-                "accepted_junction_straight_through_count": edge_connectivity_result["summary"].get(
-                    "accepted_junction_straight_through_count", 0
-                ),
-            },
-        )
-        self._save_json("stage12_text_attachments", text_attachment_result["attachments_payload"])
-        self._save_json("stage12_text_attachment_summary", text_attachment_result["summary"])
-        self._save_img("stage12_text_attachment_overlay", combined_text_overlay)
-        self._save_json("stage12_overlay_edges_filtered", overlay_edge_filter_result["filtered_edges_payload"])
-        self._save_json("stage12_overlay_edges_filtered_summary", overlay_edge_filter_result["summary"])
-        self._save_json("stage12_instrument_tag_attachments", instrument_tag_attachment_result["attachments_payload"])
-        self._save_json("stage12_instrument_tag_attachment_summary", instrument_tag_attachment_result["summary"])
-        self._save_json("stage12_equipment_tag_attachments", equipment_tag_attachment_result["attachments_payload"])
-        self._save_json("stage12_equipment_tag_attachment_summary", equipment_tag_attachment_result["summary"])
-        self._save_img("stage12_equipment_tag_attachment_overlay", equipment_tag_attachment_result["overlay_image"])
-        self._save_json("stage12_graph", graph_result["graph_payload"])
-        self._save_json("stage12_graph_summary", graph_result["summary"])
-        # Phase 2: save continuity connection validation results
-        self._save_json("stage12_connection_validation", connection_validation)
-        self._save_json(
-            "stage12_connection_validation_summary",
-            connection_validation.get("gap_connection_summary", {}),
-        )
-
-    def stage12c_page_connector_labeling(self) -> None:
+    def stage7c_page_connector_labeling(self) -> None:
         from garnet.page_connector import find_nearby_text
 
-        connection_payload = self._load_json_artifact_or_default("stage12_connection_attachments", {"accepted": []})
-        equipment_payload = self._load_json_artifact_or_default("stage12_equipment_attachments", {"accepted": []})
+        connection_payload = self._load_json_artifact_or_default_compat("stage7_connection_attachments", "stage12_connection_attachments", {"accepted": []})
+        equipment_payload = self._load_json_artifact_or_default_compat("stage7_equipment_attachments", "stage12_equipment_attachments", {"accepted": []})
         accepted = [
             a
             for a in connection_payload.get("accepted", []) + equipment_payload.get("accepted", [])
@@ -4762,25 +4110,27 @@ class PIDPipeline:
             bbox = att.get("bbox", {})
             labels = find_nearby_text(bbox, text_regions, max_distance_px=80.0)
             all_labels.append({"object_id": att.get("object_id") or att.get("det_id"), "labels": labels})
-        self._save_json("stage12_page_connector_labels", {"connectors": all_labels})
+        self._save_json("stage7_page_connector_labels", {"connectors": all_labels})
         self._save_json(
-            "stage12_page_connector_labels_summary",
+            "stage7_page_connector_labels_summary",
             {
                 "total_connectors": len(accepted),
                 "total_labels": sum(len(l["labels"]) for l in all_labels),
             },
         )
 
-    def stage12b_graph_export(self) -> None:
-        graph_payload = self._load_json_artifact("stage12_graph")
+    def stage7b_graph_export(self) -> None:
+        graph_payload = self._load_json_artifact_compat("stage7_graph", "stage12_graph")
         object_payload = self._load_json_artifact("stage4_objects")
         line_number_payload = self._load_json_artifact("stage4_line_numbers")
         instrument_tag_payload = self._load_json_artifact("stage4_instrument_tags")
-        page_connector_labels_payload = self._load_json_artifact_or_default(
+        page_connector_labels_payload = self._load_json_artifact_or_default_compat(
+            "stage7_page_connector_labels",
             "stage12_page_connector_labels",
             {"connectors": []},
         )
-        connection_attachments_payload = self._load_json_artifact_or_default(
+        connection_attachments_payload = self._load_json_artifact_or_default_compat(
+            "stage7_connection_attachments",
             "stage12_connection_attachments",
             {"accepted": []},
         )
@@ -4794,106 +4144,111 @@ class PIDPipeline:
             connection_attachments_payload=connection_attachments_payload,
             image_dimensions=normalization_summary.get("dimensions", {}),
         )
-        self._save_json("stage12b_graph_v1", graph_v1_payload)
+        self._save_json("stage7b_graph_v1", graph_v1_payload)
 
-    # ---------- Stage 13 + 14 ----------
-    def stage13_graph_qa(self) -> None:
-        graph_payload = self._load_json_artifact("stage12_graph")
+    # ---------- Stage 8 + 9 ----------
+    def stage8_graph_qa(self) -> None:
+        graph_payload = self._load_json_artifact_compat("stage7_graph", "stage12_graph")
+        stage7_qa_path = self.out_dir / "stage7_graph_qa.json"
         stage12_qa_path = self.out_dir / "stage12_graph_qa.json"
-        if stage12_qa_path.exists():
-            image_id = Path(self.image_path).name
-            result = build_stage13_review_package(
-                image_id=image_id,
-                graph_payload=graph_payload,
-                stage12_qa_payload=self._load_json_artifact("stage12_graph_qa"),
-                stage12_review_queue_payload=self._load_json_artifact_or_default("stage12_review_queue", {"review_queue": []}),
-                stage11_line_number_review_payload=self._load_json_artifact_or_default(
-                    "stage11_line_number_review",
-                    {"line_number_review": []},
-                ),
+        if not stage7_qa_path.exists() and not stage12_qa_path.exists():
+            raise FileNotFoundError(
+                f"Required artifact missing: {stage7_qa_path} "
+                f"(legacy fallback also missing: {stage12_qa_path})"
             )
-            self._save_json("stage13_review_items", result["review_items_payload"])
-            self._save_json("stage13_review_summary", result["summary"])
-            self._save_img(
-                "stage13_review_overlay",
-                render_stage13_review_overlay(self._ensure_image_loaded(), result["review_items_payload"]),
-            )
-            return
 
-        qa_result = run_pipe_graph_qa_stage(
-            image_id=Path(self.image_path).name,
-            graph_payload=graph_payload,
-            image_bgr=self._ensure_image_loaded(),
-        )
-        self._save_json("stage15_graph_anomalies", qa_result["anomaly_report"])
-        self._save_img("stage15_graph_components_overlay", qa_result["component_overlay_image"])
-        self._save_json("stage15_review_queue", qa_result["review_queue"])
-        self._save_json("stage15_graph_qa_summary", qa_result["summary"])
-
-
-    def stage14_apply_review_decisions(self) -> None:
-        """Apply Stage 13 review decisions to produce the corrected trace graph."""
         image_id = Path(self.image_path).name
-        result = apply_stage14_review_decisions(
+        result = build_stage8_review_package(
             image_id=image_id,
-            graph_payload=self._load_json_artifact("stage12_graph"),
-            review_items_payload=self._load_json_artifact("stage13_review_items"),
-            decisions_payload=self._load_json_artifact_or_default("stage13_review_decisions", {"decisions": []}),
+            graph_payload=graph_payload,
+            stage7_qa_payload=self._load_json_artifact_compat("stage7_graph_qa", "stage12_graph_qa"),
+            stage7_review_queue_payload=self._load_json_artifact_or_default_compat("stage7_review_queue", "stage12_review_queue", {"review_queue": []}),
+            stage6_line_number_review_payload=self._load_json_artifact_or_default_compat(
+                "stage6_line_number_review",
+                "stage11_line_number_review",
+                {"line_number_review": []},
+            ),
         )
-        self._save_json("stage14_corrected_graph", result["corrected_graph_payload"])
-        self._save_json("stage14_review_resolutions", result["review_resolution_payload"])
-        self._save_json("stage14_correction_audit", result["correction_audit_payload"])
-        self._save_json("stage14_correction_summary", result["summary"])
+        self._save_json("stage8_review_items", result["review_items_payload"])
+        self._save_json("stage8_review_summary", result["summary"])
+        self._save_img(
+            "stage8_review_overlay",
+            render_stage8_review_overlay(self._ensure_image_loaded(), result["review_items_payload"]),
+        )
 
-    # ---------- Stage 15 ----------
 
-    def stage15_process_exports(self) -> None:
+    def stage9_apply_review_decisions(self) -> None:
+        """Apply Stage 8 review decisions to produce the corrected trace graph."""
+        image_id = Path(self.image_path).name
+        result = apply_stage9_review_decisions(
+            image_id=image_id,
+            graph_payload=self._load_json_artifact_compat("stage7_graph", "stage12_graph"),
+            review_items_payload=self._load_json_artifact_compat("stage8_review_items", "stage13_review_items"),
+            decisions_payload=self._load_json_artifact_or_default_compat("stage8_review_decisions", "stage13_review_decisions", {"decisions": []}),
+        )
+        self._save_json("stage9_corrected_graph", result["corrected_graph_payload"])
+        self._save_json("stage9_review_resolutions", result["review_resolution_payload"])
+        self._save_json("stage9_correction_audit", result["correction_audit_payload"])
+        self._save_json("stage9_correction_summary", result["summary"])
+
+    # ---------- Stage 10 ----------
+
+    def stage10_process_exports(self) -> None:
         """Export process-facing tables from the corrected trace graph."""
         image_id = Path(self.image_path).name
-        result = build_stage15_process_exports(
+        result = build_stage10_process_exports(
             image_id=image_id,
-            corrected_graph_payload=self._load_json_artifact("stage14_corrected_graph"),
+            corrected_graph_payload=self._load_json_artifact_compat("stage9_corrected_graph", "stage9_corrected_graph"),
         )
-        self._save_json("stage15_line_list", result["line_list_payload"])
-        self._save_json("stage15_equipment_connectivity", result["equipment_connectivity_payload"])
-        self._save_json("stage15_inline_mto", result["inline_mto_payload"])
-        self._save_json("stage15_inline_observations", result["inline_observations_payload"])
-        self._save_json("stage15_instrument_index", result["instrument_index_payload"])
-        self._save_json("stage15_process_export_summary", result["summary"])
+        self._save_json("stage10_line_list", result["line_list_payload"])
+        self._save_json("stage10_equipment_connectivity", result["equipment_connectivity_payload"])
+        self._save_json("stage10_inline_mto", result["inline_mto_payload"])
+        self._save_json("stage10_inline_observations", result["inline_observations_payload"])
+        self._save_json("stage10_instrument_index", result["instrument_index_payload"])
+        self._save_json("stage10_process_export_summary", result["summary"])
         self._save_img(
-            "stage15_inline_mto_overlay",
-            render_stage15_inline_mto_overlay(self._ensure_image_loaded(), result["inline_mto_payload"]),
+            "stage10_inline_mto_overlay",
+            render_stage10_inline_mto_overlay(self._ensure_image_loaded(), result["inline_mto_payload"]),
         )
         self._save_img(
-            "stage15_line_number_overlay",
-            render_stage15_line_number_overlay(
+            "stage10_line_number_overlay",
+            render_stage10_line_number_overlay(
                 self._ensure_image_loaded(),
                 result["line_list_payload"],
-                self._load_json_artifact("stage14_corrected_graph"),
+                self._load_json_artifact_compat("stage9_corrected_graph", "stage9_corrected_graph"),
             ),
         )
 
-    # ---------- Stage 16 ----------
-    def stage16_connection_overlay(self) -> None:
+    # ---------- Stage 11 ----------
+    def stage11_connection_overlay(self) -> None:
         """
-        Stage 16: render connection + pipe-segment overlay.
+        Stage 11: render connection + pipe-segment overlay.
 
         Uses render_overlay() from render_connection_pipeline_overlay.py to draw:
         - Red pipe segments connected to accepted page-connection anchors
         - Orange inline element connectors
         - Blue page-connection marker boxes + anchor dots + labels
 
-        Runs after Stage 12 (needs connection_attachments + edge_connections)
+        Runs after Stage 7 (needs connection_attachments + edge_connections)
         and uses stage4_objects as the background reference.
         """
         out = self.out_dir
-        overlay_path = out / "stage16_connection_pipeline_overlay.png"
+        overlay_path = out / "stage11_connection_pipeline_overlay.png"
+        connection_attachments_path = out / "stage7_connection_attachments.json"
+        edge_connections_path = out / "stage7_edge_connections.json"
+        edge_terminals_path = out / "stage7_edge_terminals.json"
+        if not connection_attachments_path.exists():
+            self._save_json("stage7_connection_attachments", {"accepted": [], "rejected": []})
+        if not edge_connections_path.exists():
+            self._save_json("stage7_edge_connections", {"edge_connections": []})
+        if not edge_terminals_path.exists():
+            self._save_json("stage7_edge_terminals", {"edge_terminals": []})
 
         render_overlay(
-            connection_attachments_path=str(out / "stage12_connection_attachments.json"),
-            edge_connections_path=str(out / "stage12_edge_connections.json"),
-            edge_terminals_path=str(out / "stage12_edge_terminals.json"),
-            graph_path=str(out / "stage12_graph.json"),
+            connection_attachments_path=str(connection_attachments_path),
+            edge_connections_path=str(edge_connections_path),
+            edge_terminals_path=str(edge_terminals_path),
+            graph_path=str(out / "stage7_graph.json"),
             objects_path=str(out / "stage4_objects.json"),
             output_path=str(overlay_path),
             image_base_path=str(self.image_path),

@@ -102,7 +102,7 @@ def _review_item_from_source(*, image_id: str, source_stage: str, item: dict[str
     severity = str(item.get("severity") or "review")
     source_item_id = str(item.get("id") or f"{source_stage}::{category}")
     review_item = {
-        "id": f"stage13::{source_item_id}",
+        "id": f"stage8::{source_item_id}",
         "image_id": image_id,
         "source_stage": source_stage,
         "source_item_id": source_item_id,
@@ -133,28 +133,28 @@ def _merge_review_items(existing: dict[str, Any], incoming: dict[str, Any]) -> d
     return merged
 
 
-def build_stage13_review_package(
+def build_stage8_review_package(
     *,
     image_id: str,
     graph_payload: dict[str, Any],
-    stage12_qa_payload: dict[str, Any],
-    stage12_review_queue_payload: dict[str, Any],
-    stage11_line_number_review_payload: dict[str, Any] | None = None,
+    stage7_qa_payload: dict[str, Any],
+    stage7_review_queue_payload: dict[str, Any],
+    stage6_line_number_review_payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    del graph_payload, stage11_line_number_review_payload
+    del graph_payload, stage6_line_number_review_payload
     by_source_id: dict[str, dict[str, Any]] = {}
 
-    for issue in stage12_qa_payload.get("issues", []) or []:
+    for issue in stage7_qa_payload.get("issues", []) or []:
         if not isinstance(issue, dict):
             continue
-        item = _review_item_from_source(image_id=image_id, source_stage="stage12_graph_qa", item=issue)
+        item = _review_item_from_source(image_id=image_id, source_stage="stage7_graph_qa", item=issue)
         key = item["source_item_id"]
         by_source_id[key] = _merge_review_items(by_source_id[key], item) if key in by_source_id else item
 
-    for review in stage12_review_queue_payload.get("review_queue", []) or []:
+    for review in stage7_review_queue_payload.get("review_queue", []) or []:
         if not isinstance(review, dict):
             continue
-        item = _review_item_from_source(image_id=image_id, source_stage="stage12_review_queue", item=review)
+        item = _review_item_from_source(image_id=image_id, source_stage="stage7_review_queue", item=review)
         key = item["source_item_id"]
         by_source_id[key] = _merge_review_items(by_source_id[key], item) if key in by_source_id else item
 
@@ -171,7 +171,7 @@ def build_stage13_review_package(
     return {
         "review_items_payload": {
             "image_id": image_id,
-            "source": "stage13_review_package",
+            "source": "stage8_review_package",
             "review_items": review_items,
         },
         "summary": {
@@ -182,10 +182,10 @@ def build_stage13_review_package(
             "priority_counts": dict(priority_counts),
             "review_item_type_counts": dict(type_counts),
             "source_artifacts": [
-                "stage12_graph.json",
-                "stage12_graph_qa.json",
-                "stage12_review_queue.json",
-                "stage11_line_number_review.json",
+                "stage7_graph.json",
+                "stage7_graph_qa.json",
+                "stage7_review_queue.json",
+                "stage6_line_number_review.json",
             ],
         },
     }
@@ -199,11 +199,11 @@ def _color_for_priority(priority: int) -> tuple[int, int, int]:
     return (255, 255, 0)
 
 
-def render_stage13_review_overlay(image_bgr: np.ndarray, review_items_payload: dict[str, Any]) -> np.ndarray:
+def render_stage8_review_overlay(image_bgr: np.ndarray, review_items_payload: dict[str, Any]) -> np.ndarray:
     try:
         import cv2  # type: ignore
     except Exception as exc:  # pragma: no cover
-        raise RuntimeError("OpenCV is required to render stage13_review_overlay") from exc
+        raise RuntimeError("OpenCV is required to render stage8_review_overlay") from exc
 
     overlay = image_bgr.copy()
     for item in review_items_payload.get("review_items", []) or []:

@@ -26,7 +26,7 @@ def _resolution_for_item(item: dict[str, Any], decision: dict[str, Any] | None) 
             "review_item_id": review_item_id,
             "category": category,
             "resolution_state": "accepted_by_assumption",
-            "decision_source": "stage14_identity_pass",
+            "decision_source": "stage9_identity_pass",
             "graph_changed": False,
         }
 
@@ -114,7 +114,7 @@ def _apply_set_line_number(
     return correction, warnings
 
 
-def apply_stage14_review_decisions(
+def apply_stage9_review_decisions(
     *,
     image_id: str,
     graph_payload: dict[str, Any],
@@ -154,12 +154,12 @@ def apply_stage14_review_decisions(
         "corrected_graph_payload": corrected_graph_payload,
         "review_resolution_payload": {
             "image_id": image_id,
-            "source": "stage14_review_decisions",
+            "source": "stage9_review_decisions",
             "resolutions": resolutions,
         },
         "correction_audit_payload": {
             "image_id": image_id,
-            "source": "stage14_review_decisions",
+            "source": "stage9_review_decisions",
             "corrections": corrections,
             "warnings": warnings,
         },

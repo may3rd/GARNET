@@ -5,11 +5,11 @@ from garnet.pid_extractor import (
     LINE_NUMBER_REVIEW_ASSUMPTION,
     _mark_line_number_review_state,
     simulate_line_number_hitl_for_missing_traces,
-    build_stage11_line_number_review_payload,
+    build_stage6_line_number_review_payload,
 )
 
 
-class Stage11LineNumberHitlTests(unittest.TestCase):
+class Stage6LineNumberHitlTests(unittest.TestCase):
     def test_mark_line_number_review_state_marks_accepted_as_human_assumed(self) -> None:
         association = {"id": "ln1", "trace_id": "trace_a"}
 
@@ -29,8 +29,8 @@ class Stage11LineNumberHitlTests(unittest.TestCase):
         self.assertEqual(result["review_source"], "system")
         self.assertTrue(result["review_required"])
 
-    def test_build_stage11_line_number_review_payload(self) -> None:
-        payload, summary = build_stage11_line_number_review_payload(
+    def test_build_stage6_line_number_review_payload(self) -> None:
+        payload, summary = build_stage6_line_number_review_payload(
             image_id="synthetic.png",
             accepted=[{"id": "ln1", "trace_id": "trace_a", "review_state": "accepted"}],
             rejected=[{"id": "ln2", "reason": "distance_over_threshold", "review_state": "needs_review"}],

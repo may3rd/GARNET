@@ -801,7 +801,7 @@ def _run_pipeline_job(
     try:
         pipe = PIDPipeline(
             image_path=image_path,
-            out_dir=job_dir,
+            output_dir=job_dir,
             stage_callback=stage_callback,
             cfg=PipelineConfig(
                 ocr_route=ocr_route,

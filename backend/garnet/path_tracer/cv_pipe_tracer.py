@@ -363,6 +363,25 @@ class CVPipeTracer:
                 break
         return self._snap_to_centerline(probe_x, probe_y, turn_dir)
 
+    def _turn_segment_start(
+        self,
+        turn_x: int,
+        turn_y: int,
+        entered_x: int,
+        entered_y: int,
+        turn_dir: str,
+    ) -> tuple[int, int]:
+        """Keep close-corner inline turns visually connected to the turn point.
+
+        A valve immediately after an elbow may have sparse mask pixels.  The
+        walker still needs to enter at the first stable pipe pixel, but the
+        result segment should start at the elbow so the traced path does not
+        show an artificial jump over the lower half of the inline symbol.
+        """
+        if max(abs(entered_x - turn_x), abs(entered_y - turn_y)) <= self.min_step:
+            return entered_x, entered_y
+        return self._snap_to_centerline(turn_x, turn_y, turn_dir)
+
 
     def set_inline_symbols(self, objects: list[dict]) -> None:
         """Set stage4 objects that are inline symbols (valve, reducer, etc.)."""
@@ -406,6 +425,33 @@ class CVPipeTracer:
                 return True
         return False
 
+    def _has_connected_side_path(
+        self,
+        x: int,
+        y: int,
+        direction: str,
+        min_run: int,
+        inline_probe_px: int = 60,
+    ) -> bool:
+        """Side path is connected by pipe run or by a short pipe stub into inline."""
+        if _has_connected_side_pipe(self.mask, x, y, direction, min_run):
+            return True
+
+        dx, dy = DIRECTION_DELTA[direction]
+        stub_run = 0
+        for step in range(1, inline_probe_px + 1):
+            px = x + dx * step
+            py = y + dy * step
+            if _is_pipe_band(self.mask, px, py, direction, band_width=1):
+                stub_run += 1
+                continue
+            if self._is_inline_target(px, py) and stub_run >= self.turn_min_step:
+                return True
+            if stub_run == 0:
+                continue
+            break
+        return False
+
     def _retreat_from_terminal_bbox(self, x: int, y: int, direction: str,
                                     terminal_type: str, terminal_obj_id: Optional[str]) -> tuple[int, int]:
         """If current point is inside terminal bbox, step back to its boundary."""
@@ -444,6 +490,64 @@ class CVPipeTracer:
             ))
             result.trace_length_px += seg_len
 
+    def _anchor_close_turn_segments(self, result: TraceResult, max_gap: int = 60) -> None:
+        """Pull the first post-turn segment back to the elbow for close inline gaps."""
+        if not result.turns or not result.segments:
+            return
+
+        for turn_x, turn_y, turn_dir in result.turns:
+            for segment in result.segments:
+                if segment.direction != turn_dir:
+                    continue
+                if turn_dir in ("UP", "DOWN"):
+                    if abs(segment.x1 - turn_x) > 20 and abs(segment.x2 - turn_x) > 20:
+                        continue
+                    near_y = segment.y1 if abs(segment.y1 - turn_y) <= abs(segment.y2 - turn_y) else segment.y2
+                    gap = abs(near_y - turn_y)
+                    if gap == 0 or gap > max_gap:
+                        continue
+                    if turn_dir == "UP" and near_y > turn_y:
+                        continue
+                    if turn_dir == "DOWN" and near_y < turn_y:
+                        continue
+                    x_axis = int(round((segment.x1 + segment.x2 + turn_x) / 3.0))
+                    segment.x1 = x_axis
+                    segment.x2 = x_axis
+                    if abs(segment.y1 - turn_y) <= abs(segment.y2 - turn_y):
+                        segment.y1 = turn_y
+                    else:
+                        segment.y2 = turn_y
+                    break
+                else:
+                    if abs(segment.y1 - turn_y) > 20 and abs(segment.y2 - turn_y) > 20:
+                        continue
+                    near_x = segment.x1 if abs(segment.x1 - turn_x) <= abs(segment.x2 - turn_x) else segment.x2
+                    gap = abs(near_x - turn_x)
+                    if gap == 0 or gap > max_gap:
+                        continue
+                    if turn_dir == "LEFT" and near_x > turn_x:
+                        continue
+                    if turn_dir == "RIGHT" and near_x < turn_x:
+                        continue
+                    y_axis = int(round((segment.y1 + segment.y2 + turn_y) / 3.0))
+                    segment.y1 = y_axis
+                    segment.y2 = y_axis
+                    if abs(segment.x1 - turn_x) <= abs(segment.x2 - turn_x):
+                        segment.x1 = turn_x
+                    else:
+                        segment.x2 = turn_x
+                    break
+
+        result.trace_length_px = sum(
+            max(abs(s.x2 - s.x1), abs(s.y2 - s.y1))
+            for s in result.segments
+        )
+        for segment in result.segments:
+            segment.length_px = max(
+                abs(segment.x2 - segment.x1),
+                abs(segment.y2 - segment.y1),
+            )
+
     def _find_straight_raycast_candidate(
         self,
         x: int,
@@ -455,19 +559,36 @@ class CVPipeTracer:
         ray_step: int = 2,
         allow_nearby_instrument: bool = False,
         relaxed_band: bool = False,
+        target_run_px: Optional[int] = None,
+        max_snap_shift_px: Optional[int] = None,
     ) -> Optional[tuple[int, int]]:
         dx, dy = DIRECTION_DELTA[direction]
+        required_run_px = target_run_px if target_run_px is not None else self.turn_min_step
         for ray_dist in range(ray_start, ray_max, ray_step):
             rx = x + ray_dist * dx
             ry = y + ray_dist * dy
             sx, sy = self._snap_to_centerline(rx, ry, direction)
+            same_axis_target = True
+            if max_snap_shift_px is not None:
+                if direction in ("UP", "DOWN"):
+                    same_axis_target = abs(sx - x) <= max_snap_shift_px
+                else:
+                    same_axis_target = abs(sy - y) <= max_snap_shift_px
             if relaxed_band:
-                is_pipe_target = _is_pipe_band(self.mask, rx, ry, direction, band_width=4) and _has_line_of_sight_axis_band(
-                    self.mask, sx, sy, direction, self.turn_min_step, band_width=1
+                is_pipe_target = (
+                    same_axis_target
+                    and _is_pipe_band(self.mask, rx, ry, direction, band_width=4)
+                    and _has_line_of_sight_axis_band(
+                        self.mask, sx, sy, direction, required_run_px, band_width=1
+                    )
                 )
             else:
-                is_pipe_target = _is_pipe(self.mask, rx, ry) and _has_line_of_sight_axis_band(
-                    self.mask, rx, ry, direction, self.turn_min_step, band_width=1
+                is_pipe_target = (
+                    same_axis_target
+                    and _is_pipe(self.mask, rx, ry)
+                    and _has_line_of_sight_axis_band(
+                        self.mask, rx, ry, direction, required_run_px, band_width=1
+                    )
                 )
                 sx, sy = self._snap_to_centerline(rx, ry, direction)
             is_inline_target = self._is_inline_target(rx, ry)
@@ -701,6 +822,12 @@ class CVPipeTracer:
     def _has_bidirectional_turn_leg(self, x: int, y: int, turn_dir: str, distance: int = 5) -> bool:
         """Return true when a turn candidate is actually a tee-through leg."""
         opposite_dir = OPPOSITE[turn_dir]
+        connected_turn_min = max(25, self.straight_min_step)
+        if not (
+            self._has_connected_side_path(x, y, turn_dir, connected_turn_min)
+            and self._has_connected_side_path(x, y, opposite_dir, connected_turn_min)
+        ):
+            return False
         return (
             _has_line_of_sight_band_narrow(self.mask, x, y, turn_dir, distance)
             and _has_line_of_sight_band_narrow(self.mask, x, y, opposite_dir, distance)
@@ -713,9 +840,9 @@ class CVPipeTracer:
         left_dir = TURN_LEFT[direction]
         right_dir = TURN_RIGHT[direction]
         connected_turn_min = max(25, self.straight_min_step)
-        if _has_connected_side_pipe(self.mask, x, y, left_dir, connected_turn_min):
+        if self._has_connected_side_path(x, y, left_dir, connected_turn_min):
             dirs.add(left_dir)
-        if _has_connected_side_pipe(self.mask, x, y, right_dir, connected_turn_min):
+        if self._has_connected_side_path(x, y, right_dir, connected_turn_min):
             dirs.add(right_dir)
         return dirs
 
@@ -743,8 +870,8 @@ class CVPipeTracer:
             if not _is_pipe_band(self.mask, px, py, direction, band_width=1):
                 continue
             if (
-                _has_connected_side_pipe(self.mask, px, py, left_dir, connected_turn_min)
-                and _has_connected_side_pipe(self.mask, px, py, right_dir, connected_turn_min)
+                self._has_connected_side_path(px, py, left_dir, connected_turn_min)
+                and self._has_connected_side_path(px, py, right_dir, connected_turn_min)
             ):
                 candidates.append((px, py))
         if not candidates:
@@ -898,12 +1025,8 @@ class CVPipeTracer:
                     left_dir = TURN_LEFT[direction]
                     right_dir = TURN_RIGHT[direction]
                     connected_turn_min = max(25, self.straight_min_step)
-                    left_connected = _has_connected_side_pipe(
-                        self.mask, x, y, left_dir, connected_turn_min
-                    )
-                    right_connected = _has_connected_side_pipe(
-                        self.mask, x, y, right_dir, connected_turn_min
-                    )
+                    left_connected = self._has_connected_side_path(x, y, left_dir, connected_turn_min)
+                    right_connected = self._has_connected_side_path(x, y, right_dir, connected_turn_min)
                     if left_connected and right_connected:
                         marker_id, marker_x, marker_y = junction_obj_id
                         self._append_segment(result, seg_start_x, seg_start_y, marker_x, marker_y, direction)
@@ -1041,12 +1164,9 @@ class CVPipeTracer:
                 self.mask, x, y, right_dir, self.straight_min_step
             )
             connected_turn_min = max(25, self.straight_min_step)
-            left_connected = _has_connected_side_pipe(
-                self.mask, x, y, left_dir, connected_turn_min
-            )
-            right_connected = _has_connected_side_pipe(
-                self.mask, x, y, right_dir, connected_turn_min
-            )
+            left_connected = self._has_connected_side_path(x, y, left_dir, connected_turn_min)
+            right_connected = self._has_connected_side_path(x, y, right_dir, connected_turn_min)
+            strict_straight_raycast = False
 
             side_junction = self._find_bidirectional_side_junction(x, y, direction)
             if side_junction is not None:
@@ -1062,26 +1182,41 @@ class CVPipeTracer:
                 result.terminal_x, result.terminal_y = jx, jy
                 break
 
-            # Once a trace has already taken multiple elbows, a multi-direction
-            # side branch is a tee terminal. A single exact side continuation is
-            # still a normal elbow.
+            # Once a trace has already taken multiple elbows, a true
+            # bidirectional side branch is a tee terminal.  Gap-only side
+            # candidates can be nearby text/leader strokes, so require physical
+            # side-pipe connectivity before promoting the point to a tee.
             turn_dirs = {c[2] for c in turn_candidates if c[2] in (left_dir, right_dir)}
             if len(result.turns) >= 2 and len(turn_dirs) > 1:
-                raycast = self._find_straight_raycast_candidate(x, y, direction, source_obj_id)
-                if raycast is not None:
+                connected_turn_dirs = set()
+                if left_connected:
+                    connected_turn_dirs.add(left_dir)
+                if right_connected:
+                    connected_turn_dirs.add(right_dir)
+                if len(connected_turn_dirs) > 1:
+                    raycast = self._find_straight_raycast_candidate(x, y, direction, source_obj_id)
+                    if raycast is not None:
+                        self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+                        x, y = raycast
+                        seg_start_x, seg_start_y = x, y
+                        continue
                     self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
-                    x, y = raycast
-                    seg_start_x, seg_start_y = x, y
-                    continue
-                self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
-                result.terminal_type = TerminalType.TEE_JUNCTION.value
-                result.terminal_x, result.terminal_y = x, y
-                break
+                    result.terminal_type = TerminalType.TEE_JUNCTION.value
+                    result.terminal_x, result.terminal_y = x, y
+                    break
+                turn_candidates = [c for c in turn_candidates if c[2] in connected_turn_dirs]
+                strict_straight_raycast = True
 
             # A directly connected elbow should turn before any straight
             # ray-cast jump. Require a long adjacent side-pipe run so short
             # flange strokes do not become turns.
-            raycast = self._find_straight_raycast_candidate(x, y, direction, source_obj_id)
+            raycast_kwargs = (
+                {"target_run_px": self.straight_min_step, "max_snap_shift_px": 4}
+                if strict_straight_raycast else {}
+            )
+            raycast = self._find_straight_raycast_candidate(
+                x, y, direction, source_obj_id, **raycast_kwargs
+            )
             exact_turn_dir = None
             if left_connected and not right_connected:
                 exact_turn_dir = left_dir
@@ -1136,8 +1271,11 @@ class CVPipeTracer:
                     result.turns.append((x, y, exact_turn_dir))
                     direction = exact_turn_dir
                     dx, dy = DIRECTION_DELTA[direction]
-                    x, y = self._enter_turn_leg(x, y, direction)
-                    seg_start_x, seg_start_y = x, y
+                    turn_x, turn_y = x, y
+                    x, y = self._enter_turn_leg(turn_x, turn_y, direction)
+                    seg_start_x, seg_start_y = self._turn_segment_start(
+                        turn_x, turn_y, x, y, direction
+                    )
                     continue
             candidate_turn_dirs = {c[2] for c in turn_candidates if c[2] in (left_dir, right_dir)}
             if len(candidate_turn_dirs) == 1 and direction == "UP":
@@ -1190,7 +1328,9 @@ class CVPipeTracer:
                     direction = turn_dir
                     dx, dy = DIRECTION_DELTA[direction]
                     x, y = self._enter_turn_leg(tx, ty, direction)
-                    seg_start_x, seg_start_y = x, y
+                    seg_start_x, seg_start_y = self._turn_segment_start(
+                        tx, ty, x, y, direction
+                    )
                     continue
 
             if raycast is not None:
@@ -1208,6 +1348,7 @@ class CVPipeTracer:
                 ray_max=50,
                 ray_step=1,
                 relaxed_band=True,
+                **raycast_kwargs,
             )
             if relaxed_straight is not None:
                 self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
@@ -1237,11 +1378,17 @@ class CVPipeTracer:
                         result.terminal_type = TerminalType.TEE_JUNCTION.value
                         result.terminal_x, result.terminal_y = x, y
                         break
-                    result.turns.append((x, y, turn_dir))
+                    turn_x, turn_y = x, y
+                    result.turns.append((turn_x, turn_y, turn_dir))
                     x, y = turn_target
                     direction = turn_dir
                     dx, dy = DIRECTION_DELTA[direction]
-                    seg_start_x, seg_start_y = x, y
+                    if max(abs(x - turn_x), abs(y - turn_y)) <= 50:
+                        seg_start_x, seg_start_y = self._turn_segment_start(
+                            turn_x, turn_y, x, y, direction
+                        )
+                    else:
+                        seg_start_x, seg_start_y = x, y
                     continue
                 self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
                 if (
@@ -1255,7 +1402,9 @@ class CVPipeTracer:
                     direction = turn_dir
                     dx, dy = DIRECTION_DELTA[direction]
                     x, y = self._enter_turn_leg(x, y, direction)
-                    seg_start_x, seg_start_y = x, y
+                    seg_start_x, seg_start_y = self._turn_segment_start(
+                        result.turns[-1][0], result.turns[-1][1], x, y, direction
+                    )
                     continue
                 result.terminal_type = TerminalType.TEE_JUNCTION.value
                 result.terminal_x, result.terminal_y = x, y
@@ -1287,13 +1436,15 @@ class CVPipeTracer:
                     result.terminal_type = TerminalType.TEE_JUNCTION.value
                     result.terminal_x, result.terminal_y = tx, ty
                     break
-                x = tx + DIRECTION_DELTA[turn_dir][0] * self.min_step
-                y = ty + DIRECTION_DELTA[turn_dir][1] * self.min_step
-                x, y = self._snap_to_centerline(x, y, turn_dir)
-                result.turns.append((x, y, turn_dir))
+                entered_x = tx + DIRECTION_DELTA[turn_dir][0] * self.min_step
+                entered_y = ty + DIRECTION_DELTA[turn_dir][1] * self.min_step
+                x, y = self._snap_to_centerline(entered_x, entered_y, turn_dir)
+                result.turns.append((tx, ty, turn_dir))
                 direction = turn_dir
                 dx, dy = DIRECTION_DELTA[direction]
-                seg_start_x, seg_start_y = x, y
+                seg_start_x, seg_start_y = self._turn_segment_start(
+                    tx, ty, x, y, direction
+                )
                 continue
 
             self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
@@ -1309,6 +1460,7 @@ class CVPipeTracer:
             result.terminal_type = "max_steps"
             result.terminal_x, result.terminal_y = x, y
 
+        self._anchor_close_turn_segments(result)
         return result
 
     def _check_terminals(self, x: int, y: int, direction: str,

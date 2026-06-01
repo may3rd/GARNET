@@ -32,8 +32,8 @@ class TestGeometricOnlyPipelineCleanup(unittest.TestCase):
             "stage9_node_clustering",
             "stage10_edge_tracing",
             "stage11_junction_review",
-            "stage14_continuity_check",
-            "stage15_recovery_loop",
+            "stage9_continuity_check",
+            "stage10_recovery_loop",
             "stage5_geometric_line_detection",
             "stage4_equipment_tag_fusion",
             "run_pipe_seal_stage",
@@ -51,3 +51,16 @@ class TestGeometricOnlyPipelineCleanup(unittest.TestCase):
         for token in forbidden:
             with self.subTest(token=token):
                 self.assertNotIn(token, source)
+
+    def test_geometric_pipeline_uses_compact_stage_numbers(self):
+        from garnet.pid_extractor import PIDPipeline
+
+        pipeline = PIDPipeline.__new__(PIDPipeline)
+        names_by_number = [(num, name) for num, name, _ in pipeline._stage_definitions()]
+
+        self.assertIn((6, "stage6_trace_associations"), names_by_number)
+        self.assertIn((7, "stage7_geometric_graph_assembly"), names_by_number)
+        self.assertIn((8, "stage8_graph_qa"), names_by_number)
+        self.assertIn((9, "stage9_apply_review_decisions"), names_by_number)
+        self.assertIn((10, "stage10_process_exports"), names_by_number)
+        self.assertNotIn((15, "stage10_process_exports"), names_by_number)
