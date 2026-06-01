@@ -222,3 +222,18 @@ class Stage5bBranchCandidateDetectionTests(unittest.TestCase):
         self.assertEqual(len(left_candidates), 1)
         self.assertEqual(left_candidates[0]["status"], "done_already_traced")
         self.assertEqual(left_candidates[0]["reason"], "branch_direction_covered_by_existing_segment")
+
+class Stage5bTurnMetadataTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.pipeline = PIDPipeline.__new__(PIDPipeline)
+
+    def test_rebuild_turns_uses_final_segments_only(self) -> None:
+        segments = [
+            {"x1": 1485, "y1": 792, "x2": 1070, "y2": 792, "direction": "LEFT", "length_px": 415},
+            {"x1": 1070, "y1": 787, "x2": 1070, "y2": 777, "direction": "UP", "length_px": 10},
+            {"x1": 1070, "y1": 739, "x2": 1070, "y2": 405, "direction": "UP", "length_px": 334},
+        ]
+
+        turns = self.pipeline._rebuild_stage5b_turns_from_segments(segments)
+
+        self.assertEqual(turns, [{"x": 1070, "y": 792, "new_dir": "UP"}])

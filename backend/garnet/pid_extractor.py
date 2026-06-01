@@ -24,9 +24,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import numpy as np
 from dotenv import load_dotenv
 from garnet.easyocr_sahi import EasyOcrSahiConfig, run_easyocr_sahi
-from garnet.edge_direction import run_edge_direction_stage
-from garnet.edge_split import split_edges_at_inline_elements
-from garnet.equipment_tag_fusion import run_equipment_tag_fusion_stage
 from garnet.gemini_ocr_sahi import GeminiOcrSahiConfig, run_gemini_ocr_sahi
 from garnet.geometric_graph_builder import (
     build_graph_from_runs_and_junctions,
@@ -38,23 +35,18 @@ from garnet.instrument_tag_fusion import run_instrument_tag_fusion_stage
 from garnet.line_number_fusion import run_line_number_fusion_stage
 from garnet.model_defaults import pick_default_weight_file
 from garnet.object_detection_sahi import DetectionSahiConfig, run_object_detection_sahi
-from garnet.visual_primitives.agent2_hybrid import compute_port_vlm
-from garnet.visual_primitives.cv_pipe_tracer import CVPipeTracer
+from garnet.path_tracer.cv_pipe_tracer import CVPipeTracer
 from garnet.ocrmac_sahi import OcrMacSahiConfig, run_ocrmac_sahi
-from garnet.pipe_edges import run_pipe_edge_stage
 from garnet.pipe_continuity_helpers import GAP_THRESHOLD_PX
 from garnet.pipe_equipment_attachment import run_pipe_equipment_attachment_stage
 from garnet.pipe_graph import run_pipe_graph_stage
 from garnet.pipe_graph_qa import run_pipe_graph_qa_stage
-from garnet.run_continuity_checker_stage import run_continuity_checker_stage
 from garnet.pipe_edge_connectivity import (
     build_pipe_edge_connectivity,
     render_candidate_link_overlay,
     render_junction_decision_overlay,
 )
 from garnet.render_connection_pipeline_overlay import render_overlay
-from garnet.pipe_crossings import run_pipe_crossing_stage
-from garnet.pipe_junctions import run_pipe_junction_stage
 from garnet.pipe_text_attachment import (
     _filter_border_like_edges,
     render_connection_attachment_overlay,
@@ -62,14 +54,8 @@ from garnet.pipe_text_attachment import (
     run_node_text_attachment_stage,
     run_pipe_text_attachment_stage,
 )
-from garnet.line_detection_inpaint import run_line_detection_inpaint, render_line_overlay
 from garnet.paddle_ocr_sahi import PaddleOcrSahiConfig, run_paddle_ocr_sahi
-from garnet.pipe_mask import generate_continuity_mask, run_pipe_mask_stage
-from garnet.pipe_node_clusters import run_pipe_node_cluster_stage
-from garnet.pipe_nodes import run_pipe_node_stage
-from garnet.polyline_simplify import run_polyline_simplification_stage
-from garnet.pipe_seal import run_pipe_seal_stage
-from garnet.pipe_skeleton import run_pipe_skeleton_stage
+from garnet.pipe_mask import run_pipe_mask_stage
 from garnet.pipe_terminals import classify_pipe_edge_terminals
 from garnet.topology_markers import run_topology_marker_router
 from garnet.trace_graph_builder import build_trace_graph_from_stage11, render_stage12_graph_overlay
@@ -221,8 +207,6 @@ class PipelineConfig:
     blur_kernel: int = 5
     ocr_route: str = "ocrmac"
     gemini_postprocess_match_threshold: float = 0.1
-    port_detection_model: str = "anthropic/claude-haiku-4.5"
-    port_detection_mode: str = "cv"  # "vlm", "cv", or "vlm+cv"
     ocr_slice_height: int = 1600
     ocr_slice_width: int = 1600
     ocr_overlap_height_ratio: float = 0.2
@@ -366,56 +350,23 @@ class PIDPipeline:
     # ---------- Stage runner ----------
     def _stage_definitions(self) -> List[Tuple[int, str, Callable[[], None]]]:
         """Return the ordered stage list executed by the pipeline."""
-        stages: list[tuple] = [
+        return [
             (1, "stage1_input_normalization", self.stage1_input_normalization),
             (2, "stage2_ocr_discovery", self.stage2_ocr_discovery),
-            # Stage 4 sub-stages share the same number intentionally.
-            # They all depend on Stage 4 object detection output and run together when stop_after=4.
             (4, "stage4_object_detection", self.stage4_object_detection),
             (4, "stage4_line_number_fusion", self.stage4_line_number_fusion),
             (4, "stage4_instrument_tag_fusion", self.stage4_instrument_tag_fusion),
             (5, "stage5_pipe_mask", self.stage5_pipe_mask),
+            (5, "stage5b_pipe_trace", self.stage5b_pipe_trace),
+            (11, "stage11_trace_associations", self.stage11_trace_associations),
+            (12, "stage12_geometric_graph_assembly", self.stage12_geometric_graph_assembly),
+            (12, "stage12c_page_connector_labeling", self.stage12c_page_connector_labeling),
+            (12, "stage12b_graph_export", self.stage12b_graph_export),
+            (13, "stage13_graph_qa", self.stage13_graph_qa),
+            (14, "stage14_apply_review_decisions", self.stage14_apply_review_decisions),
+            (15, "stage15_process_exports", self.stage15_process_exports),
+            (16, "stage16_connection_overlay", self.stage16_connection_overlay),
         ]
-        if self.cfg.use_geometric_line_detection:
-            # Stage 5b is the trace source for the geometric route, so skip
-            # skeleton stages 6-10 and attach semantics directly in Stage 11.
-            return [
-                (1, "stage1_input_normalization", self.stage1_input_normalization),
-                (2, "stage2_ocr_discovery", self.stage2_ocr_discovery),
-                (4, "stage4_object_detection", self.stage4_object_detection),
-                (4, "stage4_line_number_fusion", self.stage4_line_number_fusion),
-                (4, "stage4_instrument_tag_fusion", self.stage4_instrument_tag_fusion),
-                (5, "stage5_pipe_mask", self.stage5_pipe_mask),
-                (5, "stage5b_pipe_trace", self.stage5b_pipe_trace),
-                (11, "stage11_trace_associations", self.stage11_trace_associations),
-                (12, "stage12_geometric_graph_assembly", self.stage12_geometric_graph_assembly),
-                (12, "stage12c_page_connector_labeling", self.stage12c_page_connector_labeling),
-                (12, "stage12b_graph_export", self.stage12b_graph_export),
-                (13, "stage13_graph_qa", self.stage13_graph_qa),
-                (14, "stage14_apply_review_decisions", self.stage14_apply_review_decisions),
-                (15, "stage15_process_exports", self.stage15_process_exports),
-                (16, "stage16_connection_overlay", self.stage16_connection_overlay),
-            ]
-        stages.extend(
-            [
-                (6, "stage6_morphological_sealing", self.stage6_morphological_sealing),
-                (7, "stage7_skeleton_generation", self.stage7_skeleton_generation),
-                (8, "stage8_skeleton_node_detection", self.stage8_skeleton_node_detection),
-                (9, "stage9_node_clustering", self.stage9_node_clustering),
-                (10, "stage10_edge_tracing", self.stage10_edge_tracing),
-                (10, "stage10b_polyline_simplification", self.stage10b_polyline_simplification),
-                (10, "stage10c_edge_direction", self.stage10c_edge_direction),
-                (10, "stage10d_edge_split", self.stage10d_edge_split),
-                (11, "stage11_junction_review", self.stage11_junction_review),
-                (12, "stage12_graph_assembly", self.stage12_graph_assembly),
-                (12, "stage12c_page_connector_labeling", self.stage12c_page_connector_labeling),
-                (12, "stage12b_graph_export", self.stage12b_graph_export),
-                (13, "stage13_graph_qa", self.stage13_graph_qa),
-                (14, "stage14_continuity_check", self.stage14_continuity_check),
-                (15, "stage15_recovery_loop", self.stage15_recovery_loop),
-                (16, "stage16_connection_overlay", self.stage16_connection_overlay),
-            ])
-        return stages
 
     def _manifest_path(self) -> Path:
         return self.out_dir / "stage_manifest.json"
@@ -987,18 +938,6 @@ class PIDPipeline:
         self._save_json("stage4_instrument_tag_summary", fusion_result["summary"])
         self._save_img("stage4_instrument_tag_overlay", fusion_result["overlay_image"])
 
-    def stage4_equipment_tag_fusion(self) -> None:
-        ocr_payload = self._load_json_artifact_or_default("stage2_ocr_regions", {"text_regions": []})
-        text_regions = ocr_payload.get("text_regions", [])
-        fusion_result = run_equipment_tag_fusion_stage(
-            image_id=Path(self.image_path).name,
-            image_bgr=self._ensure_image_loaded() if text_regions else self.image_bgr,
-            object_regions=text_regions,
-            max_distance_px=self.cfg.equipment_tag_fusion_max_distance_px,
-        )
-        self._save_json("stage4_equipment_tags", fusion_result["equipment_tags_payload"])
-        self._save_json("stage4_equipment_tag_summary", fusion_result["summary"])
-        self._save_img("stage4_equipment_tag_overlay", fusion_result["overlay_image"])
 
     # ---------- Stage 5 ----------
     def stage5_pipe_mask(self) -> None:
@@ -1339,7 +1278,7 @@ class PIDPipeline:
         inline_symbols: list[dict[str, Any]],
         min_run: int = 25,
     ) -> bool:
-        from garnet.visual_primitives.cv_pipe_tracer import _has_connected_side_pipe
+        from garnet.path_tracer.cv_pipe_tracer import _has_connected_side_pipe
 
         if _has_connected_side_pipe(pipe_mask, x, y, direction, min_run=min_run):
             return self._has_orthogonal_branch_run(pipe_mask, x, y, direction, min_run=min_run)
@@ -1394,7 +1333,7 @@ class PIDPipeline:
         sample_step: int = 5,
         min_branch_run: int = 25,
     ) -> list[dict[str, Any]]:
-        from garnet.visual_primitives.cv_pipe_tracer import (
+        from garnet.path_tracer.cv_pipe_tracer import (
             TURN_LEFT,
             TURN_RIGHT,
         )
@@ -2083,7 +2022,7 @@ class PIDPipeline:
         terminal_candidates: Optional[list[dict[str, Any]]] = None,
         existing_trace_sources: Optional[dict[str, dict]] = None,
     ) -> dict[str, dict]:
-        from garnet.visual_primitives.cv_pipe_tracer import (
+        from garnet.path_tracer.cv_pipe_tracer import (
             CVPipeTracer,
             TURN_LEFT,
             TURN_RIGHT,
@@ -2415,6 +2354,9 @@ class PIDPipeline:
                 "trace_length_px": trace_length,
             }
             self._extend_stage5b_result_to_terminal(branch_results[branch_id])
+            branch_results[branch_id]["turns"] = self._rebuild_stage5b_turns_from_segments(
+                branch_results[branch_id].get("segments") or []
+            )
             if branch_id in pending_branch_pairs and terminal_type == "branch_connection":
                 previous_branch_id = pending_branch_pairs.pop(branch_id)
                 previous_result = branch_results.get(previous_branch_id)
@@ -2698,6 +2640,25 @@ class PIDPipeline:
         )
         last["length_px"] = new_len
         result["trace_length_px"] = int(result.get("trace_length_px", 0)) + new_len - old_len
+
+    def _rebuild_stage5b_turns_from_segments(
+        self,
+        segments: list[dict[str, Any]],
+    ) -> list[dict[str, int | str]]:
+        turns: list[dict[str, int | str]] = []
+        for prev_seg, next_seg in zip(segments, segments[1:]):
+            prev_dir = str(prev_seg.get("direction") or "")
+            next_dir = str(next_seg.get("direction") or "")
+            if not next_dir or next_dir == prev_dir:
+                continue
+            turns.append(
+                {
+                    "x": int(prev_seg.get("x2", 0)),
+                    "y": int(prev_seg.get("y2", 0)),
+                    "new_dir": next_dir,
+                }
+            )
+        return turns
 
     def _find_existing_stage5b_terminal_trace(
         self,
@@ -3071,75 +3032,44 @@ class PIDPipeline:
 
         return all_ports
 
-    def _compute_connection_ports_vlm(
+    def _compute_connection_ports(
         self, objects: list[dict[str, Any]]
     ) -> dict[str, list[tuple[int, int, str]]]:
-        """Use VLM to determine pipe ports on all page connection symbols.
-
-        Returns {object_id: [(port_x, port_y, direction), ...]} — same format
-        as get_connection_ports so downstream consumers are unchanged.
-        """
-        import time as _time
+        """Detect pipe ports on page connection symbols using CV edge scanning."""
         ports: dict[str, list[tuple[int, int, str]]] = {}
         image = self._ensure_image_loaded()
 
         conn_objects = [
             o for o in objects
-            if o.get("class_name") in ("page_connection", "page connection",
-                                        "connection", "utility connection",
-                                        "page connection symbol")
+            if o.get("class_name") in (
+                "page_connection",
+                "page connection",
+                "connection",
+                "utility connection",
+                "page connection symbol",
+            )
         ]
         if not conn_objects:
-            # Log what classes are present for debugging
             all_classes = {o.get("class_name", "?") for o in objects}
             logger.info("No connection objects found. Stage4 classes: %s", sorted(all_classes))
             return ports
 
-        logger.info("Port detection (%s): %d connection objects", self.cfg.port_detection_mode, len(conn_objects))
-        for i, obj in enumerate(conn_objects):
+        logger.info("CV port detection: %d connection objects", len(conn_objects))
+        for obj in conn_objects:
             obj_id = obj["id"]
-            bbox = obj["bbox"]
-
-            if self.cfg.port_detection_mode == "cv":
-                # CV edge-scan only
-                result = self._detect_port_cv(image, bbox)
-                if result:
-                    px, py, direction = result
-                    ports[obj_id] = [(px, py, direction)]
-                    logger.info("  %s -> %s (%d,%d) [CV]", obj_id, direction, px, py)
-                else:
-                    logger.warning("  %s -> CV failed, skipping", obj_id)
-                continue
-
-            # VLM mode (with CV fallback if vlm+cv)
-            other_bboxes = [
-                o["bbox"] for j, o in enumerate(conn_objects)
-                if j != i
-            ]
-
-            result = compute_port_vlm(
-                image, bbox,
-                model=self.cfg.port_detection_model,
-                mask_bboxes=other_bboxes if other_bboxes else None,
-            )
+            result = self._detect_port_cv(image, obj["bbox"])
             if result:
                 px, py, direction = result
                 ports[obj_id] = [(px, py, direction)]
-                logger.info("  %s -> %s (%d,%d) [VLM]", obj_id, direction, px, py)
-            elif self.cfg.port_detection_mode == "vlm+cv":
-                result_cv = self._detect_port_cv(image, bbox)
-                if result_cv:
-                    px, py, direction = result_cv
-                    ports[obj_id] = [(px, py, direction)]
-                    logger.info("  %s -> %s (%d,%d) [CV fallback]", obj_id, direction, px, py)
-                else:
-                    logger.warning("  %s -> VLM+CV both failed, skipping", obj_id)
+                logger.info("  %s -> %s (%d,%d) [CV]", obj_id, direction, px, py)
             else:
-                logger.warning("  %s -> VLM failed, skipping", obj_id)
-            _time.sleep(0.5)  # rate limit
+                logger.warning("  %s -> CV failed, skipping", obj_id)
 
-        logger.info("Connection port detection: %d/%d ports found",
-                 len(ports), len(conn_objects))
+        logger.info(
+            "Connection port detection: %d/%d ports found",
+            len(ports),
+            len(conn_objects),
+        )
 
         # --- Equipment port detection from LabelMe ground truth ---
         # YOLO PPCL model currently lacks vessel/column/HEX classes, so we use
@@ -3192,7 +3122,7 @@ class PIDPipeline:
 
         Saves stage5b_trace_results.json and stage5b_trace_overlay.png.
         """
-        from garnet.visual_primitives.cv_pipe_tracer import CVPipeTracer, TraceToken, TerminalType
+        from garnet.path_tracer.cv_pipe_tracer import CVPipeTracer
 
         import cv2 as _cv2
         import time as _time
@@ -3214,7 +3144,7 @@ class PIDPipeline:
         if not ports_path.exists():
             logger.info("Computing connection ports (first run)")
             objects_all = self._load_json_artifact("stage4_objects").get("objects", [])
-            ports = self._compute_connection_ports_vlm(objects_all)
+            ports = self._compute_connection_ports(objects_all)
         else:
             ports = self._load_json_artifact("stage5_connection_ports")
 
@@ -3584,296 +3514,23 @@ class PIDPipeline:
         )
 
     # ---------- Stage 5: Geometric line-detection alternative ----------
-    def stage14_graph_assembly(self) -> None:
-        """Placeholder — non‑geometric graph assembly not implemented on this branch."""
-        raise NotImplementedError(
-            "stage14_graph_assembly: not implemented. Use --geometric path instead."
-        )
 
-    def stage15_graph_qa(self) -> None:
-        """Placeholder — non‑geometric graph QA not implemented on this branch."""
-        raise NotImplementedError(
-            "stage15_graph_qa: not implemented. Use --geometric path instead."
-        )
 
-    def stage5_geometric_line_detection(self) -> None:
-        """Geometric pipeline: adaptive threshold → corner detection → Telea inpaint
-        → contour extraction → collinear + endpoint merge → segment mask."""
-        gray_path = self.out_dir / "stage1_gray.png"
-        if not gray_path.exists():
-            raise FileNotFoundError("Stage 5 (geometric) requires Stage 1 grayscale artifact")
-        if cv2 is None:
-            raise RuntimeError("cv2 is required for Stage 5 geometric line detection")
-
-        gray_image = cv2.imread(str(gray_path), cv2.IMREAD_GRAYSCALE)
-        if gray_image is None:
-            raise RuntimeError(f"Failed to load Stage 1 grayscale: {gray_path}")
-
-        ocr_regions = self._load_json_artifact("stage2_ocr_regions").get("text_regions", [])
-        object_regions = self._load_json_artifact("stage4_objects").get("objects", [])
-
-        result = run_line_detection_inpaint(
-            stage1_gray=gray_image,
-            text_regions=ocr_regions,
-            object_regions=object_regions,
-            image_id=Path(self.image_path).name,
-        )
-
-        # Render segments to binary mask so Stage 6+ consume it unchanged
-        h, w = gray_image.shape
-        mask = np.zeros((h, w), dtype=np.uint8)
-        for seg in result["segments"]:
-            cv2.line(mask, (seg["x1"], seg["y1"]), (seg["x2"], seg["y2"]), 255, thickness=2)
-        self._save_img("stage5_pipe_mask", mask)
-
-        # Save overlay for visual inspection
-        image_bgr = self._ensure_image_loaded()
-        overlay = render_line_overlay(image_bgr, result["segments"])
-        self._save_img("stage5_geometric_line_overlay", overlay)
-
-        # Save segments and summary as JSON (convert numpy ints to Python ints)
-        json_segments = [
-            {k: int(v) if isinstance(v, (np.integer,)) else v for k, v in seg.items()}
-            for seg in result["segments"]
-        ]
-        self._save_json("stage5_geometric_segments", json_segments)
-        self._save_json("stage5_geometric_summary", result["summary"])
-
-        # Load pipe mask for mask-validation of ports
-        import cv2 as _cv2
-        pipe_mask = _cv2.imread(str(self.out_dir / "stage5_pipe_mask.png"), _cv2.IMREAD_GRAYSCALE)
-
-        # Compute connection ports using VLM (firmed process)
-        objects = self._load_json_artifact("stage4_objects").get("objects", [])
-        ports = self._compute_connection_ports_vlm(objects)
-        if pipe_mask is not None:
-            ports = self._snap_ports_to_pipe_centerlines(ports, pipe_mask)
-        self._save_json("stage5_connection_ports", ports)
-
-        # Overlay true port markers onto the stage4_objects_overlay image
-        self._add_port_markers_to_overlay(ports)
 
     # ---------- Stage 5 dispatcher ----------
-    def stage5_dispatcher(self) -> None:
-        if self.cfg.use_geometric_line_detection:
-            self.stage5_geometric_line_detection()
-        else:
-            self.stage5_pipe_mask()
 
     # ---------- Stage 6 ----------
-    def stage6_morphological_sealing(self) -> None:
-        """Apply morphological closing to the continuity mask for unbroken topology extraction."""
-        pipe_mask_path = self.out_dir / "stage5_pipe_continuity_mask.png"
-        if not pipe_mask_path.exists():
-            raise FileNotFoundError("Stage 6 requires Stage 5 continuity mask artifact")
-        if cv2 is None:
-            raise RuntimeError("cv2 is required for Stage 6 morphological sealing")
-
-        pipe_mask = cv2.imread(str(pipe_mask_path), cv2.IMREAD_GRAYSCALE)
-        if pipe_mask is None:
-            raise RuntimeError(f"Failed to load Stage 5 pipe mask: {pipe_mask_path}")
-
-        seal_result = run_pipe_seal_stage(
-            image_bgr=self._ensure_image_loaded(),
-            pipe_mask=pipe_mask,
-            image_id=Path(self.image_path).name,
-            horizontal_close_kernel=self.cfg.pipe_seal_horizontal_close_kernel,
-            vertical_close_kernel=self.cfg.pipe_seal_vertical_close_kernel,
-            min_component_area=self.cfg.pipe_seal_min_component_area,
-        )
-        self._save_img("stage6_pipe_mask_sealed", seal_result["sealed_mask_image"])
-        self._save_img("stage6_pipe_mask_sealed_overlay", seal_result["overlay_image"])
-        self._save_json("stage6_pipe_mask_sealed_summary", seal_result["summary"])
 
     # ---------- Stage 7 ----------
-    def stage7_skeleton_generation(self) -> None:
-        """Compute medial-axis skeleton from the continuity-sealed pipe mask."""
-        sealed_mask_path = self.out_dir / "stage6_pipe_mask_sealed.png"
-        if not sealed_mask_path.exists():
-            raise FileNotFoundError(f"Stage 7 requires Stage 6 artifact: {sealed_mask_path}")
-        if cv2 is None:
-            raise RuntimeError("cv2 is required for Stage 7 skeleton generation")
-
-        sealed_mask = cv2.imread(str(sealed_mask_path), cv2.IMREAD_GRAYSCALE)
-        if sealed_mask is None:
-            raise RuntimeError(f"Failed to load Stage 6 sealed mask: {sealed_mask_path}")
-
-        skeleton_result = run_pipe_skeleton_stage(
-            image_bgr=self._ensure_image_loaded(),
-            sealed_mask=sealed_mask,
-            image_id=Path(self.image_path).name,
-        )
-        self._save_img("stage7_pipe_skeleton", skeleton_result["skeleton_image"])
-        self._save_img("stage7_pipe_skeleton_overlay", skeleton_result["overlay_image"])
-        self._save_json("stage7_pipe_skeleton_summary", skeleton_result["summary"])
 
     # ---------- Stage 8 ----------
-    def stage8_skeleton_node_detection(self) -> None:
-        """Detect skeleton endpoints and junctions from the skeleton image."""
-        skeleton_path = self.out_dir / "stage7_pipe_skeleton.png"
-        if not skeleton_path.exists():
-            raise FileNotFoundError(f"Stage 8 requires Stage 7 artifact: {skeleton_path}")
-        if cv2 is None:
-            raise RuntimeError("cv2 is required for Stage 8 skeleton node detection")
-
-        skeleton_mask = cv2.imread(str(skeleton_path), cv2.IMREAD_GRAYSCALE)
-        if skeleton_mask is None:
-            raise RuntimeError(f"Failed to load Stage 7 skeleton: {skeleton_path}")
-
-        node_result = run_pipe_node_stage(
-            image_bgr=self._ensure_image_loaded(),
-            skeleton_mask=skeleton_mask,
-            image_id=Path(self.image_path).name,
-        )
-        self._save_img("stage8_endpoints", node_result["endpoint_image"])
-        self._save_img("stage8_junctions", node_result["junction_image"])
-        self._save_img("stage8_nodes_overlay", node_result["overlay_image"])
-        self._save_json("stage8_node_summary", node_result["summary"])
 
     # ---------- Stage 9 ----------
-    def stage9_node_clustering(self) -> None:
-        """Cluster nearby skeleton nodes using DBSCAN into consolidated graph nodes."""
-        endpoints_path = self.out_dir / "stage8_endpoints.png"
-        junctions_path = self.out_dir / "stage8_junctions.png"
-        if not endpoints_path.exists() or not junctions_path.exists():
-            raise FileNotFoundError("Stage 9 requires Stage 8 endpoint and junction artifacts")
-        if cv2 is None:
-            raise RuntimeError("cv2 is required for Stage 9 node clustering")
-
-        endpoint_mask = cv2.imread(str(endpoints_path), cv2.IMREAD_GRAYSCALE)
-        junction_mask = cv2.imread(str(junctions_path), cv2.IMREAD_GRAYSCALE)
-        if endpoint_mask is None or junction_mask is None:
-            raise RuntimeError("Failed to load Stage 8 node masks")
-
-        cluster_result = run_pipe_node_cluster_stage(
-            image_bgr=self._ensure_image_loaded(),
-            endpoint_mask=endpoint_mask,
-            junction_mask=junction_mask,
-            image_id=Path(self.image_path).name,
-            cluster_eps=self.cfg.node_cluster_eps,
-            cluster_min_samples=self.cfg.node_cluster_min_samples,
-        )
-        self._save_img("stage9_endpoint_clusters", cluster_result["endpoint_cluster_image"])
-        self._save_img("stage9_junction_clusters", cluster_result["junction_cluster_image"])
-        self._save_img("stage9_node_clusters_overlay", cluster_result["overlay_image"])
-        self._save_json("stage9_node_clusters", cluster_result["clusters_payload"])
-        self._save_json("stage9_node_cluster_summary", cluster_result["summary"])
 
     # ---------- Stage 10 ----------
-    def stage10_edge_tracing(self) -> None:
-        """Resolve crossings, then trace pipe edges between clustered nodes."""
-        sealed_mask_path = self.out_dir / "stage6_pipe_mask_sealed.png"
-        skeleton_path = self.out_dir / "stage7_pipe_skeleton.png"
-        node_clusters_path = self.out_dir / "stage9_node_clusters.json"
-        if not sealed_mask_path.exists() or not skeleton_path.exists() or not node_clusters_path.exists():
-            raise FileNotFoundError("Stage 10 requires Stage 6 sealed mask, Stage 7 skeleton, and Stage 9 clustered nodes")
-        if cv2 is None:
-            raise RuntimeError("cv2 is required for Stage 10 edge tracing")
 
-        sealed_mask = cv2.imread(str(sealed_mask_path), cv2.IMREAD_GRAYSCALE)
-        skeleton_mask = cv2.imread(str(skeleton_path), cv2.IMREAD_GRAYSCALE)
-        if sealed_mask is None or skeleton_mask is None:
-            raise RuntimeError("Failed to load Stage 6 sealed mask or Stage 7 skeleton")
 
-        clusters_payload = self._load_json_artifact("stage9_node_clusters")
-        topology_markers_path = self.out_dir / "stage4_topology_markers.json"
-        topology_markers_payload = {"topology_markers": []}
-        if topology_markers_path.exists():
-            topology_markers_payload = self._load_json_artifact("stage4_topology_markers")
-        crossing_result = run_pipe_crossing_stage(
-            image_bgr=self._ensure_image_loaded(),
-            sealed_mask=sealed_mask,
-            skeleton_mask=skeleton_mask,
-            node_clusters=clusters_payload.get("clusters", []),
-            topology_markers=topology_markers_payload.get("topology_markers", []),
-            image_id=Path(self.image_path).name,
-            branch_stub_length_px=self.cfg.crossing_branch_stub_length_px,
-            branch_merge_angle_tolerance_deg=self.cfg.crossing_branch_merge_angle_tolerance_deg,
-            opposite_angle_tolerance_deg=self.cfg.crossing_opposite_angle_tolerance_deg,
-            center_blob_radius_px=self.cfg.crossing_center_blob_radius_px,
-            center_blob_threshold=self.cfg.crossing_center_blob_threshold,
-            stage4_marker_match_distance_px=self.cfg.crossing_stage4_marker_match_distance_px,
-        )
-        edge_result = run_pipe_edge_stage(
-            image_bgr=self._ensure_image_loaded(),
-            skeleton_mask=skeleton_mask,
-            node_clusters=clusters_payload.get("clusters", []),
-            image_id=Path(self.image_path).name,
-            min_edge_length_px=self.cfg.min_edge_length_px,
-            crossing_resolution=crossing_result["crossings_payload"].get("candidates", []),
-        )
-        self._save_img("stage10_crossing_resolution_overlay", crossing_result["overlay_image"])
-        self._save_json("stage10_crossing_resolution", crossing_result["crossings_payload"])
-        self._save_json("stage10_crossing_resolution_summary", crossing_result["summary"])
-        self._save_img("stage10_pipe_edges_overlay", edge_result["overlay_image"])
-        self._save_json("stage10_pipe_edges", edge_result["edges_payload"])
-        self._save_json("stage10_pipe_edge_summary", edge_result["summary"])
-        # Phase 2: continuity-aware outputs for Stage 11/12
-        if "continuity_result" in edge_result:
-            self._save_json("stage10_continuity_result", edge_result["continuity_result"])
-        if "gap_summary" in edge_result:
-            self._save_json("stage10_gap_summary", {"gaps": edge_result["gap_summary"]})
 
-    def stage10b_polyline_simplification(self) -> None:
-        edges_payload = self._load_json_artifact("stage10_pipe_edges")
-        simplification_result = run_polyline_simplification_stage(
-            edges=edges_payload.get("edges", []),
-            image_id=Path(self.image_path).name,
-            epsilon=self.cfg.polyline_simplify_epsilon,
-        )
-        self._save_json("stage10b_pipe_edges_simplified", simplification_result["edges_payload"])
-        self._save_json("stage10b_polyline_simplification_summary", simplification_result["summary"])
-
-    def stage10c_edge_direction(self) -> None:
-        edges_payload = self._load_json_artifact("stage10b_pipe_edges_simplified")
-        object_payload = self._load_json_artifact("stage4_objects")
-        direction_result = run_edge_direction_stage(
-            edges=edges_payload.get("edges", []),
-            objects=object_payload.get("objects", []),
-            image_id=Path(self.image_path).name,
-            arrow_proximity_px=self.cfg.arrow_proximity_px,
-        )
-        self._save_json("stage10c_edge_direction", direction_result["edges_payload"])
-        self._save_json("stage10c_arrow_assignments", {"arrow_assignments": direction_result["arrow_assignments"]})
-        self._save_json("stage10c_edge_direction_summary", direction_result["summary"])
-
-    def stage10d_edge_split(self) -> None:
-        edges_payload = self._load_json_artifact("stage10c_edge_direction")
-        object_payload = self._load_json_artifact("stage4_objects")
-        connections_path = self.out_dir / "stage12_edge_connections.json"
-        if connections_path.exists():
-            connections_payload = self._load_json_artifact("stage12_edge_connections")
-            edge_connections = connections_payload.get("edge_connections", [])
-        else:
-            node_clusters_payload = self._load_json_artifact("stage9_node_clusters")
-            connectivity_result = build_pipe_edge_connectivity(
-                edges=edges_payload.get("edges", []),
-                node_clusters=node_clusters_payload.get("clusters", []),
-                object_regions=object_payload.get("objects", []),
-                inline_connector_classes=self.cfg.graph_inline_connector_classes,
-                inline_match_distance_px=self.cfg.graph_inline_connector_match_distance_px,
-            )
-            edge_connections = connectivity_result["connections"]
-        inline_connections = [
-            {
-                **connection,
-                "inline_match_distance_px": self.cfg.graph_inline_connector_match_distance_px,
-            }
-            for connection in edge_connections
-            if str(connection.get("kind", "")) == "inline_element"
-        ]
-        split_result = split_edges_at_inline_elements(
-            edges=edges_payload.get("edges", []),
-            inline_connections=inline_connections,
-            objects=object_payload.get("objects", []),
-            confidence_threshold=self.cfg.inline_split_confidence_threshold,
-        )
-        split_result["edges_payload"]["image_id"] = Path(self.image_path).name
-        split_result["summary"]["image_id"] = Path(self.image_path).name
-        self._save_json("stage10d_split_edges", split_result["edges_payload"])
-        self._save_json("stage10d_split_nodes", {"nodes": split_result["split_nodes"]})
-        self._save_json("stage10d_split_report", split_result["split_report"])
-        self._save_json("stage10d_split_summary", split_result["summary"])
 
     # ---------- Stage 11 ----------
     def _trace_assoc_point_to_segment(
@@ -4403,24 +4060,6 @@ class PIDPipeline:
             self._draw_stage11_trace_association_overlay(edges, associations),
         )
 
-    def stage11_junction_review(self) -> None:
-        """Review crossing candidates and classify as confirmed junctions or unresolved."""
-        crossing_payload_path = self.out_dir / "stage10_crossing_resolution.json"
-        if not crossing_payload_path.exists():
-            raise FileNotFoundError("Stage 11 requires Stage 10 crossing resolution artifacts")
-        if cv2 is None:
-            raise RuntimeError("cv2 is required for Stage 11 junction review")
-
-        junction_result = run_pipe_junction_stage(
-            image_bgr=self._ensure_image_loaded(),
-            crossing_candidates=self._load_json_artifact("stage10_crossing_resolution").get("candidates", []),
-            image_id=Path(self.image_path).name,
-        )
-        self._save_img("stage11_confirmed_junctions", junction_result["confirmed_junction_image"])
-        self._save_img("stage11_unresolved_junctions", junction_result["unresolved_junction_image"])
-        self._save_img("stage11_junction_review_overlay", junction_result["overlay_image"])
-        self._save_json("stage11_junctions", junction_result["junctions_payload"])
-        self._save_json("stage11_junction_review_summary", junction_result["summary"])
 
     def stage12_geometric_graph_assembly(self) -> None:
         """Phase 3 geometric bypass: build Stage 12 graph directly from Stage 5 segments."""
@@ -4571,8 +4210,6 @@ class PIDPipeline:
                 if conn.get("kind") == "gap_seed" and pair not in existing_ids:
                     edge_connectivity_result["connections"].append(conn)
                     edge_connectivity_result["summary"]["edge_connection_count"] += 1
-
-        from garnet.continuity_aware_connections import validate_connections_against_gaps
 
         connection_validation = validate_connections_against_gaps(
             edges=directed_edges,
@@ -5193,22 +4830,6 @@ class PIDPipeline:
         self._save_json("stage15_review_queue", qa_result["review_queue"])
         self._save_json("stage15_graph_qa_summary", qa_result["summary"])
 
-    def stage14_continuity_check(self) -> None:
-        """Run pipe continuity rules (Rules 1-10) against the assembled graph."""
-        graph_payload = self._load_json_artifact("stage12_graph")
-        equip_payload = self._load_json_artifact("stage12_equipment_attachments")
-        conn_payload = self._load_json_artifact("stage12_connection_attachments")
-        continuity_result = run_continuity_checker_stage(
-            image_id=Path(self.image_path).name,
-            graph_payload=graph_payload,
-            equipment_attachments_payload=equip_payload,
-            connection_attachments_payload=conn_payload,
-            image_bgr=self._ensure_image_loaded(),
-        )
-        self._save_json("stage14_continuity_result", continuity_result["continuity_result"])
-        self._save_json("stage14_violations", continuity_result["violations"])
-        self._save_img("stage14_continuity_violations_overlay", continuity_result["overlay_image"])
-        self._save_json("stage14_continuity_summary", continuity_result["summary"])
 
     def stage14_apply_review_decisions(self) -> None:
         """Apply Stage 13 review decisions to produce the corrected trace graph."""
@@ -5225,11 +4846,6 @@ class PIDPipeline:
         self._save_json("stage14_correction_summary", result["summary"])
 
     # ---------- Stage 15 ----------
-    def stage15_recovery_loop(self) -> None:
-        from garnet.recovery_loop import run_recovery_stage
-
-        decisions = run_recovery_stage(str(self.out_dir), max_iterations=3)
-        self._save_json("stage5_recovery_decisions", decisions)
 
     def stage15_process_exports(self) -> None:
         """Export process-facing tables from the corrected trace graph."""
@@ -5283,13 +4899,9 @@ class PIDPipeline:
             image_base_path=str(self.image_path),
         )
 
-    def stage12_graph_assembly(self) -> None:
-        """Placeholder — non-geometric graph assembly not yet implemented."""
-        raise NotImplementedError("stage12_graph_assembly: use --geometric path")
 
     def _find_equipment_json(self) -> Optional[str]:
         """Find the LabelMe equipment JSON matching the current image."""
-        import glob as _glob
         import os as _os
 
         stem = _os.path.splitext(_os.path.basename(self.image_path))[0]
@@ -5347,7 +4959,6 @@ class PIDPipeline:
     def _draw_equipment_ground_truth(self, overlay: np.ndarray) -> None:
         """Draw LabelMe equipment bboxes on the trace overlay."""
         import json as _json
-        import os as _os
 
         json_path = self._find_equipment_json()
         if json_path is None:

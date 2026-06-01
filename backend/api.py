@@ -44,7 +44,7 @@ import garnet.Settings as Settings
 from garnet.model_defaults import list_weight_files as discover_weight_files
 from garnet.model_defaults import pick_default_weight_file
 from garnet.pid_extractor import PIDPipeline, PipelineConfig
-from garnet.review_state import empty_review_state, load_review_state, save_review_state
+from garnet.review_state import load_review_state, save_review_state
 from garnet.reviewed_outputs import generate_reviewed_outputs
 from garnet.pipe_sheet_merge import resolve_merge_pairs
 from garnet.utils import rotate_image

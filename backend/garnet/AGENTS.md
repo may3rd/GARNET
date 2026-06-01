@@ -7,8 +7,7 @@
 
 ## What this module owns
 - P&ID digitizing orchestration: [`backend/garnet/pid_extractor.py`](/Users/maetee/Code/GARNET/backend/garnet/pid_extractor.py)
-- Detection batch helpers used by the API path: [`backend/garnet/predict_images.py`](/Users/maetee/Code/GARNET/backend/garnet/predict_images.py)
-- OCR utilities and text post-processing: [`backend/garnet/text_ocr.py`](/Users/maetee/Code/GARNET/backend/garnet/text_ocr.py)
+- OCR routes and text post-processing: [`backend/garnet/easyocr_sahi.py`](/Users/maetee/Code/GARNET/backend/garnet/easyocr_sahi.py), [`backend/garnet/gemini_ocr_sahi.py`](/Users/maetee/Code/GARNET/backend/garnet/gemini_ocr_sahi.py), [`backend/garnet/paddle_ocr_sahi.py`](/Users/maetee/Code/GARNET/backend/garnet/paddle_ocr_sahi.py), [`backend/garnet/ocrmac_sahi.py`](/Users/maetee/Code/GARNET/backend/garnet/ocrmac_sahi.py)
 - Shared utilities: [`backend/garnet/utils/utils.py`](/Users/maetee/Code/GARNET/backend/garnet/utils/utils.py)
 - Static config and class metadata: [`backend/garnet/Settings.py`](/Users/maetee/Code/GARNET/backend/garnet/Settings.py)
 
@@ -27,7 +26,7 @@
 - Stage 2 PaddleOCR route: `paddle_ocr_sahi.py`
 - Stage 4 fixed-baseline detection: `object_detection_sahi.py`
 - Stage 5 provisional pipe-mask generation: `pipe_mask.py`
-- Detection-serving helpers for the existing `/api/detect` path: `predict_images.py`, `Settings.py`
+- Detection-serving helpers for the existing `/api/detect` path: `Settings.py`
 - Shared image utilities: `utils/utils.py`
 
 ## Working conventions

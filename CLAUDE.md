@@ -7,38 +7,187 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 GARNET (GCME AI-Recognition Network for Engineering Technology) is an AI-powered tool for automating symbol detection, classification, and connectivity analysis in Piping and Instrumentation Diagrams (P&IDs). It combines YOLOv11 object detection with graph-based analytics to transform P&ID workflows.
 
 **Tech Stack:**
-- **Backend**: FastAPI + Python (YOLOv11, SAHI, EasyOCR, NetworkX)
-- **Frontend**: React 18 + TypeScript + Vite + Zustand (state management) + Radix UI + Tailwind CSS + **Bun (package manager)**
-- **AI Models**: Ultralytics YOLOv11, EasyOCR/PaddleOCR, DeepLSD (line detection)
+- **Backend**: FastAPI + Python (YOLOv11, SAHI, EasyOCR/PaddleOCR/Gemini OCR, NetworkX, OpenCV)
+- **Frontend**: React 18 + TypeScript + Vite + Zustand (state management) + Radix UI + Tailwind CSS + Konva (canvas) + **Bun (package manager)**
+- **AI Models**: Ultralytics YOLOv11, EasyOCR, PaddleOCR (RapidOCR), Gemini via OpenRouter, DeepLSD (line detection)
+
+## Repository Layout
+
+The backend and garnet module live under `backend/`. Always run backend commands from the `backend/` directory.
+
+```
+/GARNET
+├── backend/                        # Python backend (run commands from here)
+│   ├── api.py                      # FastAPI app (21+ endpoints)
+│   ├── main.py                     # Legacy Streamlit shim (deprecated)
+│   ├── requirements.txt            # Python dependencies
+│   ├── .env.example                # Environment variables template
+│   ├── garnet/                     # Core pipeline module (60+ files)
+│   │   ├── pid_extractor.py        # Stage-by-stage pipeline orchestrator
+│   │   ├── Settings.py             # Global config (paths, symbol types, text classes)
+│   │   ├── pipe_mask.py            # Pipe segmentation mask generation
+│   │   ├── pipe_skeleton.py        # Skeleton extraction
+│   │   ├── pipe_nodes.py           # Node detection on skeleton
+│   │   ├── pipe_edges.py           # Edge tracing along skeleton paths
+│   │   ├── pipe_junctions.py       # Junction detection
+│   │   ├── pipe_terminals.py       # Terminal classification
+│   │   ├── pipe_crossings.py       # Crossing vs. junction resolution
+│   │   ├── pipe_node_clusters.py   # DBSCAN node clustering
+│   │   ├── pipe_text_attachment.py # Attach OCR text to pipe edges
+│   │   ├── pipe_equipment_attachment.py # Equipment-to-pipe connections
+│   │   ├── pipe_edge_connectivity.py    # Edge connectivity analysis
+│   │   ├── pipe_continuity_checker.py   # Continuity validation
+│   │   ├── pipe_continuity_helpers.py   # Continuity check utilities
+│   │   ├── pipe_graph.py           # NetworkX graph construction
+│   │   ├── pipe_graph_qa.py        # Graph quality assurance
+│   │   ├── pipe_seal.py            # Morphological sealing
+│   │   ├── pipe_sheet_merge.py     # Multi-sheet merge via connectors
+│   │   ├── geometric_graph_builder.py  # Geometry-based graph assembly
+│   │   ├── trace_graph_builder.py  # Trace-based graph builder (stages 10-11)
+│   │   ├── trace_graph_qa.py       # Trace graph QA
+│   │   ├── edge_direction.py       # Edge direction classification
+│   │   ├── edge_split.py           # Edge splitting at junctions
+│   │   ├── polyline_simplify.py    # Polyline simplification
+│   │   ├── graph_export_adapter.py # GraphML/JSON export
+│   │   ├── page_connector.py       # Off-page connector handling
+│   │   ├── symbol_aware_splitter.py # Symbol-based line splitting
+│   │   ├── line_detection_inpaint.py  # Inpaint-based line detection
+│   │   ├── topology_markers.py     # Topology markers from detections
+│   │   ├── continuity_aware_connections.py # Continuity-aware graph connections
+│   │   ├── equipment_pipe_association.py  # Equipment-pipe KDTree association
+│   │   ├── easyocr_sahi.py         # EasyOCR with SAHI tiling (Stage 2)
+│   │   ├── gemini_ocr_sahi.py      # Gemini/OpenRouter OCR route (Stage 2)
+│   │   ├── paddle_ocr_sahi.py      # PaddleOCR route (Stage 2)
+│   │   ├── ocrmac_sahi.py          # OCRMac route (Stage 2)
+│   │   ├── object_detection_sahi.py # YOLO+SAHI object detection (Stage 4)
+│   │   ├── predict_images.py       # Batch detection helpers
+│   │   ├── text_ocr.py             # Text extraction utilities
+│   │   ├── text_classify.py        # Text classification
+│   │   ├── equipment_tag_fusion.py # Equipment tag fusion
+│   │   ├── instrument_tag_fusion.py # Instrument tag fusion
+│   │   ├── line_number_fusion.py   # Line number fusion
+│   │   ├── model_defaults.py       # Model weight file discovery
+│   │   ├── review_state.py         # Review state persistence
+│   │   ├── reviewed_outputs.py     # Review-corrected output generation
+│   │   ├── recovery_loop.py        # Error recovery loop
+│   │   ├── render_connection_pipeline_overlay.py # Connection overlay rendering
+│   │   ├── topology_pipeline.py    # Topology pipeline orchestration
+│   │   ├── stage13_review_package.py    # Stage 13: review package generation
+│   │   ├── stage14_review_decisions.py  # Stage 14: apply review decisions
+│   │   ├── stage15_process_exports.py   # Stage 15: process exports
+│   │   ├── run_continuity_checker_stage.py # Continuity checker stage runner
+│   │   ├── path_tracer/            # Path tracing submodule
+│   │   ├── OCR_prompts/            # Gemini OCR prompt templates
+│   │   └── utils/                  # Image utilities (rotation, morphology, line removal)
+│   ├── tests/                      # 44+ unittest test files
+│   ├── scripts/                    # Batch and debugging scripts
+│   │   ├── batch_pipeline_test.py
+│   │   ├── batch_timing.py
+│   │   ├── compare_ab.py
+│   │   ├── debug_timing.py
+│   │   ├── demo_line_inpaint.py
+│   │   ├── phase3_visual_spotcheck.py
+│   │   └── test_single_fix.py
+│   ├── gemini_detector/            # Alternative Gemini-based SAHI detector
+│   ├── tools/                      # Utility tools (merge_predictions.py, patchify.py, etc.)
+│   ├── schema/                     # Data schema definitions
+│   ├── docs/                       # Backend-specific documentation
+│   ├── datasets/                   # YOLO config files (yaml/)
+│   ├── output/                     # Pipeline job artifacts
+│   ├── output_debug/               # Debug artifacts
+│   ├── runs/                       # Detection run outputs
+│   ├── static/                     # Static files (prediction images)
+│   ├── yolo_weights/               # Model weight files (.pt/.onnx)
+│   ├── run_debug.sh                # Run pipeline with debug flags
+│   ├── run_stage5b_only.sh         # Run Stage 5b with recovery loop
+│   └── pid_extractor.sh            # Basic pipeline invocation
+├── frontend/                       # React app
+│   ├── src/
+│   │   ├── App.tsx                 # Root component with view routing
+│   │   ├── components/
+│   │   │   ├── ui/                 # Radix UI primitives (button, dialog, select, etc.)
+│   │   │   ├── UploadZone.tsx
+│   │   │   ├── DetectionSetup.tsx
+│   │   │   ├── ProcessingView.tsx
+│   │   │   ├── ResultsView.tsx     # Detection results editor
+│   │   │   ├── CanvasView.tsx      # Interactive Konva canvas (zoom/pan/edit)
+│   │   │   ├── ObjectSidebar.tsx
+│   │   │   ├── BatchResultsView.tsx
+│   │   │   ├── PipelineResultsView.tsx  # Pipeline job results
+│   │   │   ├── PipelineArtifactCanvas.tsx # Pipeline artifact display
+│   │   │   ├── PipelineHitlReviewView.tsx # HITL review interface
+│   │   │   ├── PdfPageSelector.tsx
+│   │   │   ├── Header.tsx
+│   │   │   ├── ZoomControls.tsx
+│   │   │   └── ErrorBoundary.tsx
+│   │   ├── stores/
+│   │   │   ├── appStore.ts         # Main app state (Zustand)
+│   │   │   └── historyStore.ts     # Undo/redo history
+│   │   ├── hooks/                  # Custom React hooks
+│   │   ├── lib/                    # API client, export utilities, helpers
+│   │   └── types.ts                # TypeScript type definitions
+│   ├── package.json                # Bun dependencies
+│   ├── vite.config.ts              # Vite config (proxies /api and /runs to :8001)
+│   └── tailwind.config.ts
+├── DeepLSD/                        # Line detection submodule
+├── design/                         # Design references and assets
+├── docs/                           # Project plans and documentation
+├── AGENTS.md                       # Root agent instructions (cross-module guidance)
+├── README.md                       # Project README
+├── MASTER_PLAN.md                  # P&ID digitizing architecture roadmap
+├── GEMINI.md                       # Gemini integration notes
+├── .env.example                    # Root environment template
+└── punch_list.md                   # Development punch list
+```
 
 ## Development Commands
 
-### Backend Development
+All backend commands must be run from the `backend/` directory.
+
+### Backend
 
 ```bash
-# Start API backend (FastAPI) on port 8001
+cd backend
+
+# Start FastAPI server on port 8001
 uvicorn api:app --reload --port 8001
 
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Install DeepLSD (required for line extraction)
-git clone --recurse-submodules https://github.com/cvg/DeepLSD.git
-cd DeepLSD
-bash quickstart_install.sh
-cd ..
+# Run the P&ID pipeline on an image
+python -m garnet.pid_extractor --image <path> --out <output_dir> --ocr-route easyocr
+
+# Run pipeline with debug flags
+bash run_debug.sh
+
+# Run Stage 5b only with recovery loop
+bash run_stage5b_only.sh
+
+# Compile-check all backend Python files (minimum verification after edits)
+python -m py_compile api.py garnet/*.py garnet/utils/*.py
+
+# Run all backend tests
+python -m unittest discover -s tests -p "test*.py" -v
+
+# Run a single test file
+python -m unittest tests.test_pipeline_api -v
+
+# Run a single test method
+python -m unittest tests.test_pipeline_api.TestPipelineAPI.test_pipeline_job_runs_stage2_and_reports_artifacts -v
 ```
 
-### Frontend Development
+### Frontend
 
-**IMPORTANT**: The frontend **MUST use Bun** as the package manager, **NOT npm or yarn**. All commands should use `bun` instead of `npm`.
+**IMPORTANT**: The frontend **MUST use Bun** as the package manager, **NOT npm or yarn**.
 
 ```bash
-# Install frontend dependencies
 cd frontend
+
+# Install dependencies
 bun install
 
-# Start React dev server on port 5173 (proxies /api and /static to port 8001)
+# Start dev server on port 5173 (proxies /api and /runs to localhost:8001)
 bun run dev
 
 # Build for production
@@ -47,367 +196,228 @@ bun run build
 # Preview production build
 bun run preview
 
-# Lint frontend code
+# Lint
 bun run lint
 
-# Add a new dependency (use bun add, NOT npm install)
+# Add/remove dependencies (use bun, not npm)
 bun add <package-name>
-
-# Remove a dependency (use bun remove, NOT npm uninstall)
 bun remove <package-name>
 ```
-
-**Note**: Vite dev server automatically proxies `/api/*` and `/static/*` requests to the backend at `http://localhost:8001`.
 
 ### Batch Processing
 
 ```bash
 # Run batch inference on multiple P&ID images
-python predict_images.py \
+python backend/garnet/predict_images.py \
     --image_path path/to/pids_folder \
     --model_type yolov8 \
     --model_path path/to/model_weights.pt \
     --output_path results/
 ```
 
-### Model Training
+## Environment Variables
 
-```bash
-# Train custom YOLO models for P&ID symbols
-yolo train \
-    data=data.yaml \
-    model=yolov8n.pt \
-    epochs=100 \
-    imgsz=640 \
-    batch=16
-```
+Copy `.env.example` (root) or `backend/.env.example` to `.env` and configure:
 
-## Architecture Overview
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ENV` | `development` | Environment mode |
+| `HOST` / `PORT` | `localhost` / `8001` | Server bind address |
+| `ALLOWED_ORIGINS` | `http://localhost:5173,...` | CORS origins (comma-separated) |
+| `MAX_FILE_SIZE_MB` | `50` | Upload size limit |
+| `DEFAULT_CONF_THRESHOLD` | `0.8` | Default detection confidence |
+| `DEFAULT_IMAGE_SIZE` | `640` | Default SAHI inference size |
+| `DEFAULT_OVERLAP_RATIO` | `0.2` | Default SAHI tile overlap |
+| `OPENROUTER_API_KEY` | — | Required for Gemini OCR/detection routes |
+| `OPENROUTER_MODEL` | `google/gemini-3-flash-preview` | Gemini model via OpenRouter |
+| `OCR_CACHE_ENABLED` | `true` | Enable OCR result caching |
+| `OCR_LANGUAGES` | `en` | EasyOCR languages |
+| `OCR_GPU` | `true` | Use GPU for EasyOCR |
+| `API_KEY_ENABLED` | `false` | Enable API key auth |
+| `API_KEY` | — | API key value |
+| `RATE_LIMIT_ENABLED` | `false` | Enable rate limiting |
+| `RATE_LIMIT_REQUESTS` / `RATE_LIMIT_WINDOW` | `100` / `60` | Rate limit config |
+| `LOG_LEVEL` / `LOG_FILE` / `LOG_ROTATION` | `INFO` / `garnet.log` / `10 MB` | Logging config |
+
+## Architecture
 
 ### System Architecture
 
 ```
-┌─────────────────┐         ┌──────────────────┐         ┌─────────────────┐
-│  React Frontend │ ──HTTP─→│  FastAPI Backend │ ──→──  │  garnet/ Module │
-│  (Port 5173)    │ ←──JSON─│  (Port 8001)     │ ←──    │  (Core Logic)   │
-└─────────────────┘         └──────────────────┘         └─────────────────┘
-        │                            │                            │
-        │ Zustand State              │ Model Cache               │
-        │ History Store              │ OCR Cache                 │
-        └─ Radix UI                  │ RESULTS_STORE             │
-           TailwindCSS               └─ Static Files             │
-                                        (prediction images)      │
-                                                                  │
-                                                          YOLOv11, SAHI
-                                                          EasyOCR, NetworkX
-                                                          DeepLSD, OpenCV
+┌──────────────────┐         ┌───────────────────┐         ┌──────────────────┐
+│  React Frontend  │ ──HTTP─→│  FastAPI Backend  │ ──→───  │  garnet/ Module  │
+│  (Port 5173)     │ ←──JSON─│  (Port 8001)      │ ←───   │  (Pipeline Core) │
+└──────────────────┘         └───────────────────┘         └──────────────────┘
+        │                             │                              │
+        │ Zustand State               │ Model Cache                  │ 60+ Python files
+        │ History Store               │ OCR Cache                    │ Stage-by-stage
+        │ Konva Canvas                │ RESULTS_STORE                │ YOLO + SAHI
+        │ Radix UI + Tailwind         │ Pipeline Job Store           │ OCR routes
+        └─ Bun (package manager)      │ Review State Store           │ NetworkX graphs
+                                      └─ Static Files                │ OpenCV geometry
 ```
 
-### Frontend Architecture (frontend/src/)
+### Two API Paths
 
-**State Management (Zustand)**:
-- `stores/appStore.ts`: Main app state (image, detection result, batch processing, view state, UI settings)
-- `stores/historyStore.ts`: Undo/redo history for object edits (review status, updates, delete, create)
+The backend serves two distinct API paths:
 
-**Key Components**:
-- `App.tsx`: Root component with view routing (empty/preview/processing/results/batch)
-- `components/UploadZone.tsx`: Drag-and-drop file upload
-- `components/DetectionSetup.tsx`: Model configuration panel (weight file, confidence, image size, overlap, OCR toggle)
-- `components/ProcessingView.tsx`: Real-time progress indicator with step visualization
-- `components/ResultsView.tsx`: Main results editor (canvas + sidebar + toolbar)
-- `components/CanvasView.tsx`: **Interactive canvas** with zoom/pan, bbox editing, object selection, minimap
-- `components/ObjectSidebar.tsx`: Detected objects list with filter/sort
-- `components/BatchResultsView.tsx`: Batch job management UI
+1. **Legacy `/api/detect`** — Single-image YOLO detection with SAHI + optional OCR. In-memory result storage with CRUD endpoints for object editing.
 
-**View States Flow**:
+2. **Pipeline Job API** (`/api/pipeline/*`) — Stage-by-stage P&ID rebuild. Jobs are created, polled for status, and produce inspectable artifacts at each stage. Supports review state persistence and graph export.
+
+### Frontend View States
+
 ```
-empty → preview → processing → results
+empty → preview → processing → results (detection)
   ↓              ↓
 batch ←─────────┘
+
+Pipeline flow: upload → pipeline setup → pipeline results → HITL review
 ```
 
-**Key Features**:
-- **Undo/Redo**: Stack-based history for all edits (Ctrl/Cmd+Z, Shift+Z)
-- **Confidence Filter**: Hide/show objects below threshold (slider in header)
-- **Review Status**: Accept/reject objects with visual overlay (✓/✗)
-- **Batch Processing**: Queue-based with pause/resume/retry
-- **Export Formats**: JSON, YOLO, COCO, LabelMe, PDF report
+**Key components beyond basic detection:**
+- `PipelineResultsView.tsx`: Displays pipeline job progress, artifacts, and stage outputs
+- `PipelineArtifactCanvas.tsx`: Renders pipeline artifact overlays (masks, skeletons, graphs)
+- `PipelineHitlReviewView.tsx`: Human-in-the-loop review interface for graph QA results
+- `CanvasView.tsx`: Interactive Konva-based canvas with zoom/pan, bbox editing, minimap
+- `PdfPageSelector.tsx`: Page selection for multi-page PDF uploads
 
-### Backend Architecture (api.py)
+### Backend API Endpoints
 
-**Main Endpoints**:
-- `POST /api/detect`: Run YOLO detection with SAHI (sliced inference) + optional OCR
-- `GET /api/models`: List available model types
-- `GET /api/weight-files`: Scan `yolo_weights/` for .pt/.onnx files
-- `GET /api/config-files`: Scan `datasets/yaml/` for YOLO config files
-- `PATCH /api/results/{id}/objects/{obj_id}`: Update detected object
-- `POST /api/results/{id}/objects`: Create new object
-- `DELETE /api/results/{id}/objects/{obj_id}`: Delete object
+**Detection (legacy path):**
+- `POST /api/detect` — Run YOLO detection with SAHI + optional OCR
+- `GET /api/results/{result_id}` — Get detection result
+- `PATCH /api/results/{result_id}/objects/{obj_id}` — Update detected object
+- `POST /api/results/{result_id}/objects` — Create new object
+- `DELETE /api/results/{result_id}/objects/{obj_id}` — Delete object
 
-**Key Patterns**:
-- **Model Caching**: Detection models cached in `MODEL_CACHE` dict to avoid reload overhead
-- **OCR Caching**: EasyOCR reader cached globally (expensive to initialize)
-- **In-Memory Storage**: Detection results stored in `RESULTS_STORE` dict (keyed by UUID)
-- **Static Files**: Prediction images saved to `static/images/` and served via FastAPI
+**Pipeline jobs:**
+- `POST /api/pipeline/jobs` — Start a pipeline job (staged: normalize → OCR → detect → mask → skeleton → edges → graph → QA)
+- `GET /api/pipeline/jobs/{job_id}` — Get job status and progress
+- `POST /api/pipeline/merge` — Merge multi-sheet pipeline results
+- `GET /api/pipeline/jobs/{job_id}/review-state` — Get review state
+- `PUT /api/pipeline/jobs/{job_id}/review-state` — Update review state
+- `GET /api/pipeline/jobs/{job_id}/reviewed-graph` — Get review-corrected graph
+- `GET /api/pipeline/jobs/{job_id}/reviewed-qa` — Get review-corrected QA
+- `GET /api/pipeline/jobs/{job_id}/artifacts/{artifact_name}` — Download stage artifact
 
-**Detection Workflow**:
-1. Receive FormData with image file + options (model, weights, confidence, size, overlap, OCR flag)
-2. Get or create cached SAHI-wrapped YOLO model
-3. Run `get_sliced_prediction()` for large image handling (tiles with overlap)
-4. Process detections into table format (Index, Object, CategoryID, ObjectID, bbox, Score)
-5. If OCR enabled: crop symbols, preprocess, run EasyOCR on text-bearing classes
-6. Store result in memory, save visualization, return JSON
+**Model discovery:**
+- `GET /api/health` — Health check with model status and memory usage
+- `GET /api/model-types` — List available detection model types
+- `GET /api/models` — List available model configurations
+- `GET /api/weight-files` — Scan for .pt/.onnx weight files
+- `GET /api/config-files` — Scan for YOLO config files
 
-### Core Module (garnet/)
+**Export:**
+- `POST /api/export/excel` — Export detection results to Excel
+- `POST /api/pdf-extract` — Extract images from PDF uploads
 
-**Key Modules**:
+### P&ID Pipeline Stages
 
-| Module | Purpose |
-|--------|---------|
-| `Settings.py` | Global configuration (paths, symbol types, text classes) |
-| `predict_images.py` | Batch inference function for multiple P&ID images |
-| `text_ocr.py` | Text extraction utilities (rotation, preprocessing) |
-| `pid_extractor.py` | **Stage-by-stage P&ID rebuild entrypoint** (currently Stage 1 normalization only) |
-| `utils/utils.py` | Image utilities (rotation, line removal, morphology) |
+The pipeline in `garnet/pid_extractor.py` orchestrates a multi-stage rebuild:
 
-**P&ID Processing Pipeline (pid_extractor.py)**:
+| Stage | Name | What it does | Key output artifacts |
+|-------|------|-------------|---------------------|
+| 1 | Normalization | Grayscale, histogram equalization, adaptive/Otsu binary | `stage1_gray.png`, `stage1_binary_adaptive.png`, `stage1_binary_otsu.png` |
+| 2 | OCR Discovery | Tiled OCR via EasyOCR/Gemini/PaddleOCR route | `stage2_ocr_results.json`, text regions |
+| 4 | Object Detection | YOLOv11 + SAHI symbol detection | `stage4_objects.json`, `stage4_objects_overlay.png`, topology markers |
+| 5 | Pipe Mask | Provisional pipe segmentation from binary + suppression | `stage5_pipe_mask.png`, `stage5_pipe_mask_overlay.png` |
+| 5b | Geometric Lines | DeepLSD line detection or inpaint-based line extraction | Line geometry for topology |
+| 6 | Morphological Seal | Seal gaps in pipe mask | `stage6_pipe_seal.png` |
+| 7 | Skeleton | 1-pixel centerline skeleton from pipe mask | `stage7_pipe_skeleton.png` |
+| 8 | Node Detection | Endpoint/junction detection on skeleton (8-neighbor degree) | `stage8_pipe_nodes.json` |
+| 9 | Node Clustering | DBSCAN clustering of pixel-dense skeleton nodes | `stage9_node_clusters.json` |
+| 10 | Edge Tracing | Depth-first skeleton traversal, crossing resolution | `stage10_pipe_edges.json`, `stage10_crossing_resolution.json` |
+| 11 | Trace Associations | Text/equipment attachment to edges, terminal classification | `stage11_trace_associations.json` |
+| 12 | Graph Assembly | NetworkX graph construction + edge topology | `stage12_graph.graphml`, `stage12_edge_terminals.json` |
+| 13 | Graph QA | Anomaly detection, crossing verification, review package | `stage13_review_package.json` |
+| 14 | Apply Reviews | Merge review decisions into graph corrections | `stage14_reviewed_graph.graphml` |
+| 15 | Process Exports | Final export generation (GraphML, JSON, connection overlays) | Final graph exports |
+| 16 | Connection Overlay | Visual overlay of connections on original | `stage16_connection_overlay.png` |
 
-The active rebuild keeps this module intentionally small and reviewable:
-
-1. **Stage 1**: Load raw image input
-2. **Normalize**: Grayscale, histogram equalization, adaptive binary, Otsu binary
-3. **Persist**: Write inspectable artifact files plus `stage_manifest.json`
-4. **Expose**: Serve progress and artifacts through the pipeline job API
-
-**Configuration Dataclass**:
-```python
-@dataclass
-class PipelineConfig:
-    adaptive_block_size: int = 21
-    adaptive_c: int = 5
-    blur_kernel: int = 5
-```
-
-### Data Flow: Upload to Results
-
-```
-User uploads image
-  ↓
-Frontend: appStore.setImageFile() → currentView='preview'
-  ↓
-User configures detection (model, weights, confidence, size, overlap, OCR)
-  ↓
-User clicks "Run Detection" → appStore.runDetection()
-  ↓
-Frontend: POST /api/detect with FormData
-  ↓
-Backend: Load image → Get cached model → Run SAHI sliced inference
-         → Process detections → Optional OCR → Store result → Return JSON
-  ↓
-Frontend: setResult(response) → currentView='results'
-  ↓
-User views results in CanvasView (zoom/pan/edit)
-  ↓
-User edits objects (bbox, text, review status) → History actions
-  ↓
-User exports results (JSON/YOLO/COCO/LabelMe/PDF)
-```
+**Pipeline config** is controlled via `PipelineConfig` dataclass (thresholds, device, OCR route, stage stop points).
 
 ## Important Conventions
 
-### Frontend Code Patterns
+### Backend
 
-**State Updates (Zustand)**:
-```typescript
-// Always use set() with immutable updates
-set(state => ({
-  result: { ...state.result, objects: [...updatedObjects] }
-}))
+- **Run from `backend/`**: All backend commands expect `backend/` as the working directory so relative paths for weights, outputs, and datasets resolve correctly.
+- **Settings import**: Always use `import garnet.Settings as Settings` (module-level import, not `from garnet.Settings import Settings`).
+- **Pipeline config**: Add new thresholds and toggles to `PipelineConfig` instead of scattering magic numbers through stage code.
+- **Stage outputs**: Keep them inspectable — every stage writes a manifest entry and artifact files.
+- **Geometry first, semantics second**: Do not promote OCR text or detections directly into graph truth without geometric/topological support.
+- **Never destroy source**: Keep task-specific masks and derived views separate from the original raster.
+- **Model caching**: Use the cached model infrastructure in `api.py`; never load models directly.
+- **Logging**: Use the configured `logger` (writes to `garnet.log`).
+- **Nested AGENTS.md**: Follow `backend/garnet/AGENTS.md` for pipeline-specific conventions and `AGENTS.md` for cross-module rules.
 
-// Access current state with get()
-const currentState = get()
+### Frontend
+
+- **Bun only**: Use `bun` for all package management. Never use `npm` or `yarn`.
+- **Zustand state**: Use `set()` with immutable updates; access current state with `get()`.
+- **History actions**: Record undo/redo via `useHistoryStore.getState().addAction()`.
+- **Object keys**: Use `objectKey(obj)` (CategoryID + ObjectID) for unique identification.
+- **Confidence filtering**: Filter objects by `confidenceFilter` in components using `useMemo`.
+
+### Cross-Cutting
+
+- **No secrets in code**: API keys, model paths, and secrets are configured via environment variables.
+- **Generated artifacts stay out of git**: `backend/output/`, `backend/runs/`, `backend/output_debug/`, `.ultralytics_runs/`.
+- **Keep module boundaries**: Backend API ↔ garnet pipeline ↔ frontend each have clear ownership.
+- **Two API paths are separate**: The legacy `/api/detect` path and the pipeline job API serve different purposes — don't mix their concerns.
+
+## Testing
+
+Tests use Python's `unittest` framework and live in `backend/tests/` (44+ test files).
+
+```bash
+cd backend
+
+# Run all tests
+python -m unittest discover -s tests -p "test*.py" -v
+
+# Run a specific test file
+python -m unittest tests.test_pipe_graph -v
+
+# Run a specific test method
+python -m unittest tests.test_pipeline_api.TestPipelineAPI.test_pipeline_job_runs_stage2_and_reports_artifacts -v
 ```
 
-**History Actions**:
-```typescript
-// Add history action when editing
-useHistoryStore.getState().addAction({
-  type: 'update',
-  prev: originalObject,
-  next: updatedObject
-})
-```
+Key test files:
+- `test_pipeline_api.py` — FastAPI TestClient integration tests for pipeline job endpoints (62KB, most comprehensive)
+- `test_pid_extractor_cli.py` — CLI-level pipeline integration tests (45KB)
+- `test_pipe_edge_connectivity.py` — Edge connectivity and topology tests
+- `test_trace_graph_builder.py` — Trace-based graph construction tests
+- `test_pipe_text_attachment.py` — Text-to-pipe attachment tests
+- Stage-specific tests: `test_stage5b_branch_terminal.py`, `test_stage13_review_package.py`, `test_stage14_review_decisions.py`, `test_stage15_process_exports.py`
 
-**Object Keys**:
-```typescript
-// Use objectKey() for unique object identification
-import { objectKey } from '@/lib/objectKey'
-const key = objectKey(obj)  // CategoryID + ObjectID
-```
+Frontend has no test framework configured — verify with `bun run lint` and `bun run build`.
 
-**Confidence Filtering**:
-```typescript
-// Always filter objects by confidenceFilter in components
-const visibleObjects = useMemo(() =>
-  result?.objects.filter(obj => obj.Score >= confidenceFilter) ?? [],
-  [result, confidenceFilter]
-)
-```
+## Debugging
 
-### Backend Code Patterns
+- FastAPI auto-docs: `http://localhost:8001/docs`
+- Backend logs: `garnet.log` in the backend working directory
+- React DevTools for component tree and Zustand store inspection
+- Pipeline debug: use `run_debug.sh` for verbose stage output
+- Compile-check backend: `python -m py_compile api.py garnet/*.py garnet/utils/*.py`
 
-**Model Caching**:
-```python
-# Use get_cached_detection_model() for all model loading
-model = get_cached_detection_model(
-    model_type="ultralytics",
-    model_path=weight_file,
-    config_path=config_file,
-    conf_th=conf_th,
-    image_size=image_size
-)
-```
-
-**OCR Text Extraction**:
-```python
-# Only run OCR on symbol classes in settings.SYMBOL_WITH_TEXT
-if text_OCR and symbol.type in settings.SYMBOL_WITH_TEXT:
-    text = extract_text_from_image(cropped_img, is_vertical)
-```
-
-**Logging**:
-```python
-# Use the configured logger (writes to garnet.log)
-logger.info(f"Processing {len(detections)} detections")
-logger.error(f"Failed to load model: {e}")
-```
-
-### Python Module Patterns
-
-**Settings Import**:
-```python
-# Always import settings as module
-import garnet.Settings as Settings
-settings = Settings.Settings()
-
-# Access configuration
-OUTPUT_PATH = settings.OUTPUT_PATH
-SYMBOL_WITH_TEXT = settings.SYMBOL_WITH_TEXT
-```
-
-**Pipeline Configuration**:
-```python
-# Use PipelineConfig dataclass for pid_extractor
-from garnet.pid_extractor import PipelineConfig, run_pipeline
-
-config = PipelineConfig(
-    device="cuda",
-    deskew=True,
-    merge_node_dist=10,
-    class_conf_thresh={"valve": 0.8, "pump": 0.9}
-)
-result = run_pipeline(image_path, config)
-```
-
-## Testing & Debugging
-
-**Frontend Debugging**:
-- React DevTools: Inspect component tree and Zustand store state
-- Console logs in browser for state changes
-- Check Network tab for API requests/responses
-
-**Backend Debugging**:
-- Check `garnet.log` for detailed logs
-- Use `logger.info()` / `logger.error()` for debugging
-- FastAPI auto-docs at `http://localhost:8001/docs`
-
-**Common Issues**:
-- **Model not found**: Check `yolo_weights/` directory has .pt/.onnx files
-- **OCR fails**: Ensure EasyOCR reader is initialized (check cache)
-- **Frontend proxy error**: Ensure backend is running on port 8001
-- **CUDA out of memory**: Reduce `image_size` or use CPU (`device="cpu"`)
-- **Frontend dependency issues**: Always use `bun install` and `bun add`, NEVER use `npm install` or `yarn`
-
-## Configuration Files
-
-**Backend Configuration**:
-- `garnet/Settings.py`: Global paths, symbol types, text classes
-- `datasets/yaml/*.yaml`: YOLO model configs (class names, dataset paths)
-
-**Frontend Configuration**:
-- `frontend/vite.config.ts`: Dev server proxy to backend
-- `frontend/src/lib/api.ts`: Default detection options
-
-**YOLO Dataset Format**:
-```
-dataset/
-├── train/
-│   ├── images/  # P&ID images (.jpg, .png)
-│   └── labels/  # YOLO-format labels (.txt)
-├── val/
-│   ├── images/
-│   └── labels/
-└── data.yaml     # Class names, paths
-```
-
-## File Structure Reference
-
-```
-/GARNET
-├── api.py                         # FastAPI backend (616 lines)
-├── main.py                        # Legacy Streamlit app (not used)
-├── export_to_excel.py             # Utility for Excel export
-├── requirements.txt               # Python dependencies
-├── garnet.log                     # Backend logs
-├── static/images/                 # Prediction visualizations
-├── yolo_weights/                  # .pt/.onnx model weights
-├── datasets/yaml/                 # YOLO config files
-├── output/                        # Generated artifacts
-│   ├── cropped object detected/
-│   └── text detected/
-├── frontend/                      # React app
-│   ├── src/
-│   │   ├── App.tsx
-│   │   ├── components/            # UI components
-│   │   ├── stores/                # Zustand state
-│   │   ├── hooks/                 # Custom hooks
-│   │   ├── lib/                   # API client, exports, utils
-│   │   └── types.ts               # TypeScript types
-│   ├── package.json               # Frontend deps (Bun)
-│   ├── vite.config.ts             # Vite config (proxy)
-│   └── tailwind.config.ts         # Tailwind CSS
-├── garnet/                        # Core Python module
-│   ├── __init__.py
-│   ├── Settings.py                # Configuration
-│   ├── predict_images.py          # Detection helper functions
-│   ├── text_ocr.py                # OCR utilities
-│   ├── pid_extractor.py           # Stage-by-stage rebuild entrypoint
-│   └── utils/
-│       ├── utils.py               # Image utilities
-├── DeepLSD/                       # Line extraction submodule
-└── test/                          # Test datasets
-```
+**Common issues:**
+- **Model not found**: Check `backend/yolo_weights/` for .pt/.onnx files
+- **OCR fails**: Ensure EasyOCR is installed and cached reader initializes (check `OCR_GPU` setting)
+- **Frontend proxy error**: Backend must be running on port 8001
+- **CUDA OOM**: Reduce `image_size` or set `device="cpu"`
+- **Import errors**: Always run from `backend/` directory
+- **Gemini OCR fails**: Verify `OPENROUTER_API_KEY` is set in `.env`
 
 ## Key Design Decisions
 
-1. **Separation of Concerns**: Frontend (React) and backend (FastAPI) run independently. Vite dev server proxies API requests.
-
-2. **Bun Package Manager**: Frontend uses Bun exclusively for faster installs and runtime performance. Do NOT use npm or yarn.
-
-3. **SAHI for Large Images**: Use Slicing Aided Hyper Inference (SAHI) to handle large P&ID images by tiling with overlap.
-
-4. **Model Caching**: Cache models in memory to avoid reload overhead during batch processing.
-
-5. **OCR Optimization**: Only run OCR on symbol classes that typically contain text (defined in `settings.SYMBOL_WITH_TEXT`).
-
-6. **Client-Side Editing**: All bbox/text edits happen in frontend; backend stores results in memory for session.
-
-7. **History Stack**: Undo/redo implemented with separate history store to keep appStore clean.
-
-8. **Confidence Filtering**: Non-destructive filter (objects below threshold hidden but not deleted).
-
-9. **Batch Processing**: Queue-based with pause/resume/retry to handle large datasets.
-
-10. **Export Flexibility**: Multiple export formats (YOLO, COCO, LabelMe, PDF) for different workflows.
-
-11. **Graph-Based Analysis**: P&ID connectivity modeled as NetworkX graph for path analysis and system dependencies.
+1. **Two API paths**: Legacy `/api/detect` for simple detection + pipeline job API for staged P&ID rebuild. Keep concerns separate.
+2. **Staged pipeline with artifacts**: Every stage writes inspectable outputs + manifest. Enables progressive review and debugging.
+3. **SAHI for large images**: Slicing Aided Hyper Inference handles P&IDs that can exceed 30k×20k pixels.
+4. **Multiple OCR routes**: EasyOCR (local), Gemini (cloud via OpenRouter), PaddleOCR (RapidOCR) — runtime-selectable per pipeline job.
+5. **Geometry-first topology**: OCR text and detections are provisional evidence; geometric consistency (skeleton, crossings, terminals) is the primary signal for graph construction.
+6. **Review/HITL workflow**: Graph QA results feed a human-in-the-loop review interface. Review decisions persist and produce corrected graph exports.
+7. **Multi-sheet merge**: Off-page connectors allow merging graphs across multiple P&ID sheets.
+8. **Client-side canvas editing**: All bbox/text edits happen in frontend via Konva; backend stores results in memory for the session.
+9. **Bun package manager**: Frontend uses Bun exclusively for faster installs and runtime.
+10. **Model caching**: YOLO and OCR models cached in memory to avoid reload overhead.
