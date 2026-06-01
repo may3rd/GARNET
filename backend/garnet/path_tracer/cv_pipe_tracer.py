@@ -698,6 +698,14 @@ class CVPipeTracer:
             return None
         return min(candidates, key=lambda c: abs(c[0] - x) + abs(c[1] - y))
 
+    def _has_bidirectional_turn_leg(self, x: int, y: int, turn_dir: str, distance: int = 5) -> bool:
+        """Return true when a turn candidate is actually a tee-through leg."""
+        opposite_dir = OPPOSITE[turn_dir]
+        return (
+            _has_line_of_sight_band_narrow(self.mask, x, y, turn_dir, distance)
+            and _has_line_of_sight_band_narrow(self.mask, x, y, opposite_dir, distance)
+        )
+
     def _connected_continuation_dirs(self, x: int, y: int, direction: str) -> set[str]:
         dirs: set[str] = set()
         if _has_line_of_sight_axis_band(self.mask, x, y, direction, self.min_step, band_width=1):
@@ -1119,6 +1127,11 @@ class CVPipeTracer:
                         x, y = raycast
                         seg_start_x, seg_start_y = x, y
                         continue
+                    if self._has_bidirectional_turn_leg(x, y, exact_turn_dir):
+                        self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+                        result.terminal_type = TerminalType.TEE_JUNCTION.value
+                        result.terminal_x, result.terminal_y = x, y
+                        break
                     self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
                     result.turns.append((x, y, exact_turn_dir))
                     direction = exact_turn_dir
@@ -1167,6 +1180,11 @@ class CVPipeTracer:
                     and not self._is_backtrack_turn(result, turn[0], turn[1], turn_dir)
                 ):
                     tx, ty, turn_dir = turn
+                    if self._has_bidirectional_turn_leg(tx, ty, turn_dir):
+                        self._append_segment(result, seg_start_x, seg_start_y, tx, ty, direction)
+                        result.terminal_type = TerminalType.TEE_JUNCTION.value
+                        result.terminal_x, result.terminal_y = tx, ty
+                        break
                     self._append_segment(result, seg_start_x, seg_start_y, tx, ty, direction)
                     result.turns.append((tx, ty, turn_dir))
                     direction = turn_dir
@@ -1215,6 +1233,10 @@ class CVPipeTracer:
                         turn_target = None
                 if (left_raycast is not None) != (right_raycast is not None) and turn_target is not None:
                     self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+                    if self._has_bidirectional_turn_leg(x, y, turn_dir):
+                        result.terminal_type = TerminalType.TEE_JUNCTION.value
+                        result.terminal_x, result.terminal_y = x, y
+                        break
                     result.turns.append((x, y, turn_dir))
                     x, y = turn_target
                     direction = turn_dir
@@ -1258,6 +1280,10 @@ class CVPipeTracer:
                         result.terminal_type = TerminalType.DEAD_END.value
                         result.terminal_x, result.terminal_y = tx, ty
                         break
+                    result.terminal_type = TerminalType.TEE_JUNCTION.value
+                    result.terminal_x, result.terminal_y = tx, ty
+                    break
+                if self._has_bidirectional_turn_leg(tx, ty, turn_dir):
                     result.terminal_type = TerminalType.TEE_JUNCTION.value
                     result.terminal_x, result.terminal_y = tx, ty
                     break
