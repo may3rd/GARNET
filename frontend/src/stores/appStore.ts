@@ -419,7 +419,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       const { job_id } = await startPipelineJob(
         imageFile,
         {
-          stopAfter: 13,
+          stopAfter: 11,
           ocrRoute: pipelineOcrRoute,
           geminiPostprocessMatchThreshold: pipelineGeminiPostprocessMatchThreshold,
           weightFile: options.weightFile,

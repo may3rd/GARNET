@@ -299,12 +299,12 @@ export function DetectionSetup() {
             </label>
             <div className="text-xs text-[var(--text-secondary)] bg-[var(--bg-primary)] border border-[var(--border-muted)] p-3 rounded-lg">
               {pipelineOcrRoute === 'easyocr'
-                ? 'Pipeline mode now runs the full staged review flow through Stage 13: normalization, OCR, object detection, pipe mask, sealing, skeleton, node extraction, clustering, edge tracing, junction review, graph assembly, and graph QA.'
+                ? 'Pipeline mode runs the current Stage 1-11 flow: normalization, OCR, object detection, pipe mask, path tracing, trace associations, graph assembly, QA, reviewed outputs, process exports, and connection overlay.'
                 : pipelineOcrRoute === 'paddleocr'
-                ? 'Pipeline mode now runs the full staged review flow through Stage 13: normalization, OCR, object detection, pipe mask, sealing, skeleton, node extraction, clustering, edge tracing, junction review, graph assembly, and graph QA.'
+                ? 'Pipeline mode runs the current Stage 1-11 flow: normalization, OCR, object detection, pipe mask, path tracing, trace associations, graph assembly, QA, reviewed outputs, process exports, and connection overlay.'
                 : pipelineOcrRoute === 'ocrmac'
                 ? 'Pipeline mode now defaults to OCRMac for Stage 2 during current development. OCRMac is macOS-only, fast on Apple hardware, and the backend will reject unsupported environments.'
-                : 'Pipeline mode now runs the full staged review flow through Stage 13: normalization, OCR, object detection, pipe mask, sealing, skeleton, node extraction, clustering, edge tracing, junction review, graph assembly, and graph QA.'}
+                : 'Pipeline mode runs the current Stage 1-11 flow: normalization, OCR, object detection, pipe mask, path tracing, trace associations, graph assembly, QA, reviewed outputs, process exports, and connection overlay.'}
             </div>
             {pipelineOcrRoute === 'gemini' && (
               <div className="space-y-2">

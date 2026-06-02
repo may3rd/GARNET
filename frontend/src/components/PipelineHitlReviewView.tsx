@@ -29,6 +29,7 @@ type PipelineHitlReviewViewProps = {
   imageArtifacts: PipelineArtifact[]
   initialReviewDecisions: Record<string, PipelineReviewDecision>
   onApply: (decisions: Record<string, PipelineReviewDecision>) => void
+  onSaveStage3Equipment?: (objects: DetectedObject[]) => Promise<void>
   onClose: () => void
 }
 
@@ -47,6 +48,8 @@ function workspaceKey(jobId: string, bucket: PipelineReviewBucket) {
 
 function bucketObjectLabel(bucket: PipelineReviewBucket) {
   switch (bucket) {
+    case 'stage3_equipment':
+      return 'vessel'
     case 'stage4_line_number':
     case 'stage12_line_attachment':
       return 'line_number'
@@ -68,7 +71,7 @@ function seedObjects(bucket: PipelineReviewBucket, items: PipelineReviewItem[]):
     return {
       Index: objectId,
       Object: bucketObjectLabel(bucket),
-      CategoryID: bucket.startsWith('stage4') ? 4 : 12,
+      CategoryID: bucket === 'stage3_equipment' ? 3 : bucket.startsWith('stage4') ? 4 : 12,
       ObjectID: objectId,
       Left: left,
       Top: top,
@@ -101,6 +104,7 @@ export function PipelineHitlReviewView({
   imageArtifacts,
   initialReviewDecisions,
   onApply,
+  onSaveStage3Equipment,
   onClose,
 }: PipelineHitlReviewViewProps) {
   const canvasRef = useRef<CanvasViewHandle>(null)
@@ -108,6 +112,7 @@ export function PipelineHitlReviewView({
   const historyRef = useRef<WorkspaceSnapshot[]>([])
   const futureRef = useRef<WorkspaceSnapshot[]>([])
   const [bucketStates, setBucketStates] = useState<Record<PipelineReviewBucket, DetectedObject[]>>({
+    stage3_equipment: [],
     stage4_line_number: [],
     stage4_instrument: [],
     stage12_line_attachment: [],
@@ -180,6 +185,7 @@ export function PipelineHitlReviewView({
       }
 
       const nextStates: Record<PipelineReviewBucket, DetectedObject[]> = {
+        stage3_equipment: [],
         stage4_line_number: [],
         stage4_instrument: [],
         stage12_line_attachment: [],
@@ -303,7 +309,7 @@ export function PipelineHitlReviewView({
     const created: DetectedObject = {
       Index: nextId,
       Object: createDraft.Object,
-      CategoryID: workspaceBucket.startsWith('stage4') ? 4 : 12,
+      CategoryID: workspaceBucket === 'stage3_equipment' ? 3 : workspaceBucket.startsWith('stage4') ? 4 : 12,
       ObjectID: nextId,
       Left: createDraft.Left,
       Top: createDraft.Top,
@@ -340,17 +346,36 @@ export function PipelineHitlReviewView({
     ;(Object.keys(bucketStates) as PipelineReviewBucket[]).forEach((bucket) => {
       window.localStorage.setItem(workspaceKey(jobId, bucket), JSON.stringify(bucketStates[bucket]))
     })
+    if (workspaceBucket === 'stage3_equipment' && onSaveStage3Equipment) {
+      setIsSaving(true)
+      setWorkspaceError(null)
+      void onSaveStage3Equipment(bucketStates.stage3_equipment)
+        .then(() => {
+          onClose()
+        })
+        .catch((error) => {
+          setWorkspaceError(error instanceof Error ? error.message : 'Failed to save equipment boxes')
+        })
+        .finally(() => setIsSaving(false))
+      return
+    }
     const payload = {
-      items: Object.entries(draftReviewDecisions).map(([key, decision]) => {
-        const [bucket, entityId] = key.split(':', 2) as [PipelineReviewBucket, string]
-        return {
-          item_id: key,
-          bucket,
-          entity_id: entityId,
-          decision,
-        }
-      }),
-      workspace_objects: bucketStates as unknown as PipelineReviewState['workspace_objects'],
+      items: Object.entries(draftReviewDecisions)
+        .filter(([key]) => !key.startsWith('stage3_equipment:'))
+        .map(([key, decision]) => {
+          const [bucket, entityId] = key.split(':', 2) as [PipelineReviewBucket, string]
+          return {
+            item_id: key,
+            bucket,
+            entity_id: entityId,
+            decision,
+          }
+        }),
+      workspace_objects: Object.fromEntries(
+        (Object.keys(bucketStates) as PipelineReviewBucket[])
+          .filter((bucket) => bucket !== 'stage3_equipment')
+          .map((bucket) => [bucket, bucketStates[bucket]])
+      ) as PipelineReviewState['workspace_objects'],
     }
     setIsSaving(true)
     setWorkspaceError(null)
@@ -426,6 +451,7 @@ export function PipelineHitlReviewView({
 
       <div className="sticky top-[73px] z-10 flex flex-wrap gap-2 border-b border-[var(--border-muted)] bg-[var(--bg-secondary)] px-6 py-3">
         {([
+          ['stage3_equipment', 'Stage 3 Equipment'],
           ['stage4_line_number', 'Stage 4 Line Numbers'],
           ['stage4_instrument', 'Stage 4 Instruments'],
           ['stage12_line_attachment', 'Stage 12 Line Attachments'],

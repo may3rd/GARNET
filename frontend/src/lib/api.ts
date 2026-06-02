@@ -6,6 +6,7 @@ import type {
   PipelineReviewState,
   PipelineReviewedGraphResponse,
   PipelineReviewedQaResponse,
+  PipelineStageStatusResponse,
 } from '@/types'
 
 export type DetectionOptions = {
@@ -131,7 +132,7 @@ export async function startPipelineJob(
   timeoutMs = DEFAULT_TIMEOUT
 ): Promise<{ job_id: string }> {
   const payload = {
-    stopAfter: 13,
+    stopAfter: 11,
     ocrRoute: 'ocrmac' as OcrRoute,
     geminiPostprocessMatchThreshold: 0.1,
     weightFile: '',
@@ -170,6 +171,40 @@ export async function startPipelineJob(
 
 export async function getPipelineJob(jobId: string, signal?: AbortSignal): Promise<PipelineJob> {
   return requestJson<PipelineJob>(`/api/pipeline/jobs/${jobId}`, { signal }, PIPELINE_POLL_TIMEOUT)
+}
+
+export async function getPipelineStageStatus(jobId: string, signal?: AbortSignal): Promise<PipelineStageStatusResponse> {
+  return requestJson<PipelineStageStatusResponse>(`/api/pipeline/jobs/${jobId}/stage-status`, { signal }, PIPELINE_POLL_TIMEOUT)
+}
+
+export async function putPipelineArtifact<TPayload extends Record<string, unknown>>(
+  jobId: string,
+  artifactName: string,
+  payload: TPayload,
+  signal?: AbortSignal
+): Promise<PipelineStageStatusResponse & { artifact: { name: string; url: string } }> {
+  return requestJson(
+    `/api/pipeline/jobs/${jobId}/artifacts/${artifactName}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal,
+    },
+    DEFAULT_REQUEST_TIMEOUT
+  )
+}
+
+export async function resumePipelineFromStage(
+  jobId: string,
+  stageName: string,
+  signal?: AbortSignal
+): Promise<{ job_id: string; status: string; resume_from: string; stop_after: number }> {
+  return requestJson(
+    `/api/pipeline/jobs/${jobId}/resume-from/${stageName}`,
+    { method: 'POST', signal },
+    DEFAULT_REQUEST_TIMEOUT
+  )
 }
 
 export async function getPipelineReviewState(jobId: string, signal?: AbortSignal): Promise<PipelineReviewState> {

@@ -44,12 +44,15 @@ export type PipelineArtifact = {
 export type PipelineStageManifest = {
   num: number
   name: string
-  status: 'started' | 'completed' | 'failed'
-  started_at: number
+  status: 'pending' | 'started' | 'running' | 'completed' | 'failed' | 'stale'
+  started_at?: number
   ended_at?: number
   duration_sec?: number
-  artifacts: string[]
+  artifacts?: string[]
   error?: string
+  stale_reason?: string
+  stale_source_artifact?: string
+  stale_at?: number
 }
 
 export type PipelineManifest = {
@@ -78,6 +81,7 @@ export type PipelineJob = {
 
 export type PipelineReviewDecision = 'accepted' | 'rejected' | 'deferred'
 export type PipelineReviewBucket =
+  | 'stage3_equipment'
   | 'stage4_line_number'
   | 'stage4_instrument'
   | 'stage12_line_attachment'
@@ -120,6 +124,26 @@ export type PipelineReviewState = {
   updated_at: number
   items: PipelineReviewStateItem[]
   workspace_objects: Record<PipelineReviewBucket, Array<Record<string, unknown>>>
+}
+
+export type Stage3EquipmentArtifact = {
+  equipment: Array<{
+    id: string
+    class_name: string
+    bbox: {
+      x_min: number
+      y_min: number
+      x_max: number
+      y_max: number
+    }
+    source?: string
+    review_state?: string
+  }>
+}
+
+export type PipelineStageStatusResponse = {
+  job_id: string
+  stages: PipelineStageManifest[]
 }
 
 export type PipelineReviewedGraphResponse = {
