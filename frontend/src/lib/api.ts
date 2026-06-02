@@ -27,6 +27,7 @@ export type PipelineOptions = {
   ocrRoute: OcrRoute
   geminiPostprocessMatchThreshold: number
   weightFile: string
+  debugArtifacts: boolean
 }
 
 export type ExcelExportImage = {
@@ -136,6 +137,7 @@ export async function startPipelineJob(
     ocrRoute: 'ocrmac' as OcrRoute,
     geminiPostprocessMatchThreshold: 0.1,
     weightFile: '',
+    debugArtifacts: false,
     ...options,
   }
   const formData = new FormData()
@@ -144,6 +146,7 @@ export async function startPipelineJob(
   formData.append('ocr_route', payload.ocrRoute)
   formData.append('gemini_postprocess_match_threshold', String(payload.geminiPostprocessMatchThreshold))
   formData.append('weight_file', payload.weightFile)
+  formData.append('debug_artifacts', String(payload.debugArtifacts))
 
   const requestSignal = createRequestSignal(signal, timeoutMs)
   try {

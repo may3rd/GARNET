@@ -13,6 +13,7 @@ export type AppState = {
   options: DetectionOptions
   pipelineOcrRoute: OcrRoute
   pipelineGeminiPostprocessMatchThreshold: number
+  pipelineDebugArtifacts: boolean
   result: DetectionResult | null
   pipelineJob: PipelineJob | null
   resultRunId: number
@@ -45,6 +46,7 @@ export type AppActions = {
   setOptions: (options: Partial<DetectionOptions>) => void
   setPipelineOcrRoute: (route: OcrRoute) => void
   setPipelineGeminiPostprocessMatchThreshold: (value: number) => void
+  setPipelineDebugArtifacts: (enabled: boolean) => void
   setView: (view: AppView) => void
   runDetection: () => Promise<void>
   runPipeline: () => Promise<void>
@@ -135,6 +137,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   options: defaultOptions,
   pipelineOcrRoute: 'ocrmac',
   pipelineGeminiPostprocessMatchThreshold: 0.1,
+  pipelineDebugArtifacts: false,
   result: null,
   pipelineJob: null,
   resultRunId: 0,
@@ -155,6 +158,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     pipelineGeminiPostprocessMatchThreshold: value,
     error: null,
   }),
+  setPipelineDebugArtifacts: (enabled) => set({ pipelineDebugArtifacts: enabled, error: null }),
 
   setImageFile: (file) => {
     const previous = get().imageUrl
@@ -394,7 +398,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   },
 
   runPipeline: async () => {
-    const { imageFile, pipelineOcrRoute, pipelineGeminiPostprocessMatchThreshold, options } = get()
+    const { imageFile, pipelineOcrRoute, pipelineGeminiPostprocessMatchThreshold, pipelineDebugArtifacts, options } = get()
     if (!imageFile) return
 
     if (progressTimer) {
@@ -423,6 +427,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
           ocrRoute: pipelineOcrRoute,
           geminiPostprocessMatchThreshold: pipelineGeminiPostprocessMatchThreshold,
           weightFile: options.weightFile,
+          debugArtifacts: pipelineDebugArtifacts,
         },
         activeAbortController.signal
       )

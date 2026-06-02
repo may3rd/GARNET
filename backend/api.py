@@ -945,6 +945,7 @@ def _run_pipeline_job(
     ocr_route: str,
     gemini_postprocess_match_threshold: float,
     weight_file: str,
+    debug_artifacts: bool = False,
     resume: bool = False,
 ) -> None:
     def stage_callback(event: dict[str, Any]) -> None:
@@ -971,6 +972,7 @@ def _run_pipeline_job(
                 ocr_route=ocr_route,
                 gemini_postprocess_match_threshold=gemini_postprocess_match_threshold,
                 detection_weight_path=weight_file,
+                debug_artifacts=debug_artifacts,
             ),
         )
         pipe.run(stop_after=stop_after, resume=resume)
@@ -1201,6 +1203,7 @@ async def create_pipeline_job(
     ocr_route: str = Form(...),
     gemini_postprocess_match_threshold: float = Form(0.1),
     weight_file: str = Form(""),
+    debug_artifacts: bool = Form(False),
 ):
     validate_image_file(file_input)
     if stop_after not in {num for num, _name in PIPELINE_STAGE_ORDER}:
@@ -1245,11 +1248,13 @@ async def create_pipeline_job(
             "ocr_route": ocr_route,
             "gemini_postprocess_match_threshold": gemini_postprocess_match_threshold,
             "weight_file": resolved_weight_file,
+            "debug_artifacts": debug_artifacts,
         }
 
     worker = threading.Thread(
         target=_run_pipeline_job,
         args=(job_id, image_path, job_dir, stop_after, ocr_route, gemini_postprocess_match_threshold, resolved_weight_file),
+        kwargs={"debug_artifacts": debug_artifacts},
         daemon=True,
     )
     worker.start()
@@ -1283,6 +1288,7 @@ async def resume_pipeline_job_from_stage(job_id: str, stage: str):
         ocr_route = str(job.get("ocr_route") or "ocrmac")
         gemini_threshold = float(job.get("gemini_postprocess_match_threshold") or 0.1)
         weight_file = str(job.get("weight_file") or resolve_pipeline_weight_file(""))
+        debug_artifacts = bool(job.get("debug_artifacts", False))
         job["status"] = "queued"
         job["current_stage"] = stage_name
         job["error"] = None
@@ -1293,7 +1299,7 @@ async def resume_pipeline_job_from_stage(job_id: str, stage: str):
     worker = threading.Thread(
         target=_run_pipeline_job,
         args=(job_id, image_path, job_dir, stop_after, ocr_route, gemini_threshold, weight_file),
-        kwargs={"resume": True},
+        kwargs={"debug_artifacts": debug_artifacts, "resume": True},
         daemon=True,
     )
     worker.start()

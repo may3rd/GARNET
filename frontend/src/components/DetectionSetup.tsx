@@ -17,6 +17,8 @@ export function DetectionSetup() {
   const setPipelineOcrRoute = useAppStore((state) => state.setPipelineOcrRoute)
   const pipelineGeminiPostprocessMatchThreshold = useAppStore((state) => state.pipelineGeminiPostprocessMatchThreshold)
   const setPipelineGeminiPostprocessMatchThreshold = useAppStore((state) => state.setPipelineGeminiPostprocessMatchThreshold)
+  const pipelineDebugArtifacts = useAppStore((state) => state.pipelineDebugArtifacts)
+  const setPipelineDebugArtifacts = useAppStore((state) => state.setPipelineDebugArtifacts)
   const runDetection = useAppStore((state) => state.runDetection)
   const runPipeline = useAppStore((state) => state.runPipeline)
   const runBatchDetection = useAppStore((state) => state.runBatchDetection)
@@ -305,6 +307,20 @@ export function DetectionSetup() {
                 : pipelineOcrRoute === 'ocrmac'
                 ? 'Pipeline mode now defaults to OCRMac for Stage 2 during current development. OCRMac is macOS-only, fast on Apple hardware, and the backend will reject unsupported environments.'
                 : 'Pipeline mode runs the current Stage 1-11 flow: normalization, OCR, object detection, pipe mask, path tracing, trace associations, graph assembly, QA, reviewed outputs, process exports, and connection overlay.'}
+            </div>
+            <div className="flex items-start gap-2 rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] p-3">
+              <Checkbox
+                id="pipelineDebugArtifacts"
+                checked={pipelineDebugArtifacts}
+                onCheckedChange={(checked) => setPipelineDebugArtifacts(Boolean(checked))}
+                disabled={isLocked}
+              />
+              <label htmlFor="pipelineDebugArtifacts" className="cursor-pointer text-sm text-[var(--text-secondary)]">
+                <span className="block font-semibold text-[var(--text-primary)]">Save debug artifacts</span>
+                <span className="mt-1 block text-xs">
+                  Enables heavy path-tracing debug outputs such as per-path images and branch-candidate overlays.
+                </span>
+              </label>
             </div>
             {pipelineOcrRoute === 'gemini' && (
               <div className="space-y-2">

@@ -111,6 +111,41 @@ class PipelineApiTests(unittest.TestCase):
 
             self.assertEqual(run_calls, [(5, True)])
 
+    def test_pipeline_job_passes_debug_artifacts_to_pipeline_config(self) -> None:
+        client = TestClient(app)
+        sample_path = Path(__file__).resolve().parents[1] / "sample.png"
+        captured_debug_artifacts: list[bool] = []
+
+        class FakeDebugPipeline:
+            def __init__(self, image_path: str, output_dir: str, stage_callback=None, cfg=None) -> None:
+                captured_debug_artifacts.append(bool(getattr(cfg, "debug_artifacts", False)))
+                self.stage_manifest = {"stages": [{"name": "stage1_input_normalization"}]}
+
+            def run(self, stop_after: int, resume: bool = False) -> None:
+                return None
+
+        with patch("api.PIDPipeline", FakeDebugPipeline):
+            with sample_path.open("rb") as f:
+                response = client.post(
+                    "/api/pipeline/jobs",
+                    files={"file_input": ("sample.png", f, "image/png")},
+                    data={
+                        "stop_after": "1",
+                        "ocr_route": "ocrmac",
+                        "debug_artifacts": "true",
+                    },
+                )
+            self.assertEqual(response.status_code, 200)
+            job_id = response.json()["job_id"]
+            deadline = time.time() + 5
+            while time.time() < deadline and not captured_debug_artifacts:
+                time.sleep(0.05)
+            poll = client.get(f"/api/pipeline/jobs/{job_id}")
+
+        self.assertEqual(poll.status_code, 200)
+        self.assertEqual(captured_debug_artifacts, [True])
+        self.assertTrue(poll.json()["debug_artifacts"])
+
     def test_pipeline_review_state_get_returns_empty_default(self) -> None:
         client = TestClient(app)
         with tempfile.TemporaryDirectory() as tmp:

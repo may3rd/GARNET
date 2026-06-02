@@ -74,6 +74,7 @@ export type PipelineJob = {
   stop_after: number
   ocr_route: OcrRoute
   weight_file?: string
+  debug_artifacts?: boolean
   gemini_postprocess_match_threshold?: number
   manifest: PipelineManifest | null
   artifacts: PipelineArtifact[]
