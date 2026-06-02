@@ -1,12 +1,30 @@
 """
-Stage-based P&ID pipeline rebuild.
+Stage-based P&ID digitizing pipeline.
 
-The current implementation intentionally stays small and reviewable:
-- Stage 1: input normalization
-- Stage 2: selected OCR route discovery
-- Stage 3: HITL - create major equipment bounding box via frontend UI
-- Stage 4: fixed-baseline object detection
-- Stage 5: provisional pipe-mask generation
+Current executable pipeline:
+- Stage 1: normalize the source image and save binary review artifacts.
+- Stage 2: run the selected OCR route and emit text-region artifacts.
+- Stage 3: reserved HITL review/input outside this runner, currently used for
+  major equipment bounding boxes supplied through LabelMe/frontend review.
+- Stage 4: run fixed-baseline object detection, topology-marker routing, line
+  number fusion, and instrument-tag fusion.
+- Stage 5: build a provisional pipe mask, compute/snap connection ports, trace
+  port paths, and iteratively trace tee-branch paths with CV geometry.
+  Heavy per-trace and per-branch diagnostic images are saved only when
+  debug_artifacts is enabled.
+- Stage 6: associate traced paths with ports, inline objects, line numbers,
+  instruments, flow arrows, and terminals. Missing line numbers are currently
+  filled by a deterministic simulated-HITL placeholder.
+- Stage 7: assemble and normalize the geometric trace graph, label page
+  connectors, run graph QA, and export the v1 graph payload.
+- Stage 8: build the graph/line-number HITL review package.
+- Stage 9: apply review decisions, or pass through when no decisions exist.
+- Stage 10: export process-facing line list, equipment connectivity, inline
+  MTO, inline observations, and instrument index.
+- Stage 11: render a connection-pipeline overlay for review.
+
+The stage numbering intentionally skips Stage 3 in this runner because HITL
+input is managed outside the automatic CLI flow.
 """
 
 from __future__ import annotations
@@ -31,7 +49,6 @@ from garnet.instrument_tag_fusion import run_instrument_tag_fusion_stage
 from garnet.line_number_fusion import run_line_number_fusion_stage
 from garnet.model_defaults import pick_default_weight_file
 from garnet.object_detection_sahi import DetectionSahiConfig, run_object_detection_sahi
-from garnet.path_tracer.cv_pipe_tracer import CVPipeTracer
 from garnet.ocrmac_sahi import OcrMacSahiConfig, run_ocrmac_sahi
 from garnet.render_connection_pipeline_overlay import render_overlay
 from garnet.paddle_ocr_sahi import PaddleOcrSahiConfig, run_paddle_ocr_sahi
@@ -69,6 +86,31 @@ DEFAULT_OUT.mkdir(parents=True, exist_ok=True)
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 ROOT_DIR = BACKEND_DIR.parent
 LINE_NUMBER_REVIEW_ASSUMPTION = "accepted_line_numbers_are_human_reviewed"
+STAGE_NUMBERING_NOTE = (
+    "Stage numbering intentionally skips Stage 3 in this runner; Stage 3 is "
+    "external HITL equipment/geometry review input, while automated execution "
+    "continues with Stage 4."
+)
+EQUIPMENT_LABELS = {
+    "vessel",
+    "column",
+    "pump",
+    "compressor",
+    "blower",
+    "heat exchanger",
+    "heat_exchanger",
+    "tank",
+    "reactor",
+    "mixer",
+    "pot",
+    "knockout drum",
+    "knockout_drum",
+    "filter",
+    "cooler",
+    "heater",
+    "injection pump",
+    "injection_pump",
+}
 
 
 def load_pipeline_env() -> None:
@@ -212,7 +254,7 @@ class PipelineConfig:
     instrument_tag_fusion_max_distance_px: float = 60.0
     equipment_tag_fusion_max_distance_px: float = 60.0
     equipment_tag_attachment_max_distance_px: float = 80.0
-    use_geometric_line_detection: bool = False
+    debug_artifacts: bool = False
     pipe_mask_ocr_padding: int = 1
     pipe_mask_object_inset: int = 1
     pipe_mask_inline_object_inset: int = 12
@@ -374,7 +416,8 @@ class PIDPipeline:
             "stop_after": stop_after,
             "ocr_route": self.cfg.ocr_route,
             "detection_weight_path": self.cfg.detection_weight_path,
-            "stage_numbering_note": "Stage numbering is intentionally sparse: Stage 3 is not implemented yet.",
+            "debug_artifacts": self.cfg.debug_artifacts,
+            "stage_numbering_note": STAGE_NUMBERING_NOTE,
             "stages": [],
         }
         self._write_stage_manifest()
@@ -459,9 +502,8 @@ class PIDPipeline:
             self.stage_manifest["stop_after"] = stop_after
             self.stage_manifest["ocr_route"] = self.cfg.ocr_route
             self.stage_manifest["detection_weight_path"] = self.cfg.detection_weight_path
-            self.stage_manifest["stage_numbering_note"] = (
-                "Stage numbering is intentionally sparse: Stage 3 is not implemented yet."
-            )
+            self.stage_manifest["debug_artifacts"] = self.cfg.debug_artifacts
+            self.stage_manifest["stage_numbering_note"] = STAGE_NUMBERING_NOTE
             last_completed_stage: str | None = None
             for entry in self.stage_manifest.get("stages", []):
                 if entry.get("status") == "completed" and isinstance(entry.get("name"), str):
@@ -843,41 +885,6 @@ class PIDPipeline:
             self._save_json("stage2_gemini_patch_requests", ocr_result.get("patch_requests", []))
             self._save_json("stage2_gemini_patch_raw", ocr_result.get("patch_raw", []))
             self._save_json("stage2_gemini_crop_raw", ocr_result.get("crop_raw", []))
-
-    def stage2b_ocr_tag_refinement(self) -> None:
-        """Reclassify OCR unknown→instrument_tag regions near S4 instrument tag bboxes.
-
-        Runs after stage4_instrument_tag_fusion so that S4 instrument tag bboxes
-        are available for proximity-based reclassification.
-        """
-        s4_payload = self._load_json_artifact_or_default(
-            "stage4_instrument_tags", {"instrument_tags": []}
-        )
-        instrument_tag_bboxes = s4_payload.get("instrument_tags", [])
-        if not instrument_tag_bboxes:
-            print("[INFO] No S4 instrument tags found, skipping OCR refinement")
-            return
-
-        ocr_payload = self._load_json_artifact("stage2_ocr_regions")
-        text_regions = ocr_payload.get("text_regions", [])
-
-        from garnet.ocrmac_sahi import _reclassify_nearby_tags
-        refined = _reclassify_nearby_tags(text_regions, instrument_tag_bboxes, proximity_px=120.0)
-
-        # Compute reclassification stats
-        reclassified = sum(
-            1 for r, orig in zip(refined, text_regions)
-            if r.get("class") == "instrument_tag" and orig.get("class") == "unknown"
-        )
-
-        ocr_payload["text_regions"] = refined
-        self._save_json("stage2_ocr_regions", ocr_payload)
-        self._save_json("stage2_ocr_refinement_summary", {
-            "reclassified_to_instrument_tag": reclassified,
-            "total_regions": len(refined),
-            "proximity_px": 120.0,
-        })
-        print(f"[INFO] OCR refinement: {reclassified} unknown → instrument_tag")
 
     # ---------- Stage 4 ----------
     def stage4_object_detection(self) -> None:
@@ -2474,7 +2481,7 @@ class PIDPipeline:
                     "new_trace_sources": 0,
                     "stop_reason": "no_new_candidates",
                 })
-                if candidate_overlay_base is not None:
+                if self.cfg.debug_artifacts and candidate_overlay_base is not None:
                     candidate_overlay = self._draw_stage5b_branch_candidate_overlay(
                         candidate_overlay_base,
                         new_candidates,
@@ -2493,7 +2500,7 @@ class PIDPipeline:
                     "new_trace_sources": 0,
                     "stop_reason": "no_new_queued_candidates",
                 })
-                if candidate_overlay_base is not None:
+                if self.cfg.debug_artifacts and candidate_overlay_base is not None:
                     candidate_overlay = self._draw_stage5b_branch_candidate_overlay(
                         candidate_overlay_base,
                         new_candidates,
@@ -2537,7 +2544,7 @@ class PIDPipeline:
                 "new_trace_sources": new_trace_sources,
                 "stop_reason": "max_iterations" if iteration == max_iterations else None,
             })
-            if candidate_overlay_base is not None:
+            if self.cfg.debug_artifacts and candidate_overlay_base is not None:
                 candidate_overlay = self._draw_stage5b_branch_candidate_overlay(
                     candidate_overlay_base,
                     new_candidates,
@@ -3068,38 +3075,25 @@ class PIDPipeline:
             len(conn_objects),
         )
 
-        # --- Equipment port detection from LabelMe ground truth ---
-        # YOLO PPCL model currently lacks vessel/column/HEX classes, so we use
-        # the LabelMe JSON as the source of truth for equipment bboxes.
-        equip_labels = {
-            "vessel", "column", "pump", "compressor", "blower",
-            "heat exchanger", "tank", "reactor", "mixer", "pot",
-            "knockout drum", "filter", "cooler", "heater",
-            "injection pump",
-        }
-        equip_shapes = self._load_equipment_labelme()
-        if equip_shapes:
-            logger.info("Equipment port detection (LabelMe): %d equipment shapes", len(equip_shapes))
-            for i, shape in enumerate(equip_shapes):
-                label = shape.get("label", "").strip()
-                if label.lower() not in equip_labels:
-                    continue
-                pts = shape.get("points", [])
-                if len(pts) != 2:
-                    continue
-                x1 = int(round(pts[0][0]))
-                y1 = int(round(pts[0][1]))
-                x2 = int(round(pts[1][0]))
-                y2 = int(round(pts[1][1]))
-                bbox = {"x_min": min(x1, x2), "y_min": min(y1, y2),
-                        "x_max": max(x1, x2), "y_max": max(y1, y2)}
-                eq_id = f"equip_{i}_{label.replace(' ', '_')}"
+        # --- Equipment port detection from Stage 3 HITL bboxes, LabelMe fallback ---
+        equipment_bboxes = self._load_equipment_bboxes_for_stage5b()
+        if equipment_bboxes:
+            logger.info("Equipment port detection: %d equipment bboxes", len(equipment_bboxes))
+            for equipment_obj in equipment_bboxes:
+                eq_id = str(equipment_obj["id"])
+                label = str(equipment_obj.get("class_name", "equipment"))
+                bbox = equipment_obj["bbox"]
                 eq_ports = self._detect_equipment_ports_cv(image, bbox)
                 if eq_ports:
                     ports[eq_id] = eq_ports
                     port_str = ", ".join(f"{d}({x},{y})" for x, y, d in eq_ports)
-                    logger.info("  %s (%s) -> %d ports: %s",
-                              eq_id, label, len(eq_ports), port_str)
+                    logger.info(
+                        "  %s (%s) -> %d ports: %s",
+                        eq_id,
+                        label,
+                        len(eq_ports),
+                        port_str,
+                    )
                 else:
                     logger.info("  %s (%s) -> no ports detected", eq_id, label)
 
@@ -3113,11 +3107,28 @@ class PIDPipeline:
     def stage5b_pipe_trace(self) -> None:
         """Trace pipes from each connection port to their terminals using CV.
 
-        Uses the pipe mask (stage5) to walk from each port pixel-by-pixel.
-        Detects turns, inline objects, and terminals (page connections,
-        instrument tags, equipment, tee junctions, sheet edges, dead ends).
+        Uses the Stage 5 pipe mask and Stage 5 connection ports to walk from
+        each object/equipment port. The tracer detects straight runs, turns,
+        inline pass-through objects, PSV-style orthogonal exits, ray-cast jumps
+        over small symbols/gaps, and terminal types such as page connections,
+        instrument tags, equipment, tee junctions, sheet edges, and dead ends.
 
-        Saves stage5b_trace_results.json and stage5b_trace_overlay.png.
+        After port tracing, tee-branch candidates are found from saved paths and
+        traced iteratively until no new branch nodes are discovered or the loop
+        limit is reached.
+
+        Main artifacts include:
+        - stage5_connection_ports.json
+        - stage5b_trace_results.json
+        - stage5b_branch_candidates.json
+        - stage5b_branch_trace_results.json
+        - stage5b_trace_overlay.png
+        - stage5b_branch_trace_overlay.png
+
+        Debug-only artifacts include:
+        - stage5b_branch_candidates_overlay.png
+        - stage5b_branch_candidates_iter_XX_overlay.png
+        - stage5b_traced_path/*.png
         """
         from garnet.path_tracer.cv_pipe_tracer import CVPipeTracer
 
@@ -3177,38 +3188,10 @@ class PIDPipeline:
             )
         ]
 
-        # Load LabelMe equipment bboxes (YOLO PPCL lacks vessel/column/HEX classes)
-        equip_labels = {
-            "vessel", "column", "pump", "compressor", "blower",
-            "heat exchanger", "tank", "reactor", "mixer", "pot",
-            "knockout drum", "filter", "cooler", "heater",
-            "injection pump",
-        }
-        labelme_shapes = self._load_equipment_labelme()
-        for i, shape in enumerate(labelme_shapes):
-            label = shape.get("label", "").strip()
-            if label.lower() not in equip_labels:
-                continue
-            pts = shape.get("points", [])
-            if len(pts) != 2:
-                continue
-            x1 = int(round(pts[0][0]))
-            y1 = int(round(pts[0][1]))
-            x2 = int(round(pts[1][0]))
-            y2 = int(round(pts[1][1]))
-            equipment.append({
-                "id": f"equip_{i}_{label.replace(' ', '_')}",
-                "class_name": label,
-                "bbox": {
-                    "x_min": min(x1, x2), "y_min": min(y1, y2),
-                    "x_max": max(x1, x2), "y_max": max(y1, y2),
-                },
-            })
-        if labelme_shapes:
-            logger.info("Added %d LabelMe equipment bboxes for tracer terminals",
-                         len([s for s in labelme_shapes
-                              if s.get("label", "").strip().lower() in equip_labels
-                              and len(s.get("points", [])) == 2]))
+        reviewed_equipment = self._load_equipment_bboxes_for_stage5b()
+        equipment.extend(reviewed_equipment)
+        if reviewed_equipment:
+            logger.info("Added %d Stage 3/fallback equipment bboxes for tracer terminals", len(reviewed_equipment))
 
         # Inline symbols (valves, reducers, etc.)
         inline_classes = {
@@ -3347,6 +3330,13 @@ class PIDPipeline:
         self._save_json("stage5b_trace_results", all_results)
         for stale_overlay in self.out_dir.glob("stage5b_branch_candidates_iter_*_overlay.png"):
             stale_overlay.unlink()
+        if not self.cfg.debug_artifacts:
+            stale_candidate_overlay = self.out_dir / "stage5b_branch_candidates_overlay.png"
+            if stale_candidate_overlay.exists():
+                stale_candidate_overlay.unlink()
+            stale_trace_dir = self.out_dir / "stage5b_traced_path"
+            if stale_trace_dir.exists():
+                shutil.rmtree(stale_trace_dir)
         branch_candidates, branch_results, branch_iterations = self._trace_stage5b_branches_iterative(
             pipe_mask=pipe_mask,
             image=image,
@@ -3357,7 +3347,7 @@ class PIDPipeline:
             inline_symbols=inline_symbols,
             node_symbols=node_symbols,
             visited=visited,
-            candidate_overlay_base=image,
+            candidate_overlay_base=image if self.cfg.debug_artifacts else None,
         )
         self._align_stage5b_branch_node_terminals(branch_results, node_symbols)
         self._save_json("stage5b_branch_candidates", {
@@ -3489,47 +3479,30 @@ class PIDPipeline:
         # Draw equipment ports (cyan markers from stage5_connection_ports)
         self._draw_equipment_port_markers(overlay, ports)
 
-        # Draw equipment bboxes from LabelMe ground truth
+        # Draw equipment bboxes from Stage 3 HITL artifact or LabelMe fallback.
         self._draw_equipment_ground_truth(overlay)
 
         self._save_img("stage5b_trace_overlay", overlay)
-        branch_overlay = self._draw_stage5b_branch_candidate_overlay(
-            overlay,
-            branch_candidates,
-            branch_results=branch_results,
-        )
-        self._save_img("stage5b_branch_candidates_overlay", branch_overlay)
+        if self.cfg.debug_artifacts:
+            branch_overlay = self._draw_stage5b_branch_candidate_overlay(
+                overlay,
+                branch_candidates,
+                branch_results=branch_results,
+            )
+            self._save_img("stage5b_branch_candidates_overlay", branch_overlay)
         branch_trace_overlay = self._draw_stage5b_branch_trace_overlay(
             overlay,
             branch_results,
         )
         self._save_img("stage5b_branch_trace_overlay", branch_trace_overlay)
-        self._write_stage5b_individual_trace_images(
-            image,
-            all_results,
-            branch_results,
-        )
+        if self.cfg.debug_artifacts:
+            self._write_stage5b_individual_trace_images(
+                image,
+                all_results,
+                branch_results,
+            )
 
-    # ---------- Stage 5: Geometric line-detection alternative ----------
-
-
-
-    # ---------- Stage 5 dispatcher ----------
-
-    # ---------- Stage 6 ----------
-
-    # ---------- Stage 7 ----------
-
-    # ---------- Stage 8 ----------
-
-    # ---------- Stage 9 ----------
-
-    # ---------- Stage 10 ----------
-
-
-
-
-    # ---------- Stage 11 ----------
+    # ---------- Stage 6+: trace association, graph assembly, QA, review, exports ----------
     def _trace_assoc_point_to_segment(
         self,
         px: float,
@@ -3830,7 +3803,14 @@ class PIDPipeline:
         return overlay
 
     def stage6_trace_associations(self) -> None:
-        """Attach semantic detections to Stage 5b traced pipe paths."""
+        """Attach semantic evidence to Stage 5b traced pipe paths.
+
+        Associations are projected onto traced segments for equipment ports,
+        inline objects, line numbers, instrument tags, flow arrows, and
+        terminals. Line numbers missing from a trace are temporarily filled by a
+        deterministic simulated-HITL assignment so later graph/export stages can
+        continue before the real review UI is wired in.
+        """
         image_id = Path(self.image_path).name
         object_payload = self._load_json_artifact("stage4_objects")
         objects = object_payload.get("objects", [])
@@ -4059,7 +4039,7 @@ class PIDPipeline:
 
 
     def stage7_geometric_graph_assembly(self) -> None:
-        """Build the geometric graph directly from Stage 6 traced paths."""
+        """Build and QA the geometric graph directly from Stage 6 traced paths."""
         stage6_path = self.out_dir / "stage6_trace_associations.json"
         stage11_path = self.out_dir / "stage11_trace_associations.json"
         if not stage6_path.exists() and not stage11_path.exists():
@@ -4095,6 +4075,7 @@ class PIDPipeline:
         self._save_img("stage7_graph_qa_overlay", trace_graph_qa_result["overlay_image"])
 
     def stage7c_page_connector_labeling(self) -> None:
+        """Attach nearby OCR labels to accepted page-connection objects."""
         from garnet.page_connector import find_nearby_text
 
         connection_payload = self._load_json_artifact_or_default_compat("stage7_connection_attachments", "stage12_connection_attachments", {"accepted": []})
@@ -4121,6 +4102,7 @@ class PIDPipeline:
         )
 
     def stage7b_graph_export(self) -> None:
+        """Export the Stage 7 graph into the API/frontend graph-v1 payload."""
         graph_payload = self._load_json_artifact_compat("stage7_graph", "stage12_graph")
         object_payload = self._load_json_artifact("stage4_objects")
         line_number_payload = self._load_json_artifact("stage4_line_numbers")
@@ -4149,6 +4131,7 @@ class PIDPipeline:
 
     # ---------- Stage 8 + 9 ----------
     def stage8_graph_qa(self) -> None:
+        """Build the HITL review package from graph QA and line-number review state."""
         graph_payload = self._load_json_artifact_compat("stage7_graph", "stage12_graph")
         stage7_qa_path = self.out_dir / "stage7_graph_qa.json"
         stage12_qa_path = self.out_dir / "stage12_graph_qa.json"
@@ -4179,7 +4162,11 @@ class PIDPipeline:
 
 
     def stage9_apply_review_decisions(self) -> None:
-        """Apply Stage 8 review decisions to produce the corrected trace graph."""
+        """Apply Stage 8 review decisions to produce the corrected trace graph.
+
+        When no decisions are present, this stage keeps the graph unchanged and
+        records a pass-through correction audit.
+        """
         image_id = Path(self.image_path).name
         result = apply_stage9_review_decisions(
             image_id=image_id,
@@ -4195,7 +4182,12 @@ class PIDPipeline:
     # ---------- Stage 10 ----------
 
     def stage10_process_exports(self) -> None:
-        """Export process-facing tables from the corrected trace graph."""
+        """Export process-facing tables from the corrected trace graph.
+
+        Outputs include line list, equipment connectivity, unique physical
+        inline-object MTO, inline observations, instrument index, and review
+        overlays for inline objects and associated line numbers.
+        """
         image_id = Path(self.image_path).name
         result = build_stage10_process_exports(
             image_id=image_id,
@@ -4223,15 +4215,16 @@ class PIDPipeline:
     # ---------- Stage 11 ----------
     def stage11_connection_overlay(self) -> None:
         """
-        Stage 11: render connection + pipe-segment overlay.
+        Render the final connection + pipe-segment overlay.
 
         Uses render_overlay() from render_connection_pipeline_overlay.py to draw:
         - Red pipe segments connected to accepted page-connection anchors
         - Orange inline element connectors
         - Blue page-connection marker boxes + anchor dots + labels
 
-        Runs after Stage 7 (needs connection_attachments + edge_connections)
-        and uses stage4_objects as the background reference.
+        Runs after Stage 7 and uses Stage 4 objects as the background reference.
+        If optional Stage 7 connection attachment artifacts are missing, empty
+        compatibility payloads are created so the overlay still renders.
         """
         out = self.out_dir
         overlay_path = out / "stage11_connection_pipeline_overlay.png"
@@ -4279,6 +4272,92 @@ class PIDPipeline:
             data = _json.load(f)
         return data.get("shapes", [])
 
+    def _normalize_equipment_object(
+        self,
+        item: dict[str, Any],
+        *,
+        fallback_id: str,
+        source: str,
+    ) -> dict[str, Any] | None:
+        label = str(item.get("class_name") or item.get("label") or "").strip()
+        if label.lower() not in EQUIPMENT_LABELS:
+            return None
+        bbox = item.get("bbox")
+        if not isinstance(bbox, dict):
+            pts = item.get("points", [])
+            if len(pts) != 2:
+                return None
+            x1 = int(round(float(pts[0][0])))
+            y1 = int(round(float(pts[0][1])))
+            x2 = int(round(float(pts[1][0])))
+            y2 = int(round(float(pts[1][1])))
+            bbox = {
+                "x_min": min(x1, x2),
+                "y_min": min(y1, y2),
+                "x_max": max(x1, x2),
+                "y_max": max(y1, y2),
+            }
+        try:
+            norm_bbox = {
+                "x_min": int(round(float(bbox["x_min"]))),
+                "y_min": int(round(float(bbox["y_min"]))),
+                "x_max": int(round(float(bbox["x_max"]))),
+                "y_max": int(round(float(bbox["y_max"]))),
+            }
+        except (KeyError, TypeError, ValueError):
+            return None
+        if norm_bbox["x_max"] <= norm_bbox["x_min"] or norm_bbox["y_max"] <= norm_bbox["y_min"]:
+            return None
+        result = dict(item)
+        result.update(
+            {
+                "id": str(item.get("id") or fallback_id),
+                "class_name": label,
+                "bbox": norm_bbox,
+                "source": str(item.get("source") or source),
+            }
+        )
+        result.setdefault("review_state", "accepted" if source == "hitl" else "fallback")
+        return result
+
+    def _load_stage3_equipment_bboxes(self) -> list[dict[str, Any]]:
+        payload = self._load_json_artifact_or_default("stage3_equipment_bboxes", {})
+        raw_items = payload.get("equipment", []) if isinstance(payload, dict) else []
+        equipment: list[dict[str, Any]] = []
+        for index, item in enumerate(raw_items):
+            if not isinstance(item, dict):
+                continue
+            normalized = self._normalize_equipment_object(
+                item,
+                fallback_id=f"equip_{index:03d}",
+                source="hitl",
+            )
+            if normalized is not None:
+                equipment.append(normalized)
+        return equipment
+
+    def _load_labelme_equipment_bboxes(self) -> list[dict[str, Any]]:
+        equipment: list[dict[str, Any]] = []
+        for index, shape in enumerate(self._load_equipment_labelme()):
+            normalized = self._normalize_equipment_object(
+                shape,
+                fallback_id=f"equip_{index}_{str(shape.get('label', 'equipment')).replace(' ', '_')}",
+                source="labelme_fallback",
+            )
+            if normalized is not None:
+                equipment.append(normalized)
+        return equipment
+
+    def _load_equipment_bboxes_for_stage5b(self) -> list[dict[str, Any]]:
+        stage3_equipment = self._load_stage3_equipment_bboxes()
+        if stage3_equipment:
+            logger.info("Loaded %d Stage 3 equipment bboxes", len(stage3_equipment))
+            return stage3_equipment
+        labelme_equipment = self._load_labelme_equipment_bboxes()
+        if labelme_equipment:
+            logger.info("Loaded %d LabelMe equipment bboxes as Stage 3 fallback", len(labelme_equipment))
+        return labelme_equipment
+
     def _draw_equipment_port_markers(
         self, overlay: np.ndarray, ports: dict[str, list[tuple[int, int, str]]]
     ) -> None:
@@ -4313,37 +4392,20 @@ class PIDPipeline:
                     _cv2.arrowedLine(overlay, (px, py), (ax, ay), (255, 200, 0), 2, tipLength=0.3)
 
     def _draw_equipment_ground_truth(self, overlay: np.ndarray) -> None:
-        """Draw LabelMe equipment bboxes on the trace overlay."""
-        import json as _json
-
-        json_path = self._find_equipment_json()
-        if json_path is None:
+        """Draw Stage 3 equipment bboxes, falling back to LabelMe bboxes."""
+        equipment = self._load_equipment_bboxes_for_stage5b()
+        if not equipment:
             return
-
-        with open(json_path, "r", encoding="utf-8") as f:
-            data = _json.load(f)
-
-        # Equipment that gets distinct overlay styling
-        equip_labels = {
-            "vessel", "pump", "compressor", "blower", "column",
-            "heat exchanger", "tank", "reactor", "mixer", "pot",
-            "knockout drum", "filter", "cooler", "heater",
-            "injection pump",
-        }
         equip_color = (220, 120, 0)  # orange
         equip_thickness = 2
 
         import cv2 as _cv2
 
-        for shape in data.get("shapes", []):
-            label = shape.get("label", "").strip()
-            if label.lower() not in equip_labels:
-                continue
-            pts = shape.get("points", [])
-            if len(pts) != 2:
-                continue
-            x1, y1 = int(round(pts[0][0])), int(round(pts[0][1]))
-            x2, y2 = int(round(pts[1][0])), int(round(pts[1][1]))
+        for item in equipment:
+            label = str(item.get("class_name", "equipment")).strip()
+            bbox = item["bbox"]
+            x1, y1 = bbox["x_min"], bbox["y_min"]
+            x2, y2 = bbox["x_max"], bbox["y_max"]
             _cv2.rectangle(overlay, (x1, y1), (x2, y2), equip_color, equip_thickness)
             _cv2.putText(
                 overlay, label.title(),
@@ -4352,25 +4414,57 @@ class PIDPipeline:
             )
 
 
+def _resolve_cli_weight_file(weight_file: str) -> str:
+    """Resolve and validate the optional Stage 4 YOLO weight path."""
+    if not weight_file:
+        return PipelineConfig().detection_weight_path
+    raw_path = Path(weight_file).expanduser()
+    resolved_path = raw_path if raw_path.is_absolute() else BACKEND_DIR / raw_path
+    if not resolved_path.exists():
+        raise FileNotFoundError(f"Weight file not found: {weight_file}")
+    try:
+        return str(resolved_path.relative_to(BACKEND_DIR))
+    except ValueError:
+        return str(resolved_path)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser("P&ID pipeline")
     parser.add_argument("--image", required=True)
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     parser.add_argument("--ocr-route", choices=["easyocr", "gemini", "paddleocr", "ocrmac"], default="ocrmac")
-    parser.add_argument("--stop-after", type=int, default=2, help="Run up to this stage (1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, or 15)")
     parser.add_argument(
-        "--geometric",
+        "--weight-file",
+        default="",
+        help=(
+            "Stage 4 YOLO weight file. Relative paths are resolved from the backend directory, "
+            "for example yolo_weights/my_model.pt. Defaults to the configured yolo_weights model."
+        ),
+    )
+    parser.add_argument(
+        "--stop-after",
+        type=int,
+        default=2,
+        help=(
+            "Run up to this automated stage. Valid values are "
+            "1, 2, 4, 5, 6, 7, 8, 9, 10, or 11. Stage 3 is external HITL input."
+        ),
+    )
+    parser.add_argument(
+        "--debug-artifacts",
         action="store_true",
         default=False,
-        help="Use geometric line detection path (includes CV pipe tracer)",
+        help="Save heavy diagnostic artifacts such as Stage 5b per-trace images and branch-candidate iteration overlays.",
     )
     args = parser.parse_args()
+    detection_weight_path = _resolve_cli_weight_file(args.weight_file)
     pipe = PIDPipeline(
         args.image,
         output_dir=args.out,
         cfg=PipelineConfig(
             ocr_route=args.ocr_route,
-            use_geometric_line_detection=args.geometric,
+            detection_weight_path=detection_weight_path,
+            debug_artifacts=args.debug_artifacts,
         ),
     )
     pipe.run(stop_after=args.stop_after)

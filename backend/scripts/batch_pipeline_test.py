@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-batch_pipeline_test.py — run full pipeline on multiple images with both default
-and geometric Stage 5 methods, saving outputs to GARNET project folder.
+batch_pipeline_test.py — run full pipeline on multiple images, saving outputs
+to GARNET project folder.
 """
 from __future__ import annotations
 
@@ -36,11 +36,11 @@ TEST_IMAGES = [
 ]
 
 
-def run_one(label: str, image_path: Path, geometric: bool) -> dict:
-    out_dir = OUTPUT_ROOT / label / ("geometric" if geometric else "default")
+def run_one(label: str, image_path: Path) -> dict:
+    out_dir = OUTPUT_ROOT / label / "default"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    cfg = PipelineConfig(use_geometric_line_detection=geometric, ocr_route="easyocr")
+    cfg = PipelineConfig(ocr_route="easyocr")
 
     # Change to out_dir so PIDPipeline's relative "output" path resolves correctly.
     # Without this, the pipeline writes to backend/output/ (relative to CWD) instead
@@ -57,40 +57,22 @@ def run_one(label: str, image_path: Path, geometric: bool) -> dict:
     # Collect key artifacts
     result = {
         "image": image_path.name,
-        "geometric": geometric,
         "elapsed_s": round(elapsed, 2),
         "output_dir": str(out_dir),
     }
 
-    # Stage 5 geometric summary (if geometric)
-    geo_summary = out_dir / "stage5_geometric_summary.json"
-    if geo_summary.exists():
-        result["stage5_summary"] = json.loads(geo_summary.read_text())
-
-    # Stage 5 pipe mask summary (both)
+    # Stage 5 pipe mask summary
     pm_summary = out_dir / "stage5_pipe_mask_summary.json"
     if pm_summary.exists():
         result["pipe_mask_summary"] = json.loads(pm_summary.read_text())
 
-    # Stage 6 sealing summary
-    seal_summary = out_dir / "stage6_pipe_mask_sealed_summary.json"
-    if seal_summary.exists():
-        result["sealing_summary"] = json.loads(seal_summary.read_text())
+    graph_summary = out_dir / "stage7_graph_summary.json"
+    if graph_summary.exists():
+        result["graph_summary"] = json.loads(graph_summary.read_text())
 
-    # Stage 10 continuity
-    cont = out_dir / "stage10_continuity_result.json"
-    if cont.exists():
-        result["continuity_result"] = json.loads(cont.read_text())
-
-    # Stage 10 gap summary
-    gap = out_dir / "stage10_gap_summary.json"
-    if gap.exists():
-        result["gap_summary"] = json.loads(gap.read_text())
-
-    # Stage 9 cluster summary
-    cluster = out_dir / "stage9_node_cluster_summary.json"
-    if cluster.exists():
-        result["node_cluster_summary"] = json.loads(cluster.read_text())
+    export_summary = out_dir / "stage10_process_export_summary.json"
+    if export_summary.exists():
+        result["process_export_summary"] = json.loads(export_summary.read_text())
 
     return result
 
@@ -102,31 +84,23 @@ def main():
             print(f"SKIP: {img_path.name} (not found)")
             continue
 
-        base = prefix / "geometric" if False else prefix  # just for display
         label = f"{prefix}/{img_path.stem}"
 
-        for geometric in [True]:  # only geometric for now
-            mode = "GEOMETRIC" if geometric else "default"
-            print(f"\n{'='*60}")
-            print(f"  {mode:10s}  {img_path.name}")
-            print(f"{'='*60}")
-            try:
-                r = run_one(label, img_path, geometric)
-                results.append(r)
-                status = "OK"
-                if "stage5_summary" in r:
-                    s = r["stage5_summary"]
-                    status += f"  segs={s.get('final_segments', '?')} H={s.get('horizontal_count', '?')} V={s.get('vertical_count', '?')}"
-                status += f"  {r['elapsed_s']:.0f}s"
-                print(f"  → {status}")
-            except Exception as e:
-                print(f"  → FAILED: {e}")
-                results.append({
-                    "image": img_path.name,
-                    "geometric": geometric,
-                    "error": str(e),
-                    "output_dir": str(OUTPUT_ROOT / label / ("geometric" if geometric else "default")),
-                })
+        print(f"\n{'='*60}")
+        print(f"  CURRENT     {img_path.name}")
+        print(f"{'='*60}")
+        try:
+            r = run_one(label, img_path)
+            results.append(r)
+            status = f"OK  {r['elapsed_s']:.0f}s"
+            print(f"  -> {status}")
+        except Exception as e:
+            print(f"  -> FAILED: {e}")
+            results.append({
+                "image": img_path.name,
+                "error": str(e),
+                "output_dir": str(OUTPUT_ROOT / label / "default"),
+            })
 
     # Write master report
     report_path = OUTPUT_ROOT / "batch_pipeline_report.json"

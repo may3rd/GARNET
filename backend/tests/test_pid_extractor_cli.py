@@ -198,6 +198,25 @@ class PIDPipelineRunnerTests(unittest.TestCase):
         self.assertEqual(cfg.arrow_proximity_px, 40.0)
         self.assertEqual(cfg.inline_split_confidence_threshold, 0.5)
 
+    def test_resolve_cli_weight_file_accepts_backend_relative_path(self) -> None:
+        weight_dir = pid_extractor.BACKEND_DIR / "yolo_weights"
+        weight_dir.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            dir=weight_dir,
+            suffix=".pt",
+        ) as tmp_weight:
+            weight_path = Path(tmp_weight.name)
+
+            resolved = pid_extractor._resolve_cli_weight_file(
+                f"yolo_weights/{weight_path.name}"
+            )
+
+        self.assertEqual(resolved, f"yolo_weights/{weight_path.name}")
+
+    def test_resolve_cli_weight_file_rejects_missing_path(self) -> None:
+        with self.assertRaisesRegex(FileNotFoundError, "Weight file not found"):
+            pid_extractor._resolve_cli_weight_file("yolo_weights/does-not-exist.pt")
+
     def test_load_pipeline_env_reads_root_then_backend_env(self) -> None:
         with patch("garnet.pid_extractor.load_dotenv") as mock_load_dotenv:
             pid_extractor.load_pipeline_env()

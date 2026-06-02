@@ -20,6 +20,97 @@ except ModuleNotFoundError as exc:
 
 @unittest.skipIf(app is None, "pdf2image is not installed in this test environment")
 class PipelineApiTests(unittest.TestCase):
+    def test_pipeline_stage_status_reports_stale_after_stage3_artifact_update(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp:
+            job_id = "stage_state_job_1"
+            manifest = {
+                "stages": [
+                    {"num": 1, "name": "stage1_input_normalization", "status": "completed"},
+                    {"num": 2, "name": "stage2_ocr_discovery", "status": "completed"},
+                    {"num": 4, "name": "stage4_object_detection", "status": "completed"},
+                    {"num": 5, "name": "stage5_pipe_mask", "status": "completed"},
+                    {"num": 5, "name": "stage5b_pipe_trace", "status": "completed"},
+                    {"num": 6, "name": "stage6_trace_associations", "status": "completed"},
+                ]
+            }
+            with open(Path(tmp) / "stage_manifest.json", "w", encoding="utf-8") as f:
+                json.dump(manifest, f)
+            with patch.dict("api.PIPELINE_JOBS", {job_id: {
+                "job_id": job_id,
+                "status": "completed",
+                "current_stage": "stage6_trace_associations",
+                "error": None,
+                "job_dir": tmp,
+                "created_at": time.time(),
+                "stop_after": 6,
+                "ocr_route": "ocrmac",
+                "gemini_postprocess_match_threshold": 0.1,
+                "weight_file": "yolo_weights/model.pt",
+            }}, clear=False):
+                response = client.put(
+                    f"/api/pipeline/jobs/{job_id}/artifacts/stage3_equipment_bboxes.json",
+                    json={"equipment": [{"id": "equip_001", "class_name": "vessel", "bbox": {"x_min": 1, "y_min": 2, "x_max": 10, "y_max": 20}}]},
+                )
+                self.assertEqual(response.status_code, 200)
+
+                status_response = client.get(f"/api/pipeline/jobs/{job_id}/stage-status")
+
+            self.assertEqual(status_response.status_code, 200)
+            stages = {item["name"]: item for item in status_response.json()["stages"]}
+            self.assertEqual(stages["stage5b_pipe_trace"]["status"], "stale")
+            self.assertEqual(stages["stage6_trace_associations"]["status"], "stale")
+            self.assertEqual(stages["stage4_object_detection"]["status"], "completed")
+            self.assertTrue((Path(tmp) / "stage3_equipment_bboxes.json").exists())
+            self.assertFalse((Path(tmp) / "stage5_connection_ports.json").exists())
+
+    def test_pipeline_resume_from_stage_reruns_from_requested_stage(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "input.png"
+            image_path.write_bytes(b"placeholder")
+            manifest = {
+                "image_path": str(image_path),
+                "stages": [
+                    {"num": 1, "name": "stage1_input_normalization", "status": "completed"},
+                    {"num": 2, "name": "stage2_ocr_discovery", "status": "completed"},
+                    {"num": 5, "name": "stage5_pipe_mask", "status": "completed"},
+                    {"num": 5, "name": "stage5b_pipe_trace", "status": "stale"},
+                ],
+            }
+            with open(Path(tmp) / "stage_manifest.json", "w", encoding="utf-8") as f:
+                json.dump(manifest, f)
+
+            run_calls: list[tuple[int, bool]] = []
+
+            class FakeResumePipeline:
+                def __init__(self, image_path: str, output_dir: str, stage_callback=None, cfg=None) -> None:
+                    self.stage_manifest = {"stages": [{"name": "stage5b_pipe_trace"}]}
+
+                def run(self, stop_after: int, resume: bool = False) -> None:
+                    run_calls.append((stop_after, resume))
+
+            job_id = "stage_state_job_2"
+            with patch.dict("api.PIPELINE_JOBS", {job_id: {
+                "job_id": job_id,
+                "status": "completed",
+                "current_stage": "stage5b_pipe_trace",
+                "error": None,
+                "job_dir": tmp,
+                "created_at": time.time(),
+                "stop_after": 5,
+                "ocr_route": "ocrmac",
+                "gemini_postprocess_match_threshold": 0.1,
+                "weight_file": "yolo_weights/model.pt",
+            }}, clear=False), patch("api.PIDPipeline", FakeResumePipeline):
+                response = client.post(f"/api/pipeline/jobs/{job_id}/resume-from/stage5b_pipe_trace")
+                self.assertEqual(response.status_code, 200)
+                deadline = time.time() + 5
+                while time.time() < deadline and not run_calls:
+                    time.sleep(0.05)
+
+            self.assertEqual(run_calls, [(5, True)])
+
     def test_pipeline_review_state_get_returns_empty_default(self) -> None:
         client = TestClient(app)
         with tempfile.TemporaryDirectory() as tmp:

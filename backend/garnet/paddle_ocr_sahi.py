@@ -9,7 +9,6 @@ detection model through rapidocr-onnxruntime which bundles ONNX weights.
 from __future__ import annotations
 
 import logging
-import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any

@@ -7,12 +7,12 @@ from garnet.pid_extractor import PIDPipeline, PipelineConfig
 OUTPUT_ROOT = Path("/Users/maetee/Documents/1. PROJECTS/claude-workspace/projects/gcme/1_active/garnet/output")
 label = "ppcl"
 image_path = Path("/Volumes/Ginnungagap/maetee/Code/GARNET/backend/test/ppcl/Test-00001.jpg")
-out_dir = OUTPUT_ROOT / label / "geometric"
+out_dir = OUTPUT_ROOT / label / "default"
 out_dir.mkdir(parents=True, exist_ok=True)
 
 os.chdir(str(out_dir))
 
-cfg = PipelineConfig(use_geometric_line_detection=True, ocr_route="ocrmac")
+cfg = PipelineConfig(ocr_route="ocrmac")
 pipe = PIDPipeline(str(image_path), out_dir="output", cfg=cfg)
 pipe.run()
 print("Done")

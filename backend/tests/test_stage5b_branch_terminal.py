@@ -61,6 +61,70 @@ class Stage5bBranchTerminalTests(unittest.TestCase):
         self.assertEqual(branch["trace_length_px"], 106)
 
 
+class Stage5bEquipmentBboxLoaderTests(unittest.TestCase):
+    def setUp(self) -> None:
+        import tempfile
+        from pathlib import Path
+
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmpdir.cleanup)
+        self.root = Path(self.tmpdir.name)
+        self.pipeline = PIDPipeline.__new__(PIDPipeline)
+        self.pipeline.out_dir = self.root / "out"
+        self.pipeline.out_dir.mkdir()
+        self.pipeline.image_path = str(self.root / "pid.png")
+        (self.root / "pid.png").write_bytes(b"placeholder")
+
+    def test_stage3_equipment_bboxes_take_priority_over_labelme_fallback(self) -> None:
+        import json
+
+        (self.root / "pid.json").write_text(
+            json.dumps({
+                "shapes": [
+                    {"label": "pump", "points": [[1, 2], [11, 22]]},
+                ]
+            })
+        )
+        (self.pipeline.out_dir / "stage3_equipment_bboxes.json").write_text(
+            json.dumps({
+                "equipment": [
+                    {
+                        "id": "equip_hitl_001",
+                        "class_name": "vessel",
+                        "bbox": {"x_min": 10, "y_min": 20, "x_max": 110, "y_max": 220},
+                        "review_state": "accepted",
+                    }
+                ]
+            })
+        )
+
+        equipment = self.pipeline._load_equipment_bboxes_for_stage5b()
+
+        self.assertEqual(len(equipment), 1)
+        self.assertEqual(equipment[0]["id"], "equip_hitl_001")
+        self.assertEqual(equipment[0]["source"], "hitl")
+        self.assertEqual(equipment[0]["bbox"]["x_max"], 110)
+
+    def test_labelme_equipment_bboxes_are_fallback_when_stage3_missing(self) -> None:
+        import json
+
+        (self.root / "pid.json").write_text(
+            json.dumps({
+                "shapes": [
+                    {"label": "pump", "points": [[1, 2], [11, 22]]},
+                    {"label": "not equipment", "points": [[100, 100], [120, 120]]},
+                ]
+            })
+        )
+
+        equipment = self.pipeline._load_equipment_bboxes_for_stage5b()
+
+        self.assertEqual(len(equipment), 1)
+        self.assertEqual(equipment[0]["class_name"], "pump")
+        self.assertEqual(equipment[0]["source"], "labelme_fallback")
+        self.assertEqual(equipment[0]["bbox"], {"x_min": 1, "y_min": 2, "x_max": 11, "y_max": 22})
+
+
 if __name__ == "__main__":
     unittest.main()
 

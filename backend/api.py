@@ -369,6 +369,44 @@ RESULTS_LOCK = threading.RLock()
 PIPELINE_JOBS: dict[str, dict[str, Any]] = {}
 PIPELINE_JOBS_LOCK = threading.RLock()
 
+PIPELINE_STAGE_ORDER: list[tuple[int, str]] = [
+    (1, "stage1_input_normalization"),
+    (2, "stage2_ocr_discovery"),
+    (4, "stage4_object_detection"),
+    (4, "stage4_line_number_fusion"),
+    (4, "stage4_instrument_tag_fusion"),
+    (5, "stage5_pipe_mask"),
+    (5, "stage5b_pipe_trace"),
+    (6, "stage6_trace_associations"),
+    (7, "stage7_geometric_graph_assembly"),
+    (7, "stage7c_page_connector_labeling"),
+    (7, "stage7b_graph_export"),
+    (8, "stage8_graph_qa"),
+    (9, "stage9_apply_review_decisions"),
+    (10, "stage10_process_exports"),
+    (11, "stage11_connection_overlay"),
+]
+PIPELINE_STAGE_INDEX = {name: idx for idx, (_num, name) in enumerate(PIPELINE_STAGE_ORDER)}
+PIPELINE_STAGE_NUMBERS = {name: num for num, name in PIPELINE_STAGE_ORDER}
+
+ARTIFACT_INVALIDATION_START_STAGE: dict[str, str] = {
+    # Stage 3 is a HITL artifact. Stage 5b is the first stage that consumes
+    # reviewed equipment boxes for port detection and terminal matching.
+    "stage3_equipment_bboxes.json": "stage5b_pipe_trace",
+}
+
+STALE_ARTIFACTS_BY_SOURCE: dict[str, tuple[str, ...]] = {
+    "stage3_equipment_bboxes.json": (
+        "stage5_connection_ports.json",
+        "stage5_connection_ports_overlay.png",
+        "stage5b_trace_results.json",
+        "stage5b_branch_candidates.json",
+        "stage5b_branch_trace_results.json",
+        "stage5b_trace_overlay.png",
+        "stage5b_branch_trace_overlay.png",
+    ),
+}
+
 # Create Settings object
 settings = Settings.Settings()
 
@@ -774,6 +812,131 @@ def _pipeline_job_manifest(job_dir: str) -> dict[str, Any] | None:
         return json.load(f)
 
 
+def _write_pipeline_job_manifest(job_dir: str, manifest: dict[str, Any]) -> None:
+    manifest_path = os.path.join(job_dir, "stage_manifest.json")
+    tmp_path = os.path.join(job_dir, f".{os.path.basename(manifest_path)}.tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2)
+    os.replace(tmp_path, manifest_path)
+
+
+def _resolve_pipeline_stage(stage: str) -> tuple[int, str]:
+    raw_stage = str(stage).strip()
+    if not raw_stage:
+        raise HTTPException(status_code=400, detail="Stage is required")
+
+    if raw_stage.isdigit():
+        stage_num = int(raw_stage)
+        matching = [(num, name) for num, name in PIPELINE_STAGE_ORDER if num == stage_num]
+        if matching:
+            return matching[-1]
+
+    if raw_stage in PIPELINE_STAGE_NUMBERS:
+        return PIPELINE_STAGE_NUMBERS[raw_stage], raw_stage
+
+    raise HTTPException(status_code=400, detail=f"Unknown pipeline stage: {stage}")
+
+
+def _pipeline_stage_status(job_dir: str) -> list[dict[str, Any]]:
+    manifest = _pipeline_job_manifest(job_dir) or {}
+    entries_by_name: dict[str, dict[str, Any]] = {}
+    for entry in manifest.get("stages", []):
+        if isinstance(entry, dict) and isinstance(entry.get("name"), str):
+            entries_by_name[entry["name"]] = entry
+
+    statuses: list[dict[str, Any]] = []
+    for stage_num, stage_name in PIPELINE_STAGE_ORDER:
+        entry = entries_by_name.get(stage_name)
+        if entry is None:
+            statuses.append(
+                {
+                    "num": stage_num,
+                    "name": stage_name,
+                    "status": "pending",
+                }
+            )
+            continue
+        item = {
+            "num": int(entry.get("num", stage_num)),
+            "name": stage_name,
+            "status": str(entry.get("status", "pending")),
+        }
+        for key in (
+            "started_at",
+            "ended_at",
+            "duration_sec",
+            "error",
+            "stale_reason",
+            "stale_source_artifact",
+            "stale_at",
+            "artifacts",
+        ):
+            if key in entry:
+                item[key] = entry[key]
+        statuses.append(item)
+    return statuses
+
+
+def _mark_pipeline_stale_from(
+    job_dir: str,
+    from_stage_name: str,
+    source_artifact: str,
+) -> None:
+    manifest = _pipeline_job_manifest(job_dir) or {"stages": []}
+    manifest.setdefault("stages", [])
+    from_index = PIPELINE_STAGE_INDEX.get(from_stage_name)
+    if from_index is None:
+        return
+
+    stale_at = time.time()
+    for entry in manifest["stages"]:
+        if not isinstance(entry, dict) or not isinstance(entry.get("name"), str):
+            continue
+        stage_index = PIPELINE_STAGE_INDEX.get(entry["name"])
+        if stage_index is None or stage_index < from_index:
+            continue
+        if entry.get("status") in {"completed", "started", "running", "failed"}:
+            entry["status"] = "stale"
+            entry["stale_reason"] = "upstream_artifact_updated"
+            entry["stale_source_artifact"] = source_artifact
+            entry["stale_at"] = stale_at
+
+    _write_pipeline_job_manifest(job_dir, manifest)
+
+    for artifact_name in STALE_ARTIFACTS_BY_SOURCE.get(source_artifact, ()):
+        artifact_path = os.path.join(job_dir, artifact_name)
+        if os.path.isfile(artifact_path):
+            try:
+                os.remove(artifact_path)
+            except OSError as exc:
+                logger.warning("Failed to remove stale artifact %s: %s", artifact_path, exc)
+
+
+def _safe_pipeline_artifact_path(job_dir: str, artifact_name: str) -> str:
+    if not artifact_name or os.path.basename(artifact_name) != artifact_name:
+        raise HTTPException(status_code=400, detail="Invalid artifact path")
+    artifact_path = os.path.normpath(os.path.join(job_dir, artifact_name))
+    normalized_dir = os.path.normpath(job_dir)
+    if artifact_path != normalized_dir and not artifact_path.startswith(normalized_dir + os.sep):
+        raise HTTPException(status_code=400, detail="Invalid artifact path")
+    return artifact_path
+
+
+def _resolve_pipeline_job_image_path(job_dir: str) -> str:
+    manifest = _pipeline_job_manifest(job_dir) or {}
+    manifest_image_path = manifest.get("image_path")
+    if isinstance(manifest_image_path, str) and os.path.isfile(manifest_image_path):
+        return manifest_image_path
+
+    for pattern in ("input.*", "*.png", "*.jpg", "*.jpeg", "*.webp", "*.bmp", "*.tiff"):
+        matches = sorted(glob.glob(os.path.join(job_dir, pattern)))
+        for match in matches:
+            if os.path.isfile(match):
+                return match
+
+    raise HTTPException(status_code=404, detail="Pipeline input image not found")
+
+
 def _run_pipeline_job(
     job_id: str,
     image_path: str,
@@ -782,6 +945,7 @@ def _run_pipeline_job(
     ocr_route: str,
     gemini_postprocess_match_threshold: float,
     weight_file: str,
+    resume: bool = False,
 ) -> None:
     def stage_callback(event: dict[str, Any]) -> None:
         with PIPELINE_JOBS_LOCK:
@@ -809,7 +973,7 @@ def _run_pipeline_job(
                 detection_weight_path=weight_file,
             ),
         )
-        pipe.run(stop_after=stop_after)
+        pipe.run(stop_after=stop_after, resume=resume)
     except Exception as exc:
         with PIPELINE_JOBS_LOCK:
             job = PIPELINE_JOBS.get(job_id)
@@ -915,7 +1079,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Content-Type"],
 )
 
@@ -1039,10 +1203,10 @@ async def create_pipeline_job(
     weight_file: str = Form(""),
 ):
     validate_image_file(file_input)
-    if stop_after not in {1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}:
+    if stop_after not in {num for num, _name in PIPELINE_STAGE_ORDER}:
         raise HTTPException(
             status_code=400,
-            detail="Pipeline currently supports stop_after=1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, or 13",
+            detail="Pipeline currently supports stop_after=1, 2, 4, 5, 6, 7, 8, 9, 10, or 11",
         )
     if ocr_route not in {"easyocr", "gemini", "paddleocr", "ocrmac"}:
         raise HTTPException(status_code=400, detail="Invalid ocr_route. Expected 'easyocr', 'gemini', 'paddleocr', or 'ocrmac'")
@@ -1095,6 +1259,50 @@ async def create_pipeline_job(
 @app.get("/api/pipeline/jobs/{job_id}")
 async def get_pipeline_job(job_id: str):
     return _serialize_pipeline_job(job_id)
+
+
+@app.get("/api/pipeline/jobs/{job_id}/stage-status")
+async def get_pipeline_stage_status(job_id: str):
+    payload = _serialize_pipeline_job(job_id)
+    return {
+        "job_id": job_id,
+        "stages": _pipeline_stage_status(payload["job_dir"]),
+    }
+
+
+@app.post("/api/pipeline/jobs/{job_id}/resume-from/{stage}")
+async def resume_pipeline_job_from_stage(job_id: str, stage: str):
+    stage_num, stage_name = _resolve_pipeline_stage(stage)
+    with PIPELINE_JOBS_LOCK:
+        job = PIPELINE_JOBS.get(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Pipeline job not found")
+        job_dir = job["job_dir"]
+        image_path = _resolve_pipeline_job_image_path(job_dir)
+        stop_after = max(int(job.get("stop_after") or stage_num), stage_num)
+        ocr_route = str(job.get("ocr_route") or "ocrmac")
+        gemini_threshold = float(job.get("gemini_postprocess_match_threshold") or 0.1)
+        weight_file = str(job.get("weight_file") or resolve_pipeline_weight_file(""))
+        job["status"] = "queued"
+        job["current_stage"] = stage_name
+        job["error"] = None
+        job["stop_after"] = stop_after
+
+    _mark_pipeline_stale_from(job_dir, stage_name, f"resume_from:{stage_name}")
+
+    worker = threading.Thread(
+        target=_run_pipeline_job,
+        args=(job_id, image_path, job_dir, stop_after, ocr_route, gemini_threshold, weight_file),
+        kwargs={"resume": True},
+        daemon=True,
+    )
+    worker.start()
+    return {
+        "job_id": job_id,
+        "status": "queued",
+        "resume_from": stage_name,
+        "stop_after": stop_after,
+    }
 
 
 class MergeSheetsRequest(BaseModel):
@@ -1187,14 +1395,38 @@ async def get_pipeline_reviewed_qa(job_id: str):
     }
 
 
+@app.put("/api/pipeline/jobs/{job_id}/artifacts/{artifact_name}")
+async def put_pipeline_artifact(job_id: str, artifact_name: str, payload: dict[str, Any]):
+    job_payload = _serialize_pipeline_job(job_id)
+    job_dir = job_payload["job_dir"]
+    artifact_path = _safe_pipeline_artifact_path(job_dir, artifact_name)
+    if not artifact_name.endswith(".json"):
+        raise HTTPException(status_code=400, detail="Only JSON artifacts can be updated through this endpoint")
+
+    tmp_path = f"{artifact_path}.tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
+    os.replace(tmp_path, artifact_path)
+
+    from_stage_name = ARTIFACT_INVALIDATION_START_STAGE.get(artifact_name)
+    if from_stage_name:
+        _mark_pipeline_stale_from(job_dir, from_stage_name, artifact_name)
+
+    return {
+        "job_id": job_id,
+        "artifact": {
+            "name": artifact_name,
+            "url": f"/api/pipeline/jobs/{job_id}/artifacts/{artifact_name}",
+        },
+        "stages": _pipeline_stage_status(job_dir),
+    }
+
+
 @app.get("/api/pipeline/jobs/{job_id}/artifacts/{artifact_name}")
 async def get_pipeline_artifact(job_id: str, artifact_name: str):
     payload = _serialize_pipeline_job(job_id)
     job_dir = payload["job_dir"]
-    artifact_path = os.path.normpath(os.path.join(job_dir, artifact_name))
-    normalized_dir = os.path.normpath(job_dir)
-    if artifact_path != normalized_dir and not artifact_path.startswith(normalized_dir + os.sep):
-        raise HTTPException(status_code=400, detail="Invalid artifact path")
+    artifact_path = _safe_pipeline_artifact_path(job_dir, artifact_name)
     if not os.path.exists(artifact_path):
         raise HTTPException(status_code=404, detail="Artifact not found")
     return FileResponse(artifact_path)

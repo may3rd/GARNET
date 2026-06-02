@@ -47,9 +47,10 @@ if missing:
 pipe = PIDPipeline(
     image_path=str(image_path),
     output_dir=str(out_dir),
-    cfg=PipelineConfig(use_geometric_line_detection=True),
+    cfg=PipelineConfig(
+        debug_artifacts=True,
+    ),
 )
 pipe.stage5b_pipe_trace()
 print(f"[stage5b-only] done: {out_dir / 'stage5b_trace_results.json'}")
 PY
-
