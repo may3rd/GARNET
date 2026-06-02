@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Maximize2, X } from 'lucide-react'
 import type { DetectedObject, PipelineJob, PipelineReviewBucket, PipelineReviewDecision, PipelineReviewItem, PipelineStageManifest } from '@/types'
 import { PipelineArtifactCanvas } from '@/components/PipelineArtifactCanvas'
 import { PipelineHitlReviewView } from '@/components/PipelineHitlReviewView'
@@ -8,7 +9,6 @@ type JsonValue = string | number | boolean | null | JsonObject | JsonValue[]
 type JsonObject = Record<string, JsonValue>
 type ReviewBucket = PipelineReviewBucket
 type ReviewDecision = PipelineReviewDecision
-type ReviewFilter = 'all' | ReviewDecision | 'unresolved'
 
 const REVIEW_STORAGE_PREFIX = 'garnet-pipeline-review'
 const EQUIPMENT_CLASSES = new Set(['pump', 'heat exchanger', 'tank', 'vessel', 'column', 'compressor', 'blower', 'fan'])
@@ -27,21 +27,6 @@ function toStringValue(value: JsonValue | undefined): string | undefined {
 
 function toJsonObject(value: JsonValue | undefined): JsonObject | undefined {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as JsonObject) : undefined
-}
-
-function toHighlightBox(bbox: JsonObject | undefined) {
-  if (!bbox) return null
-  const xMin = toNumber(bbox.x_min)
-  const yMin = toNumber(bbox.y_min)
-  const xMax = toNumber(bbox.x_max)
-  const yMax = toNumber(bbox.y_max)
-  if ([xMin, yMin, xMax, yMax].some((value) => value === undefined)) return null
-  return {
-    xMin: xMin as number,
-    yMin: yMin as number,
-    xMax: xMax as number,
-    yMax: yMax as number,
-  }
 }
 
 function buildReviewItems(
@@ -206,9 +191,8 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   const [jsonDetails, setJsonDetails] = useState<Record<string, JsonObject>>({})
   const [stageStatuses, setStageStatuses] = useState<PipelineStageManifest[]>(job.manifest?.stages ?? [])
   const [activeArtifactName, setActiveArtifactName] = useState<string | null>(null)
+  const [expandedArtifactName, setExpandedArtifactName] = useState<string | null>(null)
   const [activeReviewBucket, setActiveReviewBucket] = useState<ReviewBucket>('stage3_equipment')
-  const [activeReviewFilter, setActiveReviewFilter] = useState<ReviewFilter>('all')
-  const [selectedReviewItemId, setSelectedReviewItemId] = useState<string | null>(null)
   const [reviewDecisions, setReviewDecisions] = useState<Record<string, ReviewDecision>>({})
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
   const [isResuming, setIsResuming] = useState(false)
@@ -395,7 +379,9 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
     setActiveArtifactName((spotlightImageArtifacts[0] ?? imageArtifacts[0])?.name ?? null)
   }, [activeArtifactName, imageArtifacts, spotlightImageArtifacts])
 
-  const activeArtifact = imageArtifacts.find((artifact) => artifact.name === activeArtifactName) ?? imageArtifacts[0] ?? null
+  const expandedArtifact = expandedArtifactName
+    ? (imageArtifacts.find((artifact) => artifact.name === expandedArtifactName) ?? null)
+    : null
   const reviewItems = useMemo(
     () => ({
       stage3_equipment: buildStage3EquipmentItems(jsonDetails['stage3_equipment_bboxes.json'], jsonDetails['stage4_objects.json']),
@@ -406,37 +392,6 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
     }),
     [jsonDetails]
   )
-
-  const activeReviewItems = reviewItems[activeReviewBucket]
-  const filteredReviewItems = useMemo(() => {
-    return activeReviewItems.filter((item) => {
-      if (activeReviewFilter === 'all') return true
-      if (activeReviewFilter === 'unresolved') {
-        return item.reviewState === 'detection_only' || item.reviewState === 'rejected' || !item.reviewState
-      }
-      return (reviewDecisions[`${item.bucket}:${item.id}`] ?? 'deferred') === activeReviewFilter
-    })
-  }, [activeReviewFilter, activeReviewItems, reviewDecisions])
-  const selectedReviewItem =
-    filteredReviewItems.find((item) => item.id === selectedReviewItemId) ??
-    filteredReviewItems[0] ??
-    null
-
-  useEffect(() => {
-    if (!filteredReviewItems.length) {
-      setSelectedReviewItemId(null)
-      return
-    }
-    if (selectedReviewItemId && filteredReviewItems.some((item) => item.id === selectedReviewItemId)) {
-      return
-    }
-    setSelectedReviewItemId(filteredReviewItems[0].id)
-  }, [filteredReviewItems, selectedReviewItemId])
-
-  useEffect(() => {
-    if (!selectedReviewItem) return
-    setActiveArtifactName(selectedReviewItem.artifactName)
-  }, [selectedReviewItem])
 
   const reviewCounts = useMemo(() => {
     const counts: Record<ReviewBucket, Record<ReviewDecision, number>> = {
@@ -454,13 +409,6 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
     })
     return counts
   }, [reviewDecisions, reviewItems])
-
-  const setDecision = (bucket: ReviewBucket, itemId: string, decision: ReviewDecision) => {
-    setReviewDecisions((current) => ({
-      ...current,
-      [`${bucket}:${itemId}`]: decision,
-    }))
-  }
 
   const staleFromStage5b = stages.some((stage) => stage.name === 'stage5b_pipe_trace' && stage.status === 'stale')
     || stages.some((stage) => stage.status === 'stale' && (stage.num ?? 0) >= 5)
@@ -514,6 +462,32 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
         onSaveStage3Equipment={saveStage3Equipment}
         onClose={() => setWorkspaceOpen(false)}
       />
+    )
+  }
+
+  if (expandedArtifact) {
+    return (
+      <div className="h-full overflow-hidden bg-[var(--bg-canvas)]">
+        <div className="flex h-full flex-col p-4">
+          <div className="mb-3 flex items-center justify-between rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] px-4 py-3">
+            <div>
+              <div className="text-sm font-semibold">Artifact Viewer</div>
+              <div className="mt-0.5 text-xs text-[var(--text-secondary)]">{expandedArtifact.name}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setExpandedArtifactName(null)}
+              className="rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] p-2 text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+              aria-label="Close artifact viewer"
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div className="min-h-0 flex-1">
+            <PipelineArtifactCanvas imageUrl={expandedArtifact.url} title={expandedArtifact.name} />
+          </div>
+        </div>
+      </div>
     )
   }
 
@@ -728,155 +702,43 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
               </div>
             </div>
 
-            {activeArtifact && (
-              <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-5">
-                <div className="text-sm font-semibold">Artifact Viewer</div>
-                <div className="mt-1 text-xs text-[var(--text-secondary)]">
-                  Blue = sheet OCR, green = crop OCR, cyan = rotated crop OCR, orange = detection only, red = rejected.
-                </div>
-                <div className="mt-4">
-                  <PipelineArtifactCanvas
-                    imageUrl={activeArtifact.url}
-                    title={activeArtifact.name}
-                    highlightBox={selectedReviewItem ? toHighlightBox(selectedReviewItem.bbox) : null}
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-              <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-5">
-                <div className="text-sm font-semibold">Review Items</div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {([
-                    ['all', 'All'],
-                    ['accepted', 'Accepted'],
-                    ['rejected', 'Rejected'],
-                    ['deferred', 'Deferred'],
-                    ['unresolved', 'Unresolved'],
-                  ] as Array<[ReviewFilter, string]>).map(([filterKey, label]) => {
-                    const isActive = filterKey === activeReviewFilter
-                    return (
-                      <button
-                        key={filterKey}
-                        type="button"
-                        onClick={() => setActiveReviewFilter(filterKey)}
-                        className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                          isActive
-                            ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
-                            : 'border-[var(--border-muted)] bg-[var(--bg-primary)] text-[var(--text-secondary)]'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    )
-                  })}
-                </div>
-                <div className="mt-4 max-h-[420px] space-y-2 overflow-auto pr-1">
-                  {filteredReviewItems.map((item) => {
-                    const isSelected = item.id === selectedReviewItem?.id
-                    const decision = reviewDecisions[`${item.bucket}:${item.id}`] ?? 'deferred'
-                    return (
-                      <button
-                        key={`${item.bucket}:${item.id}`}
-                        type="button"
-                        onClick={() => setSelectedReviewItemId(item.id)}
-                        className={`w-full rounded-xl border p-3 text-left transition ${
-                          isSelected
-                            ? 'border-[var(--accent)] bg-[var(--bg-primary)] ring-2 ring-[var(--accent)]/25'
-                            : 'border-[var(--border-muted)] bg-[var(--bg-primary)] hover:border-[var(--accent)]/50'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-semibold">{item.title}</div>
-                            <div className="mt-1 text-xs text-[var(--text-secondary)]">{item.subtitle}</div>
-                            {item.statusHint ? (
-                              <div className="mt-1 truncate text-xs text-[var(--text-secondary)]">{item.statusHint}</div>
-                            ) : null}
-                          </div>
-                          <div className="rounded-full border border-[var(--border-muted)] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">
-                            {decision}
-                          </div>
-                        </div>
-                      </button>
-                    )
-                  })}
-                  {!filteredReviewItems.length ? (
-                    <div className="rounded-xl border border-[var(--border-muted)] bg-[var(--bg-primary)] p-4 text-sm text-[var(--text-secondary)]">
-                      No review items match the current filter.
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-5">
-                <div className="text-sm font-semibold">Selected Item</div>
-                {selectedReviewItem ? (
-                  <div className="mt-4 space-y-4">
-                    <div>
-                      <div className="text-sm font-semibold">{selectedReviewItem.title}</div>
-                      <div className="mt-1 text-xs text-[var(--text-secondary)]">{selectedReviewItem.subtitle}</div>
-                    </div>
-                    <div className="grid gap-2 text-xs text-[var(--text-secondary)]">
-                      <div><span className="font-semibold text-[var(--text-primary)]">Text:</span> {selectedReviewItem.text || 'n/a'}</div>
-                      <div><span className="font-semibold text-[var(--text-primary)]">Normalized:</span> {selectedReviewItem.normalizedText || 'n/a'}</div>
-                      <div><span className="font-semibold text-[var(--text-primary)]">OCR Source:</span> {selectedReviewItem.ocrSource || 'n/a'}</div>
-                      <div><span className="font-semibold text-[var(--text-primary)]">Review State:</span> {selectedReviewItem.reviewState || 'n/a'}</div>
-                      <div><span className="font-semibold text-[var(--text-primary)]">Source Object:</span> {selectedReviewItem.sourceObjectId || 'n/a'}</div>
-                      <div><span className="font-semibold text-[var(--text-primary)]">Edge:</span> {selectedReviewItem.edgeId || 'n/a'}</div>
-                      <div><span className="font-semibold text-[var(--text-primary)]">Distance:</span> {selectedReviewItem.distancePx ?? 'n/a'}</div>
-                      <div><span className="font-semibold text-[var(--text-primary)]">Threshold:</span> {selectedReviewItem.thresholdPx ?? 'n/a'}</div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setDecision(selectedReviewItem.bucket, selectedReviewItem.id, 'accepted')}
-                        className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-600"
-                      >
-                        Accept
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDecision(selectedReviewItem.bucket, selectedReviewItem.id, 'rejected')}
-                        className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-600"
-                      >
-                        Reject
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDecision(selectedReviewItem.bucket, selectedReviewItem.id, 'deferred')}
-                        className="rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] px-3 py-2 text-xs font-semibold text-[var(--text-secondary)]"
-                      >
-                        Defer
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-4 text-sm text-[var(--text-secondary)]">Select an item to review.</div>
-                )}
-              </div>
-            </div>
-
             <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-5">
               <div className="text-sm font-semibold">Artifact Thumbnails</div>
               <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {imageArtifacts.map((artifact) => {
                   const isActive = artifact.name === activeArtifactName
                   return (
-                    <button
+                    <div
                       key={artifact.name}
-                      type="button"
-                      onClick={() => setActiveArtifactName(artifact.name)}
                       className={`rounded-xl border bg-[var(--bg-primary)] p-3 text-left transition ${
                         isActive
                           ? 'border-[var(--accent)] ring-2 ring-[var(--accent)]/25'
                           : 'border-[var(--border-muted)] hover:border-[var(--accent)]/50'
                       }`}
                     >
-                      <div className="mb-2 text-xs font-semibold text-[var(--text-secondary)]">{artifact.name}</div>
-                      <img src={artifact.url} alt={artifact.name} className="w-full rounded-lg border border-[var(--border-muted)]" />
-                    </button>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <div className="min-w-0 truncate text-xs font-semibold text-[var(--text-secondary)]">{artifact.name}</div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveArtifactName(artifact.name)
+                            setExpandedArtifactName(artifact.name)
+                          }}
+                          className="shrink-0 rounded-md border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-1.5 text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                          aria-label={`Open ${artifact.name} full page`}
+                        >
+                          <Maximize2 size={14} />
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveArtifactName(artifact.name)}
+                        onDoubleClick={() => setExpandedArtifactName(artifact.name)}
+                        className="block w-full"
+                      >
+                        <img src={artifact.url} alt={artifact.name} className="w-full rounded-lg border border-[var(--border-muted)]" />
+                      </button>
+                    </div>
                   )
                 })}
               </div>

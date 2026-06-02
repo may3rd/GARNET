@@ -1,12 +1,26 @@
+import { lazy, Suspense } from 'react'
 import { Header } from '@/components/Header'
 import { UploadZone } from '@/components/UploadZone'
 import { DetectionSetup } from '@/components/DetectionSetup'
 import { ProcessingView } from '@/components/ProcessingView'
-import { ResultsView } from '@/components/ResultsView'
-import { PipelineResultsView } from '@/components/PipelineResultsView'
-import { BatchResultsView } from '@/components/BatchResultsView'
 import { useAppStore } from '@/stores/appStore'
 import { cn } from '@/lib/utils'
+
+const ResultsView = lazy(() => import('@/components/ResultsView').then((module) => ({ default: module.ResultsView })))
+const PipelineResultsView = lazy(() =>
+  import('@/components/PipelineResultsView').then((module) => ({ default: module.PipelineResultsView }))
+)
+const BatchResultsView = lazy(() =>
+  import('@/components/BatchResultsView').then((module) => ({ default: module.BatchResultsView }))
+)
+
+function ViewLoading() {
+  return (
+    <div className="flex h-full items-center justify-center bg-[var(--bg-canvas)] text-sm text-[var(--text-secondary)]">
+      Loading view...
+    </div>
+  )
+}
 
 function PreviewPane() {
   const imageUrl = useAppStore((state) => state.imageUrl)
@@ -58,15 +72,21 @@ export default function App() {
         {currentView === 'processing' && <ProcessingView />}
 
         {currentView === 'batch' && (
-          <div className="flex h-full flex-col lg:flex-row">
-            <BatchResultsView />
-            <div className="w-full lg:w-[320px] border-t lg:border-t-0 lg:border-l border-[var(--border-muted)] bg-[var(--bg-secondary)] overflow-y-auto max-h-[45vh] lg:max-h-none">
-              <DetectionSetup />
+          <Suspense fallback={<ViewLoading />}>
+            <div className="flex h-full flex-col lg:flex-row">
+              <BatchResultsView />
+              <div className="w-full lg:w-[320px] border-t lg:border-t-0 lg:border-l border-[var(--border-muted)] bg-[var(--bg-secondary)] overflow-y-auto max-h-[45vh] lg:max-h-none">
+                <DetectionSetup />
+              </div>
             </div>
-          </div>
+          </Suspense>
         )}
 
-        {currentView === 'results' && (pipelineJob ? <PipelineResultsView job={pipelineJob} /> : <ResultsView />)}
+        {currentView === 'results' && (
+          <Suspense fallback={<ViewLoading />}>
+            {pipelineJob ? <PipelineResultsView job={pipelineJob} /> : <ResultsView />}
+          </Suspense>
+        )}
       </main>
     </div>
   )

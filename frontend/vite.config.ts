@@ -39,6 +39,32 @@ export default defineConfig(({ mode }) => {
       outDir: env.VITE_OUT_DIR || 'dist',
       // Report bundle size
       reportCompressedSize: true,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return undefined
+            if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) {
+              return 'vendor-react'
+            }
+            if (id.includes('/konva/') || id.includes('/react-konva/')) {
+              return 'vendor-canvas'
+            }
+            if (id.includes('/jspdf/')) {
+              return 'vendor-jspdf'
+            }
+            if (id.includes('/html2canvas/')) {
+              return 'vendor-html2canvas'
+            }
+            if (id.includes('/dompurify/')) {
+              return 'vendor-dompurify'
+            }
+            if (id.includes('/@radix-ui/') || id.includes('/lucide-react/')) {
+              return 'vendor-ui'
+            }
+            return undefined
+          },
+        },
+      },
     },
   }
 })

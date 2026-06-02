@@ -1,4 +1,3 @@
-import { jsPDF } from 'jspdf'
 import type { DetectedObject, DetectionResult } from '@/types'
 import { objectKey } from '@/lib/objectKey'
 
@@ -11,6 +10,7 @@ export async function generatePdfReport(
     reviewStatus: Record<string, 'accepted' | 'rejected'>,
     imageDataUrl: string
 ): Promise<Blob> {
+    const { jsPDF } = await import('jspdf')
     const doc = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
