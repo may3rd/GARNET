@@ -7,6 +7,12 @@ type ReviewCanvasLayersProps = {
   imageSize: { width: number; height: number } | null
   selectedEntity?: { collection: 'equipment' | 'objects'; id: string } | null
   onSelectEntity?: (entity: { collection: 'equipment' | 'objects'; id: string }) => void
+  selectedPortId?: string | null
+  onSelectPort?: (portId: string) => void
+  selectedTraceId?: string | null
+  onSelectTrace?: (traceId: string) => void
+  selectedBranchId?: string | null
+  onSelectBranch?: (branchId: string) => void
   embedded?: boolean
   showBoxes?: boolean
 }
@@ -96,6 +102,20 @@ function collectPorts(value: unknown, out: PortEntity[] = [], limit = 800, owner
   return out
 }
 
+function collectManualPorts(workspace: PipelineReviewWorkspaceState | null): PortEntity[] {
+  return (workspace?.manual_ports ?? []).flatMap((item, index) => {
+    if (item.review_state === 'rejected' || item.ReviewStatus === 'rejected') return []
+    const x = num(item.x)
+    const y = num(item.y)
+    if (x === null || y === null) return []
+    return [{
+      id: String(item.port_id ?? item.id ?? `manual_port_${index + 1}`),
+      x,
+      y,
+    }]
+  })
+}
+
 function segmentPolyline(value: unknown): Point[] | null {
   const record = asRecord(value)
   if (!record) return null
@@ -129,7 +149,7 @@ function traceEntityFromRecord(id: string, value: unknown): TraceEntity | null {
 function collectTraceEntities(payload: unknown, branches = false): TraceEntity[] {
   const record = asRecord(payload)
   if (!record) return []
-  const source = branches ? asRecord(record.branches) : record
+  const source = branches ? asRecord(record.branches) : (asRecord(record.results) ?? record)
   if (!source) return []
   return Object.entries(source).flatMap(([id, value]) => {
     const item = asRecord(value)
@@ -138,6 +158,31 @@ function collectTraceEntities(payload: unknown, branches = false): TraceEntity[]
     const entity = traceEntityFromRecord(id, value)
     return entity ? [entity] : []
   })
+}
+
+function rejectedTraceIds(workspace: PipelineReviewWorkspaceState | null, kind: 'trace' | 'branch'): Set<string> {
+  const rejected = new Set<string>()
+  for (const item of workspace?.trace_overrides ?? []) {
+    const targetKind = String(item.target_type ?? item.kind ?? '')
+    const targetId = String(item.target_id ?? item.id ?? '')
+    const state = String(item.review_state ?? item.decision ?? '')
+    if (targetKind === kind && targetId && (state === 'rejected' || state === 'deleted')) {
+      rejected.add(targetId)
+    }
+  }
+  return rejected
+}
+
+function uniquePorts(ports: PortEntity[]): PortEntity[] {
+  const seen = new Set<string>()
+  const result: PortEntity[] = []
+  for (const port of ports) {
+    const key = `${port.id}:${Math.round(port.x)}:${Math.round(port.y)}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(port)
+  }
+  return result
 }
 
 function pointsAttr(points: Point[]): string {
@@ -151,6 +196,12 @@ export function ReviewCanvasLayers({
   imageSize,
   selectedEntity,
   onSelectEntity,
+  selectedPortId,
+  onSelectPort,
+  selectedTraceId,
+  onSelectTrace,
+  selectedBranchId,
+  onSelectBranch,
   embedded = false,
   showBoxes = true,
 }: ReviewCanvasLayersProps) {
@@ -158,10 +209,11 @@ export function ReviewCanvasLayers({
 
   const equipment = boxEntities(workspace?.equipment, 'equipment')
   const objects = boxEntities(workspace?.objects, 'object')
-  const ports = collectPorts(layers.stage5_connection_ports)
-  const traces = collectTraceEntities(layers.stage5b_trace_results)
-  const branches = collectTraceEntities(layers.stage5b_branch_trace_results, true)
-
+  const ports = uniquePorts([...collectPorts(layers.stage5_connection_ports), ...collectManualPorts(workspace)])
+  const rejectedTraces = rejectedTraceIds(workspace, 'trace')
+  const rejectedBranches = rejectedTraceIds(workspace, 'branch')
+  const traces = collectTraceEntities(layers.stage5b_trace_results).filter((trace) => !rejectedTraces.has(trace.id))
+  const branches = collectTraceEntities(layers.stage5b_branch_trace_results, true).filter((branch) => !rejectedBranches.has(branch.id))
   return (
     <svg
       className={embedded ? 'pointer-events-none absolute inset-0 h-full w-full' : 'absolute inset-2 h-[calc(100%-1rem)] w-[calc(100%-1rem)]'}
@@ -174,7 +226,20 @@ export function ReviewCanvasLayers({
           {traces.map((trace) => (
             <g key={`trace-${trace.id}`}>
               {trace.segments.map((points, index) => (
-                <polyline key={`${trace.id}-${index}`} points={pointsAttr(points)} fill="none" stroke="rgb(0,200,0)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <polyline
+                  key={`${trace.id}-${index}`}
+                  points={pointsAttr(points)}
+                  fill="none"
+                  stroke={selectedTraceId === trace.id ? '#f97316' : 'rgb(0,200,0)'}
+                  strokeWidth={selectedTraceId === trace.id ? '8' : '4'}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={onSelectTrace ? 'pointer-events-auto cursor-pointer' : undefined}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onSelectTrace?.(trace.id)
+                  }}
+                />
               ))}
               {trace.terminal ? (
                 <g>
@@ -192,7 +257,20 @@ export function ReviewCanvasLayers({
           {branches.map((branch) => (
             <g key={`branch-${branch.id}`}>
               {branch.segments.map((points, index) => (
-                <polyline key={`${branch.id}-${index}`} points={pointsAttr(points)} fill="none" stroke="rgb(255,0,0)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                <polyline
+                  key={`${branch.id}-${index}`}
+                  points={pointsAttr(points)}
+                  fill="none"
+                  stroke={selectedBranchId === branch.id ? '#f97316' : 'rgb(255,0,0)'}
+                  strokeWidth={selectedBranchId === branch.id ? '8' : '5'}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={onSelectBranch ? 'pointer-events-auto cursor-pointer' : undefined}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onSelectBranch?.(branch.id)
+                  }}
+                />
               ))}
               {branch.terminal ? (
                 <g>
@@ -257,7 +335,19 @@ export function ReviewCanvasLayers({
         <g>
           {ports.map((port, index) => (
             <g key={`${port.id}-${index}`}>
-              <circle cx={port.x} cy={port.y} r="9" fill="#06b6d4" stroke="#ffffff" strokeWidth="3" />
+              <circle
+                cx={port.x}
+                cy={port.y}
+                r={selectedPortId === port.id ? '14' : '9'}
+                fill={selectedPortId === port.id ? '#f97316' : '#06b6d4'}
+                stroke="#ffffff"
+                strokeWidth="3"
+                className={onSelectPort ? 'pointer-events-auto cursor-pointer' : undefined}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onSelectPort?.(port.id)
+                }}
+              />
               <text x={port.x + 10} y={port.y - 10} fill="#0891b2" fontSize="18" fontWeight="700">{port.id}</text>
             </g>
           ))}

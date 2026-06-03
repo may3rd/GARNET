@@ -16,6 +16,19 @@ const REVIEW_STORAGE_PREFIX = 'garnet-pipeline-review'
 const EQUIPMENT_CLASSES = new Set(['pump', 'heat exchanger', 'tank', 'vessel', 'column', 'compressor', 'blower', 'fan'])
 const PRE_STAGE5_REVIEW_BUCKETS: ReviewBucket[] = ['stage3_equipment', 'stage4_object', 'stage4_line_number']
 
+function normalizedClassName(value: string | undefined): string {
+  return (value ?? '').toLowerCase().replace(/[_-]+/g, ' ').trim()
+}
+
+function isLineNumberClass(className: string | undefined): boolean {
+  const normalized = normalizedClassName(className)
+  return normalized === 'line number' || normalized === 'line_number'
+}
+
+function isEquipmentClass(className: string | undefined): boolean {
+  return EQUIPMENT_CLASSES.has(normalizedClassName(className))
+}
+
 function reviewStorageKey(jobId: string) {
   return `${REVIEW_STORAGE_PREFIX}:${jobId}`
 }
@@ -120,8 +133,7 @@ function buildStage3EquipmentItems(
   const sourceItems = reviewedEquipment.length
     ? reviewedEquipment
     : ((stage4Payload?.objects as JsonObject[] | undefined) ?? []).filter((item) => {
-      const className = toStringValue(item.class_name)?.toLowerCase()
-      return className ? EQUIPMENT_CLASSES.has(className) : false
+      return isEquipmentClass(toStringValue(item.class_name))
     })
 
   return sourceItems.map((item, index) => {
@@ -145,7 +157,12 @@ function buildStage3EquipmentItems(
 }
 
 function buildStage4ObjectItems(stage4Payload: JsonObject | undefined): PipelineReviewItem[] {
-  return ((stage4Payload?.objects as JsonObject[] | undefined) ?? []).map((item, index) => {
+  return ((stage4Payload?.objects as JsonObject[] | undefined) ?? [])
+    .filter((item) => {
+      const className = toStringValue(item.class_name)
+      return !isEquipmentClass(className) && !isLineNumberClass(className)
+    })
+    .map((item, index) => {
     const id = toStringValue(item.id) ?? `obj_${String(index + 1).padStart(6, '0')}`
     const className = toStringValue(item.class_name) ?? 'object'
     const confidence = toNumber(item.confidence)

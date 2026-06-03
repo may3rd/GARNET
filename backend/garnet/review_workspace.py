@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 WORKSPACE_ARTIFACT_NAME = "review_workspace_state.json"
+EQUIPMENT_CLASSES = {"pump", "heat exchanger", "tank", "vessel", "column", "compressor", "blower", "fan", "mixer"}
 
 
 def review_workspace_path(job_dir: str | Path) -> Path:
@@ -42,6 +43,18 @@ def _list_from_payload(payload: dict[str, Any], key: str) -> list[dict[str, Any]
     if not isinstance(values, list):
         return []
     return [dict(item) for item in values if isinstance(item, dict)]
+
+
+def _normalized_class_name(item: dict[str, Any]) -> str:
+    return str(item.get("class_name") or item.get("Object") or "").lower().replace("_", " ").replace("-", " ").strip()
+
+
+def _is_equipment_class(item: dict[str, Any]) -> bool:
+    return _normalized_class_name(item) in EQUIPMENT_CLASSES
+
+
+def _is_line_number_class(item: dict[str, Any]) -> bool:
+    return _normalized_class_name(item) == "line number"
 
 
 def _normalize_workspace_payload(payload: dict[str, Any], job_id: str | None = None) -> dict[str, Any]:
@@ -92,8 +105,14 @@ def build_workspace_from_artifacts(job_dir: str | Path) -> dict[str, Any]:
 
     workspace = empty_review_workspace(job_dir_path.name)
     workspace["image_id"] = stage4.get("image_id")
-    workspace["objects"] = _list_from_payload(stage4, "objects")
+    stage4_objects = _list_from_payload(stage4, "objects")
+    workspace["objects"] = [
+        item for item in stage4_objects
+        if not _is_equipment_class(item) and not _is_line_number_class(item)
+    ]
     workspace["equipment"] = _list_from_payload(stage3, "equipment")
+    if not workspace["equipment"]:
+        workspace["equipment"] = [item for item in stage4_objects if _is_equipment_class(item)]
     workspace["manual_ports"] = _flatten_ports(stage5_ports)
     workspace["line_association_overrides"] = _list_from_payload(stage6_review, "accepted")
     return workspace
@@ -101,21 +120,63 @@ def build_workspace_from_artifacts(job_dir: str | Path) -> dict[str, Any]:
 
 def _flatten_ports(payload: dict[str, Any]) -> list[dict[str, Any]]:
     ports: list[dict[str, Any]] = []
-    for key in ("equipment", "objects", "ports"):
+    handled_keys = {"equipment", "objects", "ports"}
+    for key in handled_keys:
         value = payload.get(key)
         if isinstance(value, list):
-            ports.extend(dict(item) for item in value if isinstance(item, dict))
+            for index, item in enumerate(value):
+                if isinstance(item, dict):
+                    ports.append(dict(item))
+                elif isinstance(item, (list, tuple)) and len(item) >= 3:
+                    ports.append(
+                        {
+                            "port_id": f"port_{index + 1:02d}",
+                            "x": item[0],
+                            "y": item[1],
+                            "direction": item[2],
+                            "source": "stage5",
+                        }
+                    )
         elif isinstance(value, dict):
             for owner_id, items in value.items():
                 if not isinstance(items, list):
                     continue
-                for item in items:
-                    if not isinstance(item, dict):
+                for index, item in enumerate(items):
+                    if isinstance(item, dict):
+                        port = dict(item)
+                    elif isinstance(item, (list, tuple)) and len(item) >= 3:
+                        port = {
+                            "port_id": f"{owner_id}:port_{index + 1:02d}",
+                            "x": item[0],
+                            "y": item[1],
+                            "direction": item[2],
+                            "source": "stage5",
+                        }
+                    else:
                         continue
-                    port = dict(item)
                     port.setdefault("owner_id", owner_id)
                     port.setdefault("owner_type", key.rstrip("s"))
                     ports.append(port)
+    for owner_id, items in payload.items():
+        if owner_id in handled_keys or not isinstance(items, list):
+            continue
+        owner_type = "equipment" if str(owner_id).startswith("equip_") else "object"
+        for index, item in enumerate(items):
+            if isinstance(item, dict):
+                port = dict(item)
+            elif isinstance(item, (list, tuple)) and len(item) >= 3:
+                port = {
+                    "port_id": f"{owner_id}:port_{index + 1:02d}",
+                    "x": item[0],
+                    "y": item[1],
+                    "direction": item[2],
+                    "source": "stage5",
+                }
+            else:
+                continue
+            port.setdefault("owner_id", owner_id)
+            port.setdefault("owner_type", owner_type)
+            ports.append(port)
     return ports
 
 
@@ -141,6 +202,8 @@ def workspace_to_stage4_objects(state: dict[str, Any], image_id: str | None = No
     for index, item in enumerate(_list_from_payload(state, "objects")):
         if item.get("review_state") == "rejected" or item.get("ReviewStatus") == "rejected":
             continue
+        if _is_equipment_class(item) or _is_line_number_class(item):
+            continue
         objects.append(
             {
                 "id": item.get("id") or item.get("Text") or f"obj_{index + 1:06d}",
@@ -156,6 +219,27 @@ def workspace_to_stage4_objects(state: dict[str, Any], image_id: str | None = No
     if resolved_image_id:
         payload["image_id"] = resolved_image_id
     return payload
+
+
+def workspace_to_stage5_ports(state: dict[str, Any]) -> dict[str, list[list[Any]]]:
+    ports: dict[str, list[list[Any]]] = {}
+    for index, item in enumerate(_list_from_payload(state, "manual_ports")):
+        if item.get("review_state") == "rejected" or item.get("ReviewStatus") == "rejected":
+            continue
+        owner_id = item.get("owner_id") or item.get("source_obj_id") or item.get("object_id")
+        if not owner_id:
+            continue
+        try:
+            x = int(round(float(item.get("x"))))
+            y = int(round(float(item.get("y"))))
+        except (TypeError, ValueError):
+            continue
+        direction = str(item.get("direction") or "").upper()
+        if direction not in {"UP", "DOWN", "LEFT", "RIGHT"}:
+            continue
+        item.setdefault("port_id", f"{owner_id}:port_{index + 1:02d}")
+        ports.setdefault(str(owner_id), []).append([x, y, direction])
+    return ports
 
 
 def _bbox_from_detected_object(item: dict[str, Any]) -> dict[str, int]:

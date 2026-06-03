@@ -142,6 +142,17 @@ export type PipelineReviewWorkspaceState = {
   trace_overrides: Array<Record<string, unknown>>
 }
 
+export type PipelineManualPort = {
+  port_id: string
+  owner_id: string
+  owner_type: 'equipment' | 'object' | string
+  x: number
+  y: number
+  direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'
+  source?: string
+  review_state?: string
+}
+
 export type PipelineReviewWorkspaceResponse = {
   job_id: string
   workspace: PipelineReviewWorkspaceState

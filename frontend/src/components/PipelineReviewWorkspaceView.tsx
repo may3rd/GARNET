@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Check, Layers, RefreshCw } from 'lucide-react'
-import type { DetectedObject, PipelineArtifact, PipelineJob, PipelineReviewWorkspaceState } from '@/types'
+import type { DetectedObject, PipelineArtifact, PipelineJob, PipelineManualPort, PipelineReviewWorkspaceState } from '@/types'
 import { commitPipelineReviewWorkspace, getPipelineReviewWorkspace, recomputePipelineReviewWorkspace } from '@/lib/api'
 import { ReviewCanvasLayers } from '@/components/ReviewCanvasLayers'
 import { CanvasView } from '@/components/CanvasView'
@@ -45,6 +45,10 @@ function layerKeyFromArtifactName(name: string): string {
   return name.replace(/\.json$/i, '')
 }
 
+function pickPipeMaskUrl(imageArtifacts: PipelineArtifact[]): string | null {
+  return imageArtifacts.find((artifact) => artifact.name === 'stage5_pipe_mask.png')?.url ?? null
+}
+
 type EditableCollection = 'equipment' | 'objects'
 type SelectedEntity = { collection: EditableCollection; id: string }
 type RecomputeState = 'idle' | 'scheduled' | 'running' | 'succeeded' | 'failed'
@@ -56,6 +60,8 @@ type WorkspaceDraft = {
   Height: number
   Text: string
 }
+type BBox = { x_min: number; y_min: number; x_max: number; y_max: number }
+type PortCandidate = Pick<PipelineManualPort, 'x' | 'y' | 'direction'>
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
@@ -79,6 +85,126 @@ function entityBbox(entity: Record<string, unknown>) {
     return { x_min: 0, y_min: 0, x_max: 0, y_max: 0 }
   }
   return { x_min: xMin, y_min: yMin, x_max: xMax, y_max: yMax }
+}
+
+function isEquipmentCollection(entity: SelectedEntity | null): entity is SelectedEntity {
+  return entity?.collection === 'equipment'
+}
+
+function makePortId(ownerId: string, ports: PipelineManualPort[]): string {
+  const prefix = `${ownerId}:port_`
+  const used = new Set(ports.map((port) => port.port_id))
+  for (let index = 1; index < 1000; index += 1) {
+    const id = `${prefix}${String(index).padStart(2, '0')}`
+    if (!used.has(id)) return id
+  }
+  return `${prefix}${Date.now()}`
+}
+
+function normalizeManualPort(value: Record<string, unknown>): PipelineManualPort | null {
+  const x = numericValue(value.x)
+  const y = numericValue(value.y)
+  const direction = String(value.direction ?? '').toUpperCase()
+  if (x === null || y === null || !['UP', 'DOWN', 'LEFT', 'RIGHT'].includes(direction)) return null
+  const ownerId = String(value.owner_id ?? value.source_obj_id ?? value.object_id ?? '')
+  if (!ownerId) return null
+  return {
+    port_id: String(value.port_id ?? value.id ?? `${ownerId}:port`),
+    owner_id: ownerId,
+    owner_type: String(value.owner_type ?? 'equipment'),
+    x,
+    y,
+    direction: direction as PipelineManualPort['direction'],
+    source: typeof value.source === 'string' ? value.source : undefined,
+    review_state: typeof value.review_state === 'string' ? value.review_state : undefined,
+  }
+}
+
+function portMatchesCandidate(port: PipelineManualPort, ownerId: string, candidate: PortCandidate, tolerance = 8) {
+  return (
+    port.owner_id === ownerId
+    && port.review_state !== 'rejected'
+    && port.direction === candidate.direction
+    && Math.abs(port.x - candidate.x) <= tolerance
+    && Math.abs(port.y - candidate.y) <= tolerance
+  )
+}
+
+async function loadImagePixels(url: string): Promise<{ width: number; height: number; data: Uint8ClampedArray }> {
+  const image = new Image()
+  image.crossOrigin = 'anonymous'
+  await new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve()
+    image.onerror = () => reject(new Error('Failed to load image for port detection'))
+    image.src = url
+  })
+  const canvas = document.createElement('canvas')
+  canvas.width = image.naturalWidth
+  canvas.height = image.naturalHeight
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Cannot create image canvas for port detection')
+  ctx.drawImage(image, 0, 0)
+  return {
+    width: canvas.width,
+    height: canvas.height,
+    data: ctx.getImageData(0, 0, canvas.width, canvas.height).data,
+  }
+}
+
+function pixelBrightness(pixels: { width: number; height: number; data: Uint8ClampedArray }, x: number, y: number): number {
+  const px = Math.max(0, Math.min(pixels.width - 1, Math.round(x)))
+  const py = Math.max(0, Math.min(pixels.height - 1, Math.round(y)))
+  const index = (py * pixels.width + px) * 4
+  return (pixels.data[index] + pixels.data[index + 1] + pixels.data[index + 2]) / 3
+}
+
+function detectPortCandidatesFromImage(
+  pixels: { width: number; height: number; data: Uint8ClampedArray },
+  bbox: BBox,
+  maskMode: boolean,
+): PortCandidate[] {
+  const isPipePixel = (x: number, y: number) => {
+    const brightness = pixelBrightness(pixels, x, y)
+    return maskMode ? brightness > 24 : brightness < 170
+  }
+  const hasOutwardRun = (x: number, y: number, dx: number, dy: number) => {
+    let hits = 0
+    for (let offset = 1; offset <= 16; offset += 1) {
+      if (isPipePixel(x + dx * offset, y + dy * offset)) hits += 1
+    }
+    return hits >= 3
+  }
+  const edges = [
+    { direction: 'UP' as const, start: bbox.x_min, end: bbox.x_max, fixed: bbox.y_min, axis: 'x' as const, dx: 0, dy: -1 },
+    { direction: 'DOWN' as const, start: bbox.x_min, end: bbox.x_max, fixed: bbox.y_max, axis: 'x' as const, dx: 0, dy: 1 },
+    { direction: 'LEFT' as const, start: bbox.y_min, end: bbox.y_max, fixed: bbox.x_min, axis: 'y' as const, dx: -1, dy: 0 },
+    { direction: 'RIGHT' as const, start: bbox.y_min, end: bbox.y_max, fixed: bbox.x_max, axis: 'y' as const, dx: 1, dy: 0 },
+  ]
+  const candidates: PortCandidate[] = []
+  for (const edge of edges) {
+    let runStart: number | null = null
+    for (let position = Math.round(edge.start); position <= Math.round(edge.end); position += 1) {
+      const x = edge.axis === 'x' ? position : edge.fixed
+      const y = edge.axis === 'x' ? edge.fixed : position
+      const active = isPipePixel(x, y) && hasOutwardRun(x, y, edge.dx, edge.dy)
+      if (active && runStart === null) {
+        runStart = position
+      }
+      if ((!active || position === Math.round(edge.end)) && runStart !== null) {
+        const runEnd = active && position === Math.round(edge.end) ? position : position - 1
+        if (runEnd - runStart >= 2) {
+          const center = Math.round((runStart + runEnd) / 2)
+          candidates.push({
+            x: edge.axis === 'x' ? center : edge.fixed,
+            y: edge.axis === 'x' ? edge.fixed : center,
+            direction: edge.direction,
+          })
+        }
+        runStart = null
+      }
+    }
+  }
+  return candidates
 }
 
 function entityClassName(entity: Record<string, unknown>, fallback: string): string {
@@ -115,6 +241,9 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null)
   const [selectedEntity, setSelectedEntity] = useState<SelectedEntity | null>(null)
   const [selectedObjectKey, setSelectedObjectKey] = useState<string | null>(null)
+  const [selectedPortId, setSelectedPortId] = useState<string | null>(null)
+  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null)
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [editDraft, setEditDraft] = useState<WorkspaceDraft | null>(null)
   const [isCreating, setIsCreating] = useState(false)
@@ -131,6 +260,7 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
   const [visibleLayers, setVisibleLayers] = useState<Set<string>>(() => new Set(LAYERS.map(([key]) => key)))
 
   const imageUrl = useMemo(() => pickBaseImageUrl(imageArtifacts), [imageArtifacts])
+  const pipeMaskUrl = useMemo(() => pickPipeMaskUrl(imageArtifacts), [imageArtifacts])
 
   useEffect(() => {
     if (!imageUrl) {
@@ -190,6 +320,13 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
   }, [job.artifacts])
 
   const loadedLayerCount = Object.keys(layerPayloads).length
+  const manualPorts = useMemo(
+    () => (workspace?.manual_ports ?? []).flatMap((item) => {
+      const port = normalizeManualPort(item)
+      return port ? [port] : []
+    }),
+    [workspace]
+  )
 
   const { canvasObjects, entityByObjectKey } = useMemo(() => {
     const nextObjects: DetectedObject[] = []
@@ -223,6 +360,16 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
   const selectedCanvasObject = useMemo(
     () => canvasObjects.find((item) => objectKey(item) === selectedObjectKey) ?? null,
     [canvasObjects, selectedObjectKey]
+  )
+
+  const selectedEquipmentRecord = useMemo(() => {
+    if (!workspace || !isEquipmentCollection(selectedEntity)) return null
+    return workspace.equipment.find((item, index) => entityId(item, `equipment_${index + 1}`) === selectedEntity.id) ?? null
+  }, [selectedEntity, workspace])
+
+  const selectedEquipmentPorts = useMemo(
+    () => manualPorts.filter((port) => port.owner_id === selectedEntity?.id && port.review_state !== 'rejected'),
+    [manualPorts, selectedEntity]
   )
 
   const visibleCanvasObjects = useMemo(
@@ -273,6 +420,9 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
       Text: '',
     })
     setSelectedEntity(null)
+    setSelectedPortId(null)
+    setSelectedTraceId(null)
+    setSelectedBranchId(null)
     setSelectedObjectKey(null)
     setIsEditing(false)
     setEditDraft(null)
@@ -285,6 +435,9 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
 
   const selectCanvasObject = (key: string | null) => {
     setSelectedObjectKey(key)
+    setSelectedPortId(null)
+    setSelectedTraceId(null)
+    setSelectedBranchId(null)
     setIsEditing(false)
     setEditDraft(null)
     if (!key) {
@@ -355,6 +508,9 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
     setCreateDraft(null)
     setIsDirty(true)
     setRecomputeState('scheduled')
+    if (createCollection === 'equipment') {
+      void addPortsFromBorderCrossings(id, entity.bbox)
+    }
   }
 
   const deleteCanvasSelected = () => {
@@ -419,6 +575,108 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
     })
   }
 
+  const appendManualPorts = (ownerId: string, candidates: PortCandidate[]) => {
+    if (!candidates.length) return 0
+    let addedCount = 0
+    setWorkspace((current) => {
+      if (!current) return current
+      const existing = current.manual_ports.flatMap((item) => {
+        const port = normalizeManualPort(item)
+        return port ? [port] : []
+      })
+      const nextPorts = [...current.manual_ports]
+      for (const candidate of candidates) {
+        if (existing.some((port) => portMatchesCandidate(port, ownerId, candidate))) {
+          continue
+        }
+        const port: PipelineManualPort = {
+          port_id: makePortId(ownerId, [...existing, ...nextPorts.flatMap((item) => {
+            const normalized = normalizeManualPort(item)
+            return normalized ? [normalized] : []
+          })]),
+          owner_id: ownerId,
+          owner_type: 'equipment',
+          x: Math.round(candidate.x),
+          y: Math.round(candidate.y),
+          direction: candidate.direction,
+          source: 'hitl_border_crossing',
+          review_state: 'accepted',
+        }
+        existing.push(port)
+        nextPorts.push(port)
+        addedCount += 1
+      }
+      return { ...current, manual_ports: nextPorts }
+    })
+    if (addedCount > 0) {
+      setIsDirty(true)
+      setRecomputeState('scheduled')
+    }
+    return addedCount
+  }
+
+  const addPortsFromBorderCrossings = async (ownerId = selectedEntity?.id, bbox = selectedEquipmentRecord ? entityBbox(selectedEquipmentRecord) : null) => {
+    if (!ownerId || !bbox) return
+    const detectionUrl = pipeMaskUrl ?? imageUrl
+    if (!detectionUrl) return
+    try {
+      const pixels = await loadImagePixels(detectionUrl)
+      const candidates = detectPortCandidatesFromImage(pixels, bbox, Boolean(pipeMaskUrl))
+      const addedCount = appendManualPorts(ownerId, candidates)
+      if (addedCount === 0) {
+        setError('No new equipment ports found on pipe crossings at the selected box border.')
+      } else {
+        setError(null)
+      }
+    } catch (portError) {
+      setError(portError instanceof Error ? portError.message : 'Failed to detect equipment ports')
+    }
+  }
+
+  const rejectPort = (portId: string) => {
+    setWorkspace((current) => {
+      if (!current) return current
+      return {
+        ...current,
+        manual_ports: current.manual_ports.map((item) =>
+          String(item.port_id ?? item.id) === portId
+            ? { ...item, review_state: 'rejected' }
+            : item
+        ),
+      }
+    })
+    setSelectedPortId((current) => current === portId ? null : current)
+    setIsDirty(true)
+    setRecomputeState('scheduled')
+  }
+
+  const rejectTracePath = (kind: 'trace' | 'branch', id: string) => {
+    setWorkspace((current) => {
+      if (!current) return current
+      const remaining = current.trace_overrides.filter((item) => {
+        const targetKind = String(item.target_type ?? item.kind ?? '')
+        const targetId = String(item.target_id ?? item.id ?? '')
+        return !(targetKind === kind && targetId === id)
+      })
+      return {
+        ...current,
+        trace_overrides: [
+          ...remaining,
+          {
+            target_type: kind,
+            target_id: id,
+            review_state: 'rejected',
+            source: 'hitl',
+          },
+        ],
+      }
+    })
+    if (kind === 'trace') setSelectedTraceId(null)
+    else setSelectedBranchId(null)
+    setIsDirty(true)
+    setRecomputeState('scheduled')
+  }
+
   const updateCreateDraft = (field: 'Object' | 'Left' | 'Top' | 'Width' | 'Height' | 'Text', value: string) => {
     setCreateDraft((current) => {
       if (!current) return current
@@ -480,14 +738,14 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
           </button>
           <button
             type="button"
-            disabled={!workspace || recomputeState === 'running' || isCommitting}
+            disabled={!workspace || isDirty || recomputeState === 'scheduled' || recomputeState === 'running' || isCommitting}
             onClick={() => {
               void commitWorkspace()
             }}
             className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-700 disabled:opacity-40"
           >
             <Check className="h-4 w-4" />
-            {isCommitting ? 'Committing...' : 'Commit review & continue'}
+            {isCommitting ? 'Committing...' : isDirty || recomputeState === 'scheduled' ? 'Waiting for recompute' : 'Commit review & continue'}
           </button>
         </div>
       </div>
@@ -519,6 +777,66 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
             Add object
           </button>
           <div className="mx-2 h-5 w-px bg-[var(--border-muted)]" />
+          <button
+            type="button"
+            onClick={() => {
+              void addPortsFromBorderCrossings()
+            }}
+            disabled={!selectedEquipmentRecord}
+            className="rounded-full border border-cyan-500/40 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-700 disabled:opacity-40"
+          >
+            Add ports from border crossings
+          </button>
+          {selectedEquipmentRecord ? (
+            <div className="flex flex-wrap items-center gap-1">
+              {selectedEquipmentPorts.length ? selectedEquipmentPorts.map((port) => (
+                <button
+                  key={port.port_id}
+                  type="button"
+                  onClick={() => setSelectedPortId((current) => current === port.port_id ? null : port.port_id)}
+                  className={`rounded-full border px-2 py-1 font-mono text-[11px] font-semibold ${
+                    selectedPortId === port.port_id
+                      ? 'border-red-500 bg-red-500/10 text-red-700'
+                      : 'border-cyan-500/30 bg-[var(--bg-primary)] text-cyan-700'
+                  }`}
+                  title={`${port.direction} (${Math.round(port.x)}, ${Math.round(port.y)})`}
+                >
+                  {port.port_id.split(':').at(-1)}:{port.direction}
+                </button>
+              )) : (
+                <span className="text-xs text-[var(--text-secondary)]">No reviewed ports for selected equipment</span>
+              )}
+              {selectedPortId ? (
+                <button
+                  type="button"
+                  onClick={() => rejectPort(selectedPortId)}
+                  className="rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-700"
+                >
+                  Remove selected port
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          <div className="mx-2 h-5 w-px bg-[var(--border-muted)]" />
+          {selectedTraceId ? (
+            <button
+              type="button"
+              onClick={() => rejectTracePath('trace', selectedTraceId)}
+              className="rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-700"
+            >
+              Delete trace {selectedTraceId}
+            </button>
+          ) : null}
+          {selectedBranchId ? (
+            <button
+              type="button"
+              onClick={() => rejectTracePath('branch', selectedBranchId)}
+              className="rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-700"
+            >
+              Delete branch {selectedBranchId}
+            </button>
+          ) : null}
+          {(selectedTraceId || selectedBranchId) ? <div className="mx-2 h-5 w-px bg-[var(--border-muted)]" /> : null}
           <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-secondary)]">
             <Layers className="h-4 w-4" />
             Layers
@@ -586,10 +904,32 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
               fitKey={`workspace:${job.job_id}`}
               imageOverlay={
                 <ReviewCanvasLayers
-                  workspace={null}
+                  workspace={workspace}
                   layers={layerPayloads}
                   visibleLayers={visibleLayers}
                   imageSize={imageSize}
+                  selectedPortId={selectedPortId}
+                  onSelectPort={(portId) => {
+                    setSelectedPortId((current) => current === portId ? null : portId)
+                    setSelectedTraceId(null)
+                    setSelectedBranchId(null)
+                  }}
+                  selectedTraceId={selectedTraceId}
+                  onSelectTrace={(traceId) => {
+                    setSelectedTraceId((current) => current === traceId ? null : traceId)
+                    setSelectedBranchId(null)
+                    setSelectedPortId(null)
+                    setSelectedObjectKey(null)
+                    setSelectedEntity(null)
+                  }}
+                  selectedBranchId={selectedBranchId}
+                  onSelectBranch={(branchId) => {
+                    setSelectedBranchId((current) => current === branchId ? null : branchId)
+                    setSelectedTraceId(null)
+                    setSelectedPortId(null)
+                    setSelectedObjectKey(null)
+                    setSelectedEntity(null)
+                  }}
                   embedded
                   showBoxes={false}
                 />

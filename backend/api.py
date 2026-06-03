@@ -50,6 +50,7 @@ from garnet.review_workspace import (
     save_review_workspace,
     workspace_to_stage3_equipment,
     workspace_to_stage4_objects,
+    workspace_to_stage5_ports,
 )
 from garnet.reviewed_outputs import generate_reviewed_outputs
 from garnet.pipe_sheet_merge import resolve_merge_pairs
@@ -1134,6 +1135,48 @@ def _review_workspace_layer_payloads(job_dir: str) -> dict[str, dict[str, Any]]:
     }
 
 
+def _write_review_workspace_manual_ports(job_dir: str, workspace: dict[str, Any]) -> None:
+    ports_payload = workspace_to_stage5_ports(workspace)
+    if ports_payload:
+        _write_pipeline_json_artifact(job_dir, "stage5_connection_ports.json", ports_payload)
+
+
+def _apply_review_workspace_trace_overrides(job_dir: str, workspace: dict[str, Any]) -> None:
+    rejected_traces: set[str] = set()
+    rejected_branches: set[str] = set()
+    for item in workspace.get("trace_overrides", []):
+        if not isinstance(item, dict):
+            continue
+        state = str(item.get("review_state") or item.get("decision") or "")
+        if state not in {"rejected", "deleted"}:
+            continue
+        target_id = str(item.get("target_id") or item.get("id") or "")
+        target_type = str(item.get("target_type") or item.get("kind") or "")
+        if not target_id:
+            continue
+        if target_type == "branch":
+            rejected_branches.add(target_id)
+        else:
+            rejected_traces.add(target_id)
+
+    if rejected_traces:
+        trace_payload = _read_pipeline_json_artifact(job_dir, "stage5b_trace_results.json")
+        if isinstance(trace_payload.get("results"), dict):
+            for trace_id in rejected_traces:
+                trace_payload["results"].pop(trace_id, None)
+        for trace_id in rejected_traces:
+            trace_payload.pop(trace_id, None)
+        _write_pipeline_json_artifact(job_dir, "stage5b_trace_results.json", trace_payload)
+
+    if rejected_branches:
+        branch_payload = _read_pipeline_json_artifact(job_dir, "stage5b_branch_trace_results.json")
+        branches = branch_payload.get("branches")
+        if isinstance(branches, dict):
+            for branch_id in rejected_branches:
+                branches.pop(branch_id, None)
+        _write_pipeline_json_artifact(job_dir, "stage5b_branch_trace_results.json", branch_payload)
+
+
 def _resolve_pipeline_job_image_path(job_dir: str) -> str:
     manifest = _pipeline_job_manifest(job_dir) or {}
     manifest_image_path = manifest.get("image_path")
@@ -1650,6 +1693,7 @@ async def recompute_pipeline_review_workspace(job_id: str, request: dict[str, An
     _refresh_stage4_reviewed_object_artifacts(job_dir, stage4_payload)
 
     _mark_pipeline_stale_from(job_dir, "stage5_pipe_mask", "review_workspace_recompute")
+    _write_review_workspace_manual_ports(job_dir, workspace)
 
     with PIPELINE_JOBS_LOCK:
         job = PIPELINE_JOBS.get(job_id)
@@ -1677,6 +1721,7 @@ async def recompute_pipeline_review_workspace(job_id: str, request: dict[str, An
         debug_artifacts=debug_artifacts,
         resume=True,
     )
+    _apply_review_workspace_trace_overrides(job_dir, load_review_workspace(job_dir))
 
     return {
         "job_id": job_id,
@@ -1706,6 +1751,8 @@ async def commit_pipeline_review_workspace(job_id: str, request: dict[str, Any] 
     stage4_payload = workspace_to_stage4_objects(workspace, image_id=image_id)
     _write_pipeline_json_artifact(job_dir, "stage3_equipment_bboxes.json", stage3_payload)
     _write_pipeline_json_artifact(job_dir, "stage4_objects.json", stage4_payload)
+    _write_review_workspace_manual_ports(job_dir, workspace)
+    _apply_review_workspace_trace_overrides(job_dir, workspace)
     _refresh_stage4_reviewed_object_artifacts(job_dir, stage4_payload)
     _mark_pipeline_stale_from(job_dir, "stage7_geometric_graph_assembly", "review_workspace_commit")
 
