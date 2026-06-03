@@ -3,7 +3,11 @@ import type {
   DetectedObject,
   OcrRoute,
   PipelineJob,
+  PipelineReviewCommitResponse,
+  PipelineReviewRecomputeResponse,
   PipelineReviewState,
+  PipelineReviewWorkspaceResponse,
+  PipelineReviewWorkspaceState,
   PipelineReviewedGraphResponse,
   PipelineReviewedQaResponse,
   PipelineStageStatusResponse,
@@ -231,6 +235,65 @@ export async function putPipelineReviewState(
   )
 }
 
+export async function getPipelineReviewWorkspace(
+  jobId: string,
+  signal?: AbortSignal
+): Promise<PipelineReviewWorkspaceResponse> {
+  return requestJson<PipelineReviewWorkspaceResponse>(`/api/pipeline/jobs/${jobId}/review-workspace`, { signal }, PIPELINE_POLL_TIMEOUT)
+}
+
+export async function putPipelineReviewWorkspace(
+  jobId: string,
+  workspace: PipelineReviewWorkspaceState,
+  signal?: AbortSignal
+): Promise<PipelineReviewWorkspaceResponse> {
+  return requestJson<PipelineReviewWorkspaceResponse>(
+    `/api/pipeline/jobs/${jobId}/review-workspace`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(workspace),
+      signal,
+    },
+    DEFAULT_REQUEST_TIMEOUT
+  )
+}
+
+export async function recomputePipelineReviewWorkspace(
+  jobId: string,
+  workspace: PipelineReviewWorkspaceState,
+  scope = 'stage5_to_6',
+  signal?: AbortSignal
+): Promise<PipelineReviewRecomputeResponse> {
+  return requestJson<PipelineReviewRecomputeResponse>(
+    `/api/pipeline/jobs/${jobId}/review-workspace/recompute`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scope, workspace }),
+      signal,
+    },
+    DEFAULT_TIMEOUT
+  )
+}
+
+export async function commitPipelineReviewWorkspace(
+  jobId: string,
+  workspace: PipelineReviewWorkspaceState,
+  signal?: AbortSignal
+): Promise<PipelineReviewCommitResponse> {
+  return requestJson<PipelineReviewCommitResponse>(
+    `/api/pipeline/jobs/${jobId}/review-workspace/commit`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workspace }),
+      signal,
+    },
+    DEFAULT_REQUEST_TIMEOUT
+  )
+}
+
 export async function getPipelineReviewedGraph(jobId: string, signal?: AbortSignal): Promise<PipelineReviewedGraphResponse> {
   return requestJson<PipelineReviewedGraphResponse>(`/api/pipeline/jobs/${jobId}/reviewed-graph`, { signal }, PIPELINE_POLL_TIMEOUT)
 }
@@ -346,7 +409,7 @@ async function getJson<T>(url: string, fallback: T, timeoutMs = DEFAULT_REQUEST_
       return fallback
     }
     return response.json()
-  } catch (error) {
+  } catch {
     // Return fallback on any error (including timeout)
     return fallback
   }

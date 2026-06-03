@@ -8,8 +8,10 @@ from pathlib import Path
 from typing import Any
 
 VALID_BUCKETS = {
+    "stage4_object",
     "stage4_line_number",
     "stage4_instrument",
+    "stage6_line_association",
     "stage12_line_attachment",
     "stage12_instrument_attachment",
 }
@@ -29,8 +31,10 @@ def empty_review_state(job_dir: str | Path, manifest: dict[str, Any] | None = No
         "updated_at": time.time(),
         "items": [],
         "workspace_objects": {
+            "stage4_object": [],
             "stage4_line_number": [],
             "stage4_instrument": [],
+            "stage6_line_association": [],
             "stage12_line_attachment": [],
             "stage12_instrument_attachment": [],
         },

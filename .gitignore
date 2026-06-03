@@ -165,6 +165,7 @@ cython_debug/
 .ruff_cache/
 .claude/
 .tmp-mpl/
+output/
 
 # Backend ignores
 backend/__pycache__/
@@ -183,6 +184,8 @@ backend/static/images/predictions/
 backend/datasets/iso*
 backend/.ultralytics_runs/
 backend/datasets/
+backend/output/
+backend/output_debug/
 
 # Frontend ignores
 frontend/node_modules
@@ -191,13 +194,4 @@ frontend/dist
 # External
 DeepLSD/
 PTTEP/
-# Only keep latest output runs; prune old experiments to save repo space
-backend/output/pipeline_jobs/
-backend/output/ppcl_validate_best_20260330/
-backend/output/*
-!backend/output/pipeline_jobs/
-!backend/output/ppcl_validate_best_20260330/
 
-# Completely ignore all pipeline output — managed locally, never push
-backend/output/
-backend/output_debug/

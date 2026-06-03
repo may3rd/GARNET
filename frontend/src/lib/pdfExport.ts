@@ -1,4 +1,4 @@
-import type { DetectedObject, DetectionResult } from '@/types'
+import type { DetectionResult } from '@/types'
 import { objectKey } from '@/lib/objectKey'
 
 /**

@@ -20,6 +20,57 @@ except ModuleNotFoundError as exc:
 
 @unittest.skipIf(app is None, "pdf2image is not installed in this test environment")
 class PipelineApiTests(unittest.TestCase):
+    def test_pipeline_stage_status_reports_stale_after_stage4_objects_update(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp:
+            job_id = "stage_state_job_stage4_objects"
+            stale_artifact = Path(tmp) / "stage5_pipe_mask.png"
+            stale_artifact.write_bytes(b"old")
+            manifest = {
+                "stages": [
+                    {"num": 1, "name": "stage1_input_normalization", "status": "completed"},
+                    {"num": 2, "name": "stage2_ocr_discovery", "status": "completed"},
+                    {"num": 4, "name": "stage4_object_detection", "status": "completed"},
+                    {"num": 4, "name": "stage4_line_number_fusion", "status": "completed"},
+                    {"num": 4, "name": "stage4_instrument_tag_fusion", "status": "completed"},
+                    {"num": 5, "name": "stage5_pipe_mask", "status": "completed"},
+                    {"num": 5, "name": "stage5b_pipe_trace", "status": "completed"},
+                    {"num": 6, "name": "stage6_trace_associations", "status": "completed"},
+                ]
+            }
+            with open(Path(tmp) / "stage_manifest.json", "w", encoding="utf-8") as f:
+                json.dump(manifest, f)
+            with patch.dict("api.PIPELINE_JOBS", {job_id: {
+                "job_id": job_id,
+                "status": "completed",
+                "current_stage": "stage6_trace_associations",
+                "error": None,
+                "job_dir": tmp,
+                "created_at": time.time(),
+                "stop_after": 6,
+                "ocr_route": "ocrmac",
+                "gemini_postprocess_match_threshold": 0.1,
+                "weight_file": "yolo_weights/model.pt",
+            }}, clear=False):
+                response = client.put(
+                    f"/api/pipeline/jobs/{job_id}/artifacts/stage4_objects.json",
+                    json={"objects": [{"id": "obj_001", "class_name": "gate_valve", "bbox": {"x_min": 1, "y_min": 2, "x_max": 10, "y_max": 20}}]},
+                )
+                self.assertEqual(response.status_code, 200)
+
+                status_response = client.get(f"/api/pipeline/jobs/{job_id}/stage-status")
+
+            self.assertEqual(status_response.status_code, 200)
+            stages = {item["name"]: item for item in status_response.json()["stages"]}
+            self.assertEqual(stages["stage4_object_detection"]["status"], "completed")
+            self.assertEqual(stages["stage4_line_number_fusion"]["status"], "stale")
+            self.assertEqual(stages["stage4_instrument_tag_fusion"]["status"], "stale")
+            self.assertEqual(stages["stage5_pipe_mask"]["status"], "stale")
+            self.assertEqual(stages["stage5b_pipe_trace"]["status"], "stale")
+            self.assertEqual(stages["stage6_trace_associations"]["status"], "stale")
+            self.assertTrue((Path(tmp) / "stage4_objects.json").exists())
+            self.assertFalse(stale_artifact.exists())
+
     def test_pipeline_stage_status_reports_stale_after_stage3_artifact_update(self) -> None:
         client = TestClient(app)
         with tempfile.TemporaryDirectory() as tmp:
@@ -165,6 +216,207 @@ class PipelineApiTests(unittest.TestCase):
             payload = response.json()
             self.assertEqual(payload["job_id"], Path(tmp).name)
             self.assertEqual(payload["items"], [])
+
+    def test_pipeline_review_workspace_get_initializes_from_artifacts(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp:
+            job_id = "review_workspace_job_1"
+            (Path(tmp) / "stage4_objects.json").write_text(
+                json.dumps(
+                    {
+                        "image_id": "sample.png",
+                        "objects": [
+                            {
+                                "id": "obj_001",
+                                "class_name": "gate_valve",
+                                "bbox": {"x_min": 1, "y_min": 2, "x_max": 10, "y_max": 20},
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with patch.dict("api.PIPELINE_JOBS", {job_id: {
+                "job_id": job_id,
+                "status": "completed",
+                "current_stage": "stage6_trace_associations",
+                "error": None,
+                "job_dir": tmp,
+                "created_at": time.time(),
+                "stop_after": 6,
+                "ocr_route": "ocrmac",
+            }}, clear=False):
+                response = client.get(f"/api/pipeline/jobs/{job_id}/review-workspace")
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["job_id"], job_id)
+            self.assertEqual(payload["artifact"]["name"], "review_workspace_state.json")
+            self.assertEqual(payload["workspace"]["objects"][0]["id"], "obj_001")
+
+    def test_pipeline_review_workspace_put_persists_payload(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp:
+            job_id = "review_workspace_job_2"
+            with patch.dict("api.PIPELINE_JOBS", {job_id: {
+                "job_id": job_id,
+                "status": "completed",
+                "current_stage": "stage6_trace_associations",
+                "error": None,
+                "job_dir": tmp,
+                "created_at": time.time(),
+                "stop_after": 6,
+                "ocr_route": "ocrmac",
+            }}, clear=False):
+                response = client.put(
+                    f"/api/pipeline/jobs/{job_id}/review-workspace",
+                    json={"objects": [{"id": "obj_002", "class_name": "pump"}]},
+                )
+                get_response = client.get(f"/api/pipeline/jobs/{job_id}/review-workspace")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(get_response.status_code, 200)
+            self.assertEqual(get_response.json()["workspace"]["objects"][0]["id"], "obj_002")
+            self.assertTrue((Path(tmp) / "review_workspace_state.json").exists())
+
+    def test_pipeline_review_workspace_recompute_writes_reviewed_inputs_and_layers(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "input.png"
+            image_path.write_bytes(b"placeholder")
+            with open(Path(tmp) / "stage_manifest.json", "w", encoding="utf-8") as f:
+                json.dump(
+                    {
+                        "image_path": str(image_path),
+                        "stages": [
+                            {"num": 1, "name": "stage1_input_normalization", "status": "completed"},
+                            {"num": 2, "name": "stage2_ocr_discovery", "status": "completed"},
+                            {"num": 4, "name": "stage4_object_detection", "status": "completed"},
+                            {"num": 5, "name": "stage5_pipe_mask", "status": "completed"},
+                            {"num": 5, "name": "stage5b_pipe_trace", "status": "completed"},
+                            {"num": 6, "name": "stage6_trace_associations", "status": "completed"},
+                        ],
+                    },
+                    f,
+                )
+
+            class FakeRecomputePipeline:
+                def __init__(self, image_path: str, output_dir: str, stage_callback=None, cfg=None) -> None:
+                    self.output_dir = Path(output_dir)
+                    self.stage_manifest = {
+                        "stages": [
+                            {"num": 5, "name": "stage5_pipe_mask", "status": "completed"},
+                            {"num": 5, "name": "stage5b_pipe_trace", "status": "completed"},
+                            {"num": 6, "name": "stage6_trace_associations", "status": "completed"},
+                        ]
+                    }
+
+                def run(self, stop_after: int, resume: bool = False) -> None:
+                    self.output_dir.joinpath("stage5_connection_ports.json").write_text(json.dumps({"ports": [{"id": "p01"}]}), encoding="utf-8")
+                    self.output_dir.joinpath("stage5b_trace_results.json").write_text(json.dumps({"results": {"equip_001": {}}}), encoding="utf-8")
+                    self.output_dir.joinpath("stage5b_branch_trace_results.json").write_text(json.dumps({"branches": {}}), encoding="utf-8")
+                    self.output_dir.joinpath("stage6_trace_associations.json").write_text(json.dumps({"trace_edges": [{"trace_id": "equip_001"}]}), encoding="utf-8")
+                    self.output_dir.joinpath("stage6_line_number_review.json").write_text(json.dumps({"accepted": []}), encoding="utf-8")
+
+            job_id = "review_workspace_job_3"
+            with patch.dict("api.PIPELINE_JOBS", {job_id: {
+                "job_id": job_id,
+                "status": "completed",
+                "current_stage": "stage6_trace_associations",
+                "error": None,
+                "job_dir": tmp,
+                "created_at": time.time(),
+                "stop_after": 6,
+                "ocr_route": "ocrmac",
+                "gemini_postprocess_match_threshold": 0.1,
+                "weight_file": "yolo_weights/model.pt",
+            }}, clear=False), patch("api.PIDPipeline", FakeRecomputePipeline):
+                response = client.post(
+                    f"/api/pipeline/jobs/{job_id}/review-workspace/recompute",
+                    json={
+                        "scope": "stage5_to_6",
+                        "workspace": {
+                            "image_id": "sample.png",
+                            "objects": [
+                                {
+                                    "id": "obj_001",
+                                    "class_name": "gate_valve",
+                                    "bbox": {"x_min": 1, "y_min": 2, "x_max": 10, "y_max": 20},
+                                }
+                            ],
+                            "equipment": [
+                                {
+                                    "id": "equip_001",
+                                    "class_name": "vessel",
+                                    "bbox": {"x_min": 30, "y_min": 40, "x_max": 130, "y_max": 240},
+                                }
+                            ],
+                        },
+                    },
+                )
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["job_id"], job_id)
+            self.assertIn("stage5_connection_ports", payload["layers"])
+            self.assertEqual(payload["layers"]["stage6_trace_associations"]["trace_edges"][0]["trace_id"], "equip_001")
+            self.assertTrue((Path(tmp) / "review_workspace_state.json").exists())
+            self.assertTrue((Path(tmp) / "stage3_equipment_bboxes.json").exists())
+            self.assertTrue((Path(tmp) / "stage4_objects.json").exists())
+
+    def test_pipeline_review_workspace_commit_marks_downstream_stale(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp:
+            job_id = "review_workspace_job_commit"
+            stale_graph = Path(tmp) / "stage7_graph.json"
+            stale_graph.write_text("{}", encoding="utf-8")
+            with open(Path(tmp) / "stage_manifest.json", "w", encoding="utf-8") as f:
+                json.dump(
+                    {
+                        "image_path": str(Path(tmp) / "input.png"),
+                        "stages": [
+                            {"num": 6, "name": "stage6_trace_associations", "status": "completed"},
+                            {"num": 7, "name": "stage7_geometric_graph_assembly", "status": "completed"},
+                            {"num": 10, "name": "stage10_process_exports", "status": "completed"},
+                        ],
+                    },
+                    f,
+                )
+
+            with patch.dict("api.PIPELINE_JOBS", {job_id: {
+                "job_id": job_id,
+                "status": "completed",
+                "current_stage": "stage10_process_exports",
+                "error": None,
+                "job_dir": tmp,
+                "created_at": time.time(),
+                "stop_after": 10,
+                "ocr_route": "ocrmac",
+            }}, clear=False):
+                response = client.post(
+                    f"/api/pipeline/jobs/{job_id}/review-workspace/commit",
+                    json={
+                        "workspace": {
+                            "image_id": "sample.png",
+                            "objects": [
+                                {
+                                    "id": "obj_001",
+                                    "class_name": "gate_valve",
+                                    "bbox": {"x_min": 1, "y_min": 2, "x_max": 10, "y_max": 20},
+                                }
+                            ],
+                            "equipment": [],
+                        }
+                    },
+                )
+
+            self.assertEqual(response.status_code, 200)
+            stages = {item["name"]: item for item in response.json()["stages"]}
+            self.assertEqual(stages["stage6_trace_associations"]["status"], "completed")
+            self.assertEqual(stages["stage7_geometric_graph_assembly"]["status"], "stale")
+            self.assertEqual(stages["stage10_process_exports"]["status"], "stale")
+            self.assertFalse(stale_graph.exists())
+            self.assertTrue((Path(tmp) / "stage4_objects.json").exists())
 
     def test_pipeline_review_state_put_persists_payload(self) -> None:
         client = TestClient(app)

@@ -45,6 +45,12 @@ from garnet.model_defaults import list_weight_files as discover_weight_files
 from garnet.model_defaults import pick_default_weight_file
 from garnet.pid_extractor import PIDPipeline, PipelineConfig
 from garnet.review_state import load_review_state, save_review_state
+from garnet.review_workspace import (
+    load_review_workspace,
+    save_review_workspace,
+    workspace_to_stage3_equipment,
+    workspace_to_stage4_objects,
+)
 from garnet.reviewed_outputs import generate_reviewed_outputs
 from garnet.pipe_sheet_merge import resolve_merge_pairs
 from garnet.utils import rotate_image
@@ -393,6 +399,8 @@ ARTIFACT_INVALIDATION_START_STAGE: dict[str, str] = {
     # Stage 3 is a HITL artifact. Stage 5b is the first stage that consumes
     # reviewed equipment boxes for port detection and terminal matching.
     "stage3_equipment_bboxes.json": "stage5b_pipe_trace",
+    "stage4_objects.json": "stage4_line_number_fusion",
+    "stage6_line_number_review.json": "stage7_geometric_graph_assembly",
 }
 
 STALE_ARTIFACTS_BY_SOURCE: dict[str, tuple[str, ...]] = {
@@ -404,6 +412,124 @@ STALE_ARTIFACTS_BY_SOURCE: dict[str, tuple[str, ...]] = {
         "stage5b_branch_trace_results.json",
         "stage5b_trace_overlay.png",
         "stage5b_branch_trace_overlay.png",
+    ),
+    "stage4_objects.json": (
+        "stage4_objects_overlay.png",
+        "stage4_line_numbers.json",
+        "stage4_line_number_summary.json",
+        "stage4_line_number_overlay.png",
+        "stage4_instrument_tags.json",
+        "stage4_instrument_tag_summary.json",
+        "stage4_instrument_tag_overlay.png",
+        "stage5_pipe_mask.png",
+        "stage5_pipe_mask_overlay.png",
+        "stage5_pipe_mask_summary.json",
+        "stage5_connection_ports.json",
+        "stage5_connection_ports_overlay.png",
+        "stage5b_trace_results.json",
+        "stage5b_branch_candidates.json",
+        "stage5b_branch_trace_results.json",
+        "stage5b_trace_overlay.png",
+        "stage5b_branch_trace_overlay.png",
+        "stage6_trace_associations.json",
+        "stage6_trace_association_summary.json",
+        "stage6_line_number_review.json",
+        "stage6_line_number_review_summary.json",
+        "stage6_trace_association_overlay.png",
+        "stage7_graph.json",
+        "stage7_graph_summary.json",
+        "stage7_trace_edge_nodes.json",
+        "stage7_review_queue.json",
+        "stage7_review_queue_summary.json",
+        "stage7_graph_normalization.json",
+        "stage7_graph_normalization_summary.json",
+        "stage7_graph_overlay.png",
+        "stage7_graph_qa.json",
+        "stage7_graph_qa_summary.json",
+        "stage7_graph_qa_overlay.png",
+        "stage7_page_connector_labels.json",
+        "stage7_page_connector_labels_summary.json",
+        "stage7b_graph_v1.json",
+        "stage8_review_items.json",
+        "stage8_review_summary.json",
+        "stage8_review_overlay.png",
+        "stage9_corrected_graph.json",
+        "stage9_review_resolutions.json",
+        "stage9_correction_audit.json",
+        "stage9_correction_summary.json",
+        "stage10_line_list.json",
+        "stage10_equipment_connectivity.json",
+        "stage10_inline_mto.json",
+        "stage10_inline_observations.json",
+        "stage10_instrument_index.json",
+        "stage10_process_export_summary.json",
+        "stage10_inline_mto_overlay.png",
+        "stage10_line_number_overlay.png",
+        "stage11_connection_pipeline_overlay.png",
+    ),
+    "stage6_line_number_review.json": (
+        "stage7_graph.json",
+        "stage7_graph_summary.json",
+        "stage7_trace_edge_nodes.json",
+        "stage7_review_queue.json",
+        "stage7_review_queue_summary.json",
+        "stage7_graph_normalization.json",
+        "stage7_graph_normalization_summary.json",
+        "stage7_graph_overlay.png",
+        "stage7_graph_qa.json",
+        "stage7_graph_qa_summary.json",
+        "stage7_graph_qa_overlay.png",
+        "stage7_page_connector_labels.json",
+        "stage7_page_connector_labels_summary.json",
+        "stage7b_graph_v1.json",
+        "stage8_review_items.json",
+        "stage8_review_summary.json",
+        "stage8_review_overlay.png",
+        "stage9_corrected_graph.json",
+        "stage9_review_resolutions.json",
+        "stage9_correction_audit.json",
+        "stage9_correction_summary.json",
+        "stage10_line_list.json",
+        "stage10_equipment_connectivity.json",
+        "stage10_inline_mto.json",
+        "stage10_inline_observations.json",
+        "stage10_instrument_index.json",
+        "stage10_process_export_summary.json",
+        "stage10_inline_mto_overlay.png",
+        "stage10_line_number_overlay.png",
+        "stage11_connection_pipeline_overlay.png",
+    ),
+    "review_workspace_commit": (
+        "stage7_graph.json",
+        "stage7_graph_summary.json",
+        "stage7_trace_edge_nodes.json",
+        "stage7_review_queue.json",
+        "stage7_review_queue_summary.json",
+        "stage7_graph_normalization.json",
+        "stage7_graph_normalization_summary.json",
+        "stage7_graph_overlay.png",
+        "stage7_graph_qa.json",
+        "stage7_graph_qa_summary.json",
+        "stage7_graph_qa_overlay.png",
+        "stage7_page_connector_labels.json",
+        "stage7_page_connector_labels_summary.json",
+        "stage7b_graph_v1.json",
+        "stage8_review_items.json",
+        "stage8_review_summary.json",
+        "stage8_review_overlay.png",
+        "stage9_corrected_graph.json",
+        "stage9_review_resolutions.json",
+        "stage9_correction_audit.json",
+        "stage9_correction_summary.json",
+        "stage10_line_list.json",
+        "stage10_equipment_connectivity.json",
+        "stage10_inline_mto.json",
+        "stage10_inline_observations.json",
+        "stage10_instrument_index.json",
+        "stage10_process_export_summary.json",
+        "stage10_inline_mto_overlay.png",
+        "stage10_line_number_overlay.png",
+        "stage11_connection_pipeline_overlay.png",
     ),
 }
 
@@ -922,6 +1048,75 @@ def _safe_pipeline_artifact_path(job_dir: str, artifact_name: str) -> str:
     return artifact_path
 
 
+def _refresh_stage4_reviewed_object_artifacts(job_dir: str, payload: dict[str, Any]) -> None:
+    objects = payload.get("objects", [])
+    if not isinstance(objects, list):
+        return
+
+    manifest = _pipeline_job_manifest(job_dir) or {}
+    image_path = str(manifest.get("image_path") or "")
+    image_id = os.path.basename(image_path) if image_path else os.path.basename(job_dir)
+    class_counts: dict[str, int] = {}
+    for obj in objects:
+        if not isinstance(obj, dict):
+            continue
+        class_name = str(obj.get("class_name") or obj.get("Object") or "")
+        class_counts[class_name] = class_counts.get(class_name, 0) + 1
+
+    summary_path = os.path.join(job_dir, "stage4_objects_summary.json")
+    with open(summary_path, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "image_id": image_id,
+                "object_count": len(objects),
+                "class_counts": dict(sorted(class_counts.items())),
+                "source": "hitl",
+                "source_artifact": "stage4_objects.json",
+            },
+            f,
+            indent=2,
+        )
+
+    from garnet.topology_markers import run_topology_marker_router
+
+    topology_marker_result = run_topology_marker_router(image_id=image_id, objects=objects)
+    with open(os.path.join(job_dir, "stage4_topology_markers.json"), "w", encoding="utf-8") as f:
+        json.dump(topology_marker_result["topology_markers_payload"], f, indent=2)
+    with open(os.path.join(job_dir, "stage4_topology_marker_summary.json"), "w", encoding="utf-8") as f:
+        json.dump(topology_marker_result["summary"], f, indent=2)
+
+
+def _write_pipeline_json_artifact(job_dir: str, artifact_name: str, payload: dict[str, Any]) -> None:
+    if not artifact_name.endswith(".json"):
+        artifact_name = f"{artifact_name}.json"
+    artifact_path = _safe_pipeline_artifact_path(job_dir, artifact_name)
+    tmp_path = f"{artifact_path}.tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
+    os.replace(tmp_path, artifact_path)
+
+
+def _read_pipeline_json_artifact(job_dir: str, artifact_name: str) -> dict[str, Any]:
+    if not artifact_name.endswith(".json"):
+        artifact_name = f"{artifact_name}.json"
+    artifact_path = _safe_pipeline_artifact_path(job_dir, artifact_name)
+    if not os.path.exists(artifact_path):
+        return {}
+    with open(artifact_path, "r", encoding="utf-8") as f:
+        payload = json.load(f)
+    return payload if isinstance(payload, dict) else {}
+
+
+def _review_workspace_layer_payloads(job_dir: str) -> dict[str, dict[str, Any]]:
+    return {
+        "stage5_connection_ports": _read_pipeline_json_artifact(job_dir, "stage5_connection_ports.json"),
+        "stage5b_trace_results": _read_pipeline_json_artifact(job_dir, "stage5b_trace_results.json"),
+        "stage5b_branch_trace_results": _read_pipeline_json_artifact(job_dir, "stage5b_branch_trace_results.json"),
+        "stage6_trace_associations": _read_pipeline_json_artifact(job_dir, "stage6_trace_associations.json"),
+        "stage6_line_number_review": _read_pipeline_json_artifact(job_dir, "stage6_line_number_review.json"),
+    }
+
+
 def _resolve_pipeline_job_image_path(job_dir: str) -> str:
     manifest = _pipeline_job_manifest(job_dir) or {}
     manifest_image_path = manifest.get("image_path")
@@ -1374,6 +1569,127 @@ async def put_pipeline_review_state(job_id: str, request: ReviewStateRequest):
     return load_review_state(payload["job_dir"], manifest)
 
 
+@app.get("/api/pipeline/jobs/{job_id}/review-workspace")
+async def get_pipeline_review_workspace(job_id: str):
+    payload = _serialize_pipeline_job(job_id)
+    artifact_name = "review_workspace_state.json"
+    return {
+        "job_id": job_id,
+        "workspace": load_review_workspace(payload["job_dir"]),
+        "artifact": {
+            "name": artifact_name,
+            "url": f"/api/pipeline/jobs/{job_id}/artifacts/{artifact_name}",
+        },
+    }
+
+
+@app.put("/api/pipeline/jobs/{job_id}/review-workspace")
+async def put_pipeline_review_workspace(job_id: str, request: dict[str, Any]):
+    payload = _serialize_pipeline_job(job_id)
+    artifact_name = "review_workspace_state.json"
+    workspace_payload = request.get("workspace") if isinstance(request.get("workspace"), dict) else request
+    save_review_workspace(payload["job_dir"], workspace_payload)
+    return {
+        "job_id": job_id,
+        "workspace": load_review_workspace(payload["job_dir"]),
+        "artifact": {
+            "name": artifact_name,
+            "url": f"/api/pipeline/jobs/{job_id}/artifacts/{artifact_name}",
+        },
+    }
+
+
+@app.post("/api/pipeline/jobs/{job_id}/review-workspace/recompute")
+async def recompute_pipeline_review_workspace(job_id: str, request: dict[str, Any]):
+    payload = _serialize_pipeline_job(job_id)
+    job_dir = payload["job_dir"]
+    workspace_payload = request.get("workspace") if isinstance(request.get("workspace"), dict) else request
+    scope = str(request.get("scope") or "stage5_to_6")
+    if scope != "stage5_to_6":
+        raise HTTPException(status_code=400, detail="Only stage5_to_6 recompute is currently supported")
+
+    save_review_workspace(job_dir, workspace_payload)
+    workspace = load_review_workspace(job_dir)
+
+    image_id = workspace.get("image_id")
+    if not isinstance(image_id, str) or not image_id:
+        manifest = _pipeline_job_manifest(job_dir) or {}
+        image_path = str(manifest.get("image_path") or "")
+        image_id = os.path.basename(image_path) if image_path else os.path.basename(job_dir)
+
+    stage3_payload = workspace_to_stage3_equipment(workspace)
+    stage4_payload = workspace_to_stage4_objects(workspace, image_id=image_id)
+    _write_pipeline_json_artifact(job_dir, "stage3_equipment_bboxes.json", stage3_payload)
+    _write_pipeline_json_artifact(job_dir, "stage4_objects.json", stage4_payload)
+    _refresh_stage4_reviewed_object_artifacts(job_dir, stage4_payload)
+
+    _mark_pipeline_stale_from(job_dir, "stage5_pipe_mask", "review_workspace_recompute")
+
+    with PIPELINE_JOBS_LOCK:
+        job = PIPELINE_JOBS.get(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Pipeline job not found")
+        image_path = _resolve_pipeline_job_image_path(job_dir)
+        stop_after = max(int(job.get("stop_after") or 6), 6)
+        ocr_route = str(job.get("ocr_route") or "ocrmac")
+        gemini_threshold = float(job.get("gemini_postprocess_match_threshold") or 0.1)
+        weight_file = str(job.get("weight_file") or resolve_pipeline_weight_file(""))
+        debug_artifacts = bool(job.get("debug_artifacts", False))
+        job["status"] = "running"
+        job["current_stage"] = "stage5_pipe_mask"
+        job["error"] = None
+        job["stop_after"] = stop_after
+
+    _run_pipeline_job(
+        job_id,
+        image_path,
+        job_dir,
+        stop_after,
+        ocr_route,
+        gemini_threshold,
+        weight_file,
+        debug_artifacts=debug_artifacts,
+        resume=True,
+    )
+
+    return {
+        "job_id": job_id,
+        "workspace": load_review_workspace(job_dir),
+        "layers": _review_workspace_layer_payloads(job_dir),
+        "stages": _pipeline_stage_status(job_dir),
+    }
+
+
+@app.post("/api/pipeline/jobs/{job_id}/review-workspace/commit")
+async def commit_pipeline_review_workspace(job_id: str, request: dict[str, Any] | None = None):
+    payload = _serialize_pipeline_job(job_id)
+    job_dir = payload["job_dir"]
+    request_payload = request or {}
+    workspace_payload = request_payload.get("workspace") if isinstance(request_payload.get("workspace"), dict) else request_payload
+    if workspace_payload:
+        save_review_workspace(job_dir, workspace_payload)
+    workspace = load_review_workspace(job_dir)
+
+    image_id = workspace.get("image_id")
+    if not isinstance(image_id, str) or not image_id:
+        manifest = _pipeline_job_manifest(job_dir) or {}
+        image_path = str(manifest.get("image_path") or "")
+        image_id = os.path.basename(image_path) if image_path else os.path.basename(job_dir)
+
+    stage3_payload = workspace_to_stage3_equipment(workspace)
+    stage4_payload = workspace_to_stage4_objects(workspace, image_id=image_id)
+    _write_pipeline_json_artifact(job_dir, "stage3_equipment_bboxes.json", stage3_payload)
+    _write_pipeline_json_artifact(job_dir, "stage4_objects.json", stage4_payload)
+    _refresh_stage4_reviewed_object_artifacts(job_dir, stage4_payload)
+    _mark_pipeline_stale_from(job_dir, "stage7_geometric_graph_assembly", "review_workspace_commit")
+
+    return {
+        "job_id": job_id,
+        "workspace": load_review_workspace(job_dir),
+        "stages": _pipeline_stage_status(job_dir),
+    }
+
+
 @app.get("/api/pipeline/jobs/{job_id}/reviewed-graph")
 async def get_pipeline_reviewed_graph(job_id: str):
     payload = _serialize_pipeline_job(job_id)
@@ -1417,6 +1733,8 @@ async def put_pipeline_artifact(job_id: str, artifact_name: str, payload: dict[s
     from_stage_name = ARTIFACT_INVALIDATION_START_STAGE.get(artifact_name)
     if from_stage_name:
         _mark_pipeline_stale_from(job_dir, from_stage_name, artifact_name)
+    if artifact_name == "stage4_objects.json":
+        _refresh_stage4_reviewed_object_artifacts(job_dir, payload)
 
     return {
         "job_id": job_id,

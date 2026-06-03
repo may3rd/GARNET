@@ -18,6 +18,8 @@ class ReviewStateTests(unittest.TestCase):
                 "stage12_line_attachment",
                 "stage4_instrument",
                 "stage4_line_number",
+                "stage4_object",
+                "stage6_line_association",
             ],
         )
 
@@ -35,7 +37,9 @@ class ReviewStateTests(unittest.TestCase):
                         }
                     ],
                     "workspace_objects": {
+                        "stage4_object": [{"Object": "gate_valve"}],
                         "stage4_line_number": [{"Object": "line_number"}],
+                        "stage6_line_association": [{"Object": "line_number"}],
                     },
                 },
                 manifest,
@@ -44,7 +48,9 @@ class ReviewStateTests(unittest.TestCase):
             loaded = load_review_state(tmp, manifest)
             self.assertEqual(loaded["image_path"], "sample.png")
             self.assertEqual(loaded["items"][0]["decision"], "accepted")
+            self.assertEqual(loaded["workspace_objects"]["stage4_object"][0]["Object"], "gate_valve")
             self.assertEqual(loaded["workspace_objects"]["stage4_line_number"][0]["Object"], "line_number")
+            self.assertEqual(loaded["workspace_objects"]["stage6_line_association"][0]["Object"], "line_number")
 
     def test_save_review_state_rejects_invalid_bucket(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

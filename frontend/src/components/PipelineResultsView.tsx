@@ -3,6 +3,8 @@ import { Maximize2, X } from 'lucide-react'
 import type { DetectedObject, PipelineJob, PipelineReviewBucket, PipelineReviewDecision, PipelineReviewItem, PipelineStageManifest } from '@/types'
 import { PipelineArtifactCanvas } from '@/components/PipelineArtifactCanvas'
 import { PipelineHitlReviewView } from '@/components/PipelineHitlReviewView'
+import { PipelineReviewWorkspaceView } from '@/components/PipelineReviewWorkspaceView'
+import { Stage6LineAssociationReview } from '@/components/Stage6LineAssociationReview'
 import { getPipelineJob, getPipelineReviewedGraph, getPipelineReviewedQa, getPipelineStageStatus, putPipelineArtifact, resumePipelineFromStage } from '@/lib/api'
 
 type JsonValue = string | number | boolean | null | JsonObject | JsonValue[]
@@ -141,6 +143,67 @@ function buildStage3EquipmentItems(
   })
 }
 
+function buildStage4ObjectItems(stage4Payload: JsonObject | undefined): PipelineReviewItem[] {
+  return ((stage4Payload?.objects as JsonObject[] | undefined) ?? []).map((item, index) => {
+    const id = toStringValue(item.id) ?? `obj_${String(index + 1).padStart(6, '0')}`
+    const className = toStringValue(item.class_name) ?? 'object'
+    const confidence = toNumber(item.confidence)
+    const source = toStringValue(item.source)
+    const reviewState = toStringValue(item.review_state)
+    return {
+      bucket: 'stage4_object',
+      id,
+      title: className,
+      subtitle: `Stage 4 object ${id}`,
+      text: id,
+      normalizedText: id,
+      artifactName: 'stage4_objects_overlay.png',
+      statusHint: [source, reviewState, confidence !== undefined ? `score ${confidence.toFixed(3)}` : undefined].filter(Boolean).join(' • '),
+      bbox: toJsonObject(item.bbox),
+      reviewState,
+      sourceObjectId: id,
+    }
+  })
+}
+
+function buildStage6LineAssociationItems(
+  tracePayload: JsonObject | undefined,
+  reviewPayload: JsonObject | undefined
+): PipelineReviewItem[] {
+  const accepted = new Map<string, JsonObject>()
+  ;((reviewPayload?.accepted as JsonObject[] | undefined) ?? []).forEach((item) => {
+    const traceId = toStringValue(item.trace_id)
+    if (traceId) accepted.set(traceId, item)
+  })
+  const rejected = new Set<string>()
+  ;((reviewPayload?.needs_review as JsonObject[] | undefined) ?? []).forEach((item) => {
+    const traceId = toStringValue(item.trace_id) ?? toStringValue(item.id)
+    if (traceId) rejected.add(traceId)
+  })
+
+  return ((tracePayload?.trace_edges as JsonObject[] | undefined) ?? []).map((edge, index) => {
+    const traceId = toStringValue(edge.trace_id) ?? `trace_${index + 1}`
+    const attachments = toJsonObject(edge.attachments)
+    const lineNumbers = (attachments?.line_numbers as JsonObject[] | undefined) ?? []
+    const firstLine = accepted.get(traceId) ?? lineNumbers[0]
+    const text = toStringValue(firstLine?.text) ?? ''
+    const normalizedText = toStringValue(firstLine?.normalized_text) ?? text
+    const reviewState = accepted.has(traceId) ? 'accepted' : rejected.has(traceId) ? 'needs_review' : normalizedText ? 'system' : 'missing_line_number'
+    return {
+      bucket: 'stage6_line_association',
+      id: traceId,
+      title: normalizedText || traceId,
+      subtitle: `Stage 6 ${toStringValue(edge.trace_kind) || 'trace'} line association`,
+      text,
+      normalizedText,
+      artifactName: 'stage6_trace_association_overlay.png',
+      statusHint: reviewState,
+      reviewState,
+      sourceObjectId: toStringValue(edge.source_obj_id),
+    }
+  })
+}
+
 function equipmentObjectsToStage3Artifact(objects: DetectedObject[]) {
   return {
     equipment: objects.map((obj, index) => ({
@@ -154,6 +217,26 @@ function equipmentObjectsToStage3Artifact(objects: DetectedObject[]) {
       },
       source: 'hitl',
       review_state: 'accepted',
+    })),
+  }
+}
+
+function detectedObjectsToStage4Artifact(objects: DetectedObject[], imageId?: string) {
+  const acceptedObjects = objects.filter((obj) => obj.ReviewStatus !== 'rejected')
+  return {
+    ...(imageId ? { image_id: imageId } : {}),
+    objects: acceptedObjects.map((obj, index) => ({
+      id: obj.Text?.trim() || `obj_${String(index + 1).padStart(6, '0')}`,
+      class_name: obj.Object || 'object',
+      bbox: {
+        x_min: Math.round(obj.Left),
+        y_min: Math.round(obj.Top),
+        x_max: Math.round(obj.Left + obj.Width),
+        y_max: Math.round(obj.Top + obj.Height),
+      },
+      confidence: Number.isFinite(obj.Score) ? obj.Score : 1,
+      source: 'hitl',
+      review_state: obj.ReviewStatus ?? 'accepted',
     })),
   }
 }
@@ -196,6 +279,8 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   const [reviewDecisions, setReviewDecisions] = useState<Record<string, ReviewDecision>>({})
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
   const [isResuming, setIsResuming] = useState(false)
+  const [isSavingStage6, setIsSavingStage6] = useState(false)
+  const [showArtifactDetails, setShowArtifactDetails] = useState(false)
   const [pipelineActionError, setPipelineActionError] = useState<string | null>(null)
   const [graphMode, setGraphMode] = useState<'raw' | 'reviewed'>('raw')
   const [reviewedGraphSummary, setReviewedGraphSummary] = useState<JsonObject | null>(null)
@@ -215,6 +300,7 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
       imageArtifacts.filter((artifact) =>
         [
           'stage4_line_number_overlay.png',
+          'stage6_trace_association_overlay.png',
           'stage12_text_attachment_overlay.png',
         ].includes(artifact.name)
       ),
@@ -227,6 +313,10 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
           'stage2_ocr_summary.json',
           'stage4_objects_summary.json',
           'stage4_line_number_summary.json',
+          'stage6_trace_association_summary.json',
+          'stage6_line_number_review_summary.json',
+          'stage7_graph_summary.json',
+          'stage7_graph_qa_summary.json',
           'stage5_pipe_mask_summary.json',
           'stage6_pipe_mask_sealed_summary.json',
           'stage7_pipe_skeleton_summary.json',
@@ -250,6 +340,8 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
           'stage4_instrument_tags.json',
           'stage3_equipment_bboxes.json',
           'stage4_objects.json',
+          'stage6_trace_associations.json',
+          'stage6_line_number_review.json',
           'stage12_text_attachments.json',
           'stage12_instrument_tag_attachments.json',
         ].includes(artifact.name)
@@ -385,8 +477,10 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   const reviewItems = useMemo(
     () => ({
       stage3_equipment: buildStage3EquipmentItems(jsonDetails['stage3_equipment_bboxes.json'], jsonDetails['stage4_objects.json']),
+      stage4_object: buildStage4ObjectItems(jsonDetails['stage4_objects.json']),
       stage4_line_number: buildReviewItems('stage4_line_numbers.json', jsonDetails['stage4_line_numbers.json']),
       stage4_instrument: buildReviewItems('stage4_instrument_tags.json', jsonDetails['stage4_instrument_tags.json']),
+      stage6_line_association: buildStage6LineAssociationItems(jsonDetails['stage6_trace_associations.json'], jsonDetails['stage6_line_number_review.json']),
       stage12_line_attachment: buildReviewItems('stage12_text_attachments.json', jsonDetails['stage12_text_attachments.json']),
       stage12_instrument_attachment: buildReviewItems('stage12_instrument_tag_attachments.json', jsonDetails['stage12_instrument_tag_attachments.json']),
     }),
@@ -396,8 +490,10 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   const reviewCounts = useMemo(() => {
     const counts: Record<ReviewBucket, Record<ReviewDecision, number>> = {
       stage3_equipment: { accepted: 0, rejected: 0, deferred: 0 },
+      stage4_object: { accepted: 0, rejected: 0, deferred: 0 },
       stage4_line_number: { accepted: 0, rejected: 0, deferred: 0 },
       stage4_instrument: { accepted: 0, rejected: 0, deferred: 0 },
+      stage6_line_association: { accepted: 0, rejected: 0, deferred: 0 },
       stage12_line_attachment: { accepted: 0, rejected: 0, deferred: 0 },
       stage12_instrument_attachment: { accepted: 0, rejected: 0, deferred: 0 },
     }
@@ -412,6 +508,8 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
 
   const staleFromStage5b = stages.some((stage) => stage.name === 'stage5b_pipe_trace' && stage.status === 'stale')
     || stages.some((stage) => stage.status === 'stale' && (stage.num ?? 0) >= 5)
+  const staleFromStage7 = stages.some((stage) => stage.name === 'stage7_geometric_graph_assembly' && stage.status === 'stale')
+    || stages.some((stage) => stage.status === 'stale' && (stage.num ?? 0) >= 7)
 
   const saveStage3Equipment = async (objects: DetectedObject[]) => {
     setPipelineActionError(null)
@@ -422,11 +520,31 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
     setLiveJob(refreshedJob)
   }
 
+  const saveStage4Objects = async (objects: DetectedObject[]) => {
+    setPipelineActionError(null)
+    const payload = detectedObjectsToStage4Artifact(
+      objects,
+      toStringValue(jsonDetails['stage4_objects.json']?.image_id)
+    )
+    const response = await putPipelineArtifact(activeJob.job_id, 'stage4_objects.json', payload)
+    setStageStatuses(response.stages)
+    const refreshedJob = await getPipelineJob(activeJob.job_id)
+    setLiveJob(refreshedJob)
+  }
+
   const resumeFromStage5b = async () => {
+    await resumeFromStageName('stage5b_pipe_trace')
+  }
+
+  const resumeFromStage7 = async () => {
+    await resumeFromStageName('stage7_geometric_graph_assembly')
+  }
+
+  const resumeFromStageName = async (stageName: string) => {
     setIsResuming(true)
     setPipelineActionError(null)
     try {
-      await resumePipelineFromStage(activeJob.job_id, 'stage5b_pipe_trace')
+      await resumePipelineFromStage(activeJob.job_id, stageName)
       while (true) {
         const nextJob = await getPipelineJob(activeJob.job_id)
         setLiveJob(nextJob)
@@ -450,6 +568,21 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
     }
   }
 
+  const saveStage6LineReview = async (payload: JsonObject) => {
+    setIsSavingStage6(true)
+    setPipelineActionError(null)
+    try {
+      const response = await putPipelineArtifact(activeJob.job_id, 'stage6_line_number_review.json', payload)
+      setStageStatuses(response.stages)
+      const refreshedJob = await getPipelineJob(activeJob.job_id)
+      setLiveJob(refreshedJob)
+    } catch (error) {
+      setPipelineActionError(error instanceof Error ? error.message : 'Failed to save Stage 6 line review')
+    } finally {
+      setIsSavingStage6(false)
+    }
+  }
+
   if (workspaceOpen) {
     return (
       <PipelineHitlReviewView
@@ -460,7 +593,18 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
         initialReviewDecisions={reviewDecisions}
         onApply={(decisions) => setReviewDecisions(decisions)}
         onSaveStage3Equipment={saveStage3Equipment}
+        onSaveStage4Objects={saveStage4Objects}
         onClose={() => setWorkspaceOpen(false)}
+      />
+    )
+  }
+
+  if (!showArtifactDetails && activeJob.status === 'completed') {
+    return (
+      <PipelineReviewWorkspaceView
+        job={activeJob}
+        imageArtifacts={imageArtifacts}
+        onOpenDetails={() => setShowArtifactDetails(true)}
       />
     )
   }
@@ -495,9 +639,22 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
     <div className="h-full overflow-auto bg-[var(--bg-canvas)]">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-6">
         <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-5">
-          <div className="text-lg font-semibold">Pipeline Review</div>
-          <div className="mt-1 text-sm text-[var(--text-secondary)]">
-            Full staged review through Stage 11: normalization, OCR, object detection, pipe mask, path tracing, trace associations, graph assembly, QA, reviewed outputs, process exports, and final connection overlay.
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-lg font-semibold">Pipeline Artifacts / QA</div>
+              <div className="mt-1 text-sm text-[var(--text-secondary)]">
+                Full staged review through Stage 11: normalization, OCR, object detection, pipe mask, path tracing, trace associations, graph assembly, QA, reviewed outputs, process exports, and final connection overlay.
+              </div>
+            </div>
+            {activeJob.status === 'completed' ? (
+              <button
+                type="button"
+                onClick={() => setShowArtifactDetails(false)}
+                className="rounded-lg border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-2 text-sm font-semibold text-[var(--accent)]"
+              >
+                Back to Review Workspace
+              </button>
+            ) : null}
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <div className="rounded-xl border border-[var(--border-muted)] bg-[var(--bg-primary)] p-3">
@@ -608,8 +765,10 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
           title="HITL Review"
           entries={[
             ['S3 Equipment Boxes', reviewItems.stage3_equipment.length],
+            ['S4 Object Boxes', reviewItems.stage4_object.length],
             ['S4 Line Accepted', reviewCounts.stage4_line_number.accepted],
             ['S4 Instrument Accepted', reviewCounts.stage4_instrument.accepted],
+            ['S6 Line Accepted', reviewCounts.stage6_line_association.accepted],
             ['S12 Line Accepted', reviewCounts.stage12_line_attachment.accepted],
             ['S12 Instrument Accepted', reviewCounts.stage12_instrument_attachment.accepted],
           ]}
@@ -674,8 +833,10 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
               <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 {([
                   ['stage3_equipment', 'Stage 3 Equipment'],
+                  ['stage4_object', 'Stage 4 Objects'],
                   ['stage4_line_number', 'Stage 4 Line Numbers'],
                   ['stage4_instrument', 'Stage 4 Instruments'],
+                  ['stage6_line_association', 'Stage 6 Line Associations'],
                   ['stage12_line_attachment', 'Stage 12 Line Attachments'],
                   ['stage12_instrument_attachment', 'Stage 12 Instrument Attachments'],
                 ] as Array<[ReviewBucket, string]>).map(([bucket, label]) => {
@@ -701,6 +862,17 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
                 })}
               </div>
             </div>
+
+            <Stage6LineAssociationReview
+              tracePayload={jsonDetails['stage6_trace_associations.json']}
+              reviewPayload={jsonDetails['stage6_line_number_review.json']}
+              overlayUrl={imageArtifacts.find((artifact) => artifact.name === 'stage6_trace_association_overlay.png')?.url}
+              stage7Stale={staleFromStage7}
+              isSaving={isSavingStage6}
+              isResuming={isResuming}
+              onSave={saveStage6LineReview}
+              onResumeStage7={resumeFromStage7}
+            />
 
             <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-5">
               <div className="text-sm font-semibold">Artifact Thumbnails</div>

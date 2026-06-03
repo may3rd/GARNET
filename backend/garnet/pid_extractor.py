@@ -42,7 +42,11 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import numpy as np
 from dotenv import load_dotenv
 from garnet.path_tracer.stage5b_pipeline import Stage5bPipelineMixin
-from garnet.trace_associations import build_trace_associations, render_trace_association_overlay
+from garnet.trace_associations import (
+    apply_stage6_line_number_review,
+    build_trace_associations,
+    render_trace_association_overlay,
+)
 
 try:
     import cv2  # type: ignore
@@ -987,6 +991,10 @@ class PIDPipeline(Stage5bPipelineMixin):
         stage6_payload = self._load_json_artifact_compat(
             "stage6_trace_associations",
             "stage11_trace_associations",
+        )
+        stage6_payload = apply_stage6_line_number_review(
+            stage6_payload,
+            self._load_json_artifact_or_default("stage6_line_number_review", {}),
         )
         trace_graph_result = build_trace_graph_from_stage6(stage6_payload, image_id=image_id)
         self._save_json("stage7_graph", trace_graph_result["graph_payload"])

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { AppView, BatchItem, DetectedObject, DetectionResult, OcrRoute, PipelineJob, ProcessingMode } from '@/types'
 import { APIError, getPipelineJob, runDetection, startPipelineJob, type DetectionOptions } from '@/lib/api'
-import { useHistoryStore, type HistoryAction } from '@/stores/historyStore'
+import { useHistoryStore } from '@/stores/historyStore'
 import { objectKey } from '@/lib/objectKey'
 
 export type AppState = {

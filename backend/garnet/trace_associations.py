@@ -8,11 +8,79 @@ artifacts and receive the payloads that `pid_extractor` writes to disk.
 from __future__ import annotations
 
 import math
+from copy import deepcopy
 from typing import Any, Optional
 
 import numpy as np
 
 LINE_NUMBER_REVIEW_ASSUMPTION = "accepted_line_numbers_are_human_reviewed"
+
+
+def apply_stage6_line_number_review(
+    trace_associations_payload: dict[str, Any],
+    line_number_review_payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Return trace associations with reviewed Stage 6 line numbers applied.
+
+    The raw Stage 6 trace association artifact remains system evidence. This
+    helper overlays the HITL line-number review artifact for downstream graph
+    construction and exports.
+    """
+    if not line_number_review_payload:
+        return trace_associations_payload
+
+    reviewed = deepcopy(trace_associations_payload)
+    accepted = [
+        dict(item)
+        for item in line_number_review_payload.get("accepted", []) or []
+        if str(item.get("trace_id") or "")
+    ]
+    needs_review = [
+        dict(item)
+        for item in line_number_review_payload.get("needs_review", []) or []
+        if str(item.get("trace_id") or item.get("id") or "")
+    ]
+    missing_trace_ids = {
+        str(trace_id)
+        for trace_id in line_number_review_payload.get("traces_without_line_number", []) or []
+        if str(trace_id)
+    }
+
+    accepted_by_trace: dict[str, list[dict[str, Any]]] = {}
+    for item in accepted:
+        trace_id = str(item.get("trace_id") or "")
+        item.setdefault("review_state", "accepted")
+        item.setdefault("review_source", "human")
+        item.setdefault("review_required", False)
+        accepted_by_trace.setdefault(trace_id, []).append(item)
+
+    reviewed_trace_ids = set(accepted_by_trace) | missing_trace_ids
+    for item in needs_review:
+        trace_id = str(item.get("trace_id") or item.get("id") or "")
+        if trace_id:
+            reviewed_trace_ids.add(trace_id)
+
+    for edge in reviewed.get("trace_edges", []) or []:
+        trace_id = str(edge.get("trace_id") or "")
+        if trace_id not in reviewed_trace_ids:
+            continue
+        attachments = edge.setdefault("attachments", {})
+        attachments["line_numbers"] = accepted_by_trace.get(trace_id, [])
+
+    associations = reviewed.setdefault("associations", {})
+    line_assoc = associations.setdefault("line_numbers", {})
+    line_assoc["accepted"] = accepted
+    line_assoc["rejected"] = needs_review
+
+    unresolved = reviewed.setdefault("unresolved", {})
+    unresolved["traces_without_line_number"] = sorted(missing_trace_ids)
+    unresolved["unattached_line_numbers"] = needs_review
+    reviewed["line_number_review_applied"] = True
+    reviewed["line_number_review_assumption"] = line_number_review_payload.get(
+        "review_assumption",
+        LINE_NUMBER_REVIEW_ASSUMPTION,
+    )
+    return reviewed
 
 
 def _mark_line_number_review_state(association: dict[str, Any], *, accepted: bool) -> dict[str, Any]:

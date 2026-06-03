@@ -83,8 +83,10 @@ export type PipelineJob = {
 export type PipelineReviewDecision = 'accepted' | 'rejected' | 'deferred'
 export type PipelineReviewBucket =
   | 'stage3_equipment'
+  | 'stage4_object'
   | 'stage4_line_number'
   | 'stage4_instrument'
+  | 'stage6_line_association'
   | 'stage12_line_attachment'
   | 'stage12_instrument_attachment'
 
@@ -125,6 +127,38 @@ export type PipelineReviewState = {
   updated_at: number
   items: PipelineReviewStateItem[]
   workspace_objects: Record<PipelineReviewBucket, Array<Record<string, unknown>>>
+}
+
+export type PipelineReviewWorkspaceState = {
+  version: number
+  job_id?: string | null
+  image_id?: string | null
+  updated_at: number
+  objects: Array<Record<string, unknown>>
+  equipment: Array<Record<string, unknown>>
+  manual_ports: Array<Record<string, unknown>>
+  deleted_entities: Array<Record<string, unknown>>
+  line_association_overrides: Array<Record<string, unknown>>
+  trace_overrides: Array<Record<string, unknown>>
+}
+
+export type PipelineReviewWorkspaceResponse = {
+  job_id: string
+  workspace: PipelineReviewWorkspaceState
+  artifact: PipelineArtifact
+}
+
+export type PipelineReviewRecomputeResponse = {
+  job_id: string
+  workspace: PipelineReviewWorkspaceState
+  layers: Record<string, Record<string, unknown>>
+  stages: PipelineStageManifest[]
+}
+
+export type PipelineReviewCommitResponse = {
+  job_id: string
+  workspace: PipelineReviewWorkspaceState
+  stages: PipelineStageManifest[]
 }
 
 export type Stage3EquipmentArtifact = {
