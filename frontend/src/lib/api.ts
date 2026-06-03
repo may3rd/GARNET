@@ -137,7 +137,7 @@ export async function startPipelineJob(
   timeoutMs = DEFAULT_TIMEOUT
 ): Promise<{ job_id: string }> {
   const payload = {
-    stopAfter: 11,
+    stopAfter: 4,
     ocrRoute: 'ocrmac' as OcrRoute,
     geminiPostprocessMatchThreshold: 0.1,
     weightFile: '',
@@ -205,11 +205,12 @@ export async function putPipelineArtifact<TPayload extends Record<string, unknow
 export async function resumePipelineFromStage(
   jobId: string,
   stageName: string,
-  signal?: AbortSignal
+  options: { stopAfter?: number; signal?: AbortSignal } = {}
 ): Promise<{ job_id: string; status: string; resume_from: string; stop_after: number }> {
+  const params = options.stopAfter !== undefined ? `?stop_after=${encodeURIComponent(String(options.stopAfter))}` : ''
   return requestJson(
-    `/api/pipeline/jobs/${jobId}/resume-from/${stageName}`,
-    { method: 'POST', signal },
+    `/api/pipeline/jobs/${jobId}/resume-from/${stageName}${params}`,
+    { method: 'POST', signal: options.signal },
     DEFAULT_REQUEST_TIMEOUT
   )
 }

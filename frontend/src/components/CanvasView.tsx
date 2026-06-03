@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { ForwardedRef } from 'react'
+import type { ForwardedRef, ReactNode } from 'react'
 import type { DetectedObject } from '@/types'
 import { getCategoryColor } from '@/lib/categoryColors'
 import { objectKey } from '@/lib/objectKey'
@@ -45,6 +45,7 @@ type CanvasViewProps = {
   onNavigatePrevious: () => void
   onNavigateNext: () => void
   fitKey?: string
+  imageOverlay?: ReactNode
 }
 
 export type CanvasViewHandle = {
@@ -88,6 +89,7 @@ export const CanvasView = forwardRef(function CanvasView(
     onNavigatePrevious,
     onNavigateNext,
     fitKey,
+    imageOverlay,
   }: CanvasViewProps,
   ref: ForwardedRef<CanvasViewHandle>
 ) {
@@ -943,6 +945,7 @@ export const CanvasView = forwardRef(function CanvasView(
               }
             }}
           />
+          {imageOverlay}
           {objectElements}
           {isCreating && createDraft && (
             <div

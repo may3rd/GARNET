@@ -14,6 +14,7 @@ type ReviewDecision = PipelineReviewDecision
 
 const REVIEW_STORAGE_PREFIX = 'garnet-pipeline-review'
 const EQUIPMENT_CLASSES = new Set(['pump', 'heat exchanger', 'tank', 'vessel', 'column', 'compressor', 'blower', 'fan'])
+const PRE_STAGE5_REVIEW_BUCKETS: ReviewBucket[] = ['stage3_equipment', 'stage4_object', 'stage4_line_number']
 
 function reviewStorageKey(jobId: string) {
   return `${REVIEW_STORAGE_PREFIX}:${jobId}`
@@ -278,6 +279,8 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   const [activeReviewBucket, setActiveReviewBucket] = useState<ReviewBucket>('stage3_equipment')
   const [reviewDecisions, setReviewDecisions] = useState<Record<string, ReviewDecision>>({})
   const [workspaceOpen, setWorkspaceOpen] = useState(false)
+  const [preStage5ReviewActive, setPreStage5ReviewActive] = useState(false)
+  const [preStage5ReviewDismissed, setPreStage5ReviewDismissed] = useState(false)
   const [isResuming, setIsResuming] = useState(false)
   const [isSavingStage6, setIsSavingStage6] = useState(false)
   const [showArtifactDetails, setShowArtifactDetails] = useState(false)
@@ -444,6 +447,8 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   useEffect(() => {
     setLiveJob(job)
     setStageStatuses(job.manifest?.stages ?? [])
+    setPreStage5ReviewActive(false)
+    setPreStage5ReviewDismissed(false)
   }, [job])
 
   useEffect(() => {
@@ -510,6 +515,18 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
     || stages.some((stage) => stage.status === 'stale' && (stage.num ?? 0) >= 5)
   const staleFromStage7 = stages.some((stage) => stage.name === 'stage7_geometric_graph_assembly' && stage.status === 'stale')
     || stages.some((stage) => stage.status === 'stale' && (stage.num ?? 0) >= 7)
+  const stage5Started = stages.some((stage) => (stage.num ?? 0) >= 5 && stage.status !== 'pending')
+  const requiresPreStage5Review = activeJob.status === 'completed' && !stage5Started && (activeJob.stop_after ?? 4) <= 4
+  const stage5bComplete = stages.some((stage) => stage.name === 'stage5b_pipe_trace' && stage.status === 'completed')
+  const stage6Started = stages.some((stage) => stage.name === 'stage6_trace_associations' && stage.status !== 'pending')
+  const requiresTraceReview = activeJob.status === 'completed' && stage5bComplete && !stage6Started && (activeJob.stop_after ?? 5) <= 5
+
+  useEffect(() => {
+    if (!requiresPreStage5Review || preStage5ReviewDismissed || workspaceOpen) return
+    setPreStage5ReviewActive(true)
+    setActiveReviewBucket('stage3_equipment')
+    setWorkspaceOpen(true)
+  }, [preStage5ReviewDismissed, requiresPreStage5Review, workspaceOpen])
 
   const saveStage3Equipment = async (objects: DetectedObject[]) => {
     setPipelineActionError(null)
@@ -540,11 +557,11 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
     await resumeFromStageName('stage7_geometric_graph_assembly')
   }
 
-  const resumeFromStageName = async (stageName: string) => {
+  const resumeFromStageName = async (stageName: string, stopAfter?: number) => {
     setIsResuming(true)
     setPipelineActionError(null)
     try {
-      await resumePipelineFromStage(activeJob.job_id, stageName)
+      await resumePipelineFromStage(activeJob.job_id, stageName, { stopAfter })
       while (true) {
         const nextJob = await getPipelineJob(activeJob.job_id)
         setLiveJob(nextJob)
@@ -583,6 +600,38 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
     }
   }
 
+  const handleReviewBucketSaved = (bucket: ReviewBucket) => {
+    if (!preStage5ReviewActive) {
+      setWorkspaceOpen(false)
+      return
+    }
+    if (bucket === 'stage3_equipment') {
+      setActiveReviewBucket('stage4_object')
+      return
+    }
+    if (bucket === 'stage4_object') {
+      setActiveReviewBucket('stage4_line_number')
+      return
+    }
+    if (bucket === 'stage4_line_number') {
+      setPreStage5ReviewActive(false)
+      setPreStage5ReviewDismissed(true)
+      setWorkspaceOpen(false)
+      setShowArtifactDetails(false)
+      void resumeFromStageName('stage5_pipe_mask', 5)
+      return
+    }
+    setWorkspaceOpen(false)
+  }
+
+  const closeReviewWorkspace = () => {
+    if (preStage5ReviewActive || requiresPreStage5Review) {
+      setPreStage5ReviewActive(false)
+      setPreStage5ReviewDismissed(true)
+    }
+    setWorkspaceOpen(false)
+  }
+
   if (workspaceOpen) {
     return (
       <PipelineHitlReviewView
@@ -594,17 +643,23 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
         onApply={(decisions) => setReviewDecisions(decisions)}
         onSaveStage3Equipment={saveStage3Equipment}
         onSaveStage4Objects={saveStage4Objects}
-        onClose={() => setWorkspaceOpen(false)}
+        onAfterBucketSave={handleReviewBucketSaved}
+        visibleBuckets={preStage5ReviewActive ? PRE_STAGE5_REVIEW_BUCKETS : undefined}
+        onClose={closeReviewWorkspace}
       />
     )
   }
 
-  if (!showArtifactDetails && activeJob.status === 'completed') {
+  if (!showArtifactDetails && requiresTraceReview) {
     return (
       <PipelineReviewWorkspaceView
         job={activeJob}
         imageArtifacts={imageArtifacts}
         onOpenDetails={() => setShowArtifactDetails(true)}
+        onCommitComplete={() => {
+          setShowArtifactDetails(true)
+          void resumeFromStageName('stage6_trace_associations', 11)
+        }}
       />
     )
   }
@@ -643,16 +698,25 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
             <div>
               <div className="text-lg font-semibold">Pipeline Artifacts / QA</div>
               <div className="mt-1 text-sm text-[var(--text-secondary)]">
-                Full staged review through Stage 11: normalization, OCR, object detection, pipe mask, path tracing, trace associations, graph assembly, QA, reviewed outputs, process exports, and final connection overlay.
+                Staged pipeline review. The default workflow pauses after Stage 4 object detection for equipment, object, and line-number review before Stage 5 pipe tracing starts.
               </div>
             </div>
-            {activeJob.status === 'completed' ? (
+            {requiresPreStage5Review || requiresTraceReview ? (
               <button
                 type="button"
-                onClick={() => setShowArtifactDetails(false)}
+                onClick={() => {
+                  if (requiresTraceReview) {
+                    setShowArtifactDetails(false)
+                  } else {
+                    setPreStage5ReviewActive(true)
+                    setPreStage5ReviewDismissed(false)
+                    setActiveReviewBucket('stage3_equipment')
+                    setWorkspaceOpen(true)
+                  }
+                }}
                 className="rounded-lg border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-2 text-sm font-semibold text-[var(--accent)]"
               >
-                Back to Review Workspace
+                {requiresTraceReview ? 'Back to Trace Review' : 'Continue Pre-Stage-5 Review'}
               </button>
             ) : null}
           </div>
@@ -805,13 +869,18 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
           <div className="space-y-6">
             <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-5">
               <div className="text-sm font-semibold">Review Flow</div>
+              {requiresPreStage5Review ? (
+                <div className="mt-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800">
+                  Stage 5 is waiting for HITL confirmation: Stage 3 equipment boxes, Stage 4 objects, then Stage 4 line numbers.
+                </div>
+              ) : null}
               <div className="mt-3">
                 <button
                   type="button"
                   onClick={() => setWorkspaceOpen(true)}
                   className="rounded-lg border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-2 text-sm font-semibold text-[var(--accent)]"
                 >
-                  Open Full Review Workspace
+                  Open HITL Review
                 </button>
               </div>
               <div className="mt-3 flex gap-2">

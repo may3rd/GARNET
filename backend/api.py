@@ -499,6 +499,23 @@ STALE_ARTIFACTS_BY_SOURCE: dict[str, tuple[str, ...]] = {
         "stage10_line_number_overlay.png",
         "stage11_connection_pipeline_overlay.png",
     ),
+    "review_workspace_recompute": (
+        "stage5_pipe_mask.png",
+        "stage5_pipe_mask_overlay.png",
+        "stage5_pipe_mask_summary.json",
+        "stage5_connection_ports.json",
+        "stage5_connection_ports_overlay.png",
+        "stage5b_trace_results.json",
+        "stage5b_branch_candidates.json",
+        "stage5b_branch_trace_results.json",
+        "stage5b_trace_overlay.png",
+        "stage5b_branch_trace_overlay.png",
+        "stage6_trace_associations.json",
+        "stage6_trace_association_summary.json",
+        "stage6_line_number_review.json",
+        "stage6_line_number_review_summary.json",
+        "stage6_trace_association_overlay.png",
+    ),
     "review_workspace_commit": (
         "stage7_graph.json",
         "stage7_graph_summary.json",
@@ -1471,15 +1488,24 @@ async def get_pipeline_stage_status(job_id: str):
 
 
 @app.post("/api/pipeline/jobs/{job_id}/resume-from/{stage}")
-async def resume_pipeline_job_from_stage(job_id: str, stage: str):
+async def resume_pipeline_job_from_stage(job_id: str, stage: str, stop_after: int | None = None):
     stage_num, stage_name = _resolve_pipeline_stage(stage)
+    if stop_after is not None:
+        supported_stages = {num for num, _name in PIPELINE_STAGE_ORDER}
+        if stop_after not in supported_stages:
+            raise HTTPException(
+                status_code=400,
+                detail="Pipeline currently supports stop_after=1, 2, 4, 5, 6, 7, 8, 9, 10, or 11",
+            )
+        if stop_after < stage_num:
+            raise HTTPException(status_code=400, detail="stop_after must be greater than or equal to the resume stage")
     with PIPELINE_JOBS_LOCK:
         job = PIPELINE_JOBS.get(job_id)
         if not job:
             raise HTTPException(status_code=404, detail="Pipeline job not found")
         job_dir = job["job_dir"]
         image_path = _resolve_pipeline_job_image_path(job_dir)
-        stop_after = max(int(job.get("stop_after") or stage_num), stage_num)
+        target_stop_after = stop_after if stop_after is not None else max(int(job.get("stop_after") or stage_num), stage_num)
         ocr_route = str(job.get("ocr_route") or "ocrmac")
         gemini_threshold = float(job.get("gemini_postprocess_match_threshold") or 0.1)
         weight_file = str(job.get("weight_file") or resolve_pipeline_weight_file(""))
@@ -1487,13 +1513,13 @@ async def resume_pipeline_job_from_stage(job_id: str, stage: str):
         job["status"] = "queued"
         job["current_stage"] = stage_name
         job["error"] = None
-        job["stop_after"] = stop_after
+        job["stop_after"] = target_stop_after
 
     _mark_pipeline_stale_from(job_dir, stage_name, f"resume_from:{stage_name}")
 
     worker = threading.Thread(
         target=_run_pipeline_job,
-        args=(job_id, image_path, job_dir, stop_after, ocr_route, gemini_threshold, weight_file),
+        args=(job_id, image_path, job_dir, target_stop_after, ocr_route, gemini_threshold, weight_file),
         kwargs={"debug_artifacts": debug_artifacts, "resume": True},
         daemon=True,
     )
@@ -1502,7 +1528,7 @@ async def resume_pipeline_job_from_stage(job_id: str, stage: str):
         "job_id": job_id,
         "status": "queued",
         "resume_from": stage_name,
-        "stop_after": stop_after,
+        "stop_after": target_stop_after,
     }
 
 
@@ -1630,7 +1656,7 @@ async def recompute_pipeline_review_workspace(job_id: str, request: dict[str, An
         if not job:
             raise HTTPException(status_code=404, detail="Pipeline job not found")
         image_path = _resolve_pipeline_job_image_path(job_dir)
-        stop_after = max(int(job.get("stop_after") or 6), 6)
+        stop_after = 5
         ocr_route = str(job.get("ocr_route") or "ocrmac")
         gemini_threshold = float(job.get("gemini_postprocess_match_threshold") or 0.1)
         weight_file = str(job.get("weight_file") or resolve_pipeline_weight_file(""))

@@ -7,6 +7,8 @@ type ReviewCanvasLayersProps = {
   imageSize: { width: number; height: number } | null
   selectedEntity?: { collection: 'equipment' | 'objects'; id: string } | null
   onSelectEntity?: (entity: { collection: 'equipment' | 'objects'; id: string }) => void
+  embedded?: boolean
+  showBoxes?: boolean
 }
 
 type BBoxEntity = {
@@ -22,6 +24,12 @@ type PortEntity = {
 }
 
 type Point = { x: number; y: number }
+type TraceEntity = {
+  id: string
+  segments: Point[][]
+  terminal?: Point
+  terminalType?: string
+}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
@@ -68,85 +76,136 @@ function pointFrom(value: unknown): Point | null {
   return x === null || y === null ? null : { x, y }
 }
 
-function collectPorts(value: unknown, out: PortEntity[] = [], limit = 800): PortEntity[] {
+function collectPorts(value: unknown, out: PortEntity[] = [], limit = 800, ownerId?: string): PortEntity[] {
   if (out.length >= limit) return out
   const point = pointFrom(value)
   const record = asRecord(value)
   if (point && record && ('port_id' in record || 'id' in record || 'x' in record)) {
-    out.push({ id: String(record.port_id ?? record.id ?? `port_${out.length + 1}`), x: point.x, y: point.y })
+    out.push({ id: String(record.port_id ?? record.id ?? ownerId ?? `port_${out.length + 1}`), x: point.x, y: point.y })
+    return out
+  }
+  if (point && Array.isArray(value)) {
+    out.push({ id: ownerId ?? `port_${out.length + 1}`, x: point.x, y: point.y })
     return out
   }
   if (Array.isArray(value)) {
-    value.forEach((item) => collectPorts(item, out, limit))
+    value.forEach((item) => collectPorts(item, out, limit, ownerId))
   } else if (record) {
-    Object.values(record).forEach((item) => collectPorts(item, out, limit))
+    Object.entries(record).forEach(([key, item]) => collectPorts(item, out, limit, key))
   }
   return out
 }
 
-function arrayToPolyline(value: unknown): Point[] | null {
-  if (!Array.isArray(value) || value.length < 2) return null
-  const points = value.map(pointFrom)
-  if (points.some((point) => point === null)) return null
-  return points as Point[]
-}
-
-function collectPolylines(value: unknown, out: Point[][] = [], limit = 1200): Point[][] {
-  if (out.length >= limit) return out
-  const polyline = arrayToPolyline(value)
-  if (polyline) {
-    out.push(polyline)
-    return out
-  }
+function segmentPolyline(value: unknown): Point[] | null {
   const record = asRecord(value)
-  if (Array.isArray(value)) {
-    value.forEach((item) => collectPolylines(item, out, limit))
-  } else if (record) {
-    Object.entries(record).forEach(([key, item]) => {
-      if (key === 'bbox') return
-      collectPolylines(item, out, limit)
-    })
+  if (!record) return null
+  const x1 = num(record.x1)
+  const y1 = num(record.y1)
+  const x2 = num(record.x2)
+  const y2 = num(record.y2)
+  if (x1 === null || y1 === null || x2 === null || y2 === null) return null
+  return [{ x: x1, y: y1 }, { x: x2, y: y2 }]
+}
+
+function traceEntityFromRecord(id: string, value: unknown): TraceEntity | null {
+  const record = asRecord(value)
+  if (!record) return null
+  const rawSegments = Array.isArray(record.segments) ? record.segments : []
+  const segments = rawSegments.flatMap((item) => {
+    const segment = segmentPolyline(item)
+    return segment ? [segment] : []
+  })
+  if (!segments.length) return null
+  const tx = num(record.terminal_x)
+  const ty = num(record.terminal_y)
+  return {
+    id,
+    segments,
+    terminal: tx === null || ty === null ? undefined : { x: tx, y: ty },
+    terminalType: typeof record.terminal_type === 'string' ? record.terminal_type : undefined,
   }
-  return out
+}
+
+function collectTraceEntities(payload: unknown, branches = false): TraceEntity[] {
+  const record = asRecord(payload)
+  if (!record) return []
+  const source = branches ? asRecord(record.branches) : record
+  if (!source) return []
+  return Object.entries(source).flatMap(([id, value]) => {
+    const item = asRecord(value)
+    if (branches && item?.status !== 'traced') return []
+    if (!branches && item?.status && item.status !== 'ok' && item.status !== 'traced') return []
+    const entity = traceEntityFromRecord(id, value)
+    return entity ? [entity] : []
+  })
 }
 
 function pointsAttr(points: Point[]): string {
   return points.map((point) => `${point.x},${point.y}`).join(' ')
 }
 
-export function ReviewCanvasLayers({ workspace, layers, visibleLayers, imageSize, selectedEntity, onSelectEntity }: ReviewCanvasLayersProps) {
+export function ReviewCanvasLayers({
+  workspace,
+  layers,
+  visibleLayers,
+  imageSize,
+  selectedEntity,
+  onSelectEntity,
+  embedded = false,
+  showBoxes = true,
+}: ReviewCanvasLayersProps) {
   if (!imageSize) return null
 
   const equipment = boxEntities(workspace?.equipment, 'equipment')
   const objects = boxEntities(workspace?.objects, 'object')
   const ports = collectPorts(layers.stage5_connection_ports)
-  const traces = collectPolylines(layers.stage5b_trace_results)
-  const branches = collectPolylines(layers.stage5b_branch_trace_results)
+  const traces = collectTraceEntities(layers.stage5b_trace_results)
+  const branches = collectTraceEntities(layers.stage5b_branch_trace_results, true)
 
   return (
     <svg
-      className="absolute inset-2 h-[calc(100%-1rem)] w-[calc(100%-1rem)]"
+      className={embedded ? 'pointer-events-none absolute inset-0 h-full w-full' : 'absolute inset-2 h-[calc(100%-1rem)] w-[calc(100%-1rem)]'}
       viewBox={`0 0 ${imageSize.width} ${imageSize.height}`}
       preserveAspectRatio="xMinYMin meet"
       aria-hidden="true"
     >
       {visibleLayers.has('traces') ? (
         <g>
-          {traces.map((points, index) => (
-            <polyline key={`trace-${index}`} points={pointsAttr(points)} fill="none" stroke="#0f9f47" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" opacity="0.78" />
+          {traces.map((trace) => (
+            <g key={`trace-${trace.id}`}>
+              {trace.segments.map((points, index) => (
+                <polyline key={`${trace.id}-${index}`} points={pointsAttr(points)} fill="none" stroke="rgb(0,200,0)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              ))}
+              {trace.terminal ? (
+                <g>
+                  <circle cx={trace.terminal.x} cy={trace.terminal.y} r="8" fill="#b400b4" stroke="#ffffff" strokeWidth="1" />
+                  <text x={trace.terminal.x + 12} y={trace.terminal.y - 12} fill="#b400b4" fontSize="18" fontWeight="700">{trace.id}:{trace.terminalType ?? ''}</text>
+                </g>
+              ) : null}
+            </g>
           ))}
         </g>
       ) : null}
 
       {visibleLayers.has('branches') ? (
         <g>
-          {branches.map((points, index) => (
-            <polyline key={`branch-${index}`} points={pointsAttr(points)} fill="none" stroke="#dc2626" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" opacity="0.78" />
+          {branches.map((branch) => (
+            <g key={`branch-${branch.id}`}>
+              {branch.segments.map((points, index) => (
+                <polyline key={`${branch.id}-${index}`} points={pointsAttr(points)} fill="none" stroke="rgb(255,0,0)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+              ))}
+              {branch.terminal ? (
+                <g>
+                  <circle cx={branch.terminal.x} cy={branch.terminal.y} r="6" fill="rgb(255,0,0)" />
+                  <text x={branch.terminal.x + 8} y={branch.terminal.y + 14} fill="rgb(255,0,0)" fontSize="14" fontWeight="700">{branch.id}:branch</text>
+                </g>
+              ) : null}
+            </g>
           ))}
         </g>
       ) : null}
 
-      {visibleLayers.has('equipment') ? (
+      {showBoxes && visibleLayers.has('equipment') ? (
         <g>
           {equipment.map((item) => (
             <g key={item.id}>
@@ -170,7 +229,7 @@ export function ReviewCanvasLayers({ workspace, layers, visibleLayers, imageSize
         </g>
       ) : null}
 
-      {visibleLayers.has('objects') ? (
+      {showBoxes && visibleLayers.has('objects') ? (
         <g>
           {objects.map((item) => (
             <g key={item.id}>

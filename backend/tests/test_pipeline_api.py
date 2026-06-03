@@ -301,6 +301,8 @@ class PipelineApiTests(unittest.TestCase):
                 )
 
             class FakeRecomputePipeline:
+                stale_ports_were_removed = False
+
                 def __init__(self, image_path: str, output_dir: str, stage_callback=None, cfg=None) -> None:
                     self.output_dir = Path(output_dir)
                     self.stage_manifest = {
@@ -312,6 +314,7 @@ class PipelineApiTests(unittest.TestCase):
                     }
 
                 def run(self, stop_after: int, resume: bool = False) -> None:
+                    FakeRecomputePipeline.stale_ports_were_removed = not self.output_dir.joinpath("stage5_connection_ports.json").exists()
                     self.output_dir.joinpath("stage5_connection_ports.json").write_text(json.dumps({"ports": [{"id": "p01"}]}), encoding="utf-8")
                     self.output_dir.joinpath("stage5b_trace_results.json").write_text(json.dumps({"results": {"equip_001": {}}}), encoding="utf-8")
                     self.output_dir.joinpath("stage5b_branch_trace_results.json").write_text(json.dumps({"branches": {}}), encoding="utf-8")
@@ -319,6 +322,7 @@ class PipelineApiTests(unittest.TestCase):
                     self.output_dir.joinpath("stage6_line_number_review.json").write_text(json.dumps({"accepted": []}), encoding="utf-8")
 
             job_id = "review_workspace_job_3"
+            (Path(tmp) / "stage5_connection_ports.json").write_text(json.dumps({"old_obj": [[1, 2, "RIGHT"]]}), encoding="utf-8")
             with patch.dict("api.PIPELINE_JOBS", {job_id: {
                 "job_id": job_id,
                 "status": "completed",
@@ -360,6 +364,7 @@ class PipelineApiTests(unittest.TestCase):
             self.assertEqual(payload["job_id"], job_id)
             self.assertIn("stage5_connection_ports", payload["layers"])
             self.assertEqual(payload["layers"]["stage6_trace_associations"]["trace_edges"][0]["trace_id"], "equip_001")
+            self.assertTrue(FakeRecomputePipeline.stale_ports_were_removed)
             self.assertTrue((Path(tmp) / "review_workspace_state.json").exists())
             self.assertTrue((Path(tmp) / "stage3_equipment_bboxes.json").exists())
             self.assertTrue((Path(tmp) / "stage4_objects.json").exists())

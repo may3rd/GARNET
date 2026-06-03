@@ -31,6 +31,8 @@ type PipelineHitlReviewViewProps = {
   onApply: (decisions: Record<string, PipelineReviewDecision>) => void
   onSaveStage3Equipment?: (objects: DetectedObject[]) => Promise<void>
   onSaveStage4Objects?: (objects: DetectedObject[]) => Promise<void>
+  onAfterBucketSave?: (bucket: PipelineReviewBucket) => void
+  visibleBuckets?: PipelineReviewBucket[]
   onClose: () => void
 }
 
@@ -111,6 +113,8 @@ export function PipelineHitlReviewView({
   onApply,
   onSaveStage3Equipment,
   onSaveStage4Objects,
+  onAfterBucketSave,
+  visibleBuckets,
   onClose,
 }: PipelineHitlReviewViewProps) {
   const canvasRef = useRef<CanvasViewHandle>(null)
@@ -260,6 +264,15 @@ export function PipelineHitlReviewView({
     [objects, selectedObjectKey]
   )
   const imageUrl = useMemo(() => pickBaseImageUrl(imageArtifacts), [imageArtifacts])
+  const reviewBucketOptions = visibleBuckets ?? ([
+    'stage3_equipment',
+    'stage4_object',
+    'stage4_line_number',
+    'stage4_instrument',
+    'stage6_line_association',
+    'stage12_line_attachment',
+    'stage12_instrument_attachment',
+  ] as PipelineReviewBucket[])
 
   const selectAndCenter = (key: string | null) => {
     setSelectedObjectKey(key)
@@ -367,7 +380,8 @@ export function PipelineHitlReviewView({
       setWorkspaceError(null)
       void onSaveStage3Equipment(bucketStates.stage3_equipment)
         .then(() => {
-          onClose()
+          if (onAfterBucketSave) onAfterBucketSave(workspaceBucket)
+          else onClose()
         })
         .catch((error) => {
           setWorkspaceError(error instanceof Error ? error.message : 'Failed to save equipment boxes')
@@ -380,7 +394,8 @@ export function PipelineHitlReviewView({
       setWorkspaceError(null)
       void onSaveStage4Objects(bucketStates.stage4_object)
         .then(() => {
-          onClose()
+          if (onAfterBucketSave) onAfterBucketSave(workspaceBucket)
+          else onClose()
         })
         .catch((error) => {
           setWorkspaceError(error instanceof Error ? error.message : 'Failed to save Stage 4 objects')
@@ -416,7 +431,8 @@ export function PipelineHitlReviewView({
           nextDecisions[`${item.bucket}:${item.entity_id ?? item.item_id}`] = item.decision
         }
         onApply(nextDecisions)
-        onClose()
+        if (onAfterBucketSave) onAfterBucketSave(workspaceBucket)
+        else onClose()
       })
       .catch((error) => {
         setWorkspaceError(error instanceof Error ? error.message : 'Failed to save review state')
@@ -433,8 +449,8 @@ export function PipelineHitlReviewView({
   }, [selectedObjectKey, workspaceBucket, visibleObjects.length])
 
   return (
-    <div className="flex h-full flex-col bg-[var(--bg-primary)]">
-      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border-muted)] bg-[var(--bg-secondary)] px-6 py-4">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--bg-primary)]">
+      <div className="shrink-0 flex items-center justify-between border-b border-[var(--border-muted)] bg-[var(--bg-secondary)] px-6 py-4">
         <div>
           <div className="text-lg font-semibold">Pipeline HITL Review</div>
           <div className="text-xs text-[var(--text-secondary)]">Dedicated review workspace with the detection-mode layout.</div>
@@ -479,16 +495,23 @@ export function PipelineHitlReviewView({
         </div>
       </div>
 
-      <div className="sticky top-[73px] z-10 flex flex-wrap gap-2 border-b border-[var(--border-muted)] bg-[var(--bg-secondary)] px-6 py-3">
-        {([
-          ['stage3_equipment', 'Stage 3 Equipment'],
-          ['stage4_object', 'Stage 4 Objects'],
-          ['stage4_line_number', 'Stage 4 Line Numbers'],
-          ['stage4_instrument', 'Stage 4 Instruments'],
-          ['stage6_line_association', 'Stage 6 Line Associations'],
-          ['stage12_line_attachment', 'Stage 12 Line Attachments'],
-          ['stage12_instrument_attachment', 'Stage 12 Instrument Attachments'],
-        ] as Array<[PipelineReviewBucket, string]>).map(([bucket, label]) => (
+      <div className="shrink-0 flex flex-wrap gap-2 border-b border-[var(--border-muted)] bg-[var(--bg-secondary)] px-6 py-3">
+        {reviewBucketOptions.map((bucket) => {
+          const label =
+            bucket === 'stage3_equipment'
+              ? 'Stage 3 Equipment'
+              : bucket === 'stage4_object'
+                ? 'Stage 4 Objects'
+                : bucket === 'stage4_line_number'
+                  ? 'Stage 4 Line Numbers'
+                  : bucket === 'stage4_instrument'
+                    ? 'Stage 4 Instruments'
+                    : bucket === 'stage6_line_association'
+                      ? 'Stage 6 Line Associations'
+                      : bucket === 'stage12_line_attachment'
+                        ? 'Stage 12 Line Attachments'
+                        : 'Stage 12 Instrument Attachments'
+          return (
           <button
             key={bucket}
             type="button"
@@ -509,11 +532,12 @@ export function PipelineHitlReviewView({
           >
             {label}
           </button>
-        ))}
+          )
+        })}
       </div>
 
-      <div className="flex h-full relative">
-        <div className="flex-1 relative h-[calc(100vh-170px)] min-h-[720px]">
+      <div className="relative flex min-h-0 flex-1">
+        <div className="relative min-h-0 flex-1">
           <CanvasView
             ref={canvasRef}
             imageUrl={imageUrl}
@@ -574,7 +598,7 @@ export function PipelineHitlReviewView({
             fitKey={fitKey}
           />
         </div>
-        <div className="w-[320px] border-l border-[var(--border-muted)] bg-[var(--bg-secondary)] overflow-y-auto">
+        <div className="min-h-0 w-[320px] shrink-0 border-l border-[var(--border-muted)] bg-[var(--bg-secondary)]">
           <ObjectSidebar
             objects={objects.map((obj) => {
               if (objectKey(obj) !== selectedObjectKey) return obj

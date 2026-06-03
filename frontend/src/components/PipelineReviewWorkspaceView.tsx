@@ -1,13 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Layers, RefreshCw, SlidersHorizontal } from 'lucide-react'
-import type { PipelineArtifact, PipelineJob, PipelineReviewWorkspaceState } from '@/types'
+import { Check, Layers, RefreshCw } from 'lucide-react'
+import type { DetectedObject, PipelineArtifact, PipelineJob, PipelineReviewWorkspaceState } from '@/types'
 import { commitPipelineReviewWorkspace, getPipelineReviewWorkspace, recomputePipelineReviewWorkspace } from '@/lib/api'
 import { ReviewCanvasLayers } from '@/components/ReviewCanvasLayers'
+import { CanvasView } from '@/components/CanvasView'
+import { ObjectSidebar } from '@/components/ObjectSidebar'
+import { objectKey } from '@/lib/objectKey'
+import type { ExportFormat } from '@/lib/exportFormats'
 
 type PipelineReviewWorkspaceViewProps = {
   job: PipelineJob
   imageArtifacts: PipelineArtifact[]
   onOpenDetails: () => void
+  onCommitComplete?: () => void
 }
 
 function pickBaseImageUrl(imageArtifacts: PipelineArtifact[]): string {
@@ -43,6 +48,14 @@ function layerKeyFromArtifactName(name: string): string {
 type EditableCollection = 'equipment' | 'objects'
 type SelectedEntity = { collection: EditableCollection; id: string }
 type RecomputeState = 'idle' | 'scheduled' | 'running' | 'succeeded' | 'failed'
+type WorkspaceDraft = {
+  Object: string
+  Left: number
+  Top: number
+  Width: number
+  Height: number
+  Text: string
+}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
@@ -68,8 +81,8 @@ function entityBbox(entity: Record<string, unknown>) {
   return { x_min: xMin, y_min: yMin, x_max: xMax, y_max: yMax }
 }
 
-function withBbox(entity: Record<string, unknown>, bbox: { x_min: number; y_min: number; x_max: number; y_max: number }) {
-  return { ...entity, bbox }
+function entityClassName(entity: Record<string, unknown>, fallback: string): string {
+  return String(entity.class_name ?? entity.Object ?? fallback)
 }
 
 function nextEntityId(prefix: string, items: Array<Record<string, unknown>>): string {
@@ -96,20 +109,45 @@ async function loadLayerPayloads(artifacts: PipelineArtifact[], signal: AbortSig
   return Object.fromEntries(entries.filter((entry): entry is readonly [string, Record<string, unknown>] => entry !== null))
 }
 
-export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails }: PipelineReviewWorkspaceViewProps) {
+export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails, onCommitComplete }: PipelineReviewWorkspaceViewProps) {
   const [workspace, setWorkspace] = useState<PipelineReviewWorkspaceState | null>(null)
   const [layerPayloads, setLayerPayloads] = useState<Record<string, Record<string, unknown>>>({})
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null)
   const [selectedEntity, setSelectedEntity] = useState<SelectedEntity | null>(null)
+  const [selectedObjectKey, setSelectedObjectKey] = useState<string | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editDraft, setEditDraft] = useState<WorkspaceDraft | null>(null)
+  const [isCreating, setIsCreating] = useState(false)
+  const [createDraft, setCreateDraft] = useState<WorkspaceDraft | null>(null)
+  const [createCollection, setCreateCollection] = useState<EditableCollection>('objects')
   const [isDirty, setIsDirty] = useState(false)
   const [recomputeState, setRecomputeState] = useState<RecomputeState>('idle')
   const [isCommitting, setIsCommitting] = useState(false)
+  const [hiddenClasses, setHiddenClasses] = useState<Set<string>>(new Set())
+  const [confidenceFilter, setConfidenceFilter] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingLayers, setIsLoadingLayers] = useState(true)
   const [visibleLayers, setVisibleLayers] = useState<Set<string>>(() => new Set(LAYERS.map(([key]) => key)))
 
   const imageUrl = useMemo(() => pickBaseImageUrl(imageArtifacts), [imageArtifacts])
+
+  useEffect(() => {
+    if (!imageUrl) {
+      setImageSize(null)
+      return
+    }
+    let active = true
+    const image = new Image()
+    image.onload = () => {
+      if (!active) return
+      setImageSize({ width: image.naturalWidth, height: image.naturalHeight })
+    }
+    image.src = imageUrl
+    return () => {
+      active = false
+    }
+  }, [imageUrl])
 
   useEffect(() => {
     let active = true
@@ -153,10 +191,56 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
 
   const loadedLayerCount = Object.keys(layerPayloads).length
 
-  const selectedRecord = useMemo(() => {
-    if (!workspace || !selectedEntity) return null
-    return workspace[selectedEntity.collection].find((item, index) => entityId(item, `${selectedEntity.collection}_${index}`) === selectedEntity.id) ?? null
-  }, [selectedEntity, workspace])
+  const { canvasObjects, entityByObjectKey } = useMemo(() => {
+    const nextObjects: DetectedObject[] = []
+    const nextMap = new Map<string, SelectedEntity>()
+    const append = (collection: EditableCollection, items: Array<Record<string, unknown>>, categoryId: number) => {
+      items.forEach((item, index) => {
+        const bbox = entityBbox(item)
+        const id = entityId(item, `${collection}_${index + 1}`)
+        const obj: DetectedObject = {
+          Index: index + 1,
+          Object: entityClassName(item, collection === 'equipment' ? 'equipment' : 'object'),
+          CategoryID: categoryId,
+          ObjectID: index + 1,
+          Left: bbox.x_min,
+          Top: bbox.y_min,
+          Width: Math.max(1, bbox.x_max - bbox.x_min),
+          Height: Math.max(1, bbox.y_max - bbox.y_min),
+          Score: 1,
+          Text: id,
+          ReviewStatus: item.review_state === 'rejected' ? 'rejected' : 'accepted',
+        }
+        nextObjects.push(obj)
+        nextMap.set(objectKey(obj), { collection, id })
+      })
+    }
+    append('equipment', workspace?.equipment ?? [], 3)
+    append('objects', workspace?.objects ?? [], 4)
+    return { canvasObjects: nextObjects, entityByObjectKey: nextMap }
+  }, [workspace])
+
+  const selectedCanvasObject = useMemo(
+    () => canvasObjects.find((item) => objectKey(item) === selectedObjectKey) ?? null,
+    [canvasObjects, selectedObjectKey]
+  )
+
+  const visibleCanvasObjects = useMemo(
+    () =>
+      canvasObjects.filter((obj) => {
+        const classKey = obj.Object.toLowerCase().replace(/_/g, ' ').trim()
+        return obj.Score >= confidenceFilter && !hiddenClasses.has(classKey)
+      }),
+    [canvasObjects, confidenceFilter, hiddenClasses]
+  )
+
+  const reviewStatus = useMemo(() => {
+    const status: Record<string, 'accepted' | 'rejected'> = {}
+    canvasObjects.forEach((item) => {
+      status[objectKey(item)] = item.ReviewStatus === 'rejected' ? 'rejected' : 'accepted'
+    })
+    return status
+  }, [canvasObjects])
 
   const updateWorkspaceEntity = (collection: EditableCollection, id: string, updater: (entity: Record<string, unknown>) => Record<string, unknown>) => {
     setWorkspace((current) => {
@@ -164,7 +248,7 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
       return {
         ...current,
         [collection]: current[collection].map((item, index) => {
-          const currentId = entityId(item, `${collection}_${index}`)
+          const currentId = entityId(item, `${collection}_${index + 1}`)
           return currentId === id ? updater(item) : item
         }),
       }
@@ -173,47 +257,117 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
     setRecomputeState('scheduled')
   }
 
-  const updateSelectedBbox = (field: 'x_min' | 'y_min' | 'x_max' | 'y_max', value: number) => {
-    if (!selectedEntity) return
-    updateWorkspaceEntity(selectedEntity.collection, selectedEntity.id, (entity) => {
-      const bbox = entityBbox(entity)
-      return withBbox(entity, { ...bbox, [field]: value })
-    })
-  }
-
-  const updateSelectedText = (field: 'id' | 'class_name' | 'Object', value: string) => {
-    if (!selectedEntity) return
-    const currentSelection = selectedEntity
-    updateWorkspaceEntity(currentSelection.collection, currentSelection.id, (entity) => ({ ...entity, [field]: value }))
-    if (field === 'id' && value.trim()) {
-      setSelectedEntity({ ...currentSelection, id: value.trim() })
-    }
-  }
-
-  const addEntity = (collection: EditableCollection) => {
-    if (!workspace) return
-    const prefix = collection === 'equipment' ? 'equip' : 'obj'
-    const id = nextEntityId(prefix, workspace[collection])
+  const addEntity = (collection: EditableCollection, className?: string) => {
     const width = 160
     const height = 110
     const x = Math.max(0, Math.round((imageSize?.width ?? 900) / 2 - width / 2))
     const y = Math.max(0, Math.round((imageSize?.height ?? 700) / 2 - height / 2))
-    const entity = {
-      id,
-      class_name: collection === 'equipment' ? 'vessel' : 'object',
-      bbox: { x_min: x, y_min: y, x_max: x + width, y_max: y + height },
-      source: 'hitl',
-      review_state: 'accepted',
-    }
-    setWorkspace((current) => current ? { ...current, [collection]: [...current[collection], entity] } : current)
-    setSelectedEntity({ collection, id })
-    setIsDirty(true)
-    setRecomputeState('scheduled')
+    setCreateCollection(collection)
+    setIsCreating(true)
+    setCreateDraft({
+      Object: className ?? (collection === 'equipment' ? 'vessel' : 'object'),
+      Left: x,
+      Top: y,
+      Width: width,
+      Height: height,
+      Text: '',
+    })
+    setSelectedEntity(null)
+    setSelectedObjectKey(null)
+    setIsEditing(false)
+    setEditDraft(null)
   }
 
   const rejectSelected = () => {
     if (!selectedEntity) return
     updateWorkspaceEntity(selectedEntity.collection, selectedEntity.id, (entity) => ({ ...entity, review_state: 'rejected' }))
+  }
+
+  const selectCanvasObject = (key: string | null) => {
+    setSelectedObjectKey(key)
+    setIsEditing(false)
+    setEditDraft(null)
+    if (!key) {
+      setSelectedEntity(null)
+      return
+    }
+    setSelectedEntity(entityByObjectKey.get(key) ?? null)
+  }
+
+  const setCanvasReviewStatus = (key: string, status: 'accepted' | 'rejected' | null) => {
+    const entity = entityByObjectKey.get(key)
+    if (!entity) return
+    updateWorkspaceEntity(entity.collection, entity.id, (current) => ({ ...current, review_state: status ?? 'accepted' }))
+  }
+
+  const startCanvasEdit = (obj: DetectedObject) => {
+    selectCanvasObject(objectKey(obj))
+    setIsEditing(true)
+    setEditDraft({
+      Object: obj.Object,
+      Left: obj.Left,
+      Top: obj.Top,
+      Width: obj.Width,
+      Height: obj.Height,
+      Text: obj.Text,
+    })
+  }
+
+  const saveCanvasEdit = () => {
+    if (!selectedEntity || !editDraft) return
+    const nextId = editDraft.Text.trim() || selectedEntity.id
+    updateWorkspaceEntity(selectedEntity.collection, selectedEntity.id, (entity) => ({
+      ...entity,
+      id: nextId,
+      class_name: editDraft.Object,
+      Object: editDraft.Object,
+      bbox: {
+        x_min: Math.round(editDraft.Left),
+        y_min: Math.round(editDraft.Top),
+        x_max: Math.round(editDraft.Left + editDraft.Width),
+        y_max: Math.round(editDraft.Top + editDraft.Height),
+      },
+    }))
+    setSelectedEntity({ ...selectedEntity, id: nextId })
+    setIsEditing(false)
+    setEditDraft(null)
+  }
+
+  const saveCanvasCreate = () => {
+    if (!workspace || !createDraft) return
+    const prefix = createCollection === 'equipment' ? 'equip' : 'obj'
+    const id = createDraft.Text.trim() || nextEntityId(prefix, workspace[createCollection])
+    const entity = {
+      id,
+      class_name: createDraft.Object || (createCollection === 'equipment' ? 'vessel' : 'object'),
+      bbox: {
+        x_min: Math.round(createDraft.Left),
+        y_min: Math.round(createDraft.Top),
+        x_max: Math.round(createDraft.Left + createDraft.Width),
+        y_max: Math.round(createDraft.Top + createDraft.Height),
+      },
+      source: 'hitl',
+      review_state: 'accepted',
+    }
+    setWorkspace((current) => current ? { ...current, [createCollection]: [...current[createCollection], entity] } : current)
+    setSelectedEntity({ collection: createCollection, id })
+    setIsCreating(false)
+    setCreateDraft(null)
+    setIsDirty(true)
+    setRecomputeState('scheduled')
+  }
+
+  const deleteCanvasSelected = () => {
+    rejectSelected()
+  }
+
+  const navigateCanvas = (direction: -1 | 1) => {
+    if (!selectedObjectKey || canvasObjects.length === 0) return
+    const keys = canvasObjects.map((item) => objectKey(item))
+    const index = keys.indexOf(selectedObjectKey)
+    const nextIndex = index + direction
+    if (nextIndex < 0 || nextIndex >= keys.length) return
+    selectCanvasObject(keys[nextIndex])
   }
 
   const runRecompute = async (workspaceToRecompute = workspace) => {
@@ -240,6 +394,7 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
       const response = await commitPipelineReviewWorkspace(job.job_id, workspace)
       setWorkspace(response.workspace)
       setIsDirty(false)
+      onCommitComplete?.()
     } catch (commitError) {
       setError(commitError instanceof Error ? commitError.message : 'Failed to commit reviewed workspace')
     } finally {
@@ -264,15 +419,45 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
     })
   }
 
+  const updateCreateDraft = (field: 'Object' | 'Left' | 'Top' | 'Width' | 'Height' | 'Text', value: string) => {
+    setCreateDraft((current) => {
+      if (!current) return current
+      if (field === 'Object' || field === 'Text') {
+        return { ...current, [field]: value }
+      }
+      const parsed = Number(value)
+      return { ...current, [field]: Number.isFinite(parsed) ? parsed : current[field] }
+    })
+  }
+
+  const exportWorkspaceObjects = (format: ExportFormat, filter: 'all' | 'accepted' | 'rejected' | 'visible') => {
+    const source = filter === 'visible'
+      ? visibleCanvasObjects
+      : canvasObjects.filter((obj) => {
+          const status = reviewStatus[objectKey(obj)]
+          if (filter === 'accepted') return status === 'accepted'
+          if (filter === 'rejected') return status === 'rejected'
+          return true
+        })
+    const payload = JSON.stringify(source, null, 2)
+    const blob = new Blob([payload], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `stage5b-review-${filter}-${format}.json`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
-    <div className="flex h-full flex-col bg-[#f4f1e8] text-[#1f2a24]">
-      <div className="flex items-center justify-between border-b border-[#d6cdb8] bg-[#fffaf0] px-5 py-3">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]">
+      <div className="shrink-0 flex items-center justify-between border-b border-[var(--border-muted)] bg-[var(--bg-secondary)] px-6 py-4">
         <div>
-          <div className="text-lg font-semibold tracking-tight">Pipeline Review Workspace</div>
-          <div className="text-xs text-[#6f6757]">
-            Edit objects, equipment, ports, traced paths, and Stage 6 associations in one review surface.
+          <div className="text-lg font-semibold">Pipeline HITL Review</div>
+          <div className="text-xs text-[var(--text-secondary)]">
+            Stage 5b traced-path review using the detection-mode layout.
           </div>
-          {error ? <div className="mt-1 text-xs text-red-700">{error}</div> : null}
+          {error ? <div className="mt-1 text-xs text-[var(--danger)]">{error}</div> : null}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -281,7 +466,7 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
             onClick={() => {
               void runRecompute()
             }}
-            className="inline-flex items-center gap-2 rounded-lg border border-[#d6cdb8] bg-[#f6ead2] px-3 py-2 text-sm font-semibold text-[#8a6f25] disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] disabled:opacity-40"
           >
             <RefreshCw className={`h-4 w-4 ${recomputeState === 'running' ? 'animate-spin' : ''}`} />
             Recompute now
@@ -289,9 +474,9 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
           <button
             type="button"
             onClick={onOpenDetails}
-            className="rounded-lg border border-[#1f2a24] bg-[#1f2a24] px-3 py-2 text-sm font-semibold text-[#fffaf0]"
+            className="rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]"
           >
-            Artifacts / QA
+            Summary / artifacts
           </button>
           <button
             type="button"
@@ -299,147 +484,158 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
             onClick={() => {
               void commitWorkspace()
             }}
-            className="rounded-lg border border-[#2f6f4e] bg-[#2f6f4e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-700 disabled:opacity-40"
           >
-            {isCommitting ? 'Committing...' : 'Commit review'}
+            <Check className="h-4 w-4" />
+            {isCommitting ? 'Committing...' : 'Commit review & continue'}
           </button>
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)_340px]">
-        <aside className="border-r border-[#d6cdb8] bg-[#fbf4e4] p-4">
-          <div className="flex items-center gap-2 text-sm font-semibold">
+      <div className="shrink-0 border-b border-[var(--border-muted)] bg-[var(--bg-secondary)] px-6 py-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => addEntity('equipment')}
+            disabled={isCreating}
+            className="rounded-full border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-1 text-xs font-semibold text-[var(--accent)] disabled:opacity-40"
+          >
+            Add equipment
+          </button>
+          <button
+            type="button"
+            onClick={() => addEntity('objects', 'connection')}
+            disabled={isCreating}
+            className="rounded-full border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-1 text-xs font-semibold text-[var(--accent)] disabled:opacity-40"
+          >
+            Add connection
+          </button>
+          <button
+            type="button"
+            onClick={() => addEntity('objects')}
+            disabled={isCreating}
+            className="rounded-full border border-[var(--border-muted)] bg-[var(--bg-primary)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)] disabled:opacity-40"
+          >
+            Add object
+          </button>
+          <div className="mx-2 h-5 w-px bg-[var(--border-muted)]" />
+          <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-secondary)]">
             <Layers className="h-4 w-4" />
             Layers
           </div>
-          <div className="mt-4 space-y-2">
+          <div className="flex flex-wrap gap-2">
             {LAYERS.map(([key, label]) => (
-              <label key={key} className="flex cursor-pointer items-center justify-between rounded-xl border border-[#e2d8c2] bg-[#fffaf0] px-3 py-2 text-sm">
-                <span>{label}</span>
+              <label key={key} className="flex cursor-pointer items-center gap-2 rounded-full border border-[var(--border-muted)] bg-[var(--bg-primary)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
                 <input
                   type="checkbox"
                   checked={visibleLayers.has(key)}
                   onChange={() => toggleLayer(key)}
-                  className="h-4 w-4 accent-[#2f6f4e]"
+                  className="h-3.5 w-3.5 accent-[var(--accent)]"
                 />
+                <span>{label}</span>
               </label>
             ))}
           </div>
-          <div className="mt-5 rounded-xl border border-[#e2d8c2] bg-[#fffaf0] p-3 text-xs text-[#6f6757]">
-            {isLoading ? 'Loading review workspace...' : `${workspace?.objects.length ?? 0} objects, ${workspace?.equipment.length ?? 0} equipment boxes`}
-            <div className="mt-2">
-              {isLoadingLayers ? 'Loading rendered layers...' : `${loadedLayerCount} JSON layers loaded`}
-            </div>
+          <div className="ml-auto text-xs text-[var(--text-secondary)]">
+            {isLoading ? 'Loading workspace...' : `${workspace?.objects.length ?? 0} objects, ${workspace?.equipment.length ?? 0} equipment`}
+            <span className="mx-2">·</span>
+            {isLoadingLayers ? 'Loading layers...' : `${loadedLayerCount} layers`}
+            <span className="mx-2">·</span>
+            Recompute: <span className="font-semibold">{recomputeState}</span>
+            {isDirty ? <span className="ml-2 rounded-full bg-amber-200 px-2 py-0.5 text-amber-900">dirty</span> : null}
           </div>
-        </aside>
+        </div>
+      </div>
 
-        <main className="relative min-h-0 overflow-auto bg-[#e8e1d1] p-5">
-          <div className="relative mx-auto inline-block min-w-[720px] rounded-2xl border border-[#c8baa0] bg-white p-2 shadow-[0_24px_80px_rgba(71,55,26,0.20)]">
-            {imageUrl ? (
-              <>
-                <img
-                  src={imageUrl}
-                  alt="Pipeline review base drawing"
-                  className="block max-h-[calc(100vh-150px)] max-w-none select-none rounded-xl"
-                  onLoad={(event) => {
-                    const image = event.currentTarget
-                    setImageSize({ width: image.naturalWidth, height: image.naturalHeight })
-                  }}
-                />
+      <div className="relative flex min-h-0 flex-1">
+        <main className="relative min-h-0 flex-1 bg-[var(--bg-canvas)]">
+          {imageUrl ? (
+            <CanvasView
+              imageUrl={imageUrl}
+              objects={visibleCanvasObjects}
+              selectedObjectKey={selectedObjectKey}
+              selectedObject={selectedCanvasObject}
+              reviewStatus={reviewStatus}
+              onSelectObject={selectCanvasObject}
+              onSetReviewStatus={setCanvasReviewStatus}
+              isEditing={isEditing}
+              editDraft={editDraft}
+              onStartEdit={startCanvasEdit}
+              onCancelEdit={() => {
+                setIsEditing(false)
+                setEditDraft(null)
+              }}
+              onChangeEdit={(field, value) => {
+                setEditDraft((current) => {
+                  if (!current) return current
+                  if (field === 'Object' || field === 'Text') {
+                    return { ...current, [field]: value }
+                  }
+                  const parsed = Number(value)
+                  return { ...current, [field]: Number.isFinite(parsed) ? parsed : current[field] }
+                })
+              }}
+              onReplaceEditDraft={setEditDraft}
+              onSaveEdit={saveCanvasEdit}
+              onDeleteSelected={deleteCanvasSelected}
+              onNavigatePrevious={() => navigateCanvas(-1)}
+              onNavigateNext={() => navigateCanvas(1)}
+              isCreating={isCreating}
+              createDraft={createDraft}
+              onCreateDraftChange={setCreateDraft}
+              fitKey={`workspace:${job.job_id}`}
+              imageOverlay={
                 <ReviewCanvasLayers
-                  workspace={workspace}
+                  workspace={null}
                   layers={layerPayloads}
                   visibleLayers={visibleLayers}
                   imageSize={imageSize}
-                  selectedEntity={selectedEntity}
-                  onSelectEntity={setSelectedEntity}
+                  embedded
+                  showBoxes={false}
                 />
-              </>
-            ) : (
-              <div className="flex h-[520px] w-[760px] items-center justify-center rounded-xl bg-[#fffaf0] text-sm text-[#6f6757]">
+              }
+            />
+          ) : (
+            <div className="flex h-full min-h-[520px] w-full items-center justify-center bg-[var(--bg-primary)] text-sm text-[var(--text-secondary)]">
                 No image artifact available.
-              </div>
-            )}
-            <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-[#d6cdb8] bg-[#fffaf0]/90 px-3 py-1 text-xs font-semibold text-[#4a4030]">
-              {imageSize ? `${imageSize.width} x ${imageSize.height}px` : 'Loading image'}
             </div>
+          )}
+          <div className="pointer-events-none absolute left-4 top-12 rounded-full border border-[var(--border-muted)] bg-[var(--bg-secondary)]/90 px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+            {imageSize ? `${imageSize.width} x ${imageSize.height}px` : 'Loading image'}
           </div>
         </main>
 
-        <aside className="border-l border-[#d6cdb8] bg-[#fffaf0] p-4">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <SlidersHorizontal className="h-4 w-4" />
-            Inspector
-          </div>
-          <div className="mt-4 rounded-xl border border-[#e2d8c2] bg-[#fbf4e4] p-4 text-sm text-[#6f6757]">
-            <div className="flex gap-2">
-              <button type="button" onClick={() => addEntity('equipment')} className="rounded-lg bg-[#2f6f4e] px-3 py-2 text-xs font-semibold text-white">
-                Add equipment
-              </button>
-              <button type="button" onClick={() => addEntity('objects')} className="rounded-lg bg-[#8a5a12] px-3 py-2 text-xs font-semibold text-white">
-                Add object
-              </button>
-            </div>
-            <div className="mt-3 text-xs">
-              Recompute: <span className="font-semibold">{recomputeState}</span>
-              {isDirty ? <span className="ml-2 rounded-full bg-amber-200 px-2 py-0.5 text-amber-900">dirty</span> : null}
-            </div>
-          </div>
-          {selectedEntity && selectedRecord ? (
-            <div className="mt-4 rounded-xl border border-[#e2d8c2] bg-[#fbf4e4] p-4">
-              <div className="text-xs uppercase tracking-wide text-[#6f6757]">Selected {selectedEntity.collection}</div>
-              <label className="mt-3 block text-xs font-semibold text-[#4a4030]">
-                ID
-                <input
-                  value={String(selectedRecord.id ?? selectedEntity.id)}
-                  onChange={(event) => updateSelectedText('id', event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-[#d6cdb8] bg-white px-2 py-1 font-mono text-xs"
-                />
-              </label>
-              <label className="mt-3 block text-xs font-semibold text-[#4a4030]">
-                Class
-                <input
-                  value={String(selectedRecord.class_name ?? selectedRecord.Object ?? '')}
-                  onChange={(event) => updateSelectedText(selectedEntity.collection === 'objects' ? 'Object' : 'class_name', event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-[#d6cdb8] bg-white px-2 py-1 text-xs"
-                />
-              </label>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                {(['x_min', 'y_min', 'x_max', 'y_max'] as const).map((field) => {
-                  const bbox = entityBbox(selectedRecord)
-                  return (
-                    <label key={field} className="text-xs font-semibold text-[#4a4030]">
-                      {field}
-                      <input
-                        type="number"
-                        value={bbox[field]}
-                        onChange={(event) => updateSelectedBbox(field, Number(event.target.value))}
-                        className="mt-1 w-full rounded-lg border border-[#d6cdb8] bg-white px-2 py-1 font-mono text-xs"
-                      />
-                    </label>
-                  )
-                })}
-              </div>
-              <button
-                type="button"
-                onClick={rejectSelected}
-                className="mt-4 w-full rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700"
-              >
-                Reject / remove from pipeline
-              </button>
-            </div>
-          ) : (
-            <div className="mt-4 rounded-xl border border-[#e2d8c2] bg-[#fbf4e4] p-4 text-sm text-[#6f6757]">
-              Select an equipment or object box to edit its reviewed ID, class, or bbox.
-            </div>
-          )}
-          <div className="mt-4 rounded-xl border border-[#e2d8c2] bg-[#fbf4e4] p-4">
-            <div className="text-xs uppercase tracking-wide text-[#6f6757]">Job</div>
-            <div className="mt-1 break-all font-mono text-xs">{job.job_id}</div>
-            <div className="mt-3 text-xs uppercase tracking-wide text-[#6f6757]">Status</div>
-            <div className="mt-1 text-sm font-semibold capitalize">{job.status}</div>
-          </div>
-        </aside>
+        <div className="min-h-0 w-[320px] shrink-0 border-l border-[var(--border-muted)] bg-[var(--bg-secondary)]">
+          <ObjectSidebar
+            objects={canvasObjects}
+            visibleObjects={visibleCanvasObjects}
+            hiddenClasses={hiddenClasses}
+            confidenceFilter={confidenceFilter}
+            onToggleClass={(classKey) => {
+              setHiddenClasses((current) => {
+                const next = new Set(current)
+                if (next.has(classKey)) next.delete(classKey)
+                else next.add(classKey)
+                return next
+              })
+            }}
+            onConfidenceChange={setConfidenceFilter}
+            reviewStatus={reviewStatus}
+            onSetReviewStatus={setCanvasReviewStatus}
+            selectedObjectKey={selectedObjectKey}
+            onSelectObject={selectCanvasObject}
+            isCreating={isCreating}
+            createDraft={createDraft}
+            onStartCreate={() => addEntity('objects')}
+            onCancelCreate={() => {
+              setIsCreating(false)
+              setCreateDraft(null)
+            }}
+            onUpdateCreateDraft={updateCreateDraft}
+            onSaveCreate={saveCanvasCreate}
+            onExport={exportWorkspaceObjects}
+          />
+        </div>
       </div>
     </div>
   )
