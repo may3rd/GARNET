@@ -4,8 +4,10 @@ import type { DetectedObject, PipelineJob, PipelineReviewBucket, PipelineReviewD
 import { PipelineArtifactCanvas } from '@/components/PipelineArtifactCanvas'
 import { PipelineHitlReviewView } from '@/components/PipelineHitlReviewView'
 import { PipelineReviewWorkspaceView } from '@/components/PipelineReviewWorkspaceView'
+import { ProcessingView } from '@/components/ProcessingView'
 import { Stage6LineAssociationReview } from '@/components/Stage6LineAssociationReview'
 import { getPipelineJob, getPipelineReviewedGraph, getPipelineReviewedQa, getPipelineStageStatus, putPipelineArtifact, resumePipelineFromStage } from '@/lib/api'
+import { useAppStore } from '@/stores/appStore'
 
 type JsonValue = string | number | boolean | null | JsonObject | JsonValue[]
 type JsonObject = Record<string, JsonValue>
@@ -535,15 +537,15 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   const stage5Started = stages.some((stage) => (stage.num ?? 0) >= 5 && stage.status !== 'pending')
   const requiresPreStage5Review = activeJob.status === 'completed' && !stage5Started && (activeJob.stop_after ?? 4) <= 4
   const stage5bComplete = stages.some((stage) => stage.name === 'stage5b_pipe_trace' && stage.status === 'completed')
-  const stage6Started = stages.some((stage) => stage.name === 'stage6_trace_associations' && stage.status !== 'pending')
-  const requiresTraceReview = activeJob.status === 'completed' && stage5bComplete && !stage6Started && (activeJob.stop_after ?? 5) <= 5
+  const stage6Complete = stages.some((stage) => stage.name === 'stage6_trace_associations' && stage.status === 'completed')
+  const requiresTraceReview = activeJob.status === 'completed' && stage5bComplete && !stage6Complete && (activeJob.stop_after ?? 5) <= 5
 
   useEffect(() => {
-    if (!requiresPreStage5Review || preStage5ReviewDismissed || workspaceOpen) return
+    if (!requiresPreStage5Review || preStage5ReviewDismissed || workspaceOpen || isResuming) return
     setPreStage5ReviewActive(true)
     setActiveReviewBucket('stage3_equipment')
     setWorkspaceOpen(true)
-  }, [preStage5ReviewDismissed, requiresPreStage5Review, workspaceOpen])
+  }, [isResuming, preStage5ReviewDismissed, requiresPreStage5Review, workspaceOpen])
 
   const saveStage3Equipment = async (objects: DetectedObject[]) => {
     setPipelineActionError(null)
@@ -574,29 +576,91 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
     await resumeFromStageName('stage7_geometric_graph_assembly')
   }
 
-  const resumeFromStageName = async (stageName: string, stopAfter?: number) => {
+  const resumeFromStageName = async (
+    stageName: string,
+    stopAfter?: number,
+    options: { continueStage5bForTraceReview?: boolean } = {}
+  ) => {
     setIsResuming(true)
+    setWorkspaceOpen(false)
+    setPreStage5ReviewActive(false)
+    setPreStage5ReviewDismissed(true)
     setPipelineActionError(null)
+    useAppStore.setState({
+      isProcessing: true,
+      processingMode: 'pipeline',
+      pipelineJob: activeJob,
+      progress: {
+        step: `Resuming from ${stageName.replaceAll('_', ' ')}`,
+        percent: 8,
+      },
+    })
     try {
       await resumePipelineFromStage(activeJob.job_id, stageName, { stopAfter })
+      let continuedStage5bForTraceReview = false
       while (true) {
         const nextJob = await getPipelineJob(activeJob.job_id)
         setLiveJob(nextJob)
+        const totalStages = Math.max(nextJob.manifest?.stages.length ?? nextJob.manifest?.stop_after ?? 1, 1)
+        const completedStages = nextJob.manifest?.stages.filter((stage) => stage.status === 'completed').length ?? 0
+        const percent = nextJob.status === 'completed'
+          ? 100
+          : Math.min(95, Math.max(10, Math.round((completedStages / totalStages) * 100)))
+        useAppStore.setState({
+          pipelineJob: nextJob,
+          progress: {
+            step: (nextJob.current_stage ?? 'Resuming pipeline').replaceAll('_', ' '),
+            percent,
+          },
+        })
         try {
           const statusPayload = await getPipelineStageStatus(activeJob.job_id)
           setStageStatuses(statusPayload.stages)
         } catch {
           setStageStatuses(nextJob.manifest?.stages ?? [])
         }
-        if (nextJob.status === 'completed') break
+        if (
+          nextJob.status === 'completed'
+          && options.continueStage5bForTraceReview
+          && !continuedStage5bForTraceReview
+          && !nextJob.manifest?.stages.some((stage) => stage.name === 'stage5b_pipe_trace' && stage.status === 'completed')
+        ) {
+          continuedStage5bForTraceReview = true
+          await resumePipelineFromStage(activeJob.job_id, 'stage5b_pipe_trace', { stopAfter: 5 })
+          useAppStore.setState({
+            pipelineJob: nextJob,
+            progress: {
+              step: 'Resuming from stage5b pipe trace',
+              percent: 10,
+            },
+          })
+          continue
+        }
+        if (nextJob.status === 'completed') {
+          useAppStore.setState({
+            isProcessing: false,
+            pipelineJob: nextJob,
+            progress: { step: 'Pipeline complete', percent: 100 },
+          })
+          break
+        }
         if (nextJob.status === 'failed') {
           setPipelineActionError(nextJob.error || 'Pipeline resume failed')
+          useAppStore.setState({
+            isProcessing: false,
+            pipelineJob: nextJob,
+            progress: null,
+          })
           break
         }
         await new Promise((resolve) => window.setTimeout(resolve, 500))
       }
     } catch (error) {
       setPipelineActionError(error instanceof Error ? error.message : 'Pipeline resume failed')
+      useAppStore.setState({
+        isProcessing: false,
+        progress: null,
+      })
     } finally {
       setIsResuming(false)
     }
@@ -635,7 +699,7 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
       setPreStage5ReviewDismissed(true)
       setWorkspaceOpen(false)
       setShowArtifactDetails(false)
-      void resumeFromStageName('stage5_pipe_mask', 5)
+      void resumeFromStageName('stage5_pipe_mask', 5, { continueStage5bForTraceReview: true })
       return
     }
     setWorkspaceOpen(false)
@@ -647,6 +711,10 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
       setPreStage5ReviewDismissed(true)
     }
     setWorkspaceOpen(false)
+  }
+
+  if (isResuming) {
+    return <ProcessingView />
   }
 
   if (workspaceOpen) {
