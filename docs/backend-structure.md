@@ -8,10 +8,8 @@ The GARNET backend is a FastAPI service. The `garnet/` package is intentionally 
 backend/
 ├── api.py                       # Canonical FastAPI application (uvicorn api:app)
 ├── main.py                      # 10-line compatibility shim that re-exports api:app
-├── export_to_excel.py           # Excel export logic (called by /api/export/excel)
 ├── requirements.txt             # Python dependencies
 ├── .env.example                 # Backend environment template
-├── pid_extractor.sh             # Convenience wrapper for pipeline CLI
 ├── run_debug.sh                 # Debug-mode pipeline runner
 ├── run_stage5b_only.sh          # Stage 5b-only smoke test
 ├── garnet/                      # Core pipeline package (see below)
@@ -42,11 +40,11 @@ backend/
 ├── json/                        # Cached COCO image indexes
 ├── schema/                      # JSON schemas for API contracts
 ├── gemini_detector/             # Gemini-specific detector assets
-├── coco_annotations.json        # Sample/test data
-├── coco_arrows.json             # Sample/test data
-├── ocr_results.json             # Sample/test data
+├── output_debug/                # Debug-mode pipeline outputs
 └── sample.png                   # Sample/test image
 ```
+
+Note: Excel export is implemented inline in `api.py` (`/api/export/excel` uses `pandas` + `openpyxl`); there is no separate `export_to_excel.py` module. Sample data files (`coco_annotations.json`, `coco_arrows.json`, `ocr_results.json`) live outside the repo in your local working copy and are not part of the tree.
 
 ## `garnet/` Package — Flat Layout
 
@@ -131,5 +129,5 @@ backend/garnet/
 | `uvicorn api:app --reload --port 8001` | FastAPI service (canonical) |
 | `uvicorn main:app --port 8001` | Same service via compatibility shim |
 | `python garnet/pid_extractor.py --image <png> --out <dir>` | CLI pipeline runner |
-| `bash pid_extractor.sh` | Convenience wrapper for the CLI |
 | `bash run_stage5b_only.sh` | Stage 5b-only smoke test |
+| `bash run_debug.sh` | Debug-mode pipeline runner |
