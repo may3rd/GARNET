@@ -143,7 +143,7 @@ function buildStage3EquipmentItems(
     return {
       bucket: 'stage3_equipment',
       id,
-      title: `${className} ${id}`,
+      title: className,
       subtitle: reviewedEquipment.length ? 'Stage 3 reviewed equipment' : 'Stage 4 equipment fallback',
       text: id,
       normalizedText: id,

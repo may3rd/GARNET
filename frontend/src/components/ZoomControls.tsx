@@ -43,8 +43,8 @@ export function ZoomControls({ zoomPercent, onZoomIn, onZoomOut, onReset, onFit,
   }
 
   return (
-    <div className="group flex items-center gap-2 bg-[var(--bg-primary)]/95 backdrop-blur-md border border-[var(--border-muted)] rounded-xl px-2 py-1.5 scale-90 opacity-90 hover:scale-100 hover:opacity-100 hover:px-3 hover:py-2 shadow-lg shadow-black/40 hover:shadow-xl hover:shadow-black/50 transition-all duration-200 ease-out motion-reduce:transition-none motion-reduce:hover:scale-90 motion-reduce:hover:px-2 motion-reduce:hover:py-1.5">
-      <Button variant="ghost" size="icon" className="h-7 w-7 group-hover:h-9 group-hover:w-9 transition-all duration-200" onClick={onZoomOut} aria-label="Zoom out">
+    <div className="group flex items-center gap-2 rounded-xl border border-slate-300/80 bg-white/95 px-2 py-1.5 text-slate-700 opacity-95 shadow-lg shadow-black/30 backdrop-blur-md transition-all duration-200 ease-out hover:scale-100 hover:px-3 hover:py-2 hover:opacity-100 hover:shadow-xl hover:shadow-black/40 motion-reduce:transition-none motion-reduce:hover:px-2 motion-reduce:hover:py-1.5">
+      <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-600 transition-all duration-200 hover:bg-slate-100 hover:text-slate-950 group-hover:h-9 group-hover:w-9" onClick={onZoomOut} aria-label="Zoom out">
         <Minus className="h-3.5 w-3.5 group-hover:h-4 group-hover:w-4 transition-all duration-200" />
       </Button>
       {isEditing ? (
@@ -66,7 +66,7 @@ export function ZoomControls({ zoomPercent, onZoomIn, onZoomOut, onReset, onFit,
               }
             }}
             inputMode="numeric"
-            className="h-6 px-2 text-[10px] group-hover:text-xs text-center font-semibold"
+            className="h-6 border-slate-300 bg-white px-2 text-center text-[10px] font-semibold text-slate-950 placeholder:text-slate-500 group-hover:text-xs"
             aria-label="Zoom percent"
           />
         </div>
@@ -74,20 +74,20 @@ export function ZoomControls({ zoomPercent, onZoomIn, onZoomOut, onReset, onFit,
         <button
           type="button"
           onClick={() => setIsEditing(true)}
-          className="text-[10px] group-hover:text-xs font-bold w-10 group-hover:w-12 text-center cursor-pointer text-[var(--text-primary)] hover:text-[var(--accent)] transition-all duration-200"
+          className="w-10 cursor-pointer text-center text-[10px] font-bold text-slate-950 transition-all duration-200 hover:text-blue-700 group-hover:w-12 group-hover:text-xs"
           aria-label="Set zoom percent"
         >
           {zoomPercent}%
         </button>
       )}
-      <Button variant="ghost" size="icon" className="h-7 w-7 group-hover:h-9 group-hover:w-9 transition-all duration-200" onClick={onZoomIn} aria-label="Zoom in">
+      <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-600 transition-all duration-200 hover:bg-slate-100 hover:text-slate-950 group-hover:h-9 group-hover:w-9" onClick={onZoomIn} aria-label="Zoom in">
         <Plus className="h-3.5 w-3.5 group-hover:h-4 group-hover:w-4 transition-all duration-200" />
       </Button>
-      <div className="h-4 group-hover:h-6 w-px bg-[var(--border-muted)] transition-all duration-200" />
-      <Button variant="ghost" size="icon" className="h-7 w-7 group-hover:h-9 group-hover:w-9 transition-all duration-200" onClick={onFit} aria-label="Fit to screen">
+      <div className="h-4 w-px bg-slate-300 transition-all duration-200 group-hover:h-6" />
+      <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-600 transition-all duration-200 hover:bg-slate-100 hover:text-slate-950 group-hover:h-9 group-hover:w-9" onClick={onFit} aria-label="Fit to screen">
         <Maximize2 className="h-3.5 w-3.5 group-hover:h-4 group-hover:w-4 transition-all duration-200" />
       </Button>
-      <Button variant="ghost" size="icon" className="h-7 w-7 group-hover:h-9 group-hover:w-9 transition-all duration-200" onClick={onReset} aria-label="Reset zoom">
+      <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-600 transition-all duration-200 hover:bg-slate-100 hover:text-slate-950 group-hover:h-9 group-hover:w-9" onClick={onReset} aria-label="Reset zoom">
         <RefreshCw className="h-3.5 w-3.5 group-hover:h-4 group-hover:w-4 transition-all duration-200" />
       </Button>
     </div>

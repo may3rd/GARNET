@@ -34,6 +34,7 @@ type ObjectSidebarProps = {
   onUpdateCreateDraft: (field: 'Object' | 'Left' | 'Top' | 'Width' | 'Height' | 'Text', value: string) => void
   onSaveCreate: () => void
   onExport: (format: ExportFormat, filter: ExportFilter) => void
+  classOptions?: string[]
 }
 
 function classKeyFor(obj: DetectedObject) {
@@ -58,6 +59,7 @@ export function ObjectSidebar({
   onUpdateCreateDraft,
   onSaveCreate,
   onExport,
+  classOptions = [],
 }: ObjectSidebarProps) {
   const [queryInput, setQueryInput] = useState('')
   const [query, setQuery] = useState('')
@@ -207,6 +209,14 @@ export function ObjectSidebar({
   const MAX_GROUP_ITEMS = 200
   const MIN_BOX_SIZE = 2
   const createReady = createDraft && createDraft.Width > MIN_BOX_SIZE && createDraft.Height > MIN_BOX_SIZE
+  const normalizedClassOptions = useMemo(
+    () => Array.from(new Set(classOptions.map((option) => option.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    [classOptions]
+  )
+  const classOptionsId = useMemo(
+    () => `object-class-options-${normalizedClassOptions.join('-').replace(/[^a-z0-9_-]/gi, '').slice(0, 40)}`,
+    [normalizedClassOptions]
+  )
 
   return (
     <aside className="h-full w-full border-l border-[var(--border-muted)] bg-[var(--bg-secondary)] flex flex-col">
@@ -332,11 +342,38 @@ export function ObjectSidebar({
                 value={createDraft?.Object ?? ''}
                 onChange={(event) => onUpdateCreateDraft('Object', event.target.value)}
                 placeholder="Class"
+                list={normalizedClassOptions.length ? classOptionsId : undefined}
                 className={cn(
                   'col-span-2 rounded-md border border-[var(--border-muted)]',
                   'bg-[var(--bg-secondary)] px-2 py-1.5'
                 )}
               />
+              {normalizedClassOptions.length ? (
+                <datalist id={classOptionsId}>
+                  {normalizedClassOptions.map((cls) => (
+                    <option key={cls} value={cls} />
+                  ))}
+                </datalist>
+              ) : null}
+              {normalizedClassOptions.length ? (
+                <select
+                  value=""
+                  onChange={(event) => {
+                    if (event.target.value) onUpdateCreateDraft('Object', event.target.value)
+                  }}
+                  className={cn(
+                    'col-span-2 -mt-1 rounded-md border border-[var(--border-muted)]',
+                    'bg-[var(--bg-secondary)] px-2 py-1.5 text-[11px] text-[var(--text-secondary)]'
+                  )}
+                >
+                  <option value="">Pick suggested class...</option>
+                  {normalizedClassOptions.map((cls) => (
+                    <option key={cls} value={cls}>
+                      {cls}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
               <input
                 value={createDraft?.Text ?? ''}
                 onChange={(event) => onUpdateCreateDraft('Text', event.target.value)}

@@ -63,6 +63,8 @@ type WorkspaceDraft = {
 type BBox = { x_min: number; y_min: number; x_max: number; y_max: number }
 type PortCandidate = Pick<PipelineManualPort, 'x' | 'y' | 'direction'>
 
+const EQUIPMENT_CLASS_OPTIONS = ['blower', 'column', 'compressor', 'fan', 'heat exchanger', 'mixer', 'pump', 'tank', 'vessel']
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
 }
@@ -380,6 +382,12 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
       }),
     [canvasObjects, confidenceFilter, hiddenClasses]
   )
+  const currentClassOptions = useMemo(() => {
+    const collection = isCreating ? createCollection : selectedEntity?.collection
+    const sourceItems = collection === 'equipment' ? workspace?.equipment : workspace?.objects
+    const fallback = collection === 'equipment' ? EQUIPMENT_CLASS_OPTIONS : []
+    return Array.from(new Set([...(sourceItems ?? []).map((item) => entityClassName(item, 'object')), ...fallback]))
+  }, [createCollection, isCreating, selectedEntity, workspace])
 
   const reviewStatus = useMemo(() => {
     const status: Record<string, 'accepted' | 'rejected'> = {}
@@ -973,6 +981,7 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
             }}
             onUpdateCreateDraft={updateCreateDraft}
             onSaveCreate={saveCanvasCreate}
+            classOptions={currentClassOptions}
             onExport={exportWorkspaceObjects}
           />
         </div>

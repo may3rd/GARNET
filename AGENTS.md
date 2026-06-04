@@ -21,6 +21,7 @@
 - API <-> pipeline: `backend/api.py` is the service entrypoint, but the extraction logic lives in `backend/garnet/`. Change request/response shapes in the API layer only after checking the downstream pipeline output and frontend expectations.
 - Pipeline roadmap: for P&ID digitizing features, preserve the stage model in `MASTER_PLAN.md` and the scoped rules in `backend/garnet/AGENTS.md`. The live rebuild is currently Stage 1-only.
 - Generated artifacts: keep predictions, runs, temp files, and debug outputs in backend-owned artifact folders. Do not make the frontend depend on developer-local filesystem paths.
+- Pipeline HITL review: the frontend has separate review gates for object boxes and traced paths. Keep class suggestions tied to the active review type, preserve free-text class entry for add-box workflows, and make trace/branch overlays selectable without blocking normal canvas pan/zoom.
 
 ## Verification (preferred commands)
 - Default rule: run checks from the owning module, keep them narrow first, and widen only after the touched area is stable.
@@ -38,6 +39,7 @@
 - Keep generated outputs, caches, model weights, and secrets out of commits unless the user explicitly asks for them.
 - Preserve existing module boundaries. If a task crosses backend, frontend, and pipeline code, describe the touch points clearly and verify each touched module separately.
 - When a new submodule develops its own conventions or risk profile, add a nested `AGENTS.md` there instead of bloating the root file.
+- For frontend canvas changes, verify both visual alignment and pointer interaction. Trace/path overlays should use image-coordinate alignment, wide hit targets, and pass-through empty areas so object editing and pan/zoom still work.
 
 ## Do not
 - Do not put backend pipeline implementation rules in the root file when they belong in `backend/garnet/AGENTS.md`.

@@ -278,8 +278,10 @@ Pipeline flow: upload → pipeline setup → pipeline results → HITL review
 **Key components beyond basic detection:**
 - `PipelineResultsView.tsx`: Displays pipeline job progress, artifacts, and stage outputs
 - `PipelineArtifactCanvas.tsx`: Renders pipeline artifact overlays (masks, skeletons, graphs)
-- `PipelineHitlReviewView.tsx`: Human-in-the-loop review interface for graph QA results
-- `CanvasView.tsx`: Interactive Konva-based canvas with zoom/pan, bbox editing, minimap
+- `PipelineHitlReviewView.tsx`: Human-in-the-loop review entrypoint for object and traced-path gates
+- `PipelineReviewWorkspaceView.tsx`: Dedicated review workspace for object boxes, ports, traces, and branches
+- `ReviewCanvasLayers.tsx`: SVG overlay for equipment/object boxes, ports, trace paths, and branch paths
+- `CanvasView.tsx`: Interactive canvas with zoom/pan, bbox editing, cursor guide, minimap, and image overlays
 - `PdfPageSelector.tsx`: Page selection for multi-page PDF uploads
 
 ### Backend API Endpoints
@@ -358,6 +360,12 @@ The pipeline in `garnet/pid_extractor.py` orchestrates a multi-stage rebuild:
 - **History actions**: Record undo/redo via `useHistoryStore.getState().addAction()`.
 - **Object keys**: Use `objectKey(obj)` (CategoryID + ObjectID) for unique identification.
 - **Confidence filtering**: Filter objects by `confidenceFilter` in components using `useMemo`.
+- **Pipeline review gates**: The HITL review flow has distinct object review and traced-path review modes. Keep UI copy, class suggestions, and editing controls scoped to the active review type.
+- **Add-box class input**: The new-box class control must support both suggested classes and manual text entry. Suggested classes should come from the current review bucket or current workspace collection, not a hard-coded global-only list.
+- **YOLO label alignment**: For object/equipment review, keep `Object` aligned with the detection class and keep detected text/tag values in the text/label field. Do not concatenate class and object ID into the class field.
+- **Canvas guide lines**: Cursor guide lines are screen-space overlays and must not scale with zoom. Compute guide position from image coordinates, but render the vertical/horizontal lines in the canvas viewport layer.
+- **Trace overlay selection**: Trace and branch overlays in `ReviewCanvasLayers.tsx` must remain image-coordinate aligned with the source raster. Use a wide transparent SVG stroke for hit-testing and keep empty overlay areas pass-through so normal pan/zoom still works.
+- **Trace removal**: In traced-path review, selecting a trace/branch should expose the remove action and persist the removal as a `trace_overrides` rejection. Do not delete raw stage artifacts from the frontend.
 
 ### Cross-Cutting
 

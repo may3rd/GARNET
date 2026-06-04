@@ -66,6 +66,21 @@ function bucketObjectLabel(bucket: PipelineReviewBucket) {
   }
 }
 
+function classOptionsForBucket(bucket: PipelineReviewBucket, items: PipelineReviewItem[], objects: DetectedObject[]): string[] {
+  const fallback: Record<PipelineReviewBucket, string[]> = {
+    stage3_equipment: ['blower', 'column', 'compressor', 'fan', 'heat exchanger', 'mixer', 'pump', 'tank', 'vessel'],
+    stage4_object: [],
+    stage4_line_number: ['line_number'],
+    stage4_instrument: ['instrument tag', 'instrument dcs', 'instrument logic'],
+    stage6_line_association: ['line_number'],
+    stage12_line_attachment: ['line_number'],
+    stage12_instrument_attachment: ['instrument_attachment'],
+  }
+  const fromItems = items.map((item) => item.title).filter(Boolean)
+  const fromObjects = objects.map((obj) => obj.Object).filter(Boolean)
+  return Array.from(new Set([...fromItems, ...fromObjects, ...fallback[bucket]]))
+}
+
 function seedObjects(bucket: PipelineReviewBucket, items: PipelineReviewItem[]): DetectedObject[] {
   return items.map((item, index) => {
     const bbox = item.bbox as Record<string, number> | undefined
@@ -74,7 +89,12 @@ function seedObjects(bucket: PipelineReviewBucket, items: PipelineReviewItem[]):
     const width = bbox ? Math.max(1, (bbox.x_max ?? 0) - (bbox.x_min ?? 0)) : 1
     const height = bbox ? Math.max(1, (bbox.y_max ?? 0) - (bbox.y_min ?? 0)) : 1
     const objectId = index + 1
-    const objectLabel = bucket === 'stage4_object' ? item.title || bucketObjectLabel(bucket) : bucketObjectLabel(bucket)
+    
+    const objectLabel = bucket === 'stage3_equipment' || bucket === 'stage4_object' 
+      ? item.title || bucketObjectLabel(bucket) 
+      : bucketObjectLabel(bucket)
+    const textLabel = item.text || item.normalizedText || item.id || item.title
+    
     return {
       Index: objectId,
       Object: objectLabel,
@@ -85,7 +105,7 @@ function seedObjects(bucket: PipelineReviewBucket, items: PipelineReviewItem[]):
       Width: width,
       Height: height,
       Score: 1,
-      Text: item.text || item.normalizedText || item.title,
+      Text: textLabel,
       ReviewStatus: null,
     }
   })
@@ -654,6 +674,7 @@ export function PipelineHitlReviewView({
               })
             }}
             onSaveCreate={handleCreateSave}
+            classOptions={classOptionsForBucket(workspaceBucket, itemsByBucket[workspaceBucket], objects)}
             onExport={(format) => {
               const payload = JSON.stringify(objects, null, 2)
               const blob = new Blob([payload], { type: 'application/json' })

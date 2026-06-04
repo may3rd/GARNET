@@ -1,8 +1,8 @@
 # Punch List
 
-## Stage 11 Remaining Improvements
+## Stage 6 Remaining Improvements
 
-These are not blockers for starting Stage 12 if human-in-the-loop review will handle missing or weak data later.
+These are not blockers for starting Stage 7 if human-in-the-loop review will handle missing or weak data later.
 
 1. Add per-association confidence/status
    - Add explicit statuses such as `exact`, `near`, `weak`, and `rejected` for each accepted/rejected association.
@@ -15,7 +15,7 @@ These are not blockers for starting Stage 12 if human-in-the-loop review will ha
 
 3. Add trace grouping hints
    - Group traces that likely belong to the same process line by line number, connected terminals, branch relation, direction continuity, and shared equipment/page connector context.
-   - Keep these as hints only; Stage 12 should still preserve trace-level provenance.
+   - Keep these as hints only; Stage 7 should still preserve trace-level provenance.
 
 4. Preserve explicit reused/skipped trace references
    - Keep `skipped_existing_trace` records as non-physical sources with `reused_trace_id`.
@@ -27,36 +27,36 @@ These are not blockers for starting Stage 12 if human-in-the-loop review will ha
    - `review`: missing line number, weak association, multiple line candidates, ambiguous terminal, dead end requiring review.
    - `info`: skipped duplicate, reused path, accepted exact match.
 
-## Stage 12 Plan: Build Process Graph From Stage 11
+## Stage 7 Plan: Build Process Graph From Stage 6
 
 ### Goal
-Build the next graph assembly stage directly from `stage11_trace_associations.json`, instead of the older `stage5_geometric_segments` / Phase 3 geometric path.
+Build the next graph assembly stage directly from `stage6_trace_associations.json`, instead of the older `stage5_geometric_segments` / Phase 3 geometric path.
 
 ### Assumptions / constraints
-- Stage 11 is the source of truth for the geometric-route Stage 12.
+- Stage 6 is the source of truth for the geometric-route Stage 7.
 - Human review will later resolve missing line numbers and weak associations.
 - Skipped/reused traces should be represented as metadata, not counted as duplicate physical edges.
-- Existing Stage 12 artifact names should be preserved where practical to avoid breaking downstream export and UI flows.
+- Existing Stage 7 artifact names should be preserved where practical to avoid breaking downstream export and UI flows.
 
 ### Current state
-- `stage11_trace_associations.json` contains `trace_edges`, per-edge `attachments`, accepted/rejected associations, and unresolved QA lists.
-- Current `stage12_geometric_graph_assembly()` still builds from `stage5_geometric_segments.json`, Phase 3 runs, and geometric edge builders.
-- Current geometric pipeline route already runs Stage 5b then Stage 11 before Stage 12.
+- `stage6_trace_associations.json` contains `trace_edges`, per-edge `attachments`, accepted/rejected associations, and unresolved QA lists.
+- Current `stage7_geometric_graph_assembly()` still builds from `stage5_geometric_segments.json`, Phase 3 runs, and geometric edge builders.
+- Current geometric pipeline route already runs Stage 5b then Stage 6 before Stage 7.
 
 ### Decision
-Use Stage 11 as the input contract for Stage 12 graph assembly.
+Use Stage 6 as the input contract for Stage 7 graph assembly.
 
 Reason:
-- Stage 11 already has traced paths, terminals, equipment ports, inline objects, line numbers, instrument tags, flow arrows, and QA lists.
+- Stage 6 already has traced paths, terminals, equipment ports, inline objects, line numbers, instrument tags, flow arrows, and QA lists.
 - Reusing old geometric-segment artifacts would discard the recent path-tracing fixes and duplicate-suppression logic.
 
 ### Implementation plan
-1. Add a Stage 12 loader for Stage 11
-   - Read `stage11_trace_associations.json`.
+1. Add a Stage 7 loader for Stage 6
+   - Read `stage6_trace_associations.json`.
    - Validate required keys: `trace_edges`, `associations`, `unresolved`.
    - Reject or warn when no physical trace edges exist.
 
-2. Normalize Stage 11 trace edges into graph edges
+2. Normalize Stage 6 trace edges into graph edges
    - Include only physical traces with non-empty `segments`.
    - Exclude `skipped_existing_trace` from physical edge count.
    - Preserve skipped/reused records in graph metadata/review artifacts.
@@ -77,13 +77,13 @@ Reason:
    - Edge attributes: line number candidates, inline objects/valves, instruments, flow arrows, terminal types, source/terminal objects.
    - Node attributes: equipment/page connector/instrument identity, source detections, associated ports.
 
-6. Emit Stage 12 artifacts
-   - `stage12_graph.json`
-   - `stage12_graph_summary.json`
-   - `stage12_trace_edge_nodes.json`
-   - `stage12_line_groups.json` as provisional grouping hints if simple grouping is included.
-   - `stage12_review_queue.json` for missing/weak data.
-   - `stage12_graph_overlay.png` if practical in the same pass.
+6. Emit Stage 7 artifacts
+   - `stage7_graph.json`
+   - `stage7_graph_summary.json`
+   - `stage7_trace_edge_nodes.json`
+   - `stage7_line_groups.json` as provisional grouping hints if simple grouping is included.
+   - `stage7_review_queue.json` for missing/weak data.
+   - `stage7_graph_overlay.png` if practical in the same pass.
 
 7. Add QA/review output
    - Missing line numbers.
@@ -96,9 +96,9 @@ Reason:
 ### Tests to run
 - `cd backend && /Users/maetee/Code/GARNET/.venv/bin/python -m py_compile api.py garnet/*.py garnet/utils/*.py`
 - `cd backend && ./run_stage5b_only.sh /Users/maetee/Code/GARNET/backend/output_debug/Test-00001`
-- Regenerate Stage 11 for Test-00001.
-- Run the new Stage 12 for Test-00001 first.
-- Then run Stage 12 for `Test-00001` through `Test-00009`.
+- Regenerate Stage 6 for Test-00001.
+- Run the new Stage 7 for Test-00001 first.
+- Then run Stage 7 for `Test-00001` through `Test-00009`.
 - Check summaries for edge count, node count, skipped trace count, missing line number count, and review item count.
 
 ### Risks / edge cases
@@ -108,11 +108,11 @@ Reason:
 - Skipped/reused traces must not create duplicate physical pipe edges.
 - Branch traces that end at the same tee from different directions must share a junction node.
 
-## Stage 12 Detailed Design
+## Stage 7 Detailed Design
 
-### Stage 12 input contract
+### Stage 7 input contract
 Primary input:
-- `stage11_trace_associations.json`
+- `stage6_trace_associations.json`
 
 Required top-level keys:
 - `image_id`
@@ -141,15 +141,15 @@ Physical edge rule:
 - Exclude records with `status = skipped_existing_trace` or no segments from physical graph edges.
 - Preserve skipped/reused records in review and source-port metadata.
 
-### Stage 12 graph schema proposal
+### Stage 7 graph schema proposal
 
-`stage12_graph.json`:
+`stage7_graph.json`:
 
 ```json
 {
-  "schema_version": "stage12_trace_graph_v1",
+  "schema_version": "stage7_trace_graph_v1",
   "image_id": "Test-00001.jpg",
-  "trace_source": "stage11",
+  "trace_source": "stage6",
   "nodes": [],
   "edges": [],
   "line_groups": [],
@@ -240,10 +240,10 @@ Skipped/reused source shape:
 
 ### Edge creation rules
 
-1. One physical edge per included Stage 11 trace edge.
+1. One physical edge per included Stage 6 trace edge.
 2. Edge id is `edge::<trace_id>`.
 3. Source and target node ids come from the node creation rules.
-4. Edge carries Stage 11 attachments directly:
+4. Edge carries Stage 6 attachments directly:
    - `line_numbers`
    - `inline_objects`
    - `instrument_tags`
@@ -260,7 +260,7 @@ Skipped/reused source shape:
 
 Initial grouping should be conservative.
 
-Group traces into `stage12_line_groups.json` using:
+Group traces into `stage7_line_groups.json` using:
 1. Same accepted line number association.
 2. Shared connected node or terminal.
 3. Same or compatible flow direction evidence.
@@ -290,7 +290,7 @@ If no line number exists:
 
 ### Review queue rules
 
-`stage12_review_queue.json` should be the human-in-the-loop input surface.
+`stage7_review_queue.json` should be the human-in-the-loop input surface.
 
 Review item shape:
 
@@ -324,30 +324,30 @@ Severity policy:
 - `review`: graph can proceed, but process engineer must review.
 - `info`: no action required unless auditing provenance.
 
-### Stage 12 artifact list
+### Stage 7 artifact list
 
 Core artifacts:
-- `stage12_graph.json`
-- `stage12_graph_summary.json`
-- `stage12_trace_edge_nodes.json`
-- `stage12_line_groups.json`
-- `stage12_line_group_summary.json`
-- `stage12_review_queue.json`
-- `stage12_review_queue_summary.json`
-- `stage12_graph_overlay.png`
+- `stage7_graph.json`
+- `stage7_graph_summary.json`
+- `stage7_trace_edge_nodes.json`
+- `stage7_line_groups.json`
+- `stage7_line_group_summary.json`
+- `stage7_review_queue.json`
+- `stage7_review_queue_summary.json`
+- `stage7_graph_overlay.png`
 
 Compatibility artifacts to preserve or map:
-- `stage12_equipment_attachments.json`
-- `stage12_connection_attachments.json`
-- `stage12_edge_terminals.json`
-- `stage12_text_attachments.json`
-- `stage12_instrument_tag_attachments.json`
+- `stage7_equipment_attachments.json`
+- `stage7_connection_attachments.json`
+- `stage7_edge_terminals.json`
+- `stage7_text_attachments.json`
+- `stage7_instrument_tag_attachments.json`
 
-These can initially be derived from Stage 11 associations instead of recomputing from old geometric edges.
+These can initially be derived from Stage 6 associations instead of recomputing from old geometric edges.
 
-### Stage 12 summary fields
+### Stage 7 summary fields
 
-`stage12_graph_summary.json` should include:
+`stage7_graph_summary.json` should include:
 - `node_count`
 - `edge_count`
 - `physical_trace_edge_count`
@@ -366,62 +366,62 @@ These can initially be derived from Stage 11 associations instead of recomputing
 
 ### Implementation phases
 
-Phase 12A: Minimal graph from Stage 11
+Phase 7A: Minimal graph from Stage 6
 - Add helper functions in `pid_extractor.py` or a new module such as `backend/garnet/trace_graph_builder.py`.
-- Build nodes and edges from Stage 11 only.
+- Build nodes and edges from Stage 6 only.
 - Emit graph, summary, node mapping, review queue.
 - Do not attempt advanced line grouping yet.
 
-Phase 12B: Compatibility outputs
-- Derive existing Stage 12 attachment artifacts from Stage 11 associations.
-- Keep downstream `stage12b_graph_export()` working.
-- Confirm `graph_export_adapter.py` can consume the new `stage12_graph.json` fields.
+Phase 7B: Compatibility outputs
+- Derive existing Stage 7 attachment artifacts from Stage 6 associations.
+- Keep downstream `stage7b_graph_export()` working.
+- Confirm `graph_export_adapter.py` can consume the new `stage7_graph.json` fields.
 
-Phase 12C: Provisional line groups
+Phase 7C: Provisional line groups
 - Group by accepted line number first.
 - Add unassigned connectivity groups second.
 - Emit review items for missing/ambiguous line numbers.
 
-Phase 12D: Overlay and QA refinement
+Phase 7D: Overlay and QA refinement
 - Draw graph nodes/edges with review colors.
 - Add visible labels for line groups and problematic traces.
 - Add counts by QA category.
 
-### Acceptance criteria for first Stage 12 pass
+### Acceptance criteria for first Stage 7 pass
 
 Minimum acceptable first pass:
-- Stage 12 runs on `Test-00001` using only Stage 11 input.
-- `stage12_graph.json` contains physical edges from Stage 11 traces and no duplicate skipped edges.
-- `stage12_graph_summary.json` reports node/edge/review counts.
-- `stage12_review_queue.json` includes missing line numbers and dead ends.
-- `stage12b_graph_export()` still runs or has a documented compatibility gap.
+- Stage 7 runs on `Test-00001` using only Stage 6 input.
+- `stage7_graph.json` contains physical edges from Stage 6 traces and no duplicate skipped edges.
+- `stage7_graph_summary.json` reports node/edge/review counts.
+- `stage7_review_queue.json` includes missing line numbers and dead ends.
+- `stage7b_graph_export()` still runs or has a documented compatibility gap.
 
 Full validation pass:
-- Stage 12 runs on `Test-00001` through `Test-00009`.
+- Stage 7 runs on `Test-00001` through `Test-00009`.
 - No runtime errors.
 - Skipped/reused traces are not counted as physical edges.
 - Known Stage 5b endpoints remain represented in graph nodes.
-- Human review queue contains all Stage 11 unresolved items.
+- Human review queue contains all Stage 6 unresolved items.
 
 ### First implementation target
 
-Implement Phase 12A only first.
+Implement Phase 7A only first.
 
 Recommended first code slice:
 1. Add `backend/garnet/trace_graph_builder.py`.
-2. Implement `build_trace_graph_from_stage11(payload, image_id)`.
-3. Update `stage12_geometric_graph_assembly()` to use Stage 11 when `stage11_trace_associations.json` exists.
+2. Implement `build_trace_graph_from_stage6(payload, image_id)`.
+3. Update `stage7_geometric_graph_assembly()` to use Stage 6 when `stage6_trace_associations.json` exists.
 4. Emit only:
-   - `stage12_graph.json`
-   - `stage12_graph_summary.json`
-   - `stage12_trace_edge_nodes.json`
-   - `stage12_review_queue.json`
-   - `stage12_review_queue_summary.json`
+   - `stage7_graph.json`
+   - `stage7_graph_summary.json`
+   - `stage7_trace_edge_nodes.json`
+   - `stage7_review_queue.json`
+   - `stage7_review_queue_summary.json`
 5. Run on `Test-00001` and inspect the graph payload before adding compatibility artifacts.
 
 ## Production HITL Additions
 
-These are deferred for first production hardening, not part of the current Stage 11-15 implementation.
+These are deferred for first production hardening, not part of the current Stage 6-10 implementation.
 
 ### Stage 3: Major Equipment Bounding Box HITL
 

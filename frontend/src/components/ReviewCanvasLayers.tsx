@@ -189,6 +189,52 @@ function pointsAttr(points: Point[]): string {
   return points.map((point) => `${point.x},${point.y}`).join(' ')
 }
 
+function SelectablePolyline({
+  points,
+  color,
+  selected,
+  baseWidth,
+  onSelect,
+}: {
+  points: Point[]
+  color: string
+  selected: boolean
+  baseWidth: number
+  onSelect?: () => void
+}) {
+  const attr = pointsAttr(points)
+  return (
+    <>
+      {onSelect ? (
+        <polyline
+          points={attr}
+          fill="none"
+          stroke="transparent"
+          strokeWidth="18"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          pointerEvents="stroke"
+          className="cursor-pointer"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation()
+            onSelect()
+          }}
+        />
+      ) : null}
+      <polyline
+        points={attr}
+        fill="none"
+        stroke={color}
+        strokeWidth={selected ? '8' : String(baseWidth)}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        pointerEvents="none"
+      />
+    </>
+  )
+}
+
 export function ReviewCanvasLayers({
   workspace,
   layers,
@@ -216,7 +262,7 @@ export function ReviewCanvasLayers({
   const branches = collectTraceEntities(layers.stage5b_branch_trace_results, true).filter((branch) => !rejectedBranches.has(branch.id))
   return (
     <svg
-      className={embedded ? 'pointer-events-none absolute inset-0 h-full w-full' : 'absolute inset-2 h-[calc(100%-1rem)] w-[calc(100%-1rem)]'}
+      className={embedded ? 'pointer-events-none absolute inset-0 h-full w-full' : 'pointer-events-none absolute inset-0 z-20 h-full w-full overflow-visible'}
       viewBox={`0 0 ${imageSize.width} ${imageSize.height}`}
       preserveAspectRatio="xMinYMin meet"
       aria-hidden="true"
@@ -226,19 +272,13 @@ export function ReviewCanvasLayers({
           {traces.map((trace) => (
             <g key={`trace-${trace.id}`}>
               {trace.segments.map((points, index) => (
-                <polyline
+                <SelectablePolyline
                   key={`${trace.id}-${index}`}
-                  points={pointsAttr(points)}
-                  fill="none"
-                  stroke={selectedTraceId === trace.id ? '#f97316' : 'rgb(0,200,0)'}
-                  strokeWidth={selectedTraceId === trace.id ? '8' : '4'}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className={onSelectTrace ? 'pointer-events-auto cursor-pointer' : undefined}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onSelectTrace?.(trace.id)
-                  }}
+                  points={points}
+                  color={selectedTraceId === trace.id ? '#f97316' : 'rgb(0,200,0)'}
+                  selected={selectedTraceId === trace.id}
+                  baseWidth={4}
+                  onSelect={onSelectTrace ? () => onSelectTrace(trace.id) : undefined}
                 />
               ))}
               {trace.terminal ? (
@@ -257,19 +297,13 @@ export function ReviewCanvasLayers({
           {branches.map((branch) => (
             <g key={`branch-${branch.id}`}>
               {branch.segments.map((points, index) => (
-                <polyline
+                <SelectablePolyline
                   key={`${branch.id}-${index}`}
-                  points={pointsAttr(points)}
-                  fill="none"
-                  stroke={selectedBranchId === branch.id ? '#f97316' : 'rgb(255,0,0)'}
-                  strokeWidth={selectedBranchId === branch.id ? '8' : '5'}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className={onSelectBranch ? 'pointer-events-auto cursor-pointer' : undefined}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onSelectBranch?.(branch.id)
-                  }}
+                  points={points}
+                  color={selectedBranchId === branch.id ? '#f97316' : 'rgb(255,0,0)'}
+                  selected={selectedBranchId === branch.id}
+                  baseWidth={5}
+                  onSelect={onSelectBranch ? () => onSelectBranch(branch.id) : undefined}
                 />
               ))}
               {branch.terminal ? (

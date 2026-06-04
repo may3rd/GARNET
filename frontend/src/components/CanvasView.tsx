@@ -145,6 +145,7 @@ export const CanvasView = forwardRef(function CanvasView(
     start: NonNullable<CanvasViewProps['editDraft']>
   } | null>(null)
   const [editCursor, setEditCursor] = useState<string>('grab')
+  const [cursorGuide, setCursorGuide] = useState<{ imageX: number; imageY: number; screenX: number; screenY: number } | null>(null)
 
   useEffect(() => {
     scaleRef.current = scale
@@ -611,12 +612,31 @@ export const CanvasView = forwardRef(function CanvasView(
   }
 
   const handlePointerMove = (event: React.PointerEvent) => {
+    const guidePoint = getImagePoint(event.clientX, event.clientY)
+    const containerRect = containerRef.current?.getBoundingClientRect()
+    if (
+      guidePoint
+      && containerRect
+      && guidePoint.x >= 0
+      && guidePoint.y >= 0
+      && guidePoint.x <= imageSize.width
+      && guidePoint.y <= imageSize.height
+    ) {
+      setCursorGuide({
+        imageX: guidePoint.x,
+        imageY: guidePoint.y,
+        screenX: event.clientX - containerRect.left,
+        screenY: event.clientY - containerRect.top,
+      })
+    } else {
+      setCursorGuide(null)
+    }
     if (resizeState) return
     if (isCreating && createStartRef.current) {
       if (createPointerIdRef.current !== null && event.pointerId !== createPointerIdRef.current) {
         return
       }
-      const point = getImagePoint(event.clientX, event.clientY)
+      const point = guidePoint
       if (!point) return
       onCreateDraftChange(buildCreateDraft(createStartRef.current, point))
       return
@@ -657,6 +677,7 @@ export const CanvasView = forwardRef(function CanvasView(
   }
 
   const handlePointerLeave = (event: React.PointerEvent) => {
+    setCursorGuide(null)
     if (resizeState) return
     if (isCreating) {
       if (createPointerIdRef.current !== null) {
@@ -1048,6 +1069,27 @@ export const CanvasView = forwardRef(function CanvasView(
           </div>
         )}
       </div>
+      {cursorGuide ? (
+        <div className="pointer-events-none absolute inset-0 z-40">
+          <div
+            className="absolute top-0 h-full w-px bg-cyan-500/70 shadow-[0_0_0_1px_rgba(255,255,255,0.35)]"
+            style={{ left: cursorGuide.screenX }}
+          />
+          <div
+            className="absolute left-0 h-px w-full bg-cyan-500/70 shadow-[0_0_0_1px_rgba(255,255,255,0.35)]"
+            style={{ top: cursorGuide.screenY }}
+          />
+          <div
+            className="absolute rounded bg-cyan-950/80 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-50 shadow"
+            style={{
+              left: Math.min(cursorGuide.screenX + 8, Math.max(0, (containerRef.current?.clientWidth ?? 0) - 92)),
+              top: Math.min(cursorGuide.screenY + 8, Math.max(0, (containerRef.current?.clientHeight ?? 0) - 22)),
+            }}
+          >
+            {Math.round(cursorGuide.imageX)}, {Math.round(cursorGuide.imageY)}
+          </div>
+        </div>
+      ) : null}
 
       {selectedObject && selectionCardStyle && (
         <div
