@@ -10,6 +10,8 @@
 | GET    | `/api/config-files`                         | Get available dataset config files              |
 | POST   | `/api/pdf-extract`                          | Extract PDF pages to PNG images                 |
 | POST   | `/api/detect`                               | Run object detection on uploaded image          |
+| POST   | `/api/export/excel`                         | Export detection/pipeline results to Excel      |
+| POST   | `/api/pipeline/merge`                       | Run multi-sheet merge engine on completed jobs  |
 | GET    | `/api/results/{result_id}`                  | Fetch a previously detected result              |
 | PATCH  | `/api/results/{result_id}/objects/{obj_id}` | Update a detected object                        |
 | POST   | `/api/results/{result_id}/objects`          | Create a new object                             |

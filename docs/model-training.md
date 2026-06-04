@@ -5,7 +5,7 @@ To train custom YOLO models for P&ID symbols using Ultralytics:
 ```bash
 cd backend
 yolo train \
-    data=backend/datasets/yaml/data.yaml \
+    data=datasets/yaml/data.yaml \
     model=yolov8n.pt \
     epochs=100 \
     imgsz=640 \
