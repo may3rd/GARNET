@@ -156,6 +156,7 @@ cython_debug/
 # Custom
 .idea/
 .vscode/
+.tmp-mpl/
 *.zip
 *.pt
 .conda/

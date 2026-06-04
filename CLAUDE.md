@@ -21,7 +21,6 @@ The backend and garnet module live under `backend/`. Always run backend commands
 │   ├── api.py                      # FastAPI app (21+ endpoints)
 │   ├── main.py                     # Legacy Streamlit shim (deprecated)
 │   ├── requirements.txt            # Python dependencies
-│   ├── .env.example                # Environment variables template
 │   ├── garnet/                     # Core pipeline module (60+ files)
 │   │   ├── pid_extractor.py        # Stage-by-stage pipeline orchestrator
 │   │   ├── Settings.py             # Global config (paths, symbol types, text classes)
@@ -217,7 +216,7 @@ python backend/garnet/predict_images.py \
 
 ## Environment Variables
 
-Copy `.env.example` (root) or `backend/.env.example` to `.env` and configure:
+Copy `.env.example` (root) to `.env` and configure:
 
 | Variable | Default | Description |
 |----------|---------|-------------|

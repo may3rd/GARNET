@@ -9,7 +9,6 @@ backend/
 ├── api.py                       # Canonical FastAPI application (uvicorn api:app)
 ├── main.py                      # 10-line compatibility shim that re-exports api:app
 ├── requirements.txt             # Python dependencies
-├── .env.example                 # Backend environment template
 ├── run_debug.sh                 # Debug-mode pipeline runner
 ├── run_stage5b_only.sh          # Stage 5b-only smoke test
 ├── garnet/                      # Core pipeline package (see below)
