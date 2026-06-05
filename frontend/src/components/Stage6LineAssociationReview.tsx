@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import { Image as KonvaImage, Layer, Line, Stage, Text } from 'react-konva'
-import type { PipelineReviewDecision } from '@/types'
+import { CanvasView } from '@/components/CanvasView'
+import type { DetectedObject, PipelineReviewDecision } from '@/types'
 
 type JsonValue = string | number | boolean | null | JsonObject | JsonValue[]
 type JsonObject = Record<string, JsonValue>
@@ -27,10 +27,13 @@ type TraceDraft = {
 type Stage6LineAssociationReviewProps = {
   tracePayload?: JsonObject
   reviewPayload?: JsonObject
+  baseImageUrl?: string
   overlayUrl?: string
   stage7Stale: boolean
   isSaving: boolean
   isResuming: boolean
+  layout?: 'card' | 'workspace'
+  onCancel?: () => void
   onSave: (payload: JsonObject) => Promise<void>
   onResumeStage7: () => Promise<void>
 }
@@ -107,7 +110,9 @@ function reviewRejectedTraceIds(reviewPayload?: JsonObject): Set<string> {
   const result = new Set<string>()
   for (const item of asObjectArray(reviewPayload?.needs_review)) {
     const traceId = asString(item.trace_id) || asString(item.id)
-    if (traceId) result.add(traceId)
+    const reason = asString(item.reason)
+    const reviewState = asString(item.review_state)
+    if (traceId && (reason === 'rejected_by_reviewer' || reviewState === 'rejected')) result.add(traceId)
   }
   return result
 }
@@ -130,10 +135,39 @@ function buildInitialDrafts(edges: Stage6TraceEdge[], reviewPayload?: JsonObject
 }
 
 function draftColor(draft: TraceDraft | undefined): string {
+  if (draft?.decision === 'accepted') return '#16a34a'
+  if (draft?.decision === 'rejected') return '#dc2626'
   if (!draft?.lineText.trim()) return '#ef4444'
-  if (draft.decision === 'accepted') return '#16a34a'
-  if (draft.decision === 'rejected') return '#f97316'
-  return '#eab308'
+  return '#a16207'
+}
+
+function labelPoint(points: number[]): { x: number; y: number } {
+  if (points.length < 4) return { x: points[0] ?? 0, y: points[1] ?? 0 }
+  let totalLength = 0
+  const segments: Array<{ x1: number; y1: number; x2: number; y2: number; length: number }> = []
+  for (let index = 0; index < points.length - 3; index += 2) {
+    const x1 = points[index]
+    const y1 = points[index + 1]
+    const x2 = points[index + 2]
+    const y2 = points[index + 3]
+    const length = Math.hypot(x2 - x1, y2 - y1)
+    if (!length) continue
+    segments.push({ x1, y1, x2, y2, length })
+    totalLength += length
+  }
+  const halfway = totalLength / 2
+  let walked = 0
+  for (const segment of segments) {
+    if (walked + segment.length >= halfway) {
+      const ratio = (halfway - walked) / segment.length
+      return {
+        x: segment.x1 + (segment.x2 - segment.x1) * ratio,
+        y: segment.y1 + (segment.y2 - segment.y1) * ratio,
+      }
+    }
+    walked += segment.length
+  }
+  return { x: points[0], y: points[1] }
 }
 
 function lineAssociation(traceId: string, edge: Stage6TraceEdge, draft: TraceDraft): JsonObject {
@@ -148,6 +182,7 @@ function lineAssociation(traceId: string, edge: Stage6TraceEdge, draft: TraceDra
     trace_kind: edge.trace_kind ?? '',
     source: 'hitl',
     review_state: draft.decision === 'accepted' ? 'accepted' : 'needs_review',
+    review_decision: draft.decision,
     review_source: 'human',
     review_required: draft.decision !== 'accepted',
   }
@@ -156,33 +191,26 @@ function lineAssociation(traceId: string, edge: Stage6TraceEdge, draft: TraceDra
 export function Stage6LineAssociationReview({
   tracePayload,
   reviewPayload,
+  baseImageUrl,
   overlayUrl,
   stage7Stale,
   isSaving,
   isResuming,
+  layout = 'card',
+  onCancel,
   onSave,
   onResumeStage7,
 }: Stage6LineAssociationReviewProps) {
   const edges = useMemo(() => traceEdgesFromPayload(tracePayload), [tracePayload])
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null)
   const [drafts, setDrafts] = useState<Record<string, TraceDraft>>({})
-  const [imageEl, setImageEl] = useState<HTMLImageElement | null>(null)
-  const [imageSize, setImageSize] = useState({ width: 1200, height: 800 })
+  const canvasObjects = useMemo<DetectedObject[]>(() => [], [])
+  const canvasImageUrl = baseImageUrl || overlayUrl || ''
 
   useEffect(() => {
     setDrafts(buildInitialDrafts(edges, reviewPayload))
     setSelectedTraceId((current) => current && edges.some((edge) => edge.trace_id === current) ? current : edges[0]?.trace_id ?? null)
   }, [edges, reviewPayload])
-
-  useEffect(() => {
-    if (!overlayUrl) return
-    const img = new window.Image()
-    img.onload = () => {
-      setImageEl(img)
-      setImageSize({ width: img.naturalWidth, height: img.naturalHeight })
-    }
-    img.src = overlayUrl
-  }, [overlayUrl])
 
   const selectedEdge = edges.find((edge) => edge.trace_id === selectedTraceId) ?? null
   const selectedDraft = selectedTraceId ? drafts[selectedTraceId] : undefined
@@ -227,7 +255,11 @@ export function Stage6LineAssociationReview({
       } else {
         needsReview.push({
           ...association,
-          reason: draft.lineText.trim() ? 'not_accepted_by_reviewer' : 'missing_line_number',
+          reason: draft.decision === 'rejected'
+            ? 'rejected_by_reviewer'
+            : draft.lineText.trim()
+              ? 'not_accepted_by_reviewer'
+              : 'missing_line_number',
         })
       }
     }
@@ -241,10 +273,275 @@ export function Stage6LineAssociationReview({
     })
   }
 
-  if (!tracePayload || !overlayUrl) {
+  const actionButtons = (
+    <div className="flex flex-wrap items-center gap-2">
+      {onCancel ? (
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)]"
+        >
+          Cancel
+        </button>
+      ) : null}
+      <button
+        type="button"
+        onClick={saveReview}
+        disabled={isSaving}
+        className="inline-flex items-center justify-center rounded-lg border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-2 text-sm font-semibold text-[var(--accent)] disabled:opacity-40"
+      >
+        {isSaving ? 'Saving...' : 'Save review'}
+      </button>
+      {stage7Stale ? (
+        <button
+          type="button"
+          onClick={onResumeStage7}
+          disabled={isResuming}
+          className="inline-flex items-center justify-center rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-700 disabled:opacity-40"
+        >
+          {isResuming ? 'Resuming...' : 'Resume Stage 7'}
+        </button>
+      ) : null}
+    </div>
+  )
+
+  if (!tracePayload || !canvasImageUrl) {
+    if (layout === 'workspace') {
+      return (
+        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]">
+          <div className="shrink-0 flex items-center justify-between border-b border-[var(--border-muted)] bg-[var(--bg-secondary)] px-6 py-4">
+            <div>
+              <div className="text-lg font-semibold">Pipeline HITL Review</div>
+              <div className="text-xs text-[var(--text-secondary)]">Gate 3: Stage 6 association review.</div>
+            </div>
+            {actionButtons}
+          </div>
+          <div className="flex flex-1 items-center justify-center bg-[var(--bg-canvas)] text-sm text-[var(--text-secondary)]">
+            Stage 6 trace association artifacts are not available for this job.
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-5 text-sm text-[var(--text-secondary)]">
         Stage 6 trace association artifacts are not available for this job.
+      </div>
+    )
+  }
+
+  const reviewBody = (
+    <>
+      <main className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-[var(--bg-canvas)]">
+        <CanvasView
+          imageUrl={canvasImageUrl}
+          objects={canvasObjects}
+          selectedObjectKey={null}
+          selectedObject={null}
+          reviewStatus={{}}
+          onSelectObject={(key) => {
+            if (key === null) setSelectedTraceId(null)
+          }}
+          onSetReviewStatus={() => undefined}
+          isEditing={false}
+          editDraft={null}
+          onStartEdit={() => undefined}
+          onCancelEdit={() => undefined}
+          onChangeEdit={() => undefined}
+          onReplaceEditDraft={() => undefined}
+          onSaveEdit={() => undefined}
+          onDeleteSelected={() => undefined}
+          onNavigatePrevious={() => undefined}
+          onNavigateNext={() => undefined}
+          isCreating={false}
+          createDraft={null}
+          onCreateDraftChange={() => undefined}
+          fitKey={`stage6-association:${canvasImageUrl}`}
+          imageOverlay={
+            <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible">
+              {edges.map((edge) => {
+                const points = edgePoints(edge)
+                if (points.length < 4) return null
+                const draft = drafts[edge.trace_id]
+                const selected = edge.trace_id === selectedTraceId
+                const color = draftColor(draft)
+                const lineLabel = draft?.lineText.trim()
+                const label = labelPoint(points)
+                const labelWidth = lineLabel ? Math.max(96, lineLabel.length * 8.2 + 18) : 0
+                const polylinePoints = points.reduce<string[]>((result, value, index) => {
+                  if (index % 2 === 0) result.push(`${value},${points[index + 1]}`)
+                  return result
+                }, []).join(' ')
+                return (
+                  <Fragment key={edge.trace_id}>
+                    {selected ? (
+                      <polyline
+                        points={polylinePoints}
+                        fill="none"
+                        stroke="#ffffff"
+                        strokeWidth={13}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        opacity={0.9}
+                      />
+                    ) : null}
+                    <polyline
+                      points={polylinePoints}
+                      fill="none"
+                      stroke={color}
+                      strokeWidth={selected ? 7 : 4}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity={selected ? 1 : 0.72}
+                    />
+                    <polyline
+                      className="pointer-events-auto cursor-pointer"
+                      points={polylinePoints}
+                      fill="none"
+                      stroke="rgba(0,0,0,0.01)"
+                      strokeWidth={24}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      onPointerDown={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                      }}
+                      onPointerUp={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                      }}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        setSelectedTraceId(edge.trace_id)
+                      }}
+                    />
+                    {lineLabel ? (
+                      <g
+                        className="pointer-events-auto cursor-pointer"
+                        onPointerDown={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                        }}
+                        onPointerUp={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                        }}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          setSelectedTraceId(edge.trace_id)
+                        }}
+                      >
+                        <rect
+                          x={label.x + 8}
+                          y={label.y - 29}
+                          width={labelWidth}
+                          height={22}
+                          rx={6}
+                          fill={selected ? color : '#ffffff'}
+                          stroke={color}
+                          strokeWidth={selected ? 2 : 1.5}
+                          opacity={selected ? 0.96 : 0.88}
+                        />
+                        <text
+                          x={label.x + 17}
+                          y={label.y - 13}
+                          fontSize={13}
+                          fontWeight={700}
+                          fill={selected ? '#ffffff' : color}
+                        >
+                          {lineLabel}
+                        </text>
+                      </g>
+                    ) : null}
+                  </Fragment>
+                )
+              })}
+            </svg>
+          }
+        />
+      </main>
+
+      <aside className={layout === 'workspace'
+        ? 'min-h-0 w-[360px] shrink-0 overflow-auto border-l border-[var(--border-muted)] bg-[var(--bg-secondary)] p-6'
+        : 'rounded-xl border border-[var(--border-muted)] bg-[var(--bg-primary)] p-4'}
+      >
+        {selectedEdge && selectedDraft ? (
+          <>
+            <div className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">Selected Trace</div>
+            <div className="mt-1 break-all font-mono text-sm font-semibold">{selectedEdge.trace_id}</div>
+            <div className="mt-3 space-y-1 text-xs text-[var(--text-secondary)]">
+              <div>Kind: {selectedEdge.trace_kind || 'unknown'}</div>
+              <div>Source: {selectedEdge.source_obj_id || 'unknown'} {selectedEdge.source_obj_type ? `(${selectedEdge.source_obj_type})` : ''}</div>
+              <div>Terminal: {selectedEdge.terminal_type || 'unknown'}</div>
+              <div>Length: {selectedEdge.trace_length_px ?? 0}px</div>
+            </div>
+
+            <label className="mt-5 block text-xs font-semibold text-[var(--text-secondary)]">
+              Line number
+              <input
+                value={selectedDraft.lineText}
+                onChange={(event) => updateSelectedDraft({ lineText: event.target.value })}
+                className="mt-2 w-full rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                placeholder="e.g. 3”-Cul-25-002013-B1A2-NI"
+              />
+            </label>
+
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              {(['accepted', 'rejected', 'deferred'] as PipelineReviewDecision[]).map((decision) => (
+                <button
+                  key={decision}
+                  type="button"
+                  onClick={() => updateSelectedDraft({ decision })}
+                  className={`rounded-lg border px-2 py-2 text-xs font-semibold capitalize ${
+                    selectedDraft.decision === decision
+                      ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                      : 'border-[var(--border-muted)] text-[var(--text-secondary)]'
+                  }`}
+                >
+                  {decision}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="text-sm text-[var(--text-secondary)]">Select a trace path to review.</div>
+        )}
+
+        {layout === 'card' ? (
+          <div className="mt-5 flex flex-col gap-2">
+            {actionButtons}
+          </div>
+        ) : null}
+      </aside>
+    </>
+  )
+
+  if (layout === 'workspace') {
+    return (
+      <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]">
+        <div className="shrink-0 flex items-center justify-between border-b border-[var(--border-muted)] bg-[var(--bg-secondary)] px-6 py-4">
+          <div>
+            <div className="text-lg font-semibold">Pipeline HITL Review</div>
+            <div className="text-xs text-[var(--text-secondary)]">
+              Gate 3: Stage 6 line association review using the detection-mode layout.
+            </div>
+          </div>
+          {actionButtons}
+        </div>
+        <div className="shrink-0 border-b border-[var(--border-muted)] bg-[var(--bg-secondary)] px-6 py-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-1 text-xs font-semibold text-[var(--accent)]">
+              Stage 6 Associations
+            </span>
+            <span className="ml-auto rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-700">{counts.accepted} accepted</span>
+            <span className="rounded-full bg-amber-500/10 px-2 py-1 text-xs font-semibold text-amber-700">{counts.deferred} deferred</span>
+            <span className="rounded-full bg-red-500/10 px-2 py-1 text-xs font-semibold text-red-700">{counts.missing} missing</span>
+          </div>
+        </div>
+        <div className="relative flex min-h-0 flex-1">
+          {reviewBody}
+        </div>
       </div>
     )
   }
@@ -266,116 +563,7 @@ export function Stage6LineAssociationReview({
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="h-[68vh] min-h-[480px] overflow-auto rounded-xl border border-[var(--border-muted)] bg-[var(--bg-primary)]">
-          <Stage width={imageSize.width} height={imageSize.height}>
-            <Layer>
-              {imageEl ? <KonvaImage image={imageEl} width={imageSize.width} height={imageSize.height} /> : null}
-              {edges.map((edge) => {
-                const points = edgePoints(edge)
-                if (points.length < 4) return null
-                const draft = drafts[edge.trace_id]
-                const selected = edge.trace_id === selectedTraceId
-                const color = draftColor(draft)
-                return (
-                  <Fragment key={edge.trace_id}>
-                    <Line
-                      points={points}
-                      stroke={color}
-                      strokeWidth={selected ? 7 : 4}
-                      lineCap="round"
-                      lineJoin="round"
-                      opacity={selected ? 1 : 0.72}
-                    />
-                    <Line
-                      points={points}
-                      stroke="rgba(0,0,0,0.01)"
-                      strokeWidth={24}
-                      lineCap="round"
-                      lineJoin="round"
-                      onClick={() => setSelectedTraceId(edge.trace_id)}
-                      onTap={() => setSelectedTraceId(edge.trace_id)}
-                    />
-                    {points.length >= 2 && selected ? (
-                      <Text
-                        x={points[0] + 8}
-                        y={points[1] - 24}
-                        text={draft?.lineText || edge.trace_id}
-                        fontSize={18}
-                        fontStyle="bold"
-                        fill={color}
-                      />
-                    ) : null}
-                  </Fragment>
-                )
-              })}
-            </Layer>
-          </Stage>
-        </div>
-
-        <div className="rounded-xl border border-[var(--border-muted)] bg-[var(--bg-primary)] p-4">
-          {selectedEdge && selectedDraft ? (
-            <>
-              <div className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">Selected Trace</div>
-              <div className="mt-1 break-all font-mono text-sm font-semibold">{selectedEdge.trace_id}</div>
-              <div className="mt-3 space-y-1 text-xs text-[var(--text-secondary)]">
-                <div>Kind: {selectedEdge.trace_kind || 'unknown'}</div>
-                <div>Source: {selectedEdge.source_obj_id || 'unknown'} {selectedEdge.source_obj_type ? `(${selectedEdge.source_obj_type})` : ''}</div>
-                <div>Terminal: {selectedEdge.terminal_type || 'unknown'}</div>
-                <div>Length: {selectedEdge.trace_length_px ?? 0}px</div>
-              </div>
-
-              <label className="mt-5 block text-xs font-semibold text-[var(--text-secondary)]">
-                Line number
-                <input
-                  value={selectedDraft.lineText}
-                  onChange={(event) => updateSelectedDraft({ lineText: event.target.value })}
-                  className="mt-2 w-full rounded-lg border border-[var(--border-muted)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                  placeholder="e.g. 3”-Cul-25-002013-B1A2-NI"
-                />
-              </label>
-
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                {(['accepted', 'rejected', 'deferred'] as PipelineReviewDecision[]).map((decision) => (
-                  <button
-                    key={decision}
-                    type="button"
-                    onClick={() => updateSelectedDraft({ decision })}
-                    className={`rounded-lg border px-2 py-2 text-xs font-semibold capitalize ${
-                      selectedDraft.decision === decision
-                        ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
-                        : 'border-[var(--border-muted)] text-[var(--text-secondary)]'
-                    }`}
-                  >
-                    {decision}
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="text-sm text-[var(--text-secondary)]">Select a trace path to review.</div>
-          )}
-
-          <div className="mt-5 flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={saveReview}
-              disabled={isSaving}
-              className="rounded-lg border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-2 text-sm font-semibold text-[var(--accent)] disabled:opacity-40"
-            >
-              {isSaving ? 'Saving Stage 6 review...' : 'Save Stage 6 Line Review'}
-            </button>
-            {stage7Stale ? (
-              <button
-                type="button"
-                onClick={onResumeStage7}
-                disabled={isResuming}
-                className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-700 disabled:opacity-40"
-              >
-                {isResuming ? 'Resuming...' : 'Resume from Stage 7'}
-              </button>
-            ) : null}
-          </div>
-        </div>
+        {reviewBody}
       </div>
     </div>
   )

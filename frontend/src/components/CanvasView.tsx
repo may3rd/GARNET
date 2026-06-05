@@ -63,7 +63,6 @@ const MINI_MAX_HEIGHT = 120
 const RESIZE_HANDLE_THRESHOLD = 12
 const MIN_OBJECT_SIZE = 4
 const DRAG_DETECTION_THRESHOLD = 3
-const AUTO_FIT_MAX_ATTEMPTS = 10
 const CARD_MARGIN = 12
 
 export const CanvasView = forwardRef(function CanvasView(
@@ -117,7 +116,6 @@ export const CanvasView = forwardRef(function CanvasView(
     startTop: number
   } | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
-  const autoFitAttemptsRef = useRef(0)
   const lastFitKeyRef = useRef<string | undefined>(undefined)
   const dragMovedRef = useRef(false)
   const pointerStartRef = useRef({ x: 0, y: 0 })
@@ -175,7 +173,6 @@ export const CanvasView = forwardRef(function CanvasView(
   useEffect(() => {
     setHasAutoFit(false)
     setIsImageLoading(true)
-    autoFitAttemptsRef.current = 0
     const img = imageRef.current
     if (!img) return
 
@@ -209,20 +206,20 @@ export const CanvasView = forwardRef(function CanvasView(
 
   useEffect(() => {
     if (hasAutoFit) return
-    let isMounted = true
-    const tryAutoFit = () => {
-      if (!isMounted || hasAutoFit) return
-      autoFitAttemptsRef.current += 1
+    const container = containerRef.current
+    if (!container) return
+    if (fitToScreen(imageSize)) {
+      setHasAutoFit(true)
+      return
+    }
+    const observer = new ResizeObserver(() => {
       if (fitToScreen(imageSize)) {
         setHasAutoFit(true)
-        return
+        observer.disconnect()
       }
-      if (autoFitAttemptsRef.current < AUTO_FIT_MAX_ATTEMPTS) {
-        requestAnimationFrame(tryAutoFit)
-      }
-    }
-    requestAnimationFrame(tryAutoFit)
-    return () => { isMounted = false }
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
   }, [hasAutoFit, imageSize])
 
   useEffect(() => {
@@ -256,7 +253,6 @@ export const CanvasView = forwardRef(function CanvasView(
 
         const prev = lastContainerSizeRef.current
         lastContainerSizeRef.current = { width, height }
-        if (!prev) return
 
         const { width: imageWidth, height: imageHeight } = imageSizeRef.current
         if (!imageWidth || !imageHeight) return
@@ -267,6 +263,8 @@ export const CanvasView = forwardRef(function CanvasView(
           }
           return
         }
+
+        if (!prev) return
 
         const interacting = interactionRef.current.isDragging
           || interactionRef.current.isMinimapDragging

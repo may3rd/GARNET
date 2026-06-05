@@ -35,6 +35,15 @@ function reviewStorageKey(jobId: string) {
   return `${REVIEW_STORAGE_PREFIX}:${jobId}`
 }
 
+function pickBaseImageUrl(imageArtifacts: { name: string; url: string }[]): string {
+  for (const name of ['stage1_gray.png', 'stage1_gray_equalized.png']) {
+    const match = imageArtifacts.find((artifact) => artifact.name === name)
+    if (match) return match.url
+  }
+  const firstNonOverlay = imageArtifacts.find((artifact) => !artifact.name.includes('overlay'))
+  return firstNonOverlay?.url ?? imageArtifacts[0]?.url ?? ''
+}
+
 function toNumber(value: JsonValue | undefined): number | undefined {
   return typeof value === 'number' ? value : undefined
 }
@@ -539,6 +548,8 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   const stage5bComplete = stages.some((stage) => stage.name === 'stage5b_pipe_trace' && stage.status === 'completed')
   const stage6Complete = stages.some((stage) => stage.name === 'stage6_trace_associations' && stage.status === 'completed')
   const requiresTraceReview = activeJob.status === 'completed' && stage5bComplete && !stage6Complete && (activeJob.stop_after ?? 5) <= 5
+  const stage7Complete = stages.some((stage) => stage.name === 'stage7_geometric_graph_assembly' && stage.status === 'completed')
+  const requiresStage6Review = activeJob.status === 'completed' && stage6Complete && !stage7Complete && (activeJob.stop_after ?? 6) <= 6
 
   useEffect(() => {
     if (!requiresPreStage5Review || preStage5ReviewDismissed || workspaceOpen || isResuming) return
@@ -742,9 +753,27 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
         imageArtifacts={imageArtifacts}
         onOpenDetails={() => setShowArtifactDetails(true)}
         onCommitComplete={() => {
-          setShowArtifactDetails(true)
-          void resumeFromStageName('stage6_trace_associations', 11)
+          setShowArtifactDetails(false)
+          void resumeFromStageName('stage6_trace_associations', 6)
         }}
+      />
+    )
+  }
+
+  if (requiresStage6Review) {
+    return (
+      <Stage6LineAssociationReview
+        tracePayload={jsonDetails['stage6_trace_associations.json']}
+        reviewPayload={jsonDetails['stage6_line_number_review.json']}
+        baseImageUrl={pickBaseImageUrl(imageArtifacts)}
+        overlayUrl={imageArtifacts.find((artifact) => artifact.name === 'stage6_trace_association_overlay.png')?.url}
+        stage7Stale={staleFromStage7 || requiresStage6Review}
+        isSaving={isSavingStage6}
+        isResuming={isResuming}
+        layout="workspace"
+        onCancel={() => setShowArtifactDetails(true)}
+        onSave={saveStage6LineReview}
+        onResumeStage7={resumeFromStage7}
       />
     )
   }
@@ -1020,6 +1049,7 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
             <Stage6LineAssociationReview
               tracePayload={jsonDetails['stage6_trace_associations.json']}
               reviewPayload={jsonDetails['stage6_line_number_review.json']}
+              baseImageUrl={pickBaseImageUrl(imageArtifacts)}
               overlayUrl={imageArtifacts.find((artifact) => artifact.name === 'stage6_trace_association_overlay.png')?.url}
               stage7Stale={staleFromStage7}
               isSaving={isSavingStage6}
