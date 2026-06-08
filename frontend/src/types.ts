@@ -14,6 +14,7 @@ export type DetectedObject = {
   Score: number
   Text: string
   ReviewStatus?: 'accepted' | 'rejected' | null
+  SourceItemId?: string
 }
 
 export type DetectionResult = {

@@ -44,7 +44,7 @@ import garnet.Settings as Settings
 from garnet.model_defaults import list_weight_files as discover_weight_files
 from garnet.model_defaults import pick_default_weight_file
 from garnet.pid_extractor import PIDPipeline, PipelineConfig
-from garnet.review_state import load_review_state, save_review_state
+from garnet.review_state import build_stage4_line_numbers_from_review_state, load_review_state, save_review_state
 from garnet.review_workspace import (
     load_review_workspace,
     save_review_workspace,
@@ -401,6 +401,7 @@ ARTIFACT_INVALIDATION_START_STAGE: dict[str, str] = {
     # reviewed equipment boxes for port detection and terminal matching.
     "stage3_equipment_bboxes.json": "stage5b_pipe_trace",
     "stage4_objects.json": "stage4_line_number_fusion",
+    "stage4_line_numbers.json": "stage6_trace_associations",
     "stage6_line_number_review.json": "stage7_geometric_graph_assembly",
 }
 
@@ -432,6 +433,43 @@ STALE_ARTIFACTS_BY_SOURCE: dict[str, tuple[str, ...]] = {
         "stage5b_branch_trace_results.json",
         "stage5b_trace_overlay.png",
         "stage5b_branch_trace_overlay.png",
+        "stage6_trace_associations.json",
+        "stage6_trace_association_summary.json",
+        "stage6_line_number_review.json",
+        "stage6_line_number_review_summary.json",
+        "stage6_trace_association_overlay.png",
+        "stage7_graph.json",
+        "stage7_graph_summary.json",
+        "stage7_trace_edge_nodes.json",
+        "stage7_review_queue.json",
+        "stage7_review_queue_summary.json",
+        "stage7_graph_normalization.json",
+        "stage7_graph_normalization_summary.json",
+        "stage7_graph_overlay.png",
+        "stage7_graph_qa.json",
+        "stage7_graph_qa_summary.json",
+        "stage7_graph_qa_overlay.png",
+        "stage7_page_connector_labels.json",
+        "stage7_page_connector_labels_summary.json",
+        "stage7b_graph_v1.json",
+        "stage8_review_items.json",
+        "stage8_review_summary.json",
+        "stage8_review_overlay.png",
+        "stage9_corrected_graph.json",
+        "stage9_review_resolutions.json",
+        "stage9_correction_audit.json",
+        "stage9_correction_summary.json",
+        "stage10_line_list.json",
+        "stage10_equipment_connectivity.json",
+        "stage10_inline_mto.json",
+        "stage10_inline_observations.json",
+        "stage10_instrument_index.json",
+        "stage10_process_export_summary.json",
+        "stage10_inline_mto_overlay.png",
+        "stage10_line_number_overlay.png",
+        "stage11_connection_pipeline_overlay.png",
+    ),
+    "stage4_line_numbers.json": (
         "stage6_trace_associations.json",
         "stage6_trace_association_summary.json",
         "stage6_line_number_review.json",
@@ -562,6 +600,10 @@ MODEL_CACHE_MAX_SIZE = int(os.getenv("MODEL_CACHE_MAX_SIZE", "10"))
 # Model loading status for health check
 MODELS_LOADED = False
 MODEL_LOAD_ERROR = None
+MODEL_LIST: list[Any] = []
+CONFIG_FILE_LIST: list[Any] = []
+APPLICATION_STARTUP_COMPLETE = False
+CLEANUP_SCHEDULER_STARTED = False
 
 # Ensure predictions directory exists
 os.makedirs(config.PREDICTIONS_DIR, exist_ok=True)
@@ -625,6 +667,10 @@ def cleanup_results_cache() -> None:
 
 def start_cleanup_scheduler():
     """Start background thread for periodic cleanup."""
+    global CLEANUP_SCHEDULER_STARTED
+
+    if CLEANUP_SCHEDULER_STARTED:
+        return
 
     def cleanup_loop():
         while True:
@@ -634,6 +680,7 @@ def start_cleanup_scheduler():
 
     cleanup_thread = threading.Thread(target=cleanup_loop, daemon=True)
     cleanup_thread.start()
+    CLEANUP_SCHEDULER_STARTED = True
     logger.info(
         f"Started cleanup scheduler (interval: {config.CLEANUP_INTERVAL_MINUTES} minutes)"
     )
@@ -923,12 +970,58 @@ def _pipeline_job_artifacts(job_id: str, job_dir: str) -> list[dict[str, str]]:
     return artifacts
 
 
+def _pipeline_job_from_disk(job_id: str) -> dict[str, Any] | None:
+    if not job_id or job_id != os.path.basename(job_id):
+        return None
+    job_dir = os.path.abspath(os.path.join(PIPELINE_JOBS_DIR, job_id))
+    jobs_root = os.path.abspath(PIPELINE_JOBS_DIR)
+    if os.path.commonpath([jobs_root, job_dir]) != jobs_root or not os.path.isdir(job_dir):
+        return None
+
+    manifest = _pipeline_job_manifest(job_dir) or {}
+    input_path = ""
+    if isinstance(manifest, dict):
+        input_path = str(manifest.get("image_path") or "")
+    if not input_path:
+        for name in os.listdir(job_dir):
+            if name.startswith("input."):
+                input_path = os.path.join(job_dir, name)
+                break
+
+    stages = manifest.get("stages", []) if isinstance(manifest, dict) else []
+    manifest_stages = [stage for stage in stages if isinstance(stage, dict)] if isinstance(stages, list) else []
+    failed_stage = next((stage for stage in manifest_stages if stage.get("status") == "failed"), None)
+    completed_stages = [stage for stage in manifest_stages if stage.get("status") == "completed"]
+    current_stage = failed_stage.get("name") if failed_stage else (completed_stages[-1].get("name") if completed_stages else None)
+
+    payload = {
+        "job_id": job_id,
+        "status": "failed" if failed_stage else ("completed" if completed_stages else "unknown"),
+        "current_stage": current_stage,
+        "error": failed_stage.get("error") if failed_stage else None,
+        "job_dir": job_dir,
+        "created_at": os.path.getctime(job_dir),
+        "stop_after": completed_stages[-1].get("num") if completed_stages else None,
+        "ocr_route": None,
+        "gemini_postprocess_match_threshold": None,
+        "weight_file": None,
+        "debug_artifacts": False,
+        "image_path": input_path,
+        "recovered_from_disk": True,
+    }
+    with PIPELINE_JOBS_LOCK:
+        PIPELINE_JOBS[job_id] = payload
+    return payload
+
+
 def _serialize_pipeline_job(job_id: str) -> dict[str, Any]:
     with PIPELINE_JOBS_LOCK:
         job = PIPELINE_JOBS.get(job_id)
-        if not job:
-            raise HTTPException(status_code=404, detail="Pipeline job not found")
-        payload = dict(job)
+    if not job:
+        job = _pipeline_job_from_disk(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Pipeline job not found")
+    payload = dict(job)
 
     manifest_path = os.path.join(payload["job_dir"], "stage_manifest.json")
     manifest = None
@@ -1102,6 +1195,19 @@ def _refresh_stage4_reviewed_object_artifacts(job_dir: str, payload: dict[str, A
         json.dump(topology_marker_result["topology_markers_payload"], f, indent=2)
     with open(os.path.join(job_dir, "stage4_topology_marker_summary.json"), "w", encoding="utf-8") as f:
         json.dump(topology_marker_result["summary"], f, indent=2)
+
+
+def _refresh_stage4_line_number_summary(job_dir: str, payload: dict[str, Any]) -> None:
+    summary = {
+        "image_id": payload.get("image_id") or os.path.basename(job_dir),
+        "pass_type": payload.get("pass_type", "sheet"),
+        "line_number_object_count": len(payload.get("line_numbers", [])) + len(payload.get("rejected", [])),
+        "matched_line_number_count": len(payload.get("line_numbers", [])),
+        "rejected_line_number_count": len(payload.get("rejected", [])),
+        "source": "hitl",
+        "source_artifact": "stage_review_state.json",
+    }
+    _write_pipeline_json_artifact(job_dir, "stage4_line_number_summary.json", summary)
 
 
 def _write_pipeline_json_artifact(job_dir: str, artifact_name: str, payload: dict[str, Any]) -> None:
@@ -1286,40 +1392,52 @@ def normalize_excel_filename(filename: str) -> str:
 # Application Initialization
 # =============================================================================
 
-logger.log(logging.INFO, "* *********************************** *")
-logger.log(logging.INFO, "* Preloading weight files and configs *")
-logger.log(logging.INFO, "* *********************************** *")
+def initialize_application_runtime() -> None:
+    """Initialize expensive runtime resources in the serving process only."""
+    global APPLICATION_STARTUP_COMPLETE, CONFIG_FILE_LIST, MODEL_LIST, MODEL_LOAD_ERROR, MODELS_LOADED
 
-MODEL_LIST = list_weight_files()
-CONFIG_FILE_LIST = list_config_files()
+    if APPLICATION_STARTUP_COMPLETE:
+        return
 
-# Preload at least one model to verify API readiness.
-try:
-    preload_errors: list[str] = []
-    default_weight = pick_default_weight_file("ultralytics")
-    if default_weight:
-        logger.info(f"Preloading default ultralytics model: {default_weight}")
-        _ = get_cached_detection_model("ultralytics", default_weight, 0.8, 640)
-        MODELS_LOADED = True
-        logger.info("Ultralytics model preloaded successfully")
-    else:
-        preload_errors.append("No ultralytics weight files found")
+    logger.log(logging.INFO, "* *********************************** *")
+    logger.log(logging.INFO, "* Preloading weight files and configs *")
+    logger.log(logging.INFO, "* *********************************** *")
 
-    if not MODELS_LOADED and config.OPENROUTER_API_KEY:
-        logger.info("Preloading gemini detector")
-        _ = get_cached_detection_model("gemini", "", 0.8, 640)
-        MODELS_LOADED = True
-        logger.info("Gemini detector preloaded successfully")
-    elif not MODELS_LOADED and not config.OPENROUTER_API_KEY:
-        preload_errors.append(
-            "OPENROUTER_API_KEY is not configured for gemini detector")
+    MODEL_LIST = list_weight_files()
+    CONFIG_FILE_LIST = list_config_files()
 
-    if not MODELS_LOADED and preload_errors:
-        MODEL_LOAD_ERROR = "; ".join(preload_errors)
-        logger.warning(MODEL_LOAD_ERROR)
-except Exception as e:
-    MODEL_LOAD_ERROR = str(e)
-    logger.error(f"Failed to preload model: {e}")
+    # Preload at least one model to verify API readiness.
+    try:
+        preload_errors: list[str] = []
+        default_weight = pick_default_weight_file("ultralytics")
+        if default_weight:
+            logger.info(f"Preloading default ultralytics model: {default_weight}")
+            _ = get_cached_detection_model("ultralytics", default_weight, 0.8, 640)
+            MODELS_LOADED = True
+            MODEL_LOAD_ERROR = None
+            logger.info("Ultralytics model preloaded successfully")
+        else:
+            preload_errors.append("No ultralytics weight files found")
+
+        if not MODELS_LOADED and config.OPENROUTER_API_KEY:
+            logger.info("Preloading gemini detector")
+            _ = get_cached_detection_model("gemini", "", 0.8, 640)
+            MODELS_LOADED = True
+            MODEL_LOAD_ERROR = None
+            logger.info("Gemini detector preloaded successfully")
+        elif not MODELS_LOADED and not config.OPENROUTER_API_KEY:
+            preload_errors.append(
+                "OPENROUTER_API_KEY is not configured for gemini detector")
+
+        if not MODELS_LOADED and preload_errors:
+            MODEL_LOAD_ERROR = "; ".join(preload_errors)
+            logger.warning(MODEL_LOAD_ERROR)
+    except Exception as e:
+        MODEL_LOAD_ERROR = str(e)
+        logger.error(f"Failed to preload model: {e}")
+
+    start_cleanup_scheduler()
+    APPLICATION_STARTUP_COMPLETE = True
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -1340,8 +1458,9 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
-# Start cleanup scheduler
-start_cleanup_scheduler()
+@app.on_event("startup")
+async def startup_event() -> None:
+    initialize_application_runtime()
 
 # =============================================================================
 # API Endpoints
@@ -1635,7 +1754,14 @@ async def put_pipeline_review_state(job_id: str, request: ReviewStateRequest):
         save_review_state(payload["job_dir"], data, manifest)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return load_review_state(payload["job_dir"], manifest)
+    response = load_review_state(payload["job_dir"], manifest)
+    line_number_payload = build_stage4_line_numbers_from_review_state(payload["job_dir"], manifest)
+    if line_number_payload is not None:
+        _write_pipeline_json_artifact(payload["job_dir"], "stage4_line_numbers.json", line_number_payload)
+        _refresh_stage4_line_number_summary(payload["job_dir"], line_number_payload)
+        _mark_pipeline_stale_from(payload["job_dir"], "stage6_trace_associations", "stage4_line_numbers.json")
+        response["stages"] = _pipeline_stage_status(payload["job_dir"])
+    return response
 
 
 @app.get("/api/pipeline/jobs/{job_id}/review-workspace")

@@ -234,8 +234,9 @@ function buildStage6LineAssociationItems(
 }
 
 function equipmentObjectsToStage3Artifact(objects: DetectedObject[]) {
+  const acceptedEquipment = objects.filter((obj) => obj.ReviewStatus !== 'rejected')
   return {
-    equipment: objects.map((obj, index) => ({
+    equipment: acceptedEquipment.map((obj, index) => ({
       id: obj.Text?.trim() || `equip_${String(index + 1).padStart(3, '0')}`,
       class_name: obj.Object || 'vessel',
       bbox: {
@@ -245,7 +246,7 @@ function equipmentObjectsToStage3Artifact(objects: DetectedObject[]) {
         y_max: Math.round(obj.Top + obj.Height),
       },
       source: 'hitl',
-      review_state: 'accepted',
+      review_state: obj.ReviewStatus ?? 'accepted',
     })),
   }
 }

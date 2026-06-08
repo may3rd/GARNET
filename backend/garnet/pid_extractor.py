@@ -42,6 +42,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import numpy as np
 from dotenv import load_dotenv
 from garnet.path_tracer.stage5b_pipeline import Stage5bPipelineMixin
+from garnet.review_state import build_stage4_line_numbers_from_review_state
 from garnet.trace_associations import (
     apply_stage6_line_number_review,
     build_trace_associations,
@@ -935,6 +936,12 @@ class PIDPipeline(Stage5bPipelineMixin):
     def stage6_trace_associations(self) -> None:
         """Attach semantic evidence to Stage 5b traced pipe paths."""
         image_id = Path(self.image_path).name
+        reviewed_line_payload = build_stage4_line_numbers_from_review_state(
+            self.out_dir,
+            {"image_path": self.image_path},
+        )
+        if reviewed_line_payload is not None:
+            self._save_json("stage4_line_numbers", reviewed_line_payload)
         object_payload = self._load_json_artifact("stage4_objects")
         line_payload = self._load_json_artifact_or_default("stage4_line_numbers", {"line_numbers": []})
         instrument_payload = self._load_json_artifact_or_default("stage4_instrument_tags", {"instrument_tags": []})

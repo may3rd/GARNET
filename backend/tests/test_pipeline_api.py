@@ -461,6 +461,133 @@ class PipelineApiTests(unittest.TestCase):
             self.assertEqual(payload["items"][0]["decision"], "accepted")
             self.assertTrue((Path(tmp) / "stage_review_state.json").exists())
 
+    def test_pipeline_review_state_put_materializes_stage4_line_number_artifact(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp:
+            job_id = "review_job_line_numbers"
+            job_dir = Path(tmp)
+            (job_dir / "stage_manifest.json").write_text(
+                json.dumps(
+                    {
+                        "image_path": "sample.png",
+                        "stages": [
+                            {"num": 4, "name": "stage4_line_number_fusion", "status": "completed"},
+                            {"num": 6, "name": "stage6_trace_associations", "status": "completed"},
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (job_dir / "stage4_line_numbers.json").write_text(
+                json.dumps({"image_id": "sample.png", "line_numbers": [{"id": "old_line"}], "rejected": []}),
+                encoding="utf-8",
+            )
+            (job_dir / "stage6_trace_associations.json").write_text(json.dumps({"trace_edges": []}), encoding="utf-8")
+
+            with patch.dict("api.PIPELINE_JOBS", {job_id: {
+                "job_id": job_id,
+                "status": "completed",
+                "current_stage": "stage6_trace_associations",
+                "error": None,
+                "job_dir": tmp,
+                "created_at": time.time(),
+                "stop_after": 6,
+                "ocr_route": "ocrmac",
+            }}, clear=False):
+                response = client.put(
+                    f"/api/pipeline/jobs/{job_id}/review-state",
+                    json={
+                        "items": [],
+                        "workspace_objects": {
+                            "stage4_line_number": [
+                                {
+                                    "Object": "line_number",
+                                    "SourceItemId": "line_number_000123",
+                                    "Text": "3-CUL-25-001",
+                                    "Left": 10,
+                                    "Top": 20,
+                                    "Width": 100,
+                                    "Height": 12,
+                                    "Score": 0.91,
+                                    "ReviewStatus": "accepted",
+                                },
+                                {
+                                    "Object": "line_number",
+                                    "SourceItemId": "line_number_000124",
+                                    "Text": "bad",
+                                    "Left": 30,
+                                    "Top": 40,
+                                    "Width": 50,
+                                    "Height": 10,
+                                    "Score": 0.5,
+                                    "ReviewStatus": "rejected",
+                                },
+                            ]
+                        },
+                    },
+                )
+
+            self.assertEqual(response.status_code, 200)
+            materialized = json.loads((job_dir / "stage4_line_numbers.json").read_text(encoding="utf-8"))
+            self.assertEqual([item["id"] for item in materialized["line_numbers"]], ["line_number_000123"])
+            self.assertEqual(materialized["line_numbers"][0]["normalized_text"], "3-CUL-25-001")
+            self.assertEqual([item["id"] for item in materialized["rejected"]], ["line_number_000124"])
+            self.assertFalse((job_dir / "stage6_trace_associations.json").exists())
+            stages = {item["name"]: item for item in response.json()["stages"]}
+            self.assertEqual(stages["stage6_trace_associations"]["status"], "stale")
+
+    def test_pipeline_review_state_put_recovers_disk_job_after_reload(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp:
+            job_id = "review_job_line_numbers_recovered"
+            jobs_root = Path(tmp) / "pipeline_jobs"
+            job_dir = jobs_root / job_id
+            job_dir.mkdir(parents=True)
+            (job_dir / "input.png").write_bytes(b"image")
+            (job_dir / "stage_manifest.json").write_text(
+                json.dumps(
+                    {
+                        "image_path": str(job_dir / "input.png"),
+                        "stages": [
+                            {"num": 4, "name": "stage4_line_number_fusion", "status": "completed"},
+                            {"num": 6, "name": "stage6_trace_associations", "status": "completed"},
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (job_dir / "stage4_line_numbers.json").write_text(
+                json.dumps({"image_id": "input.png", "line_numbers": [], "rejected": []}),
+                encoding="utf-8",
+            )
+
+            with patch("api.PIPELINE_JOBS_DIR", str(jobs_root)), patch.dict("api.PIPELINE_JOBS", {}, clear=True):
+                response = client.put(
+                    f"/api/pipeline/jobs/{job_id}/review-state",
+                    json={
+                        "items": [],
+                        "workspace_objects": {
+                            "stage4_line_number": [
+                                {
+                                    "Object": "line_number",
+                                    "SourceItemId": "line_number_000125",
+                                    "Text": "4-F-25-001",
+                                    "Left": 11,
+                                    "Top": 22,
+                                    "Width": 120,
+                                    "Height": 14,
+                                    "ReviewStatus": "accepted",
+                                }
+                            ]
+                        },
+                    },
+                )
+
+            self.assertEqual(response.status_code, 200)
+            materialized = json.loads((job_dir / "stage4_line_numbers.json").read_text(encoding="utf-8"))
+            self.assertEqual([item["id"] for item in materialized["line_numbers"]], ["line_number_000125"])
+            self.assertEqual(materialized["line_numbers"][0]["bbox"], {"x_min": 11, "y_min": 22, "x_max": 131, "y_max": 36})
+
     def test_pipeline_review_state_put_rejects_invalid_bucket(self) -> None:
         client = TestClient(app)
         with tempfile.TemporaryDirectory() as tmp:

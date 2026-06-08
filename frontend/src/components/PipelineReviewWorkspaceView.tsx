@@ -25,20 +25,15 @@ function pickBaseImageUrl(imageArtifacts: PipelineArtifact[]): string {
 }
 
 const LAYERS = [
-  ['equipment', 'Equipment'],
-  ['objects', 'Objects'],
   ['ports', 'Ports'],
   ['traces', 'Traced paths'],
   ['branches', 'Branches'],
-  ['lineAssociations', 'Line numbers'],
 ] as const
 
 const LAYER_ARTIFACTS = [
   'stage5_connection_ports.json',
   'stage5b_trace_results.json',
   'stage5b_branch_trace_results.json',
-  'stage6_trace_associations.json',
-  'stage6_line_number_review.json',
 ] as const
 
 function layerKeyFromArtifactName(name: string): string {
@@ -760,31 +755,6 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
 
       <div className="shrink-0 border-b border-[var(--border-muted)] bg-[var(--bg-secondary)] px-6 py-3">
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => addEntity('equipment')}
-            disabled={isCreating}
-            className="rounded-full border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-1 text-xs font-semibold text-[var(--accent)] disabled:opacity-40"
-          >
-            Add equipment
-          </button>
-          <button
-            type="button"
-            onClick={() => addEntity('objects', 'connection')}
-            disabled={isCreating}
-            className="rounded-full border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-1 text-xs font-semibold text-[var(--accent)] disabled:opacity-40"
-          >
-            Add connection
-          </button>
-          <button
-            type="button"
-            onClick={() => addEntity('objects')}
-            disabled={isCreating}
-            className="rounded-full border border-[var(--border-muted)] bg-[var(--bg-primary)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)] disabled:opacity-40"
-          >
-            Add object
-          </button>
-          <div className="mx-2 h-5 w-px bg-[var(--border-muted)]" />
           <button
             type="button"
             onClick={() => {

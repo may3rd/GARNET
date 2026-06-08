@@ -94,3 +94,102 @@ def save_review_state(job_dir: str | Path, payload: dict[str, Any], manifest: di
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
     return path
+
+
+def _bbox_from_review_object(item: dict[str, Any]) -> dict[str, int]:
+    raw_bbox = item.get("bbox")
+    if isinstance(raw_bbox, dict):
+        try:
+            return {
+                "x_min": int(round(float(raw_bbox.get("x_min", 0) or 0))),
+                "y_min": int(round(float(raw_bbox.get("y_min", 0) or 0))),
+                "x_max": int(round(float(raw_bbox.get("x_max", 0) or 0))),
+                "y_max": int(round(float(raw_bbox.get("y_max", 0) or 0))),
+            }
+        except (TypeError, ValueError):
+            pass
+
+    left = float(item.get("Left", item.get("x_min", 0)) or 0)
+    top = float(item.get("Top", item.get("y_min", 0)) or 0)
+    width = float(item.get("Width", 0) or 0)
+    height = float(item.get("Height", 0) or 0)
+    if width <= 0 and item.get("x_max") is not None:
+        width = float(item.get("x_max") or 0) - left
+    if height <= 0 and item.get("y_max") is not None:
+        height = float(item.get("y_max") or 0) - top
+    return {
+        "x_min": int(round(left)),
+        "y_min": int(round(top)),
+        "x_max": int(round(left + max(1.0, width))),
+        "y_max": int(round(top + max(1.0, height))),
+    }
+
+
+def _stage4_line_number_id(item: dict[str, Any], index: int) -> str:
+    for key in ("id", "SourceItemId", "source_object_id", "Text"):
+        value = item.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return f"line_number_{index + 1:06d}"
+
+
+def build_stage4_line_numbers_from_review_state(
+    job_dir: str | Path,
+    manifest: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Materialize reviewed Stage 4 line-number boxes into the Stage 4 artifact contract."""
+    review_payload = load_review_state(job_dir, manifest)
+    workspace_objects = review_payload.get("workspace_objects", {})
+    if not isinstance(workspace_objects, dict) or "stage4_line_number" not in workspace_objects:
+        return None
+
+    reviewed_items = workspace_objects.get("stage4_line_number")
+    if not isinstance(reviewed_items, list):
+        return None
+
+    image_path = "" if manifest is None else str(manifest.get("image_path") or "")
+    image_id = os.path.basename(image_path) if image_path else Path(job_dir).name
+    accepted: list[dict[str, Any]] = []
+    rejected: list[dict[str, Any]] = []
+    for index, item in enumerate(reviewed_items):
+        if not isinstance(item, dict):
+            continue
+        line_id = _stage4_line_number_id(item, index)
+        text = str(item.get("text") or item.get("Text") or item.get("normalized_text") or "").strip()
+        try:
+            confidence = float(item.get("confidence", item.get("Score", 1)) or 1)
+        except (TypeError, ValueError):
+            confidence = 1.0
+        review_state = str(item.get("review_state") or item.get("ReviewStatus") or "accepted")
+        entry = {
+            "id": line_id,
+            "source_object_id": item.get("source_object_id") or item.get("SourceItemId") or line_id,
+            "class_name": "line_number",
+            "bbox": _bbox_from_review_object(item),
+            "text": text,
+            "normalized_text": str(item.get("normalized_text") or text).strip(),
+            "ocr_region_id": item.get("ocr_region_id"),
+            "ocr_source": item.get("ocr_source", "hitl"),
+            "score": item.get("score"),
+            "distance_px": item.get("distance_px"),
+            "ocr_confirmed": bool(item.get("ocr_confirmed", bool(text))),
+            "detection_confidence": confidence,
+            "fused_confidence": confidence,
+            "semantic_class": "line_number",
+            "source": "hitl",
+            "review_state": review_state,
+        }
+        if review_state == "rejected":
+            rejected.append(entry)
+        else:
+            entry["review_state"] = "hitl_reviewed"
+            accepted.append(entry)
+
+    return {
+        "image_id": image_id,
+        "pass_type": "sheet",
+        "line_numbers": accepted,
+        "rejected": rejected,
+        "source": "hitl",
+        "source_artifact": "stage_review_state.json",
+    }

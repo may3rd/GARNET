@@ -384,6 +384,58 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "stage4_instrument_tag_summary.json").exists())
             self.assertTrue((Path(tmp) / "stage4_instrument_tag_overlay.png").exists())
 
+    def test_stage6_materializes_reviewed_stage4_line_numbers_before_association(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp)
+            pipe = pid_extractor.PIDPipeline("image.png", output_dir=out_dir)
+            pipe.image_bgr = np.zeros((20, 20, 3), dtype=np.uint8)
+            pipe._save_json("stage4_objects", {"objects": []})
+            pipe._save_json("stage4_line_numbers", {"image_id": "image.png", "line_numbers": [], "rejected": []})
+            pipe._save_json("stage4_instrument_tags", {"instrument_tags": []})
+            pipe._save_json("stage5b_trace_results", {"traces": []})
+            pipe._save_json("stage5b_branch_trace_results", {"branches": {}})
+            pipe._save_json("stage5_connection_ports", {})
+            (out_dir / "stage_review_state.json").write_text(
+                json.dumps(
+                    {
+                        "workspace_objects": {
+                            "stage4_line_number": [
+                                {
+                                    "Object": "line_number",
+                                    "SourceItemId": "line_number_000001",
+                                    "Text": "4-CUL-25-004007-L1A1-NI",
+                                    "Left": 10,
+                                    "Top": 20,
+                                    "Width": 200,
+                                    "Height": 30,
+                                    "Score": 1,
+                                    "ReviewStatus": "accepted",
+                                }
+                            ]
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with patch("garnet.pid_extractor.build_trace_associations") as mock_associations:
+                mock_associations.return_value = {
+                    "trace_associations_payload": {"trace_edges": []},
+                    "trace_association_summary": {},
+                    "line_number_review_payload": {"accepted": []},
+                    "line_number_review_summary": {},
+                    "trace_edges": [],
+                    "associations": {},
+                }
+                pipe.stage6_trace_associations()
+
+            line_payload = json.loads((out_dir / "stage4_line_numbers.json").read_text(encoding="utf-8"))
+            self.assertEqual(line_payload["line_numbers"][0]["id"], "line_number_000001")
+            self.assertEqual(
+                mock_associations.call_args.kwargs["line_numbers"][0]["normalized_text"],
+                "4-CUL-25-004007-L1A1-NI",
+            )
+
     def test_stage5_writes_pipe_mask_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             pipe = pid_extractor.PIDPipeline("image.png", output_dir=tmp)

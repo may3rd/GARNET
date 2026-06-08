@@ -273,6 +273,11 @@ export function Stage6LineAssociationReview({
     })
   }
 
+  const saveReviewAndResume = async () => {
+    await saveReview()
+    await onResumeStage7()
+  }
+
   const actionButtons = (
     <div className="flex flex-wrap items-center gap-2">
       {onCancel ? (
@@ -295,11 +300,11 @@ export function Stage6LineAssociationReview({
       {stage7Stale ? (
         <button
           type="button"
-          onClick={onResumeStage7}
-          disabled={isResuming}
+          onClick={saveReviewAndResume}
+          disabled={isSaving || isResuming}
           className="inline-flex items-center justify-center rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-700 disabled:opacity-40"
         >
-          {isResuming ? 'Resuming...' : 'Resume Stage 7'}
+          {isSaving ? 'Saving...' : isResuming ? 'Resuming...' : 'Save & resume Stage 7'}
         </button>
       ) : null}
     </div>

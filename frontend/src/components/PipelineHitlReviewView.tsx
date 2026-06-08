@@ -106,9 +106,25 @@ function seedObjects(bucket: PipelineReviewBucket, items: PipelineReviewItem[]):
       Height: height,
       Score: 1,
       Text: textLabel,
-      ReviewStatus: null,
+      ReviewStatus: item.reviewState === 'accepted' || item.reviewState === 'rejected' ? item.reviewState : null,
+      SourceItemId: item.id,
     }
   })
+}
+
+function reviewEntityIdForObject(bucket: PipelineReviewBucket, obj: DetectedObject): string {
+  if (obj.SourceItemId) return obj.SourceItemId
+  if (obj.Text?.trim()) return obj.Text.trim()
+  return objectKey(obj)
+}
+
+function splitReviewDecisionKey(key: string): [PipelineReviewBucket, string] {
+  const separatorIndex = key.indexOf(':')
+  if (separatorIndex < 0) return [key as PipelineReviewBucket, key]
+  return [
+    key.slice(0, separatorIndex) as PipelineReviewBucket,
+    key.slice(separatorIndex + 1),
+  ]
 }
 
 function pickBaseImageUrl(imageArtifacts: PipelineArtifact[]): string {
@@ -263,10 +279,9 @@ export function PipelineHitlReviewView({
 
   useEffect(() => {
     const nextStatus: Record<string, 'accepted' | 'rejected'> = {}
-    itemsByBucket[workspaceBucket].forEach((item, index) => {
-      const obj = bucketStates[workspaceBucket][index]
-      if (!obj) return
-      const decision = draftReviewDecisions[`${workspaceBucket}:${item.id}`]
+    ;(bucketStates[workspaceBucket] ?? []).forEach((obj) => {
+      const entityId = reviewEntityIdForObject(workspaceBucket, obj)
+      const decision = draftReviewDecisions[`${workspaceBucket}:${entityId}`] ?? obj.ReviewStatus
       if (decision === 'accepted' || decision === 'rejected') {
         nextStatus[objectKey(obj)] = decision
       }
@@ -276,8 +291,12 @@ export function PipelineHitlReviewView({
 
   const objects = bucketStates[workspaceBucket] ?? []
   const visibleObjects = useMemo(
-    () => objects.filter((obj) => obj.Score >= confidenceFilter),
-    [objects, confidenceFilter]
+    () => objects.filter((obj) => {
+      const classKey = obj.Object.toLowerCase().replace(/_/g, ' ').trim()
+      if (hiddenClasses.has(classKey)) return false
+      return obj.Score >= confidenceFilter
+    }),
+    [objects, hiddenClasses, confidenceFilter]
   )
   const selectedObject = useMemo(
     () => objects.find((obj) => objectKey(obj) === selectedObjectKey) ?? null,
@@ -326,12 +345,22 @@ export function PipelineHitlReviewView({
         objectKey(obj) === key ? { ...obj, ReviewStatus: status } : obj
       ),
     }))
-    const item = itemsByBucket[workspaceBucket][index]
-    if (!item) return
+    const obj = objects[index]
+    if (!obj) return
+    const entityId = reviewEntityIdForObject(workspaceBucket, obj)
     setDraftReviewDecisions((current) => ({
       ...current,
-      [`${workspaceBucket}:${item.id}`]: status ?? 'deferred',
+      [`${workspaceBucket}:${entityId}`]: status ?? 'deferred',
     }))
+  }
+
+  const decisionsForBucket = (bucket: PipelineReviewBucket): Record<string, PipelineReviewDecision> => {
+    const next: Record<string, PipelineReviewDecision> = { ...draftReviewDecisions }
+    for (const obj of bucketStates[bucket] ?? []) {
+      const entityId = reviewEntityIdForObject(bucket, obj)
+      next[`${bucket}:${entityId}`] = obj.ReviewStatus ?? 'deferred'
+    }
+    return next
   }
 
   const handleDeleteSelected = () => {
@@ -367,6 +396,7 @@ export function PipelineHitlReviewView({
       Score: 1,
       Text: createDraft.Text,
       ReviewStatus: null,
+      SourceItemId: `manual_${Date.now()}_${nextId}`,
     }
     pushHistory(snapshotState())
     setBucketObjects((current) => [...current, created])
@@ -400,6 +430,7 @@ export function PipelineHitlReviewView({
       setWorkspaceError(null)
       void onSaveStage3Equipment(bucketStates.stage3_equipment)
         .then(() => {
+          onApply(decisionsForBucket(workspaceBucket))
           if (onAfterBucketSave) onAfterBucketSave(workspaceBucket)
           else onClose()
         })
@@ -414,6 +445,7 @@ export function PipelineHitlReviewView({
       setWorkspaceError(null)
       void onSaveStage4Objects(bucketStates.stage4_object)
         .then(() => {
+          onApply(decisionsForBucket(workspaceBucket))
           if (onAfterBucketSave) onAfterBucketSave(workspaceBucket)
           else onClose()
         })
@@ -428,7 +460,7 @@ export function PipelineHitlReviewView({
       items: Object.entries(draftReviewDecisions)
         .filter(([key]) => !key.startsWith('stage3_equipment:') && !key.startsWith('stage4_object:'))
         .map(([key, decision]) => {
-          const [bucket, entityId] = key.split(':', 2) as [PipelineReviewBucket, string]
+          const [bucket, entityId] = splitReviewDecisionKey(key)
           return {
             item_id: key,
             bucket,
