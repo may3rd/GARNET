@@ -403,6 +403,7 @@ ARTIFACT_INVALIDATION_START_STAGE: dict[str, str] = {
     "stage4_objects.json": "stage4_line_number_fusion",
     "stage4_line_numbers.json": "stage6_trace_associations",
     "stage6_line_number_review.json": "stage7_geometric_graph_assembly",
+    "stage8_review_decisions.json": "stage9_apply_review_decisions",
 }
 
 STALE_ARTIFACTS_BY_SOURCE: dict[str, tuple[str, ...]] = {

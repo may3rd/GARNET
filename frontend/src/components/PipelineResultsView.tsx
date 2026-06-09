@@ -809,6 +809,7 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
     return (
       <GraphQaReviewView
         reviewItemsPayload={jsonDetails['stage8_review_items.json']}
+        reviewDecisionsPayload={jsonDetails['stage8_review_decisions.json']}
         baseImageUrl={pickBaseImageUrl(imageArtifacts)}
         overlayUrl={imageArtifacts.find((artifact) => artifact.name === 'stage8_review_overlay.png')?.url}
         stage9Stale={requiresGraphQaReview}
