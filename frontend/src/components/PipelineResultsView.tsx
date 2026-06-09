@@ -716,7 +716,7 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   }
 
   const resumeFromStage9 = async () => {
-    await resumeFromStageName('stage9_apply_review_decisions')
+    await resumeFromStageName('stage9_apply_review_decisions', 11)
   }
 
   const handleReviewBucketSaved = (bucket: ReviewBucket) => {

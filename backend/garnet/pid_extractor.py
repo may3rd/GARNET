@@ -397,7 +397,7 @@ class PIDPipeline(Stage5bPipelineMixin):
         self._write_stage_manifest()
         self._notify_stage_callback({"event": "stage_completed", "stage": entry.copy(), "manifest": self.stage_manifest})
 
-    def run(self, stop_after: int = 1, resume: bool = False) -> None:
+    def run(self, stop_after: int = 11, resume: bool = False) -> None:
         stages = self._stage_definitions()
         valid_stop_after = {num for num, _, _ in stages}
         if stop_after not in valid_stop_after:
@@ -1408,10 +1408,10 @@ def main() -> None:
     parser.add_argument(
         "--stop-after",
         type=int,
-        default=2,
+        default=11,
         help=(
             "Run up to this automated stage. Valid values are "
-            "1, 2, 4, 5, 6, 7, 8, 9, 10, or 11. Stage 3 is external HITL input."
+            "1, 2, 4, 5, 6, 7, 8, 9, 10, or 11. Stage 3 is external HITL input. Default: 11 (full pipeline)."
         ),
     )
     parser.add_argument(

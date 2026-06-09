@@ -43,6 +43,7 @@ class TerminalType(Enum):
     SHEET_EDGE = "sheet_edge"
     DEAD_END = "dead_end"
     NO_PIPE = "no_pipe"
+    MAX_STEPS = "max_steps"
 
 
 @dataclass
@@ -590,7 +591,6 @@ class CVPipeTracer:
                         self.mask, rx, ry, direction, required_run_px, band_width=1
                     )
                 )
-                sx, sy = self._snap_to_centerline(rx, ry, direction)
             is_inline_target = self._is_inline_target(rx, ry)
             if not (is_pipe_target or is_inline_target):
                 continue
@@ -920,6 +920,14 @@ class CVPipeTracer:
             # Map alternate names
             alt_map = {"TOP": "UP", "BOTTOM": "DOWN"}
             direction = alt_map.get(direction, direction)
+        if direction not in DIRECTION_DELTA:
+            # Unknown/malformed start direction — bail with a clean result
+            # rather than raising a KeyError mid-trace.
+            log.warning("CVPipeTracer: invalid start direction %r", start_dir)
+            result.status = "no_pipe"
+            result.terminal_type = TerminalType.NO_PIPE.value
+            result.terminal_x, result.terminal_y = x, y
+            return result
         dx, dy = DIRECTION_DELTA[direction]
 
         # Verify start point is on pipe
@@ -983,7 +991,7 @@ class CVPipeTracer:
             # Check for inline symbols (valve, reducer) — these are
             # traversed through, not terminals.  Compute the exit position
             # on the far side of the inline object (or overlapping group).
-            inline_hits = self._find_inline_overlap(x, y, direction)
+            inline_hits = self._find_inline_overlap(x, y)
             if inline_hits:
                 for hit in inline_hits:
                     result.hits.append(InlineHit(
@@ -1108,7 +1116,7 @@ class CVPipeTracer:
                 result.terminal_type = terminal[0]
                 result.terminal_obj_id = terminal[1] if len(terminal) > 1 else None
                 x, y = self._retreat_from_terminal_bbox(x, y, direction, result.terminal_type, result.terminal_obj_id)
-                terminal_inline_hits = self._find_inline_overlap(x, y, direction)
+                terminal_inline_hits = self._find_inline_overlap(x, y)
                 for hit in terminal_inline_hits:
                     hit_key = (hit.get("class_name", "unknown"), x, y)
                     if not any((h.class_name, h.x, h.y) == hit_key for h in result.hits):
@@ -1120,7 +1128,7 @@ class CVPipeTracer:
                 self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
                 break
 
-            inline_hits = self._find_inline_overlap(x, y, direction)
+            inline_hits = self._find_inline_overlap(x, y)
             if inline_hits:
                 for hit in inline_hits:
                     result.hits.append(InlineHit(
@@ -1457,8 +1465,9 @@ class CVPipeTracer:
             break
 
         if steps >= self.max_steps:
-            result.terminal_type = "max_steps"
+            result.terminal_type = TerminalType.MAX_STEPS.value
             result.terminal_x, result.terminal_y = x, y
+            result.status = "abandoned"
 
         self._anchor_close_turn_segments(result)
         return result
@@ -1499,9 +1508,12 @@ class CVPipeTracer:
         # Instrument tags can sit just off the pipe, but dense P&IDs need
         # small margins so nearby labels do not steal the current trace.
         for tag in self.instrument_tags:
+            tag_id = tag.get("id", "")
+            if tag_id == source_obj_id:
+                continue
             margin = current_dcs_margin if tag.get("class_name") == "instrument dcs" else current_tag_margin
             if _check_bbox_hit(x, y, tag["bbox"], margin=margin):
-                return (TerminalType.INSTRUMENT_TAG.value, tag.get("id", ""))
+                return (TerminalType.INSTRUMENT_TAG.value, tag_id)
 
         # Expanded equipment hit catches pipe entering large equipment bboxes
         # without letting nearby objects interfere with dense look-ahead.
@@ -1537,26 +1549,17 @@ class CVPipeTracer:
                     eq_bbox["y_min"] - ahead_equipment_margin <= ty <= eq_bbox["y_max"] + ahead_equipment_margin):
                     return (TerminalType.EQUIPMENT.value, eq_id)
 
-            # Check instrument tags
+            # Check instrument tags (skip the source)
             for tag in self.instrument_tags:
+                tag_id = tag.get("id", "")
+                if tag_id == source_obj_id:
+                    continue
                 if _check_bbox_hit(tx, ty, tag["bbox"], margin=ahead_tag_margin):
-                    return (TerminalType.INSTRUMENT_TAG.value, tag.get("id", ""))
+                    return (TerminalType.INSTRUMENT_TAG.value, tag_id)
 
         return None
 
-    def _check_inline(self, x: int, y: int) -> Optional[InlineHit]:
-        """Check if current position is inside an inline symbol (valve, etc.)."""
-        for sym in self._inline_symbols:
-            bbox = sym["bbox"]
-            if _check_bbox_hit(x, y, bbox):
-                return InlineHit(
-                    class_name=sym.get("class_name", "unknown"),
-                    x=x, y=y, bbox=bbox,
-                )
-        return None
-
-    def _find_inline_overlap(self, x: int, y: int,
-                             direction: str) -> list[dict]:
+    def _find_inline_overlap(self, x: int, y: int) -> list[dict]:
         """Return ALL inline symbols whose bbox contains (x,y).
 
         For overlapping inline symbols, returns the entire overlapping group
