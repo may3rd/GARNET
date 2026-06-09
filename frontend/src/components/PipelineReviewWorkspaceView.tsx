@@ -59,6 +59,12 @@ type BBox = { x_min: number; y_min: number; x_max: number; y_max: number }
 type PortCandidate = Pick<PipelineManualPort, 'x' | 'y' | 'direction'>
 
 const EQUIPMENT_CLASS_OPTIONS = ['blower', 'column', 'compressor', 'fan', 'heat exchanger', 'mixer', 'pump', 'tank', 'vessel']
+const CONNECTION_CLASS_OPTIONS = ['connection', 'page_connection', 'page connection', 'utility_connection', 'utility connection', 'page connection symbol']
+const CONNECTION_CLASS_SET = new Set(CONNECTION_CLASS_OPTIONS)
+
+function isConnectionClass(className: string): boolean {
+  return CONNECTION_CLASS_SET.has(className.toLowerCase().trim())
+}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
@@ -127,7 +133,12 @@ function portMatchesCandidate(port: PipelineManualPort, ownerId: string, candida
   )
 }
 
-async function loadImagePixels(url: string): Promise<{ width: number; height: number; data: Uint8ClampedArray }> {
+const BORDER_CROSSING_MARGIN = 20
+
+async function loadImagePixels(
+  url: string,
+  crop?: { x: number; y: number; w: number; h: number },
+): Promise<{ width: number; height: number; offsetX: number; offsetY: number; data: Uint8ClampedArray }> {
   const image = new Image()
   image.crossOrigin = 'anonymous'
   await new Promise<void>((resolve, reject) => {
@@ -135,22 +146,28 @@ async function loadImagePixels(url: string): Promise<{ width: number; height: nu
     image.onerror = () => reject(new Error('Failed to load image for port detection'))
     image.src = url
   })
+  const sx = crop?.x ?? 0
+  const sy = crop?.y ?? 0
+  const sw = crop?.w ?? image.naturalWidth
+  const sh = crop?.h ?? image.naturalHeight
   const canvas = document.createElement('canvas')
-  canvas.width = image.naturalWidth
-  canvas.height = image.naturalHeight
+  canvas.width = sw
+  canvas.height = sh
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Cannot create image canvas for port detection')
-  ctx.drawImage(image, 0, 0)
+  ctx.drawImage(image, sx, sy, sw, sh, 0, 0, sw, sh)
   return {
-    width: canvas.width,
-    height: canvas.height,
-    data: ctx.getImageData(0, 0, canvas.width, canvas.height).data,
+    width: sw,
+    height: sh,
+    offsetX: sx,
+    offsetY: sy,
+    data: ctx.getImageData(0, 0, sw, sh).data,
   }
 }
 
-function pixelBrightness(pixels: { width: number; height: number; data: Uint8ClampedArray }, x: number, y: number): number {
-  const px = Math.max(0, Math.min(pixels.width - 1, Math.round(x)))
-  const py = Math.max(0, Math.min(pixels.height - 1, Math.round(y)))
+function pixelBrightness(pixels: { width: number; height: number; offsetX: number; offsetY: number; data: Uint8ClampedArray }, x: number, y: number): number {
+  const px = Math.max(0, Math.min(pixels.width - 1, Math.round(x - pixels.offsetX)))
+  const py = Math.max(0, Math.min(pixels.height - 1, Math.round(y - pixels.offsetY)))
   const index = (py * pixels.width + px) * 4
   return (pixels.data[index] + pixels.data[index + 1] + pixels.data[index + 2]) / 3
 }
@@ -238,7 +255,7 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null)
   const [selectedEntity, setSelectedEntity] = useState<SelectedEntity | null>(null)
   const [selectedObjectKey, setSelectedObjectKey] = useState<string | null>(null)
-  const [selectedPortId, setSelectedPortId] = useState<string | null>(null)
+  const [selectedPortIds, setSelectedPortIds] = useState<Set<string>>(new Set())
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null)
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
@@ -380,7 +397,7 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
   const currentClassOptions = useMemo(() => {
     const collection = isCreating ? createCollection : selectedEntity?.collection
     const sourceItems = collection === 'equipment' ? workspace?.equipment : workspace?.objects
-    const fallback = collection === 'equipment' ? EQUIPMENT_CLASS_OPTIONS : []
+    const fallback = collection === 'equipment' ? EQUIPMENT_CLASS_OPTIONS : CONNECTION_CLASS_OPTIONS
     return Array.from(new Set([...(sourceItems ?? []).map((item) => entityClassName(item, 'object')), ...fallback]))
   }, [createCollection, isCreating, selectedEntity, workspace])
 
@@ -423,7 +440,7 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
       Text: '',
     })
     setSelectedEntity(null)
-    setSelectedPortId(null)
+    setSelectedPortIds(new Set())
     setSelectedTraceId(null)
     setSelectedBranchId(null)
     setSelectedObjectKey(null)
@@ -438,7 +455,7 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
 
   const selectCanvasObject = (key: string | null) => {
     setSelectedObjectKey(key)
-    setSelectedPortId(null)
+    setSelectedPortIds(new Set())
     setSelectedTraceId(null)
     setSelectedBranchId(null)
     setIsEditing(false)
@@ -512,7 +529,9 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
     setIsDirty(true)
     setRecomputeState('scheduled')
     if (createCollection === 'equipment') {
-      void addPortsFromBorderCrossings(id, entity.bbox)
+      void addPortsFromBorderCrossings(id, entity.bbox, 'equipment')
+    } else if (isConnectionClass(entity.class_name)) {
+      void addPortsFromBorderCrossings(id, entity.bbox, 'connection')
     }
   }
 
@@ -578,7 +597,7 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
     })
   }
 
-  const appendManualPorts = (ownerId: string, candidates: PortCandidate[]) => {
+  const appendManualPorts = (ownerId: string, candidates: PortCandidate[], ownerType = 'equipment') => {
     if (!candidates.length) return 0
     let addedCount = 0
     setWorkspace((current) => {
@@ -598,7 +617,7 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
             return normalized ? [normalized] : []
           })]),
           owner_id: ownerId,
-          owner_type: 'equipment',
+          owner_type: ownerType,
           x: Math.round(candidate.x),
           y: Math.round(candidate.y),
           direction: candidate.direction,
@@ -618,37 +637,43 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
     return addedCount
   }
 
-  const addPortsFromBorderCrossings = async (ownerId = selectedEntity?.id, bbox = selectedEquipmentRecord ? entityBbox(selectedEquipmentRecord) : null) => {
+  const addPortsFromBorderCrossings = async (ownerId = selectedEntity?.id, bbox = selectedEquipmentRecord ? entityBbox(selectedEquipmentRecord) : null, ownerType = 'equipment') => {
     if (!ownerId || !bbox) return
     const detectionUrl = pipeMaskUrl ?? imageUrl
     if (!detectionUrl) return
     try {
-      const pixels = await loadImagePixels(detectionUrl)
+      const naturalW = imageSize?.width ?? Infinity
+      const naturalH = imageSize?.height ?? Infinity
+      const cx = Math.max(0, Math.floor(bbox.x_min) - BORDER_CROSSING_MARGIN)
+      const cy = Math.max(0, Math.floor(bbox.y_min) - BORDER_CROSSING_MARGIN)
+      const cw = Math.min(naturalW, Math.ceil(bbox.x_max) + BORDER_CROSSING_MARGIN) - cx
+      const ch = Math.min(naturalH, Math.ceil(bbox.y_max) + BORDER_CROSSING_MARGIN) - cy
+      const pixels = await loadImagePixels(detectionUrl, { x: cx, y: cy, w: cw, h: ch })
       const candidates = detectPortCandidatesFromImage(pixels, bbox, Boolean(pipeMaskUrl))
-      const addedCount = appendManualPorts(ownerId, candidates)
+      const addedCount = appendManualPorts(ownerId, candidates, ownerType)
       if (addedCount === 0) {
-        setError('No new equipment ports found on pipe crossings at the selected box border.')
+        setError(`No new ports found on pipe crossings at the selected box border.`)
       } else {
         setError(null)
       }
     } catch (portError) {
-      setError(portError instanceof Error ? portError.message : 'Failed to detect equipment ports')
+      setError(portError instanceof Error ? portError.message : 'Failed to detect ports')
     }
   }
 
-  const rejectPort = (portId: string) => {
+  const rejectPorts = (portIds: Set<string>) => {
     setWorkspace((current) => {
       if (!current) return current
       return {
         ...current,
         manual_ports: current.manual_ports.map((item) =>
-          String(item.port_id ?? item.id) === portId
+          portIds.has(String(item.port_id ?? item.id))
             ? { ...item, review_state: 'rejected' }
             : item
         ),
       }
     })
-    setSelectedPortId((current) => current === portId ? null : current)
+    setSelectedPortIds(new Set())
     setIsDirty(true)
     setRecomputeState('scheduled')
   }
@@ -771,9 +796,14 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
                 <button
                   key={port.port_id}
                   type="button"
-                  onClick={() => setSelectedPortId((current) => current === port.port_id ? null : port.port_id)}
+                  onClick={() => setSelectedPortIds((current) => {
+                    const next = new Set(current)
+                    if (next.has(port.port_id)) next.delete(port.port_id)
+                    else next.add(port.port_id)
+                    return next
+                  })}
                   className={`rounded-full border px-2 py-1 font-mono text-[11px] font-semibold ${
-                    selectedPortId === port.port_id
+                    selectedPortIds.has(port.port_id)
                       ? 'border-red-500 bg-red-500/10 text-red-700'
                       : 'border-cyan-500/30 bg-[var(--bg-primary)] text-cyan-700'
                   }`}
@@ -784,13 +814,13 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
               )) : (
                 <span className="text-xs text-[var(--text-secondary)]">No reviewed ports for selected equipment</span>
               )}
-              {selectedPortId ? (
+              {selectedPortIds.size > 0 ? (
                 <button
                   type="button"
-                  onClick={() => rejectPort(selectedPortId)}
+                  onClick={() => rejectPorts(selectedPortIds)}
                   className="rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-700"
                 >
-                  Remove selected port
+                  Remove {selectedPortIds.size} port{selectedPortIds.size > 1 ? 's' : ''}
                 </button>
               ) : null}
             </div>
@@ -886,9 +916,14 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
                   layers={layerPayloads}
                   visibleLayers={visibleLayers}
                   imageSize={imageSize}
-                  selectedPortId={selectedPortId}
+                  selectedPortIds={selectedPortIds}
                   onSelectPort={(portId) => {
-                    setSelectedPortId((current) => current === portId ? null : portId)
+                    setSelectedPortIds((current) => {
+                      const next = new Set(current)
+                      if (next.has(portId)) next.delete(portId)
+                      else next.add(portId)
+                      return next
+                    })
                     setSelectedTraceId(null)
                     setSelectedBranchId(null)
                   }}
@@ -896,7 +931,7 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
                   onSelectTrace={(traceId) => {
                     setSelectedTraceId((current) => current === traceId ? null : traceId)
                     setSelectedBranchId(null)
-                    setSelectedPortId(null)
+                    setSelectedPortIds(new Set())
                     setSelectedObjectKey(null)
                     setSelectedEntity(null)
                   }}
@@ -904,7 +939,7 @@ export function PipelineReviewWorkspaceView({ job, imageArtifacts, onOpenDetails
                   onSelectBranch={(branchId) => {
                     setSelectedBranchId((current) => current === branchId ? null : branchId)
                     setSelectedTraceId(null)
-                    setSelectedPortId(null)
+                    setSelectedPortIds(new Set())
                     setSelectedObjectKey(null)
                     setSelectedEntity(null)
                   }}

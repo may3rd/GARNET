@@ -7,7 +7,7 @@ type ReviewCanvasLayersProps = {
   imageSize: { width: number; height: number } | null
   selectedEntity?: { collection: 'equipment' | 'objects'; id: string } | null
   onSelectEntity?: (entity: { collection: 'equipment' | 'objects'; id: string }) => void
-  selectedPortId?: string | null
+  selectedPortIds?: Set<string>
   onSelectPort?: (portId: string) => void
   selectedTraceId?: string | null
   onSelectTrace?: (traceId: string) => void
@@ -242,7 +242,7 @@ export function ReviewCanvasLayers({
   imageSize,
   selectedEntity,
   onSelectEntity,
-  selectedPortId,
+  selectedPortIds,
   onSelectPort,
   selectedTraceId,
   onSelectTrace,
@@ -372,8 +372,8 @@ export function ReviewCanvasLayers({
               <circle
                 cx={port.x}
                 cy={port.y}
-                r={selectedPortId === port.id ? '14' : '9'}
-                fill={selectedPortId === port.id ? '#f97316' : '#06b6d4'}
+                r={selectedPortIds?.has(port.id) ? '14' : '9'}
+                fill={selectedPortIds?.has(port.id) ? '#f97316' : '#06b6d4'}
                 stroke="#ffffff"
                 strokeWidth="3"
                 className={onSelectPort ? 'pointer-events-auto cursor-pointer' : undefined}

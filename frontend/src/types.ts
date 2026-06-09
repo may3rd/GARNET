@@ -82,6 +82,7 @@ export type PipelineJob = {
 }
 
 export type PipelineReviewDecision = 'accepted' | 'rejected' | 'deferred'
+export type GraphQaDecision = 'set_line_number' | 'accept_as_is' | 'false_positive' | 'defer'
 export type PipelineReviewBucket =
   | 'stage3_equipment'
   | 'stage4_object'

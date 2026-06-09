@@ -5,6 +5,7 @@ import { PipelineArtifactCanvas } from '@/components/PipelineArtifactCanvas'
 import { PipelineHitlReviewView } from '@/components/PipelineHitlReviewView'
 import { PipelineReviewWorkspaceView } from '@/components/PipelineReviewWorkspaceView'
 import { ProcessingView } from '@/components/ProcessingView'
+import { GraphQaReviewView } from '@/components/GraphQaReviewView'
 import { Stage6LineAssociationReview } from '@/components/Stage6LineAssociationReview'
 import { getPipelineJob, getPipelineReviewedGraph, getPipelineReviewedQa, getPipelineStageStatus, putPipelineArtifact, resumePipelineFromStage } from '@/lib/api'
 import { useAppStore } from '@/stores/appStore'
@@ -312,6 +313,7 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   const [preStage5ReviewDismissed, setPreStage5ReviewDismissed] = useState(false)
   const [isResuming, setIsResuming] = useState(false)
   const [isSavingStage6, setIsSavingStage6] = useState(false)
+  const [isSavingStage8, setIsSavingStage8] = useState(false)
   const [showArtifactDetails, setShowArtifactDetails] = useState(false)
   const [pipelineActionError, setPipelineActionError] = useState<string | null>(null)
   const [graphMode, setGraphMode] = useState<'raw' | 'reviewed'>('raw')
@@ -374,6 +376,8 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
           'stage4_objects.json',
           'stage6_trace_associations.json',
           'stage6_line_number_review.json',
+          'stage8_review_items.json',
+          'stage8_review_decisions.json',
           'stage12_text_attachments.json',
           'stage12_instrument_tag_attachments.json',
         ].includes(artifact.name)
@@ -551,6 +555,9 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   const requiresTraceReview = activeJob.status === 'completed' && stage5bComplete && !stage6Complete && (activeJob.stop_after ?? 5) <= 5
   const stage7Complete = stages.some((stage) => stage.name === 'stage7_geometric_graph_assembly' && stage.status === 'completed')
   const requiresStage6Review = activeJob.status === 'completed' && stage6Complete && !stage7Complete && (activeJob.stop_after ?? 6) <= 6
+  const stage8Complete = stages.some((stage) => stage.name === 'stage8_graph_qa' && stage.status === 'completed')
+  const stage9Complete = stages.some((stage) => stage.name === 'stage9_apply_review_decisions' && stage.status === 'completed')
+  const requiresGraphQaReview = activeJob.status === 'completed' && stage8Complete && !stage9Complete && (activeJob.stop_after ?? 8) <= 8
 
   useEffect(() => {
     if (!requiresPreStage5Review || preStage5ReviewDismissed || workspaceOpen || isResuming) return
@@ -585,7 +592,7 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   }
 
   const resumeFromStage7 = async () => {
-    await resumeFromStageName('stage7_geometric_graph_assembly')
+    await resumeFromStageName('stage7_geometric_graph_assembly', 8)
   }
 
   const resumeFromStageName = async (
@@ -693,6 +700,25 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
     }
   }
 
+  const saveGraphQaDecisions = async (payload: JsonObject) => {
+    setIsSavingStage8(true)
+    setPipelineActionError(null)
+    try {
+      const response = await putPipelineArtifact(activeJob.job_id, 'stage8_review_decisions.json', payload)
+      setStageStatuses(response.stages)
+      const refreshedJob = await getPipelineJob(activeJob.job_id)
+      setLiveJob(refreshedJob)
+    } catch (error) {
+      setPipelineActionError(error instanceof Error ? error.message : 'Failed to save Stage 8 QA review')
+    } finally {
+      setIsSavingStage8(false)
+    }
+  }
+
+  const resumeFromStage9 = async () => {
+    await resumeFromStageName('stage9_apply_review_decisions')
+  }
+
   const handleReviewBucketSaved = (bucket: ReviewBucket) => {
     if (!preStage5ReviewActive) {
       setWorkspaceOpen(false)
@@ -761,7 +787,7 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
     )
   }
 
-  if (requiresStage6Review) {
+  if (!showArtifactDetails && requiresStage6Review) {
     return (
       <Stage6LineAssociationReview
         tracePayload={jsonDetails['stage6_trace_associations.json']}
@@ -775,6 +801,23 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
         onCancel={() => setShowArtifactDetails(true)}
         onSave={saveStage6LineReview}
         onResumeStage7={resumeFromStage7}
+      />
+    )
+  }
+
+  if (!showArtifactDetails && requiresGraphQaReview) {
+    return (
+      <GraphQaReviewView
+        reviewItemsPayload={jsonDetails['stage8_review_items.json']}
+        baseImageUrl={pickBaseImageUrl(imageArtifacts)}
+        overlayUrl={imageArtifacts.find((artifact) => artifact.name === 'stage8_review_overlay.png')?.url}
+        stage9Stale={requiresGraphQaReview}
+        isSaving={isSavingStage8}
+        isResuming={isResuming}
+        layout="workspace"
+        onCancel={() => setShowArtifactDetails(true)}
+        onSave={saveGraphQaDecisions}
+        onResumeStage9={resumeFromStage9}
       />
     )
   }
