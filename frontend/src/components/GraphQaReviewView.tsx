@@ -18,10 +18,14 @@ type GraphQaItem = {
 
 type ItemDraft = {
   decision: GraphQaDecision | null
+  lineNumberId?: string   // required when decision === 'set_line_number'
+  edgeIds?: string[]      // required when decision === 'set_line_number'
   note?: string
 }
 
 type DraftState = Record<string, ItemDraft>
+
+type ValidationErrors = Map<string, { lineNumber?: string; edgeIds?: string }>
 
 type GraphQaReviewViewProps = {
   reviewItemsPayload?: JsonObject
@@ -46,7 +50,6 @@ const DECISION_LABELS: Record<GraphQaDecision, string> = {
   set_line_number: 'Set Line #',
 }
 
-// Which decisions apply for a given review_item_type
 function decisionsForType(reviewItemType: string): GraphQaDecision[] {
   if (reviewItemType === 'line_number') {
     return ['accept_as_is', 'false_positive', 'defer', 'set_line_number']
@@ -58,7 +61,7 @@ function decisionActiveClasses(decision: GraphQaDecision): string {
   if (decision === 'accept_as_is') return 'border-emerald-500 bg-emerald-500/10 text-emerald-700'
   if (decision === 'false_positive') return 'border-blue-500 bg-blue-500/10 text-blue-700'
   if (decision === 'set_line_number') return 'border-purple-500 bg-purple-500/10 text-purple-700'
-  return 'border-amber-500 bg-amber-500/10 text-amber-700' // defer
+  return 'border-amber-500 bg-amber-500/10 text-amber-700'
 }
 
 function decisionShortLabel(decision: GraphQaDecision): string {
@@ -68,7 +71,21 @@ function decisionShortLabel(decision: GraphQaDecision): string {
   return 'DEF'
 }
 
-// ── parse / build helpers ────────────────────────────────────────────────────
+// ── evidence extraction helpers ──────────────────────────────────────────────
+
+function candidateLineNumbers(evidence: JsonObject): string[] {
+  const raw = evidence.candidate_line_number_ids
+  if (Array.isArray(raw)) return raw.filter((v): v is string => typeof v === 'string')
+  return []
+}
+
+function componentEdgeIds(evidence: JsonObject): string[] {
+  const raw = evidence.component_edge_ids
+  if (Array.isArray(raw)) return raw.filter((v): v is string => typeof v === 'string')
+  return []
+}
+
+// ── parse / build / validate helpers ────────────────────────────────────────
 
 function parseGeometry(value: unknown): { x: number; y: number } | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
@@ -94,14 +111,12 @@ function parseReviewItems(payload?: JsonObject): GraphQaItem[] {
       priority: typeof r.priority === 'number' ? r.priority : 0,
       message: typeof r.message === 'string' ? r.message : '',
       evidence: (r.evidence && typeof r.evidence === 'object' && !Array.isArray(r.evidence))
-        ? r.evidence as JsonObject
-        : {},
+        ? r.evidence as JsonObject : {},
       geometry: parseGeometry(r.geometry),
     }]
   })
 }
 
-/** Rehydrate drafts from an existing stage8_review_decisions.json */
 function buildInitialDrafts(payload?: JsonObject): DraftState {
   const drafts: DraftState = {}
   const decisions = Array.isArray(payload?.decisions) ? payload.decisions : []
@@ -113,25 +128,46 @@ function buildInitialDrafts(payload?: JsonObject): DraftState {
     if (!id || !dec) continue
     drafts[id] = {
       decision: dec,
+      lineNumberId: typeof item.line_number_id === 'string' ? item.line_number_id : undefined,
+      edgeIds: Array.isArray(item.edge_ids)
+        ? item.edge_ids.filter((v): v is string => typeof v === 'string')
+        : undefined,
       note: typeof item.note === 'string' ? item.note : undefined,
     }
   }
   return drafts
 }
 
-/** Build the stage8_review_decisions.json payload from current drafts */
 function buildDecisionsPayload(items: GraphQaItem[], drafts: DraftState): JsonObject {
   const decisions = items.flatMap((item) => {
     const draft = drafts[item.id]
     if (!draft?.decision) return []
-    return [{
+    const entry: Record<string, JsonValue> = {
       review_item_id: item.id,
       decision: draft.decision,
       reviewer: 'human',
-      ...(draft.note?.trim() ? { note: draft.note.trim() } : {}),
-    }]
+    }
+    if (draft.decision === 'set_line_number') {
+      if (draft.lineNumberId?.trim()) entry.line_number_id = draft.lineNumberId.trim()
+      if (draft.edgeIds?.length) entry.edge_ids = draft.edgeIds
+    }
+    if (draft.note?.trim()) entry.note = draft.note.trim()
+    return [entry]
   })
   return { decisions }
+}
+
+function validateDrafts(items: GraphQaItem[], drafts: DraftState): ValidationErrors {
+  const errors: ValidationErrors = new Map()
+  for (const item of items) {
+    const draft = drafts[item.id]
+    if (draft?.decision !== 'set_line_number') continue
+    const itemErrors: { lineNumber?: string; edgeIds?: string } = {}
+    if (!draft.lineNumberId?.trim()) itemErrors.lineNumber = 'Line number is required'
+    if (!draft.edgeIds?.length) itemErrors.edgeIds = 'At least one edge is required'
+    if (Object.keys(itemErrors).length > 0) errors.set(item.id, itemErrors)
+  }
+  return errors
 }
 
 // ── display helpers ───────────────────────────────────────────────────────────
@@ -151,7 +187,6 @@ function markerColor(severity: string, priority: number, decision: GraphQaDecisi
   if (decision === 'false_positive') return '#2563eb'
   if (decision === 'set_line_number') return '#9333ea'
   if (decision === 'defer') return '#d97706'
-  // undecided: severity color
   if (severity === 'high' || priority >= 8) return '#dc2626'
   if (severity === 'review' || severity === 'medium' || priority >= 5) return '#d97706'
   return '#ca8a04'
@@ -175,24 +210,26 @@ export function GraphQaReviewView({
   const items = useMemo(() => parseReviewItems(reviewItemsPayload), [reviewItemsPayload])
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const [drafts, setDrafts] = useState<DraftState>({})
+  const [saveAttempted, setSaveAttempted] = useState(false)
   const canvasObjects = useMemo<DetectedObject[]>(() => [], [])
   const canvasImageUrl = overlayUrl || baseImageUrl || ''
 
-  // Initialise selected item when items load
   useEffect(() => {
     setSelectedItemId((current) => {
       if (current && items.some((item) => item.id === current)) return current
       return items[0]?.id ?? null
     })
+    setSaveAttempted(false)
   }, [items])
 
-  // Rehydrate drafts from existing decisions artifact on load/change
   useEffect(() => {
     setDrafts(buildInitialDrafts(reviewDecisionsPayload))
   }, [reviewDecisionsPayload])
 
   const selectedItem = items.find((item) => item.id === selectedItemId) ?? null
   const selectedDraft = selectedItemId ? (drafts[selectedItemId] ?? { decision: null }) : null
+
+  const validationErrors = useMemo(() => validateDrafts(items, drafts), [items, drafts])
 
   const counts = useMemo(() => {
     let high = 0; let medium = 0; let info = 0; let decided = 0
@@ -212,14 +249,52 @@ export function GraphQaReviewView({
     }))
   }
 
+  const handleDecisionChipClick = (item: GraphQaItem, decision: GraphQaDecision) => {
+    const draft = drafts[item.id]
+    const active = draft?.decision === decision
+    if (active) {
+      // Toggle off — clear decision but keep line number / edge IDs in case user re-selects
+      setDraft(item.id, { decision: null })
+    } else if (decision === 'set_line_number') {
+      // Auto-fill from evidence on first selection; preserve existing values on re-selection
+      const patch: Partial<ItemDraft> = { decision }
+      if (!draft?.lineNumberId) {
+        const candidates = candidateLineNumbers(item.evidence)
+        patch.lineNumberId = candidates[0] ?? ''
+      }
+      if (!draft?.edgeIds) {
+        const edges = componentEdgeIds(item.evidence)
+        patch.edgeIds = edges.length > 0 ? [...edges] : []
+      }
+      setDraft(item.id, patch)
+    } else {
+      setDraft(item.id, { decision })
+    }
+  }
+
   const saveReview = async () => {
+    setSaveAttempted(true)
+    if (validationErrors.size > 0) {
+      // Jump to first invalid item
+      const firstInvalidId = validationErrors.keys().next().value as string
+      setSelectedItemId(firstInvalidId)
+      return
+    }
     await onSave(buildDecisionsPayload(items, drafts))
   }
 
   const saveReviewAndResume = async () => {
+    setSaveAttempted(true)
+    if (validationErrors.size > 0) {
+      const firstInvalidId = validationErrors.keys().next().value as string
+      setSelectedItemId(firstInvalidId)
+      return
+    }
     await onSave(buildDecisionsPayload(items, drafts))
     await onResumeStage9()
   }
+
+  const hasErrors = saveAttempted && validationErrors.size > 0
 
   const actionButtons = (
     <div className="flex flex-wrap items-center gap-2">
@@ -231,6 +306,11 @@ export function GraphQaReviewView({
         >
           Cancel
         </button>
+      ) : null}
+      {hasErrors ? (
+        <span className="text-xs font-semibold text-red-600">
+          {validationErrors.size} item{validationErrors.size !== 1 ? 's' : ''} need attention
+        </span>
       ) : null}
       <button
         type="button"
@@ -253,7 +333,7 @@ export function GraphQaReviewView({
     </div>
   )
 
-  // ── early-exit: no artifacts ───────────────────────────────────────────────
+  // ── early-exit: no artifacts ──────────────────────────────────────────────
 
   if (!reviewItemsPayload && !canvasImageUrl) {
     if (layout === 'workspace') {
@@ -316,6 +396,127 @@ export function GraphQaReviewView({
     )
   }
 
+  // ── set_line_number sub-controls ─────────────────────────────────────────
+
+  function LineNumberControls({ item, draft }: { item: GraphQaItem; draft: ItemDraft }) {
+    const candidates = useMemo(() => candidateLineNumbers(item.evidence), [item.evidence])
+    const allEdges = useMemo(() => componentEdgeIds(item.evidence), [item.evidence])
+    const itemErrors = saveAttempted ? validationErrors.get(item.id) : undefined
+
+    const toggleEdge = (edgeId: string) => {
+      const current = draft.edgeIds ?? []
+      setDraft(item.id, {
+        edgeIds: current.includes(edgeId)
+          ? current.filter((e) => e !== edgeId)
+          : [...current, edgeId],
+      })
+    }
+
+    return (
+      <div className="mt-4 space-y-4 rounded-lg border border-purple-200 bg-purple-500/5 p-3">
+        {/* Line number input */}
+        <div>
+          <div className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-purple-700">
+            Line Number <span className="text-red-500">*</span>
+          </div>
+          <input
+            type="text"
+            value={draft.lineNumberId ?? ''}
+            onChange={(e) => setDraft(item.id, { lineNumberId: e.target.value })}
+            placeholder="e.g. 3in-CUL-25-002013"
+            className={`mt-1.5 w-full rounded-lg border bg-white px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-purple-500 ${
+              itemErrors?.lineNumber ? 'border-red-400' : 'border-purple-200'
+            }`}
+          />
+          {itemErrors?.lineNumber ? (
+            <div className="mt-1 text-[10px] text-red-600">{itemErrors.lineNumber}</div>
+          ) : null}
+          {candidates.length > 0 ? (
+            <div className="mt-2">
+              <div className="text-[10px] uppercase tracking-wide text-purple-600">Candidates</div>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {candidates.map((candidate) => (
+                  <button
+                    key={candidate}
+                    type="button"
+                    onClick={() => setDraft(item.id, { lineNumberId: candidate })}
+                    className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold transition ${
+                      draft.lineNumberId === candidate
+                        ? 'border-purple-500 bg-purple-500/20 text-purple-800'
+                        : 'border-purple-200 bg-white text-purple-700 hover:border-purple-400'
+                    }`}
+                  >
+                    {candidate}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Edge multiselect */}
+        <div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-purple-700">
+              Edges <span className="text-red-500">*</span>
+            </div>
+            {allEdges.length > 0 ? (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDraft(item.id, { edgeIds: [...allEdges] })}
+                  className="text-[10px] text-purple-600 hover:text-purple-800"
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDraft(item.id, { edgeIds: [] })}
+                  className="text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                >
+                  Clear
+                </button>
+              </div>
+            ) : null}
+          </div>
+          {allEdges.length > 0 ? (
+            <div className={`mt-1.5 max-h-32 overflow-auto space-y-1 rounded border p-2 ${
+              itemErrors?.edgeIds ? 'border-red-400 bg-red-50' : 'border-purple-200 bg-white'
+            }`}>
+              {allEdges.map((edgeId) => (
+                <label key={edgeId} className="flex cursor-pointer items-center gap-2 text-[11px]">
+                  <input
+                    type="checkbox"
+                    checked={draft.edgeIds?.includes(edgeId) ?? false}
+                    onChange={() => toggleEdge(edgeId)}
+                    className="accent-purple-600"
+                  />
+                  <span className="truncate font-mono text-[var(--text-primary)]">{edgeId}</span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <textarea
+              value={draft.edgeIds?.join(', ') ?? ''}
+              onChange={(e) => {
+                const ids = e.target.value.split(',').map((s) => s.trim()).filter(Boolean)
+                setDraft(item.id, { edgeIds: ids })
+              }}
+              rows={2}
+              placeholder="Enter edge IDs separated by commas"
+              className={`mt-1.5 w-full resize-none rounded-lg border px-3 py-1.5 text-[11px] font-mono text-[var(--text-primary)] outline-none focus:border-purple-500 ${
+                itemErrors?.edgeIds ? 'border-red-400 bg-red-50' : 'border-purple-200 bg-white'
+              }`}
+            />
+          )}
+          {itemErrors?.edgeIds ? (
+            <div className="mt-1 text-[10px] text-red-600">{itemErrors.edgeIds}</div>
+          ) : null}
+        </div>
+      </div>
+    )
+  }
+
   // ── main review body ─────────────────────────────────────────────────────
 
   const reviewBody = (
@@ -327,9 +528,7 @@ export function GraphQaReviewView({
           selectedObjectKey={null}
           selectedObject={null}
           reviewStatus={{}}
-          onSelectObject={(key) => {
-            if (key === null) setSelectedItemId(null)
-          }}
+          onSelectObject={(key) => { if (key === null) setSelectedItemId(null) }}
           onSetReviewStatus={() => undefined}
           isEditing={false}
           editDraft={null}
@@ -351,7 +550,12 @@ export function GraphQaReviewView({
                 if (!item.geometry) return null
                 const selected = item.id === selectedItemId
                 const draft = drafts[item.id]
-                const color = selected ? '#f97316' : markerColor(item.severity, item.priority, draft?.decision)
+                const hasError = saveAttempted && validationErrors.has(item.id)
+                const color = hasError
+                  ? '#dc2626'
+                  : selected
+                    ? '#f97316'
+                    : markerColor(item.severity, item.priority, draft?.decision)
                 return (
                   <Fragment key={item.id}>
                     <circle
@@ -429,9 +633,7 @@ export function GraphQaReviewView({
                     <button
                       key={decision}
                       type="button"
-                      onClick={() => setDraft(selectedItem.id, {
-                        decision: active ? null : decision,
-                      })}
+                      onClick={() => handleDecisionChipClick(selectedItem, decision)}
                       className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
                         active
                           ? decisionActiveClasses(decision)
@@ -443,12 +645,12 @@ export function GraphQaReviewView({
                   )
                 })}
               </div>
-              {selectedItem.reviewItemType === 'line_number' && selectedDraft.decision === 'set_line_number' ? (
-                <div className="mt-2 rounded-lg border border-purple-200 bg-purple-500/5 px-3 py-2 text-xs text-purple-700">
-                  Line number &amp; edge pickers will be added in the next phase. Save will record this decision.
-                </div>
-              ) : null}
             </div>
+
+            {/* ── set_line_number sub-controls ──────────────────────────── */}
+            {selectedDraft.decision === 'set_line_number' ? (
+              <LineNumberControls item={selectedItem} draft={selectedDraft} />
+            ) : null}
 
             {/* ── note field ────────────────────────────────────────────── */}
             <label className="mt-4 block">
@@ -470,22 +672,23 @@ export function GraphQaReviewView({
         <div className="mt-6">
           <div className="flex items-center justify-between">
             <div className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">All Items</div>
-            <div className="text-xs text-[var(--text-secondary)]">
-              {counts.decided} / {counts.total} decided
-            </div>
+            <div className="text-xs text-[var(--text-secondary)]">{counts.decided} / {counts.total} decided</div>
           </div>
           <div className="mt-2 space-y-1">
             {items.map((item) => {
               const draft = drafts[item.id]
+              const hasError = saveAttempted && validationErrors.has(item.id)
               return (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => setSelectedItemId(item.id)}
                   className={`w-full rounded-lg border px-3 py-2 text-left text-xs transition ${
-                    item.id === selectedItemId
-                      ? 'border-[var(--accent)] bg-[var(--accent)]/10'
-                      : 'border-[var(--border-muted)] bg-[var(--bg-primary)] hover:border-[var(--accent)]/40'
+                    hasError
+                      ? 'border-red-400 bg-red-50'
+                      : item.id === selectedItemId
+                        ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                        : 'border-[var(--border-muted)] bg-[var(--bg-primary)] hover:border-[var(--accent)]/40'
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -493,7 +696,9 @@ export function GraphQaReviewView({
                       {item.severity.toUpperCase().slice(0, 3)}
                     </span>
                     <span className="truncate font-semibold text-[var(--text-primary)]">{formatCategory(item.category)}</span>
-                    {draft?.decision ? (
+                    {hasError ? (
+                      <span className="ml-auto shrink-0 text-[10px] font-bold text-red-600">⚠</span>
+                    ) : draft?.decision ? (
                       <span className={`ml-auto shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-bold ${decisionActiveClasses(draft.decision)}`}>
                         {decisionShortLabel(draft.decision)}
                       </span>
@@ -507,7 +712,7 @@ export function GraphQaReviewView({
         </div>
 
         {/* ── auto-accept hint ──────────────────────────────────────────── */}
-        {counts.undecided > 0 ? (
+        {counts.undecided > 0 && !hasErrors ? (
           <div className="mt-4 rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] px-3 py-2 text-xs text-[var(--text-secondary)]">
             {counts.undecided} item{counts.undecided !== 1 ? 's' : ''} without a decision will be auto-accepted by Stage 9.
           </div>
@@ -540,8 +745,13 @@ export function GraphQaReviewView({
             <span className="text-xs text-[var(--text-secondary)]">{counts.total} item{counts.total !== 1 ? 's' : ''}</span>
             <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-700">{counts.decided} decided</span>
             {counts.undecided > 0 ? (
-              <span className="rounded-full bg-[var(--bg-primary)] border border-[var(--border-muted)] px-2 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+              <span className="rounded-full border border-[var(--border-muted)] bg-[var(--bg-primary)] px-2 py-1 text-xs font-semibold text-[var(--text-secondary)]">
                 {counts.undecided} undecided
+              </span>
+            ) : null}
+            {hasErrors ? (
+              <span className="rounded-full bg-red-500/10 px-2 py-1 text-xs font-semibold text-red-700">
+                {validationErrors.size} invalid
               </span>
             ) : null}
             <span className="ml-auto flex gap-2">
