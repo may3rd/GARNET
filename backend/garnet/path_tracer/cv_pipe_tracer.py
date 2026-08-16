@@ -245,6 +245,7 @@ class CVPipeTracer:
         straight_min_step: int = 10,
         turn_min_step: int = 3,
         lookahead: int = 30,
+        raycast_max_snap_shift_px: int = 4,
     ):
         self.mask = pipe_mask
         self.image = image
@@ -254,12 +255,20 @@ class CVPipeTracer:
         self.straight_min_step = straight_min_step
         self.turn_min_step = turn_min_step
         self.lookahead = lookahead
+        self.raycast_max_snap_shift_px = raycast_max_snap_shift_px
 
         # Terminal candidates
         self.page_connections = page_connections or []
         self.instrument_tags = instrument_tags or []
         self.equipment_objects = equipment_objects or []
         self.junction_markers = junction_markers or []
+
+        # Spatial bbox indices for terminal/inline lookups (avoid O(objects)
+        # scans on every walker step for 30k x 20k P&IDs).
+        self._idx_page_conns = self._build_bbox_index(self.page_connections)
+        self._idx_equipment = self._build_bbox_index(self.equipment_objects)
+        self._idx_instruments = self._build_bbox_index(self.instrument_tags)
+        self._idx_inline: dict[tuple[int, int], list[dict]] = {}
 
         # Visited mask (shared across traces to avoid re-walking)
         self.visited = visited_mask if visited_mask is not None else np.zeros_like(pipe_mask)
@@ -399,6 +408,47 @@ class CVPipeTracer:
             o for o in objects
             if o.get("class_name", "") in inline_classes
         ]
+        self._idx_inline = self._build_bbox_index(self._inline_symbols)
+
+    # ------------------------------------------------------------------
+    # Spatial bbox index for fast terminal / inline lookups.
+    # ------------------------------------------------------------------
+    def _build_bbox_index(self, objects, cell: int = 64) -> dict:
+        """Index objects by the integer grid cells their bbox occupies.
+
+        A bbox is stored in every cell it touches so a point query for the
+        surrounding cell range returns a superset of the objects that could
+        contain it. Callers must still apply the exact bbox/margin test, which
+        keeps results identical to the previous linear scans.
+        """
+        index: dict = {}
+        for obj in objects:
+            bbox = obj.get("bbox")
+            if not isinstance(bbox, dict):
+                continue
+            x_min = max(0, int(bbox.get("x_min", 0)))
+            y_min = max(0, int(bbox.get("y_min", 0)))
+            x_max = max(x_min, int(bbox.get("x_max", x_min)))
+            y_max = max(y_min, int(bbox.get("y_max", y_min)))
+            for cx in range(x_min // cell, x_max // cell + 1):
+                for cy in range(y_min // cell, y_max // cell + 1):
+                    index.setdefault((cx, cy), []).append(obj)
+        return index
+
+    def _nearby_ids(self, index, x: int, y: int, radius: int, cell: int = 64) -> set:
+        """Object ids (id(obj)) whose bbox could be within ``radius`` of (x, y).
+
+        A strict superset of the true hits; pair with the exact per-object
+        bbox/margin test to reproduce the previous linear-scan behaviour.
+        """
+        if not index:
+            return set()
+        found: set = set()
+        for cx in range((x - radius) // cell, (x + radius) // cell + 1):
+            for cy in range((y - radius) // cell, (y + radius) // cell + 1):
+                for obj in index.get((cx, cy), ()):
+                    found.add(id(obj))
+        return found
 
     def _terminal_bbox_by_type(self, terminal_type: str, terminal_obj_id: Optional[str]) -> Optional[dict[str, int]]:
         if terminal_type == TerminalType.PAGE_CONNECTION.value:
@@ -420,7 +470,10 @@ class CVPipeTracer:
 
     def _is_inline_target(self, x: int, y: int) -> bool:
         """True if point is inside/near an inline symbol bbox."""
+        nearby = self._nearby_ids(self._idx_inline, x, y, 2)
         for sym in self._inline_symbols:
+            if id(sym) not in nearby:
+                continue
             bbox = sym.get("bbox")
             if bbox and _check_bbox_hit(x, y, bbox, margin=2):
                 return True
@@ -564,6 +617,10 @@ class CVPipeTracer:
         max_snap_shift_px: Optional[int] = None,
     ) -> Optional[tuple[int, int]]:
         dx, dy = DIRECTION_DELTA[direction]
+        # Constrain lateral snap so a ray-cast gap jump cannot land on a
+        # neighbouring parallel pipe. Callers may still pass an explicit value.
+        if max_snap_shift_px is None:
+            max_snap_shift_px = self.raycast_max_snap_shift_px
         required_run_px = target_run_px if target_run_px is not None else self.turn_min_step
         for ray_dist in range(ray_start, ray_max, ray_step):
             rx = x + ray_dist * dx
@@ -1489,17 +1546,23 @@ class CVPipeTracer:
         # into a bbox but the directional scan would miss it.
 
         # Page connections (skip source)
+        nearby_pc = self._nearby_ids(self._idx_page_conns, x, y, current_page_margin)
         for pc in self.page_connections:
             pc_id = pc.get("id", "")
             if pc_id == source_obj_id:
+                continue
+            if id(pc) not in nearby_pc:
                 continue
             if _check_bbox_hit(x, y, pc["bbox"], margin=current_page_margin):
                 return (TerminalType.PAGE_CONNECTION.value, pc_id)
 
         # Exact equipment hit wins over nearby labels.
+        nearby_eq = self._nearby_ids(self._idx_equipment, x, y, 0)
         for eq in self.equipment_objects:
             eq_id = eq.get("id", "")
             if eq_id == source_obj_id:
+                continue
+            if id(eq) not in nearby_eq:
                 continue
             eq_bbox = eq["bbox"]
             if _is_inside_bbox_exact(x, y, eq_bbox):
@@ -1507,9 +1570,12 @@ class CVPipeTracer:
 
         # Instrument tags can sit just off the pipe, but dense P&IDs need
         # small margins so nearby labels do not steal the current trace.
+        nearby_tags = self._nearby_ids(self._idx_instruments, x, y, current_dcs_margin)
         for tag in self.instrument_tags:
             tag_id = tag.get("id", "")
             if tag_id == source_obj_id:
+                continue
+            if id(tag) not in nearby_tags:
                 continue
             margin = current_dcs_margin if tag.get("class_name") == "instrument dcs" else current_tag_margin
             if _check_bbox_hit(x, y, tag["bbox"], margin=margin):
@@ -1517,9 +1583,12 @@ class CVPipeTracer:
 
         # Expanded equipment hit catches pipe entering large equipment bboxes
         # without letting nearby objects interfere with dense look-ahead.
+        nearby_eq_exp = self._nearby_ids(self._idx_equipment, x, y, current_equipment_margin)
         for eq in self.equipment_objects:
             eq_id = eq.get("id", "")
             if eq_id == source_obj_id:
+                continue
+            if id(eq) not in nearby_eq_exp:
                 continue
             eq_bbox = eq["bbox"]
             if (eq_bbox["x_min"] - current_equipment_margin <= x <= eq_bbox["x_max"] + current_equipment_margin and
@@ -1532,17 +1601,23 @@ class CVPipeTracer:
             ty = y + offset * dy
 
             # Check page connections (skip the source)
+            nearby_ahead_pc = self._nearby_ids(self._idx_page_conns, tx, ty, ahead_page_margin)
             for pc in self.page_connections:
                 pc_id = pc.get("id", "")
                 if pc_id == source_obj_id:
+                    continue
+                if id(pc) not in nearby_ahead_pc:
                     continue
                 if _check_bbox_hit(tx, ty, pc["bbox"], margin=ahead_page_margin):
                     return (TerminalType.PAGE_CONNECTION.value, pc_id)
 
             # Check equipment with only a small bbox expansion.
+            nearby_ahead_eq = self._nearby_ids(self._idx_equipment, tx, ty, ahead_equipment_margin)
             for eq in self.equipment_objects:
                 eq_id = eq.get("id", "")
                 if eq_id == source_obj_id:
+                    continue
+                if id(eq) not in nearby_ahead_eq:
                     continue
                 eq_bbox = eq["bbox"]
                 if (eq_bbox["x_min"] - ahead_equipment_margin <= tx <= eq_bbox["x_max"] + ahead_equipment_margin and
@@ -1550,9 +1625,12 @@ class CVPipeTracer:
                     return (TerminalType.EQUIPMENT.value, eq_id)
 
             # Check instrument tags (skip the source)
+            nearby_ahead_tags = self._nearby_ids(self._idx_instruments, tx, ty, ahead_tag_margin)
             for tag in self.instrument_tags:
                 tag_id = tag.get("id", "")
                 if tag_id == source_obj_id:
+                    continue
+                if id(tag) not in nearby_ahead_tags:
                     continue
                 if _check_bbox_hit(tx, ty, tag["bbox"], margin=ahead_tag_margin):
                     return (TerminalType.INSTRUMENT_TAG.value, tag_id)
@@ -1566,7 +1644,10 @@ class CVPipeTracer:
         so the tracer can jump past the furthest extent.
         """
         hits = []
+        nearby = self._nearby_ids(self._idx_inline, x, y, 2)
         for sym in self._inline_symbols:
+            if id(sym) not in nearby:
+                continue
             bbox = sym["bbox"]
             if _check_bbox_hit(x, y, bbox, margin=2):
                 hits.append(sym)
@@ -1574,7 +1655,6 @@ class CVPipeTracer:
         if len(hits) <= 1:
             return hits
 
-        # Merge overlapping bboxes into groups
         def _overlap(a: dict, b: dict) -> bool:
             ab, bb = a["bbox"], b["bbox"]
             return not (
@@ -1597,7 +1677,6 @@ class CVPipeTracer:
                     used.add(j)
             groups.append(group)
 
-        # Return the group containing our hit — or all hits
         for g in groups:
             for h in g:
                 if _check_bbox_hit(x, y, h["bbox"], margin=2):

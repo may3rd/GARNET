@@ -221,6 +221,18 @@ class PipelineConfig:
     polyline_simplify_epsilon: float = 2.0
     arrow_proximity_px: float = 40.0
     inline_split_confidence_threshold: float = 0.5
+
+    # --- Stage 5b CV pipe-tracing tuning ---
+    trace_max_steps: int = 5000
+    trace_min_step: int = 5
+    trace_straight_min_step: int = 10
+    trace_turn_min_step: int = 3
+    trace_lookahead_px: int = 30
+    trace_raycast_max_snap_shift_px: int = 4
+    trace_branch_min_run_px: int = 25
+    trace_branch_candidate_sample_step_px: int = 5
+    trace_branch_cluster_radius_px: int = 8
+    trace_branch_max_iterations: int = 5
     equipment_attachment_classes: tuple[str, ...] = (
         "pump",
         "heat exchanger",

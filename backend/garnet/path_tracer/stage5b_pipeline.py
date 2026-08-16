@@ -138,6 +138,38 @@ class Stage5bPipelineMixin:
                 )
         return snapped
 
+    def _cfg_attr(self, name: str, default: Any) -> Any:
+        """Read a PipelineConfig value, defaulting when cfg is absent.
+
+        Production always sets ``self.cfg`` in ``PIDPipeline.__init__``, but
+        focused unit tests build the mixin via ``__new__`` without invoking the
+        constructor. Falling back to the baseline value keeps those green.
+        """
+        cfg = getattr(self, "cfg", None)
+        if cfg is None:
+            return default
+        return getattr(cfg, name, default)
+
+    def _trace_cv_params(self) -> dict[str, Any]:
+        """CVPipeTracer tuning knobs drawn from PipelineConfig.
+
+        Kept as a separate dict so every CVPipeTracer construction site can
+        apply the same configured values without duplicating them. When ``cfg``
+        is unavailable, returns ``{}`` so the tracer falls back to its built-in
+        defaults (which match the PipelineConfig baseline).
+        """
+        cfg = getattr(self, "cfg", None)
+        if cfg is None:
+            return {}
+        return {
+            "max_steps": cfg.trace_max_steps,
+            "min_step": cfg.trace_min_step,
+            "straight_min_step": cfg.trace_straight_min_step,
+            "turn_min_step": cfg.trace_turn_min_step,
+            "lookahead": cfg.trace_lookahead_px,
+            "raycast_max_snap_shift_px": cfg.trace_raycast_max_snap_shift_px,
+        }
+
     def _point_near_segment(
         self,
         x: int,
@@ -563,7 +595,10 @@ class Stage5bPipelineMixin:
                     "node_obj_id": node.get("id", ""),
                 })
 
-        candidates = self._cluster_branch_candidates(raw_candidates)
+        candidates = self._cluster_branch_candidates(
+            raw_candidates,
+            radius=self._cfg_attr("trace_branch_cluster_radius_px", 8),
+        )
         for candidate in candidates:
             result = all_results.get(str(candidate.get("source_trace_id", "")), {})
             segments = result.get("segments", [])
@@ -1213,6 +1248,7 @@ class Stage5bPipelineMixin:
                 equipment_objects=equipment,
                 junction_markers=junction_markers,
                 visited_mask=visited,
+                **self._trace_cv_params(),
             )
             tracer.set_inline_symbols(inline_symbols)
             result = tracer.trace(
@@ -1288,6 +1324,7 @@ class Stage5bPipelineMixin:
                             equipment_objects=equipment,
                             junction_markers=junction_markers,
                             visited_mask=visited,
+                            **self._trace_cv_params(),
                         )
                         recovery_tracer.set_inline_symbols(inline_symbols)
                         extra_result = recovery_tracer.trace(
@@ -1517,6 +1554,8 @@ class Stage5bPipelineMixin:
                 inline_symbols=inline_symbols,
                 node_symbols=node_symbols,
                 equipment_objects=equipment,
+                sample_step=self._cfg_attr("trace_branch_candidate_sample_step_px", 5),
+                min_branch_run=self._cfg_attr("trace_branch_min_run_px", 25),
             )
             new_candidates: list[dict[str, Any]] = []
             for detected in detected_candidates:
@@ -2362,6 +2401,7 @@ class Stage5bPipelineMixin:
                     equipment_objects=equipment,
                     junction_markers=node_symbols,
                     visited_mask=visited,
+                    **self._trace_cv_params(),
                 )
                 tracer.set_inline_symbols(inline_symbols)
 
@@ -2427,6 +2467,7 @@ class Stage5bPipelineMixin:
             inline_symbols=inline_symbols,
             node_symbols=node_symbols,
             visited=visited,
+            max_iterations=self._cfg_attr("trace_branch_max_iterations", 5),
             candidate_overlay_base=image if self.cfg.debug_artifacts else None,
         )
         self._align_stage5b_branch_node_terminals(branch_results, node_symbols)
