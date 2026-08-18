@@ -14,10 +14,12 @@ CATEGORY_TYPE = {
     "duplicate_physical_path": "topology",
     "dead_end_trace": "trace_terminal",
     "duplicate_trace_collapsed": "info",
+    "abandoned_trace": "trace_terminal",
 }
 
 CATEGORY_PRIORITY = {
     "tee_degree_mismatch": 10,
+    "abandoned_trace": 9,
     "line_number_conflict": 9,
     "dead_end_not_expected": 8,
     "duplicate_physical_path": 8,

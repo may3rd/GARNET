@@ -395,6 +395,7 @@ PIPELINE_STAGE_ORDER: list[tuple[int, str]] = [
 ]
 PIPELINE_STAGE_INDEX = {name: idx for idx, (_num, name) in enumerate(PIPELINE_STAGE_ORDER)}
 PIPELINE_STAGE_NUMBERS = {name: num for num, name in PIPELINE_STAGE_ORDER}
+PIPELINE_LAST_STAGE = max(num for num, _name in PIPELINE_STAGE_ORDER)
 
 ARTIFACT_INVALIDATION_START_STAGE: dict[str, str] = {
     # Stage 3 is a HITL artifact. Stage 5b is the first stage that consumes
@@ -1668,7 +1669,7 @@ async def resume_pipeline_job_from_stage(job_id: str, stage: str, stop_after: in
             raise HTTPException(status_code=404, detail="Pipeline job not found")
         job_dir = job["job_dir"]
         image_path = _resolve_pipeline_job_image_path(job_dir)
-        target_stop_after = stop_after if stop_after is not None else max(int(job.get("stop_after") or stage_num), stage_num)
+        target_stop_after = stop_after if stop_after is not None else PIPELINE_LAST_STAGE
         ocr_route = str(job.get("ocr_route") or "ocrmac")
         gemini_threshold = float(job.get("gemini_postprocess_match_threshold") or 0.1)
         weight_file = str(job.get("weight_file") or resolve_pipeline_weight_file(""))

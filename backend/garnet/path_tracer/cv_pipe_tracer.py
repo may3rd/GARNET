@@ -965,6 +965,81 @@ class CVPipeTracer:
                     return True
         return False
 
+    def _axis_continues_past(
+        self,
+        x: int,
+        y: int,
+        direction: str,
+        *,
+        origin: Optional[tuple[int, int]] = None,
+        rewind_px: int = 12,
+        run_px: Optional[int] = None,
+    ) -> bool:
+        """True if heading still has pipe beyond this pixel, scored from behind it.
+
+        At a crossing the walker can sit on the orthogonal stroke so local
+        forward LOS is dead. Rewind along the inbound axis (or use the
+        current-leg origin) and test the far side on that axis.
+        """
+        needed = max(self.straight_min_step, 10) if run_px is None else run_px
+        dx, dy = DIRECTION_DELTA[direction]
+        if origin is not None:
+            ox, oy = int(origin[0]), int(origin[1])
+        else:
+            ox, oy = x, y
+            for step in range(1, rewind_px + 1):
+                px = x - dx * step
+                py = y - dy * step
+                if not _is_pipe_band(self.mask, px, py, direction, band_width=1):
+                    break
+                ox, oy = px, py
+        if direction in ("LEFT", "RIGHT"):
+            axis_y = oy
+            for i in range(1, needed + 1):
+                if not _is_pipe_band(self.mask, x + dx * i, axis_y, direction, band_width=1):
+                    return False
+            return True
+        axis_x = ox
+        for i in range(1, needed + 1):
+            if not _is_pipe_band(self.mask, axis_x, y + dy * i, direction, band_width=1):
+                return False
+        return True
+
+    def _resume_along_axis(
+        self,
+        result: TraceResult,
+        x: int,
+        y: int,
+        direction: str,
+        origin: tuple[int, int],
+    ) -> tuple[int, int]:
+        """Snap back onto the inbound axis and step past the junction."""
+        if direction in ("LEFT", "RIGHT"):
+            y = int(origin[1])
+        else:
+            x = int(origin[0])
+        x, y = self._snap_to_centerline(x, y, direction)
+        dx, dy = DIRECTION_DELTA[direction]
+        resumed = (x + dx * self.min_step, y + dy * self.min_step)
+        self._append_segment(result, x, y, resumed[0], resumed[1], direction)
+        return resumed
+
+    def _continue_if_axis_open(
+        self,
+        result: TraceResult,
+        seg_start_x: int,
+        seg_start_y: int,
+        x: int,
+        y: int,
+        direction: str,
+    ) -> Optional[tuple[int, int]]:
+        """If this is a crossing, resume along heading. None means a real tee."""
+        origin = (seg_start_x, seg_start_y)
+        if not self._axis_continues_past(x, y, direction, origin=origin):
+            return None
+        self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+        return self._resume_along_axis(result, x, y, direction, origin)
+
     def trace(self, start_x: int, start_y: int, start_dir: str,
               source_obj_id: str = "") -> TraceResult:
         """Trace from port to terminal. source_obj_id is excluded from terminal checks."""
@@ -1242,6 +1317,13 @@ class CVPipeTracer:
                     seg_start_x, seg_start_y = x, y
                     continue
                 jx, jy = side_junction
+                resumed = self._continue_if_axis_open(
+                    result, seg_start_x, seg_start_y, jx, jy, direction
+                )
+                if resumed is not None:
+                    x, y = resumed
+                    seg_start_x, seg_start_y = x, y
+                    continue
                 self._append_segment(result, seg_start_x, seg_start_y, jx, jy, direction)
                 result.terminal_type = TerminalType.TEE_JUNCTION.value
                 result.terminal_x, result.terminal_y = jx, jy
@@ -1263,6 +1345,13 @@ class CVPipeTracer:
                     if raycast is not None:
                         self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
                         x, y = raycast
+                        seg_start_x, seg_start_y = x, y
+                        continue
+                    resumed = self._continue_if_axis_open(
+                        result, seg_start_x, seg_start_y, x, y, direction
+                    )
+                    if resumed is not None:
+                        x, y = resumed
                         seg_start_x, seg_start_y = x, y
                         continue
                     self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
@@ -1315,6 +1404,13 @@ class CVPipeTracer:
                             TerminalType.PAGE_CONNECTION.value,
                         )
                     ):
+                        resumed = self._continue_if_axis_open(
+                            result, seg_start_x, seg_start_y, x, y, direction
+                        )
+                        if resumed is not None:
+                            x, y = resumed
+                            seg_start_x, seg_start_y = x, y
+                            continue
                         self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
                         result.terminal_type = TerminalType.TEE_JUNCTION.value
                         result.terminal_x, result.terminal_y = x, y
@@ -1328,6 +1424,13 @@ class CVPipeTracer:
                         seg_start_x, seg_start_y = x, y
                         continue
                     if self._has_bidirectional_turn_leg(x, y, exact_turn_dir):
+                        resumed = self._continue_if_axis_open(
+                            result, seg_start_x, seg_start_y, x, y, direction
+                        )
+                        if resumed is not None:
+                            x, y = resumed
+                            seg_start_x, seg_start_y = x, y
+                            continue
                         self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
                         result.terminal_type = TerminalType.TEE_JUNCTION.value
                         result.terminal_x, result.terminal_y = x, y
@@ -1384,6 +1487,13 @@ class CVPipeTracer:
                 ):
                     tx, ty, turn_dir = turn
                     if self._has_bidirectional_turn_leg(tx, ty, turn_dir):
+                        resumed = self._continue_if_axis_open(
+                            result, seg_start_x, seg_start_y, tx, ty, direction
+                        )
+                        if resumed is not None:
+                            x, y = resumed
+                            seg_start_x, seg_start_y = x, y
+                            continue
                         self._append_segment(result, seg_start_x, seg_start_y, tx, ty, direction)
                         result.terminal_type = TerminalType.TEE_JUNCTION.value
                         result.terminal_x, result.terminal_y = tx, ty
@@ -1440,6 +1550,14 @@ class CVPipeTracer:
                 if (left_raycast is not None) != (right_raycast is not None) and turn_target is not None:
                     self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
                     if self._has_bidirectional_turn_leg(x, y, turn_dir):
+                        if self._axis_continues_past(
+                            x, y, direction, origin=(seg_start_x, seg_start_y)
+                        ):
+                            x, y = self._resume_along_axis(
+                                result, x, y, direction, (seg_start_x, seg_start_y)
+                            )
+                            seg_start_x, seg_start_y = x, y
+                            continue
                         result.terminal_type = TerminalType.TEE_JUNCTION.value
                         result.terminal_x, result.terminal_y = x, y
                         break
@@ -1471,6 +1589,10 @@ class CVPipeTracer:
                         result.turns[-1][0], result.turns[-1][1], x, y, direction
                     )
                     continue
+                if self._axis_continues_past(x, y, direction, origin=(seg_start_x, seg_start_y)):
+                    x, y = self._resume_along_axis(result, x, y, direction, (seg_start_x, seg_start_y))
+                    seg_start_x, seg_start_y = x, y
+                    continue
                 result.terminal_type = TerminalType.TEE_JUNCTION.value
                 result.terminal_x, result.terminal_y = x, y
                 break
@@ -1494,10 +1616,26 @@ class CVPipeTracer:
                         result.terminal_type = TerminalType.DEAD_END.value
                         result.terminal_x, result.terminal_y = tx, ty
                         break
+                    if self._axis_continues_past(
+                        tx, ty, direction, origin=(seg_start_x, seg_start_y)
+                    ):
+                        x, y = self._resume_along_axis(
+                            result, tx, ty, direction, (seg_start_x, seg_start_y)
+                        )
+                        seg_start_x, seg_start_y = x, y
+                        continue
                     result.terminal_type = TerminalType.TEE_JUNCTION.value
                     result.terminal_x, result.terminal_y = tx, ty
                     break
                 if self._has_bidirectional_turn_leg(tx, ty, turn_dir):
+                    if self._axis_continues_past(
+                        tx, ty, direction, origin=(seg_start_x, seg_start_y)
+                    ):
+                        x, y = self._resume_along_axis(
+                            result, tx, ty, direction, (seg_start_x, seg_start_y)
+                        )
+                        seg_start_x, seg_start_y = x, y
+                        continue
                     result.terminal_type = TerminalType.TEE_JUNCTION.value
                     result.terminal_x, result.terminal_y = tx, ty
                     break

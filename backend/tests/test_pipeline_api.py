@@ -10,10 +10,11 @@ from fastapi.testclient import TestClient
 import numpy as np
 
 try:
-    from api import app
+    from api import PIPELINE_LAST_STAGE, app
 except ModuleNotFoundError as exc:
     if exc.name == "pdf2image":
         app = None
+        PIPELINE_LAST_STAGE = None
     else:
         raise
 
@@ -155,6 +156,53 @@ class PipelineApiTests(unittest.TestCase):
                 "weight_file": "yolo_weights/model.pt",
             }}, clear=False), patch("api.PIDPipeline", FakeResumePipeline):
                 response = client.post(f"/api/pipeline/jobs/{job_id}/resume-from/stage5b_pipe_trace")
+                self.assertEqual(response.status_code, 200)
+                deadline = time.time() + 5
+                while time.time() < deadline and not run_calls:
+                    time.sleep(0.05)
+
+            self.assertEqual(run_calls, [(PIPELINE_LAST_STAGE, True)])
+
+    def test_pipeline_resume_from_stage_honors_explicit_stop_after(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "input.png"
+            image_path.write_bytes(b"placeholder")
+            manifest = {
+                "image_path": str(image_path),
+                "stages": [
+                    {"num": 1, "name": "stage1_input_normalization", "status": "completed"},
+                    {"num": 2, "name": "stage2_ocr_discovery", "status": "completed"},
+                    {"num": 5, "name": "stage5_pipe_mask", "status": "completed"},
+                    {"num": 5, "name": "stage5b_pipe_trace", "status": "stale"},
+                ],
+            }
+            with open(Path(tmp) / "stage_manifest.json", "w", encoding="utf-8") as f:
+                json.dump(manifest, f)
+
+            run_calls: list[tuple[int, bool]] = []
+
+            class FakeResumePipeline:
+                def __init__(self, image_path: str, output_dir: str, stage_callback=None, cfg=None) -> None:
+                    self.stage_manifest = {"stages": [{"name": "stage5b_pipe_trace"}]}
+
+                def run(self, stop_after: int, resume: bool = False) -> None:
+                    run_calls.append((stop_after, resume))
+
+            job_id = "stage_state_job_explicit_stop_after"
+            with patch.dict("api.PIPELINE_JOBS", {job_id: {
+                "job_id": job_id,
+                "status": "completed",
+                "current_stage": "stage5b_pipe_trace",
+                "error": None,
+                "job_dir": tmp,
+                "created_at": time.time(),
+                "stop_after": 5,
+                "ocr_route": "ocrmac",
+                "gemini_postprocess_match_threshold": 0.1,
+                "weight_file": "yolo_weights/model.pt",
+            }}, clear=False), patch("api.PIDPipeline", FakeResumePipeline):
+                response = client.post(f"/api/pipeline/jobs/{job_id}/resume-from/stage5b_pipe_trace?stop_after=5")
                 self.assertEqual(response.status_code, 200)
                 deadline = time.time() + 5
                 while time.time() < deadline and not run_calls:
