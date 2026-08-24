@@ -1501,7 +1501,6 @@ class Stage5bPipelineMixin:
                 "hits": hits,
                 "trace_length_px": trace_length,
             }
-            self._extend_stage5b_result_to_terminal(branch_results[branch_id])
             branch_results[branch_id]["turns"] = self._rebuild_stage5b_turns_from_segments(
                 branch_results[branch_id].get("segments") or []
             )
@@ -1756,40 +1755,6 @@ class Stage5bPipelineMixin:
             )
             last["length_px"] = new_len
             result["trace_length_px"] = int(result.get("trace_length_px", 0)) + new_len - old_len
-
-    def _extend_stage5b_result_to_terminal(self, result: dict[str, Any]) -> None:
-        segments = result.get("segments") or []
-        if not segments:
-            return
-        terminal_x = result.get("terminal_x")
-        terminal_y = result.get("terminal_y")
-        if terminal_x is None or terminal_y is None:
-            return
-        last = segments[-1]
-        same_axis = (
-            last["direction"] in ("LEFT", "RIGHT")
-            and abs(int(last["y2"]) - int(terminal_y)) <= 3
-        ) or (
-            last["direction"] in ("UP", "DOWN")
-            and abs(int(last["x2"]) - int(terminal_x)) <= 3
-        )
-        if not same_axis:
-            return
-        if int(last["x2"]) == int(terminal_x) and int(last["y2"]) == int(terminal_y):
-            return
-        old_len = int(last.get("length_px", 0))
-        if last["direction"] in ("LEFT", "RIGHT"):
-            last["x2"] = int(terminal_x)
-            last["y2"] = int(last["y1"])
-        else:
-            last["x2"] = int(last["x1"])
-            last["y2"] = int(terminal_y)
-        new_len = max(
-            abs(int(last["x2"]) - int(last["x1"])),
-            abs(int(last["y2"]) - int(last["y1"])),
-        )
-        last["length_px"] = new_len
-        result["trace_length_px"] = int(result.get("trace_length_px", 0)) + new_len - old_len
 
     def _rebuild_stage5b_turns_from_segments(
         self,
@@ -2474,7 +2439,6 @@ class Stage5bPipelineMixin:
                     "trace_length_px": result.trace_length_px,
                     "status": result.status,
                 }
-                self._extend_stage5b_result_to_terminal(all_results[trace_id])
                 self._align_stage5b_result_to_near_node(all_results[trace_id], node_symbols)
                 logger.info(
                     "  %s -> %s (%d px, %d segs)",

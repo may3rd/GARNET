@@ -276,14 +276,12 @@ class TraceGraphBuilderNormalizationTests(unittest.TestCase):
 
 
 class TraceGraphExtendedTerminalGeometryTests(unittest.TestCase):
-    """Document the graph-level consequence of `_extend_stage5b_result_to_terminal`.
+    """Assert the Option B invariant: pipe geometry stays honest, anchor separate.
 
-    A trace whose last segment was extended to land exactly on the terminal
-    point produces a graph edge polyline whose endpoint is that extended point.
-    When the terminal is the center of an equipment/page-connection bbox, that
-    endpoint can lie beyond the pipe-mask extent. This test locks in the current
-    behavior so the geometry-correctness concern (Rec 4) is concrete and testable;
-    a corrective change must update this assertion intentionally.
+    The pipe polyline is built from the traced segments and must stay within the
+    pipe-mask extent, while the terminal node position is a separate anchor
+    (e.g. the equipment bbox center). This guards against the Rec 4 distortion
+    where the last segment was extended beyond the mask to reach the terminal.
     """
 
     def _build_graph(self, terminal_xy, polyline_end):
@@ -311,27 +309,26 @@ class TraceGraphExtendedTerminalGeometryTests(unittest.TestCase):
         }
         return build_trace_graph_from_stage11(payload, image_id="synthetic.png")["graph_payload"]
 
-    def test_extended_endpoint_lands_beyond_pipe_mask_extent(self) -> None:
+    def test_polyline_stays_within_pipe_mask_extent(self) -> None:
         # Pipe mask: horizontal line y=50, x=10..90. Equipment bbox x=90..110
-        # (center x=100). The tracer retreats to the bbox edge (x=90), then
-        # _extend_stage5b_result_to_terminal snaps the last segment to (100,50),
-        # which is 10px beyond the mask extent.
-        graph = self._build_graph(terminal_xy=[100, 50], polyline_end=(100, 50))
-        edge = graph["edges"][0]
-        polyline = edge["polyline"]
-        self.assertEqual(polyline[-1], {"x": 100.0, "y": 50.0})
-        # The endpoint is beyond the pipe-mask extent (x=90) — the distortion
-        # Rec 4 is concerned about.
-        self.assertGreater(polyline[-1]["x"], 90)
-
-    def test_unextended_endpoint_stays_within_pipe_mask_extent(self) -> None:
-        # When the last segment is NOT extended (endpoint already at the mask
-        # edge x=90), the polyline stays within the mask extent.
-        graph = self._build_graph(terminal_xy=[90, 50], polyline_end=(90, 50))
+        # (center x=100). The traced pipe ends at the mask edge (x=90); the
+        # polyline must not be extended into the equipment bbox.
+        graph = self._build_graph(terminal_xy=[100, 50], polyline_end=(90, 50))
         edge = graph["edges"][0]
         polyline = edge["polyline"]
         self.assertEqual(polyline[-1], {"x": 90.0, "y": 50.0})
         self.assertLessEqual(polyline[-1]["x"], 90)
+
+    def test_terminal_node_uses_separate_anchor(self) -> None:
+        # The terminal node position is the separate anchor (equipment bbox
+        # center x=100), distinct from the pipe polyline endpoint (x=90).
+        graph = self._build_graph(terminal_xy=[100, 50], polyline_end=(90, 50))
+        terminal_node = next(
+            node for node in graph["nodes"] if node["type"] == "equipment"
+        )
+        self.assertEqual(terminal_node["position"], {"x": 100.0, "y": 50.0})
+        edge = graph["edges"][0]
+        self.assertNotEqual(edge["polyline"][-1], terminal_node["position"])
 
 
 if __name__ == "__main__":
