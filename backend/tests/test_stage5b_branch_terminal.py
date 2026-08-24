@@ -61,6 +61,83 @@ class Stage5bBranchTerminalTests(unittest.TestCase):
         self.assertEqual(branch["trace_length_px"], 106)
 
 
+class Stage5bExtendResultToTerminalTests(unittest.TestCase):
+    """Lock in the current contract of `_extend_stage5b_result_to_terminal`.
+
+    The method rewrites the last segment endpoint to land exactly on the
+    terminal point when travel is along the same axis, and updates the segment
+    length and total trace length accordingly. These tests document that
+    contract so any later geometry-correctness change is intentional.
+    """
+
+    def setUp(self) -> None:
+        self.pipeline = PIDPipeline.__new__(PIDPipeline)
+
+    def test_extends_same_axis_horizontal_to_terminal(self) -> None:
+        result = {
+            "terminal_type": "equipment",
+            "terminal_x": 100,
+            "terminal_y": 50,
+            "trace_length_px": 80,
+            "segments": [
+                {"x1": 10, "y1": 50, "x2": 90, "y2": 50, "direction": "RIGHT", "length_px": 80}
+            ],
+        }
+        self.pipeline._extend_stage5b_result_to_terminal(result)
+        last = result["segments"][-1]
+        self.assertEqual((last["x2"], last["y2"]), (100, 50))
+        self.assertEqual(last["length_px"], 90)
+        self.assertEqual(result["trace_length_px"], 90)
+
+    def test_extends_same_axis_vertical_to_terminal(self) -> None:
+        result = {
+            "terminal_type": "instrument_tag",
+            "terminal_x": 50,
+            "terminal_y": 30,
+            "trace_length_px": 80,
+            "segments": [
+                {"x1": 50, "y1": 10, "x2": 50, "y2": 90, "direction": "DOWN", "length_px": 80}
+            ],
+        }
+        self.pipeline._extend_stage5b_result_to_terminal(result)
+        last = result["segments"][-1]
+        self.assertEqual((last["x2"], last["y2"]), (50, 30))
+        self.assertEqual(last["length_px"], 20)
+        self.assertEqual(result["trace_length_px"], 20)
+
+    def test_off_axis_terminal_is_noop(self) -> None:
+        result = {
+            "terminal_x": 100,
+            "terminal_y": 60,  # off the horizontal travel axis (>3 px)
+            "trace_length_px": 80,
+            "segments": [
+                {"x1": 10, "y1": 50, "x2": 90, "y2": 50, "direction": "RIGHT", "length_px": 80}
+            ],
+        }
+        self.pipeline._extend_stage5b_result_to_terminal(result)
+        last = result["segments"][-1]
+        self.assertEqual((last["x2"], last["y2"]), (90, 50))
+        self.assertEqual(last["length_px"], 80)
+        self.assertEqual(result["trace_length_px"], 80)
+
+    def test_already_at_terminal_is_noop(self) -> None:
+        result = {"terminal_x": 100, "terminal_y": 50, "trace_length_px": 90,
+                  "segments": [
+                      {"x1": 10, "y1": 50, "x2": 100, "y2": 50, "direction": "RIGHT", "length_px": 90}
+                  ]}
+        self.pipeline._extend_stage5b_result_to_terminal(result)
+        last = result["segments"][-1]
+        self.assertEqual((last["x2"], last["y2"]), (100, 50))
+        self.assertEqual(last["length_px"], 90)
+        self.assertEqual(result["trace_length_px"], 90)
+
+    def test_empty_segments_returns_without_error(self) -> None:
+        result = {"terminal_x": 100, "terminal_y": 50, "trace_length_px": 0, "segments": []}
+        self.pipeline._extend_stage5b_result_to_terminal(result)
+        self.assertEqual(result["segments"], [])
+        self.assertEqual(result["trace_length_px"], 0)
+
+
 class Stage5bEquipmentBboxLoaderTests(unittest.TestCase):
     def setUp(self) -> None:
         import tempfile
