@@ -168,6 +168,30 @@ class Stage5bPipelineMixin:
             "turn_min_step": cfg.trace_turn_min_step,
             "lookahead": cfg.trace_lookahead_px,
             "raycast_max_snap_shift_px": cfg.trace_raycast_max_snap_shift_px,
+            "centerline_radius_px": cfg.trace_centerline_radius_px,
+            "side_path_inline_probe_px": cfg.trace_side_path_inline_probe_px,
+            "raycast_start_px": cfg.trace_raycast_start_px,
+            "raycast_max_px": cfg.trace_raycast_max_px,
+            "raycast_step_px": cfg.trace_raycast_step_px,
+            "anchor_turn_max_gap_px": cfg.trace_anchor_turn_max_gap_px,
+            "turn_terminal_scan_px": cfg.trace_turn_terminal_scan_px,
+            "turn_terminal_scan_far_px": cfg.trace_turn_terminal_scan_far_px,
+            "axis_rewind_px": cfg.trace_axis_rewind_px,
+            "sheet_edge_margin_px": cfg.trace_sheet_edge_margin_px,
+            "warmup_steps": cfg.trace_warmup_steps,
+            "turn_gap_max_px": cfg.trace_turn_gap_max_px,
+            "branch_side_turn_probe_px": cfg.trace_branch_side_turn_probe_px,
+            "branch_side_turn_terminal_px": cfg.trace_branch_side_turn_terminal_px,
+            "turn_probe_px": cfg.trace_turn_probe_px,
+            "tee_search_px": cfg.trace_tee_search_px,
+            "terminal_current_margin_px": cfg.trace_terminal_current_margin_px,
+            "terminal_current_tag_margin_px": cfg.trace_terminal_current_tag_margin_px,
+            "terminal_current_dcs_margin_px": cfg.trace_terminal_current_dcs_margin_px,
+            "terminal_current_equipment_margin_px": cfg.trace_terminal_current_equipment_margin_px,
+            "terminal_ahead_margin_px": cfg.trace_terminal_ahead_margin_px,
+            "terminal_ahead_equipment_margin_px": cfg.trace_terminal_ahead_equipment_margin_px,
+            "inline_hit_margin_px": cfg.trace_inline_hit_margin_px,
+            "inline_exit_margin_px": cfg.trace_inline_exit_margin_px,
         }
 
     def _point_near_segment(
@@ -511,13 +535,15 @@ class Stage5bPipelineMixin:
 
                         status = "queued"
                         reason = "untraced_branch"
+                        point_tol = self._cfg_attr("trace_branch_point_tolerance_px", 10)
+                        turn_tol = self._cfg_attr("trace_branch_turn_tolerance_px", 8)
                         if self._point_inside_any_bbox(x, y, equipment_objects or [], margin=2):
                             status = "rejected_inside_equipment"
                             reason = "candidate_inside_equipment_bbox"
-                        elif any(abs(x - tx) <= 10 and abs(y - ty) <= 10 for tx, ty in tee_points):
+                        elif any(abs(x - tx) <= point_tol and abs(y - ty) <= point_tol for tx, ty in tee_points):
                             status = "done_existing_tee"
                             reason = "near_existing_tee_terminal"
-                        elif any(abs(x - tx) <= 8 and abs(y - ty) <= 8 for tx, ty in turn_points):
+                        elif any(abs(x - tx) <= turn_tol and abs(y - ty) <= turn_tol for tx, ty in turn_points):
                             status = "done_existing_turn"
                             reason = "near_existing_turn"
                         elif self._branch_already_traced(
@@ -543,7 +569,8 @@ class Stage5bPipelineMixin:
                 continue
             x = int(round((bbox["x_min"] + bbox["x_max"]) / 2))
             y = int(round((bbox["y_min"] + bbox["y_max"]) / 2))
-            if any(abs(x - px) <= 10 and abs(y - py) <= 10 for px, py in existing_points):
+            point_tol = self._cfg_attr("trace_branch_point_tolerance_px", 10)
+            if any(abs(x - px) <= point_tol and abs(y - py) <= point_tol for px, py in existing_points):
                 continue
             if self._point_inside_any_bbox(x, y, equipment_objects or [], margin=2):
                 continue

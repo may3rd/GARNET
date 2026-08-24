@@ -157,6 +157,42 @@ class PipelineConfigTraceKnobsTest(unittest.TestCase):
         self.assertEqual(cfg.trace_branch_cluster_radius_px, 8)
         self.assertEqual(cfg.trace_branch_max_iterations, 5)
 
+    def test_extended_trace_threshold_defaults(self):
+        from garnet.pid_extractor import PipelineConfig
+
+        cfg = PipelineConfig()
+        expected = {
+            "trace_centerline_radius_px": 8,
+            "trace_side_path_inline_probe_px": 60,
+            "trace_raycast_start_px": 20,
+            "trace_raycast_max_px": 50,
+            "trace_raycast_step_px": 2,
+            "trace_anchor_turn_max_gap_px": 60,
+            "trace_turn_terminal_scan_px": 70,
+            "trace_turn_terminal_scan_far_px": 160,
+            "trace_axis_rewind_px": 12,
+            "trace_sheet_edge_margin_px": 10,
+            "trace_warmup_steps": 20,
+            "trace_turn_gap_max_px": 60,
+            "trace_branch_side_turn_probe_px": 8,
+            "trace_branch_side_turn_terminal_px": 90,
+            "trace_turn_probe_px": 8,
+            "trace_tee_search_px": 8,
+            "trace_terminal_current_margin_px": 2,
+            "trace_terminal_current_tag_margin_px": 4,
+            "trace_terminal_current_dcs_margin_px": 6,
+            "trace_terminal_current_equipment_margin_px": 4,
+            "trace_terminal_ahead_margin_px": 2,
+            "trace_terminal_ahead_equipment_margin_px": 4,
+            "trace_inline_hit_margin_px": 2,
+            "trace_inline_exit_margin_px": 6,
+            "trace_branch_point_tolerance_px": 10,
+            "trace_branch_turn_tolerance_px": 8,
+        }
+        for name, value in expected.items():
+            with self.subTest(name=name):
+                self.assertEqual(getattr(cfg, name), value)
+
     def test_trace_cv_params_wiring(self):
         from garnet.pid_extractor import PipelineConfig
 
@@ -170,6 +206,29 @@ class PipelineConfigTraceKnobsTest(unittest.TestCase):
         tracer = CVPipeTracer(pipe_mask=mask, **params)
         self.assertEqual(tracer.min_step, 7)
         self.assertEqual(tracer.raycast_max_snap_shift_px, 6)
+
+    def test_extended_trace_cv_params_wiring(self):
+        from garnet.pid_extractor import PipelineConfig
+
+        cfg = PipelineConfig(
+            trace_centerline_radius_px=12,
+            trace_raycast_max_px=90,
+            trace_inline_exit_margin_px=9,
+            trace_terminal_ahead_equipment_margin_px=7,
+        )
+        mixin = _FakeMixin(cfg)
+        params = mixin._trace_cv_params()
+        self.assertEqual(params["centerline_radius_px"], 12)
+        self.assertEqual(params["raycast_max_px"], 90)
+        self.assertEqual(params["inline_exit_margin_px"], 9)
+        self.assertEqual(params["terminal_ahead_equipment_margin_px"], 7)
+
+        mask = np.zeros((64, 64), dtype=np.uint8)
+        tracer = CVPipeTracer(pipe_mask=mask, **params)
+        self.assertEqual(tracer.centerline_radius_px, 12)
+        self.assertEqual(tracer.raycast_max_px, 90)
+        self.assertEqual(tracer.inline_exit_margin_px, 9)
+        self.assertEqual(tracer.terminal_ahead_equipment_margin_px, 7)
 
 
 if __name__ == "__main__":

@@ -30,12 +30,13 @@ input is managed outside the automatic CLI flow.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import os
-import shutil
+import subprocess
 import time
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -64,7 +65,6 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger("pid")
 
 DEFAULT_OUT = Path("output")
-DEFAULT_OUT.mkdir(parents=True, exist_ok=True)
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 ROOT_DIR = BACKEND_DIR.parent
 STAGE_NUMBERING_NOTE = (
@@ -99,15 +99,47 @@ def load_pipeline_env() -> None:
     load_dotenv(BACKEND_DIR / ".env", override=False)
 
 
-load_pipeline_env()
-
-
 def normalize_for_save(img: np.ndarray) -> np.ndarray:
     if img.dtype == bool:
         return img.astype(np.uint8) * 255
     if img.dtype != np.uint8:
         return np.clip(img, 0, 255).astype(np.uint8)
     return img
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _git_revision() -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=ROOT_DIR,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return result.stdout.strip() or None
+
+
+def _signature_mismatches(saved: Any, current: Any, prefix: str = "") -> list[str]:
+    if isinstance(saved, dict) and isinstance(current, dict):
+        mismatches: list[str] = []
+        for key in sorted(set(saved) | set(current)):
+            field = f"{prefix}.{key}" if prefix else str(key)
+            if key not in saved or key not in current:
+                mismatches.append(field)
+            else:
+                mismatches.extend(_signature_mismatches(saved[key], current[key], field))
+        return mismatches
+    return [] if saved == current else [prefix]
 
 
 def _default_detection_weight_path() -> str:
@@ -192,8 +224,6 @@ class PipelineConfig:
     detection_postprocess_match_threshold: float = 0.1
     line_number_fusion_max_distance_px: float = 80.0
     instrument_tag_fusion_max_distance_px: float = 60.0
-    equipment_tag_fusion_max_distance_px: float = 60.0
-    equipment_tag_attachment_max_distance_px: float = 80.0
     debug_artifacts: bool = False
     pipe_mask_ocr_padding: int = 1
     pipe_mask_object_inset: int = 1
@@ -204,24 +234,6 @@ class PipelineConfig:
         "arrow",
         "node",
     )
-    pipe_mask_continuity_ocr_padding: int = 1
-    pipe_mask_continuity_min_component_area: int = 16
-    pipe_seal_horizontal_close_kernel: int = 5
-    pipe_seal_vertical_close_kernel: int = 5
-    pipe_seal_min_component_area: int = 16
-    node_cluster_eps: float = 6.0
-    node_cluster_min_samples: int = 1
-    min_edge_length_px: int = 2
-    crossing_branch_stub_length_px: int = 8
-    crossing_branch_merge_angle_tolerance_deg: float = 18.0
-    crossing_opposite_angle_tolerance_deg: float = 50.0
-    crossing_center_blob_radius_px: int = 4
-    crossing_center_blob_threshold: float = 0.5
-    crossing_stage4_marker_match_distance_px: float = 24.0
-    polyline_simplify_epsilon: float = 2.0
-    arrow_proximity_px: float = 40.0
-    inline_split_confidence_threshold: float = 0.5
-
     # --- Stage 5b CV pipe-tracing tuning ---
     trace_max_steps: int = 5000
     trace_min_step: int = 5
@@ -233,74 +245,38 @@ class PipelineConfig:
     trace_branch_candidate_sample_step_px: int = 5
     trace_branch_cluster_radius_px: int = 8
     trace_branch_max_iterations: int = 5
-    equipment_attachment_classes: tuple[str, ...] = (
-        "pump",
-        "heat exchanger",
-        "tank",
-        "vessel",
-        "column",
-        "compressor",
-        "blower",
-        "fan",
-    )
-    equipment_attachment_max_distance_px: float = 48.0
-    equipment_attachment_k_candidate_edges: int = 10
-    connection_attachment_classes: tuple[str, ...] = (
-        "connection",
-        "page connection",
-        "utility connection",
-    )
-    connection_attachment_max_distance_px: float = 48.0
-    connection_attachment_k_candidate_edges: int = 10
-    line_text_attachment_max_distance_px: float = 80.0
+    # --- Additional Stage 5b tracer tuning knobs (defaults = prior hardcoded) ---
+    trace_centerline_radius_px: int = 8
+    trace_side_path_inline_probe_px: int = 60
+    trace_raycast_start_px: int = 20
+    trace_raycast_max_px: int = 50
+    trace_raycast_step_px: int = 2
+    trace_anchor_turn_max_gap_px: int = 60
+    trace_turn_terminal_scan_px: int = 70
+    trace_turn_terminal_scan_far_px: int = 160
+    trace_axis_rewind_px: int = 12
+    trace_sheet_edge_margin_px: int = 10
+    trace_warmup_steps: int = 20
+    trace_turn_gap_max_px: int = 60
+    trace_branch_side_turn_probe_px: int = 8
+    trace_branch_side_turn_terminal_px: int = 90
+    trace_turn_probe_px: int = 8
+    trace_tee_search_px: int = 8
+    trace_terminal_current_margin_px: int = 2
+    trace_terminal_current_tag_margin_px: int = 4
+    trace_terminal_current_dcs_margin_px: int = 6
+    trace_terminal_current_equipment_margin_px: int = 4
+    trace_terminal_ahead_margin_px: int = 2
+    trace_terminal_ahead_equipment_margin_px: int = 4
+    trace_inline_hit_margin_px: int = 2
+    trace_inline_exit_margin_px: int = 6
+    trace_branch_point_tolerance_px: int = 10
+    trace_branch_turn_tolerance_px: int = 8
     trace_association_equipment_port_max_distance_px: float = 16.0
     trace_association_inline_object_max_distance_px: float = 24.0
     trace_association_text_max_distance_px: float = 100.0
     trace_association_instrument_max_distance_px: float = 90.0
     trace_association_arrow_max_distance_px: float = 45.0
-    terminal_equipment_classes: tuple[str, ...] = (
-        "pump",
-        "heat exchanger",
-        "tank",
-        "vessel",
-        "column",
-        "compressor",
-        "blower",
-        "fan",
-    )
-    terminal_connection_classes: tuple[str, ...] = (
-        "connection",
-        "page connection",
-        "utility connection",
-    )
-    terminal_inline_passthrough_classes: tuple[str, ...] = (
-        "arrow",
-        "valve",
-        "gate valve",
-        "ball valve",
-        "globe valve",
-        "check valve",
-        "butterfly valve",
-        "control valve",
-        "pressure relief valve",
-        "reducer",
-        "spectacle blind",
-    )
-    terminal_match_distance_px: float = 72.0
-    graph_inline_connector_classes: tuple[str, ...] = (
-        "arrow",
-        "valve",
-        "gate valve",
-        "ball valve",
-        "globe valve",
-        "check valve",
-        "butterfly valve",
-        "control valve",
-        "pressure relief valve",
-        "reducer",
-        "spectacle blind",
-    )
-    graph_inline_connector_match_distance_px: float = 36.0
 
 
 class PIDPipeline(Stage5bPipelineMixin):
@@ -310,18 +286,20 @@ class PIDPipeline(Stage5bPipelineMixin):
         output_dir: str | Path = DEFAULT_OUT,
         cfg: PipelineConfig | None = None,
         stage_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
-        **kwargs: Any,
+        document_id: str | None = None,
     ) -> None:
         self.image_path = str(image_path)
         self.out_dir = Path(output_dir)
         self.cfg = cfg or PipelineConfig()
         self.stage_callback = stage_callback
-        if kwargs:
-            logger.warning("Ignoring unexpected PIDPipeline kwargs: %s", sorted(kwargs))
+        self.document_id = str(document_id).strip() if document_id and str(document_id).strip() else None
 
         self.image_bgr: Optional[np.ndarray] = None
         self.stage_manifest: Dict[str, Any] = {}
         self._current_stage_artifacts: list[str] = []
+
+    def _image_id(self) -> str:
+        return self.document_id or Path(self.image_path).name
 
     # ---------- Stage runner ----------
     def _stage_definitions(self) -> List[Tuple[int, str, Callable[[], None]]]:
@@ -350,9 +328,13 @@ class PIDPipeline(Stage5bPipelineMixin):
     def _write_stage_manifest(self) -> None:
         path = self._manifest_path()
         tmp_path = path.with_name(f".{path.name}.tmp")
-        with open(tmp_path, "w") as f:
-            json.dump(self.stage_manifest, f, indent=2)
-        tmp_path.replace(path)
+        try:
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(self.stage_manifest, f, indent=2)
+            tmp_path.replace(path)
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()
         logger.info(f"saved {path}")
 
     def _notify_stage_callback(self, payload: Dict[str, Any]) -> None:
@@ -360,9 +342,79 @@ class PIDPipeline(Stage5bPipelineMixin):
         if self.stage_callback is not None:
             self.stage_callback(payload)
 
-    def _reset_stage_manifest(self, stop_after: int) -> None:
+    def _build_run_signature(self) -> Dict[str, Any]:
+        input_path = Path(self.image_path)
+        weight_path = Path(self.cfg.detection_weight_path).expanduser()
+        if not weight_path.is_absolute():
+            weight_path = BACKEND_DIR / weight_path
+        return {
+            "input": {
+                "sha256": _sha256_file(input_path),
+                "size_bytes": input_path.stat().st_size,
+            },
+            "config": json.loads(json.dumps(asdict(self.cfg), sort_keys=True)),
+            "detection_weight": {
+                "path": self.cfg.detection_weight_path,
+                "sha256": _sha256_file(weight_path) if weight_path.is_file() else None,
+            },
+            "document_id": self._image_id(),
+            "git_revision": _git_revision(),
+        }
+
+    def _validate_resume_manifest(
+        self,
+        manifest: Dict[str, Any],
+        current_signature: Dict[str, Any],
+        stages: List[Tuple[int, str, Callable[[], None]]],
+    ) -> set[str]:
+        if manifest.get("manifest_version") != 2 or not isinstance(manifest.get("run_signature"), dict):
+            raise ValueError("Cannot resume: manifest version 2 with run_signature is required")
+        compared_fields = ("input", "config", "detection_weight", "document_id")
+        mismatches = _signature_mismatches(
+            {field: manifest["run_signature"].get(field) for field in compared_fields},
+            {field: current_signature.get(field) for field in compared_fields},
+        )
+        if mismatches:
+            raise ValueError(f"Cannot resume: run signature mismatch: {', '.join(mismatches)}")
+
+        latest_by_name: dict[str, Dict[str, Any]] = {}
+        for entry in manifest.get("stages", []):
+            if isinstance(entry, dict) and isinstance(entry.get("name"), str):
+                latest_by_name[entry["name"]] = entry
+
+        completed: set[str] = set()
+        found_gap = False
+        for _stage_num, stage_name, _stage_fn in stages:
+            entry = latest_by_name.get(stage_name)
+            if not entry or entry.get("status") != "completed":
+                found_gap = True
+                continue
+            if found_gap:
+                raise ValueError(f"Cannot resume: completed stages are not contiguous at {stage_name}")
+            artifacts = entry.get("artifacts")
+            if not isinstance(artifacts, list) or not artifacts:
+                raise ValueError(f"Cannot resume: completed stage {stage_name} has no registered artifacts")
+            for artifact in artifacts:
+                if (
+                    not isinstance(artifact, str)
+                    or not artifact
+                    or artifact in {".", ".."}
+                    or Path(artifact).name != artifact
+                ):
+                    raise ValueError(f"Cannot resume: invalid artifact name for {stage_name}: {artifact!r}")
+                artifact_path = self.out_dir / artifact
+                if not artifact_path.exists():
+                    raise ValueError(f"Cannot resume: completed artifact is missing: {artifact}")
+                if artifact_path.is_symlink() or not artifact_path.is_file():
+                    raise ValueError(f"Cannot resume: completed artifact is not a regular file: {artifact}")
+            completed.add(stage_name)
+        return completed
+
+    def _reset_stage_manifest(self, stop_after: int, run_signature: Dict[str, Any]) -> None:
         """Initialize a fresh stage manifest for the current run."""
         self.stage_manifest = {
+            "manifest_version": 2,
+            "run_signature": run_signature,
             "image_path": self.image_path,
             "out_dir": str(self.out_dir),
             "stop_after": stop_after,
@@ -435,20 +487,23 @@ class PIDPipeline(Stage5bPipelineMixin):
 
         completed_stage_names: set[str] = set()
         manifest_path = self._manifest_path()
+        current_signature = self._build_run_signature()
         if resume and manifest_path.exists():
             with open(manifest_path, "r", encoding="utf-8") as f:
-                self.stage_manifest = json.load(f)
-            self.stage_manifest.setdefault("stages", [])
-            manifest_image_path = self.stage_manifest.get("image_path")
+                manifest = json.load(f)
+            manifest.setdefault("stages", [])
+            manifest_image_path = manifest.get("image_path")
             if manifest_image_path not in (None, self.image_path):
                 raise ValueError(
                     f"Cannot resume from manifest for different image: {manifest_image_path} != {self.image_path}"
                 )
-            manifest_out_dir = self.stage_manifest.get("out_dir")
+            manifest_out_dir = manifest.get("out_dir")
             if manifest_out_dir not in (None, str(self.out_dir)):
                 raise ValueError(
                     f"Cannot resume from manifest for different output directory: {manifest_out_dir} != {self.out_dir}"
                 )
+            completed_stage_names = self._validate_resume_manifest(manifest, current_signature, stages)
+            self.stage_manifest = manifest
             self.stage_manifest["image_path"] = self.image_path
             self.stage_manifest["out_dir"] = str(self.out_dir)
             self.stage_manifest["stop_after"] = stop_after
@@ -456,16 +511,15 @@ class PIDPipeline(Stage5bPipelineMixin):
             self.stage_manifest["detection_weight_path"] = self.cfg.detection_weight_path
             self.stage_manifest["debug_artifacts"] = self.cfg.debug_artifacts
             self.stage_manifest["stage_numbering_note"] = STAGE_NUMBERING_NOTE
-            last_completed_stage: str | None = None
-            for entry in self.stage_manifest.get("stages", []):
-                if entry.get("status") == "completed" and isinstance(entry.get("name"), str):
-                    completed_stage_names.add(entry["name"])
-                    last_completed_stage = entry["name"]
-            if last_completed_stage is not None:
+            if completed_stage_names:
+                last_completed_stage = max(
+                    completed_stage_names,
+                    key=lambda name: next(index for index, (_num, stage_name, _fn) in enumerate(stages) if stage_name == name),
+                )
                 logger.info("Resuming pipeline from %s after %s", manifest_path, last_completed_stage)
             self._write_stage_manifest()
         else:
-            self._reset_stage_manifest(stop_after)
+            self._reset_stage_manifest(stop_after, current_signature)
 
         for stage_num, stage_name, stage_fn in stages:
             if stage_num > stop_after:
@@ -481,7 +535,8 @@ class PIDPipeline(Stage5bPipelineMixin):
         path = self.out_dir / f"{name}.png"
         out = normalize_for_save(img)
         if cv2 is not None:
-            cv2.imwrite(str(path), out)
+            if not cv2.imwrite(str(path), out):
+                raise OSError(f"Failed to save image: {path}")
         elif Image is not None:
             Image.fromarray(out).save(str(path))
         else:  # pragma: no cover
@@ -492,8 +547,14 @@ class PIDPipeline(Stage5bPipelineMixin):
     def _save_json(self, name: str, data: Any) -> None:
         """Persist a JSON artifact to the output directory and register it."""
         path = self.out_dir / f"{name}.json"
-        with open(path, "w") as f:
-            json.dump(data, f, indent=2)
+        tmp_path = path.with_name(f".{path.name}.tmp")
+        try:
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+            tmp_path.replace(path)
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()
         self._register_artifact(path.name)
         logger.info(f"saved {path}")
 
@@ -634,81 +695,6 @@ class PIDPipeline(Stage5bPipelineMixin):
 
         return result
 
-    def _add_port_markers_to_overlay(
-        self,
-        ports: dict[str, list[tuple[int, int, str]]],
-        radius: int = 8,
-    ) -> None:
-        """Draw port markers (cyan circles with labels) onto stage4_objects_overlay.
-
-        Takes the existing overlay and draws on top of it.
-        """
-        import cv2 as cv2_local
-
-        overlay_path = self.out_dir / "stage4_objects_overlay.png"
-        if not overlay_path.exists():
-            return  # nothing to annotate
-
-        overlay = cv2_local.imread(str(overlay_path), cv2_local.IMREAD_COLOR)
-        if overlay is None:
-            return
-
-        objects = self._load_json_artifact("stage4_objects").get("objects", [])
-        id_to_obj = {obj["id"]: obj for obj in objects}
-
-        port_count = 0
-        for obj_id, port_list in ports.items():
-            obj = id_to_obj.get(obj_id)
-            if obj is None:
-                continue
-
-            bbox = obj["bbox"]
-            x_min = bbox["x_min"]
-            y_min = bbox["y_min"]
-            x_max = bbox["x_max"]
-            y_max = bbox["y_max"]
-
-            # Green bbox for connection objects (visible on white)
-            cv2_local.rectangle(overlay, (x_min, y_min), (x_max, y_max), (0, 180, 0), 2)
-
-            # Object ID label above bbox
-            label = f"{obj_id}"
-            if obj_id not in ports or not ports[obj_id]:
-                label += " FAIL"
-                label_color = (0, 0, 220)  # red for failed
-            else:
-                label_color = (0, 120, 0)  # dark green for success
-            cv2_local.putText(
-                overlay, label,
-                (x_min, max(y_min - 8, 12)),
-                cv2_local.FONT_HERSHEY_SIMPLEX, 0.4, label_color, 2,
-            )
-
-            for port_x, port_y, edge_name in port_list:
-                # Filled dark teal circle at the actual pipe connection point
-                cv2_local.circle(overlay, (port_x, port_y), radius, (180, 100, 0), -1)
-                # White border for contrast
-                cv2_local.circle(overlay, (port_x, port_y), radius, (255, 255, 255), 1)
-
-                # Crosshair
-                half = radius + 4
-                cv2_local.line(overlay, (port_x - half, port_y), (port_x + half, port_y), (255, 255, 255), 1)
-                cv2_local.line(overlay, (port_x, port_y - half), (port_x, port_y + half), (255, 255, 255), 1)
-
-                # Edge label — dark green, visible on white
-                cv2_local.putText(
-                    overlay,
-                    edge_name[:3].upper(),
-                    (port_x + radius + 2, port_y - radius - 2),
-                    cv2_local.FONT_HERSHEY_SIMPLEX,
-                    0.35,
-                    (0, 120, 0),
-                    2,
-                )
-                port_count += 1
-
-        cv2_local.imwrite(str(overlay_path), overlay)
-
     def stage1_input_normalization(self) -> None:
         """Generate grayscale, adaptive/Otsu binary, and histogram-equalized views of the input image."""
         image = self._ensure_image_loaded()
@@ -759,16 +745,6 @@ class PIDPipeline(Stage5bPipelineMixin):
     # ---------- Stage 2 ----------
     def stage2_ocr_discovery(self) -> None:
         """Run the configured OCR route on Stage 1 grayscale to discover text regions."""
-        # Skip if OCR regions already exist
-        ocr_regions_path = self.out_dir / "stage2_ocr_regions.json"
-        if ocr_regions_path.exists():
-            logger.info(f"Skipping Stage 2 OCR discovery: {ocr_regions_path} already exists")
-            # Still need to load and verify the Stage 1 input exists for consistency
-            stage1_input = self.out_dir / "stage1_gray.png"
-            if not stage1_input.exists():
-                raise FileNotFoundError(f"Stage 2 requires Stage 1 artifact: {stage1_input}")
-            return
-
         stage1_input = self.out_dir / "stage1_gray.png"
         if not stage1_input.exists():
             raise FileNotFoundError(f"Stage 2 requires Stage 1 artifact: {stage1_input}")
@@ -778,7 +754,7 @@ class PIDPipeline(Stage5bPipelineMixin):
 
             ocr_result = run_easyocr_sahi(
                 stage1_input,
-                image_id=Path(self.image_path).name,
+                image_id=self._image_id(),
                 cfg=EasyOcrSahiConfig(
                     slice_height=self.cfg.ocr_slice_height,
                     slice_width=self.cfg.ocr_slice_width,
@@ -798,7 +774,7 @@ class PIDPipeline(Stage5bPipelineMixin):
 
             ocr_result = run_gemini_ocr_sahi(
                 stage1_input,
-                image_id=Path(self.image_path).name,
+                image_id=self._image_id(),
                 cfg=GeminiOcrSahiConfig(
                     postprocess_match_threshold=self.cfg.gemini_postprocess_match_threshold,
                 ),
@@ -808,7 +784,7 @@ class PIDPipeline(Stage5bPipelineMixin):
 
             ocr_result = run_paddle_ocr_sahi(
                 stage1_input,
-                image_id=Path(self.image_path).name,
+                image_id=self._image_id(),
                 cfg=PaddleOcrSahiConfig(
                     slice_height=self.cfg.ocr_slice_height,
                     slice_width=self.cfg.ocr_slice_width,
@@ -821,7 +797,7 @@ class PIDPipeline(Stage5bPipelineMixin):
 
             ocr_result = run_ocrmac_sahi(
                 stage1_input,
-                image_id=Path(self.image_path).name,
+                image_id=self._image_id(),
                 cfg=OcrMacSahiConfig(
                     framework=self.cfg.ocrmac_framework,
                     recognition_level=self.cfg.ocrmac_recognition_level,
@@ -854,7 +830,7 @@ class PIDPipeline(Stage5bPipelineMixin):
 
         detection_result = run_object_detection_sahi(
             self.image_path,
-            image_id=Path(self.image_path).name,
+            image_id=self._image_id(),
             cfg=DetectionSahiConfig(
                 weight_path=self.cfg.detection_weight_path,
                 image_size=self.cfg.detection_image_size,
@@ -869,7 +845,7 @@ class PIDPipeline(Stage5bPipelineMixin):
         self._save_json("stage4_objects_summary", detection_result["summary"])
         self._save_img("stage4_objects_overlay", detection_result["overlay_image"])
         topology_marker_result = run_topology_marker_router(
-            image_id=Path(self.image_path).name,
+            image_id=self._image_id(),
             objects=detection_result["objects_payload"].get("objects", []),
         )
         self._save_json("stage4_topology_markers", topology_marker_result["topology_markers_payload"])
@@ -880,7 +856,7 @@ class PIDPipeline(Stage5bPipelineMixin):
         object_payload = self._load_json_artifact("stage4_objects")
         ocr_payload = self._load_json_artifact("stage2_ocr_regions")
         fusion_result = run_line_number_fusion_stage(
-            image_id=Path(self.image_path).name,
+            image_id=self._image_id(),
             image_bgr=self._ensure_image_loaded(),
             object_regions=object_payload.get("objects", []),
             text_regions=ocr_payload.get("text_regions", []),
@@ -895,7 +871,7 @@ class PIDPipeline(Stage5bPipelineMixin):
         object_payload = self._load_json_artifact("stage4_objects")
         ocr_payload = self._load_json_artifact("stage2_ocr_regions")
         fusion_result = run_instrument_tag_fusion_stage(
-            image_id=Path(self.image_path).name,
+            image_id=self._image_id(),
             image_bgr=self._ensure_image_loaded(),
             object_regions=object_payload.get("objects", []),
             text_regions=ocr_payload.get("text_regions", []),
@@ -932,7 +908,7 @@ class PIDPipeline(Stage5bPipelineMixin):
             otsu_mask=otsu_mask,
             ocr_regions=ocr_regions,
             object_regions=object_regions,
-            image_id=Path(self.image_path).name,
+            image_id=self._image_id(),
             ocr_padding=self.cfg.pipe_mask_ocr_padding,
             object_inset=self.cfg.pipe_mask_object_inset,
             inline_object_inset=self.cfg.pipe_mask_inline_object_inset,
@@ -947,7 +923,7 @@ class PIDPipeline(Stage5bPipelineMixin):
     # ---------- Stage 6+: trace association, graph assembly, QA, review, exports ----------
     def stage6_trace_associations(self) -> None:
         """Attach semantic evidence to Stage 5b traced pipe paths."""
-        image_id = Path(self.image_path).name
+        image_id = self._image_id()
         reviewed_line_payload = build_stage4_line_numbers_from_review_state(
             self.out_dir,
             {"image_path": self.image_path},
@@ -1006,7 +982,7 @@ class PIDPipeline(Stage5bPipelineMixin):
                 f"(legacy fallback also missing: {stage11_path})"
             )
 
-        image_id = Path(self.image_path).name
+        image_id = self._image_id()
         stage6_payload = self._load_json_artifact_compat(
             "stage6_trace_associations",
             "stage11_trace_associations",
@@ -1038,22 +1014,26 @@ class PIDPipeline(Stage5bPipelineMixin):
 
     def stage7c_page_connector_labeling(self) -> None:
         """Attach nearby OCR labels to accepted page-connection objects."""
-        from garnet.page_connector import find_nearby_text
+        from garnet.page_connector import find_nearby_text, select_connector_metadata
 
-        connection_payload = self._load_json_artifact_or_default_compat("stage7_connection_attachments", "stage12_connection_attachments", {"accepted": []})
-        equipment_payload = self._load_json_artifact_or_default_compat("stage7_equipment_attachments", "stage12_equipment_attachments", {"accepted": []})
         accepted = [
-            a
-            for a in connection_payload.get("accepted", []) + equipment_payload.get("accepted", [])
-            if a.get("class_name") == "page connection"
+            obj
+            for obj in self._load_json_artifact("stage4_objects").get("objects", [])
+            if obj.get("class_name") == "page connection" and obj.get("review_state") != "rejected"
         ]
         ocr_payload = self._load_json_artifact("stage2_ocr_regions")
         text_regions = ocr_payload.get("text_regions", [])
         all_labels = []
-        for att in accepted:
-            bbox = att.get("bbox", {})
+        for obj in accepted:
+            bbox = obj.get("bbox", {})
             labels = find_nearby_text(bbox, text_regions, max_distance_px=80.0)
-            all_labels.append({"object_id": att.get("object_id") or att.get("det_id"), "labels": labels})
+            all_labels.append(
+                {
+                    "object_id": obj.get("id") or obj.get("det_id"),
+                    "labels": labels,
+                    **select_connector_metadata(labels),
+                }
+            )
         self._save_json("stage7_page_connector_labels", {"connectors": all_labels})
         self._save_json(
             "stage7_page_connector_labels_summary",
@@ -1076,11 +1056,6 @@ class PIDPipeline(Stage5bPipelineMixin):
             "stage12_page_connector_labels",
             {"connectors": []},
         )
-        connection_attachments_payload = self._load_json_artifact_or_default_compat(
-            "stage7_connection_attachments",
-            "stage12_connection_attachments",
-            {"accepted": []},
-        )
         normalization_summary = self._load_json_artifact("stage1_normalization_summary")
         graph_v1_payload = build_graph_v1_payload(
             stage12_graph=graph_payload,
@@ -1088,7 +1063,6 @@ class PIDPipeline(Stage5bPipelineMixin):
             line_numbers_payload=line_number_payload,
             instrument_tags_payload=instrument_tag_payload,
             page_connector_labels_payload=page_connector_labels_payload,
-            connection_attachments_payload=connection_attachments_payload,
             image_dimensions=normalization_summary.get("dimensions", {}),
         )
         self._save_json("stage7b_graph_v1", graph_v1_payload)
@@ -1107,7 +1081,7 @@ class PIDPipeline(Stage5bPipelineMixin):
                 f"(legacy fallback also missing: {stage12_qa_path})"
             )
 
-        image_id = Path(self.image_path).name
+        image_id = self._image_id()
         result = build_stage8_review_package(
             image_id=image_id,
             graph_payload=graph_payload,
@@ -1135,7 +1109,7 @@ class PIDPipeline(Stage5bPipelineMixin):
         """
         from garnet.stage9_review_decisions import apply_stage9_review_decisions
 
-        image_id = Path(self.image_path).name
+        image_id = self._image_id()
         result = apply_stage9_review_decisions(
             image_id=image_id,
             graph_payload=self._load_json_artifact_compat("stage7_graph", "stage12_graph"),
@@ -1162,10 +1136,10 @@ class PIDPipeline(Stage5bPipelineMixin):
             render_stage10_line_number_overlay,
         )
 
-        image_id = Path(self.image_path).name
+        image_id = self._image_id()
         result = build_stage10_process_exports(
             image_id=image_id,
-            corrected_graph_payload=self._load_json_artifact_compat("stage9_corrected_graph", "stage9_corrected_graph"),
+            corrected_graph_payload=self._load_json_artifact("stage9_corrected_graph"),
         )
         self._save_json("stage10_line_list", result["line_list_payload"])
         self._save_json("stage10_equipment_connectivity", result["equipment_connectivity_payload"])
@@ -1182,46 +1156,21 @@ class PIDPipeline(Stage5bPipelineMixin):
             render_stage10_line_number_overlay(
                 self._ensure_image_loaded(),
                 result["line_list_payload"],
-                self._load_json_artifact_compat("stage9_corrected_graph", "stage9_corrected_graph"),
+                self._load_json_artifact("stage9_corrected_graph"),
             ),
         )
 
     # ---------- Stage 11 ----------
     def stage11_connection_overlay(self) -> None:
-        """
-        Render the final connection + pipe-segment overlay.
+        """Render the final current-graph overlay."""
+        from garnet.trace_graph_builder import render_stage12_graph_overlay
 
-        Uses render_overlay() from render_connection_pipeline_overlay.py to draw:
-        - Red pipe segments connected to accepted page-connection anchors
-        - Orange inline element connectors
-        - Blue page-connection marker boxes + anchor dots + labels
-
-        Runs after Stage 7 and uses Stage 4 objects as the background reference.
-        If optional Stage 7 connection attachment artifacts are missing, empty
-        compatibility payloads are created so the overlay still renders.
-        """
-        from garnet.render_connection_pipeline_overlay import render_overlay
-
-        out = self.out_dir
-        overlay_path = out / "stage11_connection_pipeline_overlay.png"
-        connection_attachments_path = out / "stage7_connection_attachments.json"
-        edge_connections_path = out / "stage7_edge_connections.json"
-        edge_terminals_path = out / "stage7_edge_terminals.json"
-        if not connection_attachments_path.exists():
-            self._save_json("stage7_connection_attachments", {"accepted": [], "rejected": []})
-        if not edge_connections_path.exists():
-            self._save_json("stage7_edge_connections", {"edge_connections": []})
-        if not edge_terminals_path.exists():
-            self._save_json("stage7_edge_terminals", {"edge_terminals": []})
-
-        render_overlay(
-            connection_attachments_path=str(connection_attachments_path),
-            edge_connections_path=str(edge_connections_path),
-            edge_terminals_path=str(edge_terminals_path),
-            graph_path=str(out / "stage7_graph.json"),
-            objects_path=str(out / "stage4_objects.json"),
-            output_path=str(overlay_path),
-            image_base_path=str(self.image_path),
+        self._save_img(
+            "stage11_connection_pipeline_overlay",
+            render_stage12_graph_overlay(
+                self._ensure_image_loaded(),
+                self._load_json_artifact("stage7_graph"),
+            ),
         )
 
 
@@ -1405,6 +1354,7 @@ def _resolve_cli_weight_file(weight_file: str) -> str:
 
 
 def main() -> None:
+    load_pipeline_env()
     parser = argparse.ArgumentParser("P&ID pipeline")
     parser.add_argument("--image", required=True)
     parser.add_argument("--out", default=str(DEFAULT_OUT))

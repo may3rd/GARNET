@@ -246,6 +246,30 @@ class CVPipeTracer:
         turn_min_step: int = 3,
         lookahead: int = 30,
         raycast_max_snap_shift_px: int = 4,
+        centerline_radius_px: int = 8,
+        side_path_inline_probe_px: int = 60,
+        raycast_start_px: int = 20,
+        raycast_max_px: int = 50,
+        raycast_step_px: int = 2,
+        anchor_turn_max_gap_px: int = 60,
+        turn_terminal_scan_px: int = 70,
+        turn_terminal_scan_far_px: int = 160,
+        axis_rewind_px: int = 12,
+        sheet_edge_margin_px: int = 10,
+        warmup_steps: int = 20,
+        turn_gap_max_px: int = 60,
+        branch_side_turn_probe_px: int = 8,
+        branch_side_turn_terminal_px: int = 90,
+        turn_probe_px: int = 8,
+        tee_search_px: int = 8,
+        terminal_current_margin_px: int = 2,
+        terminal_current_tag_margin_px: int = 4,
+        terminal_current_dcs_margin_px: int = 6,
+        terminal_current_equipment_margin_px: int = 4,
+        terminal_ahead_margin_px: int = 2,
+        terminal_ahead_equipment_margin_px: int = 4,
+        inline_hit_margin_px: int = 2,
+        inline_exit_margin_px: int = 6,
     ):
         self.mask = pipe_mask
         self.image = image
@@ -256,6 +280,30 @@ class CVPipeTracer:
         self.turn_min_step = turn_min_step
         self.lookahead = lookahead
         self.raycast_max_snap_shift_px = raycast_max_snap_shift_px
+        self.centerline_radius_px = centerline_radius_px
+        self.side_path_inline_probe_px = side_path_inline_probe_px
+        self.raycast_start_px = raycast_start_px
+        self.raycast_max_px = raycast_max_px
+        self.raycast_step_px = raycast_step_px
+        self.anchor_turn_max_gap_px = anchor_turn_max_gap_px
+        self.turn_terminal_scan_px = turn_terminal_scan_px
+        self.turn_terminal_scan_far_px = turn_terminal_scan_far_px
+        self.axis_rewind_px = axis_rewind_px
+        self.sheet_edge_margin_px = sheet_edge_margin_px
+        self.warmup_steps = warmup_steps
+        self.turn_gap_max_px = turn_gap_max_px
+        self.branch_side_turn_probe_px = branch_side_turn_probe_px
+        self.branch_side_turn_terminal_px = branch_side_turn_terminal_px
+        self.turn_probe_px = turn_probe_px
+        self.tee_search_px = tee_search_px
+        self.terminal_current_margin_px = terminal_current_margin_px
+        self.terminal_current_tag_margin_px = terminal_current_tag_margin_px
+        self.terminal_current_dcs_margin_px = terminal_current_dcs_margin_px
+        self.terminal_current_equipment_margin_px = terminal_current_equipment_margin_px
+        self.terminal_ahead_margin_px = terminal_ahead_margin_px
+        self.terminal_ahead_equipment_margin_px = terminal_ahead_equipment_margin_px
+        self.inline_hit_margin_px = inline_hit_margin_px
+        self.inline_exit_margin_px = inline_exit_margin_px
 
         # Terminal candidates
         self.page_connections = page_connections or []
@@ -303,8 +351,11 @@ class CVPipeTracer:
         )
         return int(round((best_run[0] + best_run[-1]) / 2.0))
 
-    def _line_support_score(self, x: int, y: int, direction: str, radius: int = 8) -> int:
+    def _line_support_score(self, x: int, y: int, direction: str,
+                            radius: Optional[int] = None) -> int:
         """Count local pipe pixels along the current travel axis."""
+        if radius is None:
+            radius = self.centerline_radius_px
         score = 0
         if direction in ("UP", "DOWN"):
             for cy in range(y - radius, y + radius + 1):
@@ -345,7 +396,8 @@ class CVPipeTracer:
         horizontal walks on horizontal strokes.
         """
         if direction in ("UP", "DOWN"):
-            cols = [cx for cx in range(x - 8, x + 9)
+            r = self.centerline_radius_px
+            cols = [cx for cx in range(x - r, x + r + 1)
                     if 0 <= cx < self.w and 0 <= y < self.h and self.mask[y, cx] > 0]
             center = self._center_of_best_axis_support(
                 cols,
@@ -355,7 +407,8 @@ class CVPipeTracer:
             if center is not None:
                 return (center, y)
         else:
-            rows = [cy for cy in range(y - 8, y + 9)
+            r = self.centerline_radius_px
+            rows = [cy for cy in range(y - r, y + r + 1)
                     if 0 <= cy < self.h and 0 <= x < self.w and self.mask[cy, x] > 0]
             center = self._center_of_best_axis_support(
                 rows,
@@ -479,7 +532,7 @@ class CVPipeTracer:
         """True if point is inside/near an inline symbol bbox."""
         for sym in self._nearby_objects(self._idx_inline, x, y, 2):
             bbox = sym.get("bbox")
-            if bbox and _check_bbox_hit(x, y, bbox, margin=2):
+            if bbox and _check_bbox_hit(x, y, bbox, margin=self.inline_hit_margin_px):
                 return True
         return False
 
@@ -489,9 +542,11 @@ class CVPipeTracer:
         y: int,
         direction: str,
         min_run: int,
-        inline_probe_px: int = 60,
+        inline_probe_px: Optional[int] = None,
     ) -> bool:
         """Side path is connected by pipe run or by a short pipe stub into inline."""
+        if inline_probe_px is None:
+            inline_probe_px = self.side_path_inline_probe_px
         if _has_connected_side_pipe(self.mask, x, y, direction, min_run):
             return True
 
@@ -548,8 +603,11 @@ class CVPipeTracer:
             ))
             result.trace_length_px += seg_len
 
-    def _anchor_close_turn_segments(self, result: TraceResult, max_gap: int = 60) -> None:
+    def _anchor_close_turn_segments(self, result: TraceResult,
+                                    max_gap: Optional[int] = None) -> None:
         """Pull the first post-turn segment back to the elbow for close inline gaps."""
+        if max_gap is None:
+            max_gap = self.anchor_turn_max_gap_px
         if not result.turns or not result.segments:
             return
 
@@ -612,14 +670,20 @@ class CVPipeTracer:
         y: int,
         direction: str,
         source_obj_id: str,
-        ray_start: int = 20,
-        ray_max: int = 50,
-        ray_step: int = 2,
+        ray_start: Optional[int] = None,
+        ray_max: Optional[int] = None,
+        ray_step: Optional[int] = None,
         allow_nearby_instrument: bool = False,
         relaxed_band: bool = False,
         target_run_px: Optional[int] = None,
         max_snap_shift_px: Optional[int] = None,
     ) -> Optional[tuple[int, int]]:
+        if ray_start is None:
+            ray_start = self.raycast_start_px
+        if ray_max is None:
+            ray_max = self.raycast_max_px
+        if ray_step is None:
+            ray_step = self.raycast_step_px
         dx, dy = DIRECTION_DELTA[direction]
         # Constrain lateral snap so a ray-cast gap jump cannot land on a
         # neighbouring parallel pipe. Callers may still pass an explicit value.
@@ -720,8 +784,10 @@ class CVPipeTracer:
         y: int,
         turn_dir: str,
         source_obj_id: str,
-        distance: int = 70,
+        distance: Optional[int] = None,
     ) -> bool:
+        if distance is None:
+            distance = self.turn_terminal_scan_px
         dx, dy = DIRECTION_DELTA[turn_dir]
         for step in range(1, distance + 1):
             tx = x + dx * step
@@ -738,8 +804,10 @@ class CVPipeTracer:
         turn_dir: str,
         source_obj_id: str,
         terminal_type: str,
-        distance: int = 160,
+        distance: Optional[int] = None,
     ) -> bool:
+        if distance is None:
+            distance = self.turn_terminal_scan_far_px
         dx, dy = DIRECTION_DELTA[turn_dir]
         for step in range(1, distance + 1):
             tx = x + dx * step
@@ -770,9 +838,13 @@ class CVPipeTracer:
         y: int,
         direction: str,
         source_obj_id: str,
-        probe_px: int = 8,
-        terminal_distance: int = 90,
+        probe_px: Optional[int] = None,
+        terminal_distance: Optional[int] = None,
     ) -> Optional[tuple[int, int, str]]:
+        if probe_px is None:
+            probe_px = self.branch_side_turn_probe_px
+        if terminal_distance is None:
+            terminal_distance = self.branch_side_turn_terminal_px
         if not source_obj_id.startswith("branch_"):
             return None
         dx, dy = DIRECTION_DELTA[direction]
@@ -805,7 +877,7 @@ class CVPipeTracer:
 
     def _has_turn_gap(self, x: int, y: int, turn_dir: str, source_obj_id: str) -> bool:
         dx, dy = DIRECTION_DELTA[turn_dir]
-        for dist in range(5, 60, 2):
+        for dist in range(5, self.turn_gap_max_px, 2):
             tx = x + dist * dx
             ty = y + dist * dy
             is_pipe_target = _is_pipe(self.mask, tx, ty) and _has_line_of_sight_axis_band(
@@ -830,8 +902,10 @@ class CVPipeTracer:
         y: int,
         direction: str,
         source_obj_id: str,
-        probe_px: int = 8,
+        probe_px: Optional[int] = None,
     ) -> list[tuple[int, int, str]]:
+        if probe_px is None:
+            probe_px = self.turn_probe_px
         dx, dy = DIRECTION_DELTA[direction]
         left_dir = TURN_LEFT[direction]
         right_dir = TURN_RIGHT[direction]
@@ -912,7 +986,7 @@ class CVPipeTracer:
         x: int,
         y: int,
         direction: str,
-        search_px: int = 8,
+        search_px: Optional[int] = None,
     ) -> Optional[tuple[int, int]]:
         """Find a nearby point where both side directions are connected.
 
@@ -920,6 +994,8 @@ class CVPipeTracer:
         blocks.  Search backward and forward along the current line so a true
         bidirectional tee is not downgraded to a one-sided elbow.
         """
+        if search_px is None:
+            search_px = self.tee_search_px
         dx, dy = DIRECTION_DELTA[direction]
         left_dir = TURN_LEFT[direction]
         right_dir = TURN_RIGHT[direction]
@@ -976,7 +1052,7 @@ class CVPipeTracer:
         direction: str,
         *,
         origin: Optional[tuple[int, int]] = None,
-        rewind_px: int = 12,
+        rewind_px: Optional[int] = None,
         run_px: Optional[int] = None,
     ) -> bool:
         """True if heading still has pipe beyond this pixel, scored from behind it.
@@ -985,6 +1061,8 @@ class CVPipeTracer:
         forward LOS is dead. Rewind along the inbound axis (or use the
         current-leg origin) and test the far side on that axis.
         """
+        if rewind_px is None:
+            rewind_px = self.axis_rewind_px
         needed = max(self.straight_min_step, 10) if run_px is None else run_px
         dx, dy = DIRECTION_DELTA[direction]
         if origin is not None:
@@ -1089,7 +1167,7 @@ class CVPipeTracer:
         exact_position_repeats: dict[tuple[int, int, str], int] = {}
 
         # Walk clear of source symbol before first terminal check
-        warmup_steps = 20
+        warmup_steps = self.warmup_steps
         for _ in range(warmup_steps):
             x += dx
             y += dy
@@ -1643,13 +1721,13 @@ class CVPipeTracer:
                          source_obj_id: str = "", look_ahead: int = 0) -> Optional[tuple]:
         """Check if position or area ahead is a terminal. Returns (type, obj_id) or None."""
         dx, dy = DIRECTION_DELTA.get(direction, (0, 0))
-        current_page_margin = 2
-        current_tag_margin = 4
-        current_dcs_margin = 6
-        current_equipment_margin = 4
-        ahead_page_margin = 2
-        ahead_equipment_margin = 4
-        ahead_tag_margin = 2
+        current_page_margin = self.terminal_current_margin_px
+        current_tag_margin = self.terminal_current_tag_margin_px
+        current_dcs_margin = self.terminal_current_dcs_margin_px
+        current_equipment_margin = self.terminal_current_equipment_margin_px
+        ahead_page_margin = self.terminal_ahead_margin_px
+        ahead_equipment_margin = self.terminal_ahead_equipment_margin_px
+        ahead_tag_margin = self.terminal_ahead_margin_px
 
         # --- First: check if we're *already inside* any terminal bbox ---
         # This catches cases where the mask extension draws the tracer
@@ -1735,7 +1813,7 @@ class CVPipeTracer:
         hits = []
         for sym in self._nearby_objects(self._idx_inline, x, y, 2):
             bbox = sym["bbox"]
-            if _check_bbox_hit(x, y, bbox, margin=2):
+            if _check_bbox_hit(x, y, bbox, margin=self.inline_hit_margin_px):
                 hits.append(sym)
 
         if len(hits) <= 1:
@@ -1765,7 +1843,7 @@ class CVPipeTracer:
 
         for g in groups:
             for h in g:
-                if _check_bbox_hit(x, y, h["bbox"], margin=2):
+                if _check_bbox_hit(x, y, h["bbox"], margin=self.inline_hit_margin_px):
                     return g
         return hits
 
@@ -1790,7 +1868,7 @@ class CVPipeTracer:
         For LEFT/RIGHT travel, exits at the same y with x just past the
         far bbox edge.  For UP/DOWN, exits at the same x with y just past.
         """
-        margin = 6
+        margin = self.inline_exit_margin_px
         bboxes = [s["bbox"] for s in group]
         if direction == "LEFT":
             far_x = min(b["x_min"] for b in bboxes) - margin
@@ -1847,7 +1925,7 @@ class CVPipeTracer:
         y_max = max(b["y_max"] for b in bboxes)
         cx = (x_min + x_max) // 2
         cy = (y_min + y_max) // 2
-        margin = 6
+        margin = self.inline_exit_margin_px
 
         if direction in ("UP", "DOWN"):
             candidates = [
@@ -1871,7 +1949,7 @@ class CVPipeTracer:
 
     def _is_sheet_edge(self, x: int, y: int, direction: str) -> bool:
         """Check if we're at the image boundary."""
-        margin = 10
+        margin = self.sheet_edge_margin_px
         if direction == "UP" and y <= margin:
             return True
         if direction == "DOWN" and y >= self.h - margin:
