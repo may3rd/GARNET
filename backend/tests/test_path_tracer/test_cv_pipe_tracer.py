@@ -96,5 +96,51 @@ class TestRewoundAxisContinuation(unittest.TestCase):
         self.assertEqual(result.trace_length_px, sum(segment.length_px for segment in result.segments))
 
 
+class TestCvPipeTracerInlineSymbols(unittest.TestCase):
+    def test_trace_walks_through_inline_symbol_and_continues(self):
+        # Continuous pipe with a valve bbox overlapping the middle of the line.
+        mask = np.zeros((80, 100), dtype=np.uint8)
+        mask[40, 10:91] = 255
+        inline = [{
+            "id": "valve_1",
+            "class_name": "gate valve",
+            "bbox": {"x_min": 40, "x_max": 60, "y_min": 35, "y_max": 45},
+        }]
+        tracer = CVPipeTracer(mask, min_step=5, straight_min_step=10)
+        tracer.set_inline_symbols(inline)
+
+        result = tracer.trace(12, 40, "RIGHT")
+
+        # The inline symbol is recorded as a hit, not a terminal.
+        self.assertEqual(
+            [(h.class_name, h.x, h.y) for h in result.hits],
+            [("gate valve", 42, 40)],
+        )
+        # The trace continues past the valve to the far end of the pipe.
+        self.assertEqual(result.terminal_type, TerminalType.DEAD_END.value)
+        self.assertGreaterEqual(result.terminal_x, 85)
+
+    def test_trace_jumps_inline_gap_and_continues(self):
+        # The valve replaces the pipe line, leaving a gap in the mask.
+        mask = np.zeros((80, 100), dtype=np.uint8)
+        mask[40, 10:91] = 255
+        mask[40, 40:61] = 0
+        inline = [{
+            "id": "valve_1",
+            "class_name": "gate valve",
+            "bbox": {"x_min": 40, "x_max": 60, "y_min": 35, "y_max": 45},
+        }]
+        tracer = CVPipeTracer(mask, min_step=5, straight_min_step=10)
+        tracer.set_inline_symbols(inline)
+
+        result = tracer.trace(12, 40, "RIGHT")
+
+        # The inline symbol is recorded as a hit and the trace resumes on the
+        # far side of the valve rather than stopping at the gap.
+        self.assertTrue(any(h.class_name == "gate valve" for h in result.hits))
+        self.assertEqual(result.terminal_type, TerminalType.DEAD_END.value)
+        self.assertGreaterEqual(result.terminal_x, 85)
+
+
 if __name__ == "__main__":
     unittest.main()

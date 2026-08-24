@@ -2343,7 +2343,17 @@ class Stage5bPipelineMixin:
                 len(_all_terminals),
             )
 
-        # Trace from each port
+        # Trace from each port.
+        #
+        # The `visited` mask is SHARED across every trace.  Once a pixel is
+        # visited, later traces will not re-walk it, so the first trace to reach
+        # a shared pipe segment effectively "claims" it (and its continuation).
+        # This is an intentional design choice to avoid re-walking the mask, but
+        # it makes results order-dependent: which trace claims a shared segment
+        # depends on iteration order.  Keep the ordering below deterministic and
+        # document it explicitly before changing it.  Equipment sources (`equip_`)
+        # are traced first so their long lines are claimed before page connections
+        # reach the same segments.
         visited = np.zeros_like(pipe_mask)
         all_results: dict[str, dict] = {}
 
@@ -2351,6 +2361,7 @@ class Stage5bPipelineMixin:
         logger.info("CV pipe trace: %d objects, %d ports", len(ports), total_ports)
         t0 = _time.monotonic()
 
+        # Equipment ports first, then the remaining objects in stable id order.
         port_items = sorted(
             ports.items(),
             key=lambda item: (1 if str(item[0]).startswith("equip_") else 0, str(item[0])),
