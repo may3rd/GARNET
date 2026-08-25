@@ -1,26 +1,257 @@
 import time
+import threading
 import unittest
 import tempfile
 import json
 from pathlib import Path
 from unittest.mock import patch
 
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 import numpy as np
 
 try:
-    from api import PIPELINE_LAST_STAGE, app
+    from api import PIPELINE_LAST_STAGE, _resolve_pipeline_stage, app
 except ModuleNotFoundError as exc:
     if exc.name == "pdf2image":
         app = None
         PIPELINE_LAST_STAGE = None
+        _resolve_pipeline_stage = None
     else:
         raise
 
 
 @unittest.skipIf(app is None, "pdf2image is not installed in this test environment")
 class PipelineApiTests(unittest.TestCase):
+    def test_pipeline_system_runs_only_one_child_at_a_time(self) -> None:
+        api_module = __import__("api")
+        active = 0
+        maximum = 0
+        counter_lock = threading.Lock()
+
+        def fake_execute(*_args, **_kwargs):
+            nonlocal active, maximum
+            with counter_lock:
+                active += 1
+                maximum = max(maximum, active)
+            time.sleep(0.03)
+            with counter_lock:
+                active -= 1
+
+        jobs = {
+            "job-a": {"system_id": "system-one"},
+            "job-b": {"system_id": "system-one"},
+        }
+        args = ("unused.png", "unused-dir", 4, "ocrmac", 0.1, "weights.pt")
+        with patch.dict("api.PIPELINE_JOBS", jobs, clear=False), patch("api._execute_pipeline_job", side_effect=fake_execute):
+            threads = [
+                threading.Thread(target=api_module._run_pipeline_job, args=(job_id, *args))
+                for job_id in jobs
+            ]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+
+        self.assertEqual(maximum, 1)
+
+    def test_pipeline_system_create_persists_confirmed_sheet_ids(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp, patch("api.PIPELINE_SYSTEMS_DIR", str(Path(tmp) / "systems")), patch(
+            "api.PIPELINE_JOBS_DIR", str(Path(tmp) / "jobs")
+        ), patch("api.resolve_pipeline_weight_file", return_value="weights.pt"), patch(
+            "api._start_pipeline_system", create=True
+        ) as start_system:
+            response = client.post(
+                "/api/pipeline/systems",
+                files=[
+                    ("files", ("first.png", b"first", "image/png")),
+                    ("files", ("second.png", b"second", "image/png")),
+                ],
+                data={"sheet_ids": [" DWG-100 ", "DWG-200"], "ocr_route": "ocrmac"},
+            )
+
+            self.assertEqual(response.status_code, 200, response.text)
+            payload = response.json()
+            self.assertEqual([page["sheet_id"] for page in payload["pages"]], [" DWG-100 ", "DWG-200"])
+            manifest_path = Path(tmp) / "systems" / payload["system_id"] / "system_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual(manifest["manifest_version"], 1)
+            self.assertEqual(manifest["status"], "processing")
+            self.assertEqual(manifest["audit_history"][0]["event"], "system_created")
+            self.assertEqual([page["source_filename"] for page in manifest["pages"]], ["first.png", "second.png"])
+            for page in manifest["pages"]:
+                job = __import__("api").PIPELINE_JOBS[page["job_id"]]
+                self.assertEqual(job["document_id"], page["sheet_id"])
+                self.assertEqual(job["system_id"], payload["system_id"])
+            start_system.assert_called_once_with(payload["system_id"])
+
+    def test_pipeline_system_create_rejects_duplicate_sheet_ids_case_insensitively(self) -> None:
+        client = TestClient(app)
+        response = client.post(
+            "/api/pipeline/systems",
+            files=[
+                ("files", ("first.png", b"first", "image/png")),
+                ("files", ("second.png", b"second", "image/png")),
+            ],
+            data={"sheet_ids": ["DWG-100", " dwg-100 "], "ocr_route": "ocrmac"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("unique", response.text.lower())
+
+    def test_pipeline_system_connector_review_regenerates_self_contained_graph(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp:
+            systems_root = Path(tmp) / "systems"
+            jobs_root = Path(tmp) / "jobs"
+            system_id = "system-review"
+            pages = []
+            jobs = {}
+            for sheet_id, target, edge_id in (
+                ("DWG-100", "DWG-200", "edge-a"),
+                ("DWG-200", "DWG-100", "edge-b"),
+            ):
+                job_id = f"job-{sheet_id}"
+                job_dir = jobs_root / job_id
+                job_dir.mkdir(parents=True)
+                graph = {
+                    "schema_version": "graph_v1",
+                    "document": {"doc_id": sheet_id},
+                    "nodes": [],
+                    "edges": [{
+                        "id": edge_id,
+                        "off_page_connector": {
+                            "reference_type": "drawing",
+                            "reference_value": target,
+                            "target_sheet_reference": target,
+                            "connector_key": "10-P-100-A",
+                            "direction": "bidirectional",
+                            "exit_terminal": "source",
+                        },
+                    }],
+                }
+                (job_dir / "stage7b_graph_v1.json").write_text(json.dumps(graph), encoding="utf-8")
+                (job_dir / "stage_manifest.json").write_text(
+                    json.dumps({"stages": [{"num": 11, "name": "stage11_connection_overlay", "status": "completed"}]}),
+                    encoding="utf-8",
+                )
+                pages.append({"sheet_id": sheet_id, "source_filename": f"{sheet_id}.png", "job_id": job_id})
+                jobs[job_id] = {
+                    "job_id": job_id,
+                    "status": "completed",
+                    "current_stage": "stage11_connection_overlay",
+                    "job_dir": str(job_dir),
+                    "created_at": time.time(),
+                    "stop_after": 11,
+                    "system_id": system_id,
+                    "document_id": sheet_id,
+                }
+            system_dir = systems_root / system_id
+            system_dir.mkdir(parents=True)
+            (system_dir / "system_manifest.json").write_text(
+                json.dumps({
+                    "manifest_version": 1,
+                    "system_id": system_id,
+                    "created_at": time.time(),
+                    "config": {},
+                    "pages": pages,
+                    "connector_review": {"revision": 0, "connector_overrides": [], "manual_pairs": []},
+                    "connector_review_audit": [],
+                    "merge": {"status": "stale"},
+                }),
+                encoding="utf-8",
+            )
+
+            with patch("api.PIPELINE_SYSTEMS_DIR", str(systems_root)), patch("api.PIPELINE_JOBS_DIR", str(jobs_root)), patch.dict(
+                "api.PIPELINE_JOBS", jobs, clear=False
+            ):
+                response = client.put(
+                    f"/api/pipeline/systems/{system_id}/connector-review",
+                    json={
+                        "connector_overrides": [],
+                        "manual_pairs": [],
+                        "reviewer": "qa-user",
+                    },
+                )
+                graph_response = client.get(f"/api/pipeline/systems/{system_id}/graph")
+
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(graph_response.status_code, 200, graph_response.text)
+            graph = graph_response.json()
+            self.assertEqual(graph["schema_version"], "graph_v2")
+            self.assertEqual(len(graph["sheets"]), 2)
+            self.assertEqual(graph["sheets"][0]["graph_v1"]["schema_version"], "graph_v1")
+            self.assertEqual(len(graph["cross_sheet_edges"]), 1)
+            self.assertEqual(graph["connector_review"]["revision"], 1)
+            review = response.json()["connector_review"]
+            self.assertEqual(review["connector_overrides"], [])
+            self.assertEqual(review["raw_connectors"][0]["connector_key"], "10-P-100-A")
+            self.assertEqual(review["effective_connectors"][0]["connector_key"], "10-P-100-A")
+
+    def test_pipeline_merge_reads_current_stage7b_artifact(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp:
+            jobs = {}
+            job_ids = []
+            for sheet_id, target, edge_id in (
+                ("DWG-100", "DWG-200", "edge-a"),
+                ("DWG-200", "DWG-100", "edge-b"),
+            ):
+                job_id = f"merge-{sheet_id}"
+                job_ids.append(job_id)
+                job_dir = Path(tmp) / job_id
+                job_dir.mkdir()
+                (job_dir / "stage7b_graph_v1.json").write_text(
+                    json.dumps({
+                        "schema_version": "graph_v1",
+                        "document": {"doc_id": sheet_id},
+                        "edges": [{
+                            "id": edge_id,
+                            "off_page_connector": {
+                                "reference_type": "drawing",
+                                "reference_value": target,
+                                "target_sheet_reference": target,
+                                "connector_key": "10-P-100-A",
+                                "direction": "bidirectional",
+                                "exit_terminal": "source",
+                            },
+                        }],
+                    }),
+                    encoding="utf-8",
+                )
+                jobs[job_id] = {
+                    "job_id": job_id,
+                    "status": "completed",
+                    "current_stage": "stage11_connection_overlay",
+                    "job_dir": str(job_dir),
+                    "created_at": time.time(),
+                    "stop_after": 11,
+                }
+            with patch.dict("api.PIPELINE_JOBS", jobs, clear=False):
+                response = client.post("/api/pipeline/merge", json={"job_ids": job_ids})
+
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(len(response.json()["cross_sheet_edges"]), 1)
+
+    def test_ambiguous_numeric_resume_stages_are_rejected(self) -> None:
+        expected_names = {
+            "4": "stage4_object_detection",
+            "5": "stage5_pipe_mask",
+            "7": "stage7_geometric_graph_assembly",
+        }
+        for stage, expected_name in expected_names.items():
+            with self.subTest(stage=stage):
+                with self.assertRaises(HTTPException) as caught:
+                    _resolve_pipeline_stage(stage)
+                self.assertEqual(caught.exception.status_code, 400)
+                self.assertIn(expected_name, caught.exception.detail)
+
+    def test_named_and_unique_numeric_resume_stages_are_valid(self) -> None:
+        self.assertEqual(_resolve_pipeline_stage("6"), (6, "stage6_trace_associations"))
+        self.assertEqual(_resolve_pipeline_stage("stage5b_pipe_trace"), (5, "stage5b_pipe_trace"))
+
     def test_pipeline_stage_status_reports_stale_after_stage4_objects_update(self) -> None:
         client = TestClient(app)
         with tempfile.TemporaryDirectory() as tmp:

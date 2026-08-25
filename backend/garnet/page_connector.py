@@ -88,3 +88,28 @@ def find_nearby_text(
             )
     attached.sort(key=lambda x: x["distance_px"])
     return attached
+
+
+def select_connector_metadata(labels: list[dict[str, Any]]) -> dict[str, Any]:
+    """Select the nearest destination reference and line/tag independently."""
+    ordered = sorted(labels or [], key=lambda item: float(item.get("distance_px", float("inf"))))
+    reference_label = next((item for item in ordered if item.get("page_reference")), None)
+    line_label = next(
+        (
+            item
+            for item in ordered
+            if str(item.get("semantic_class") or "").lower() == "line_number"
+            and not item.get("page_reference")
+        ),
+        None,
+    )
+    page_reference = reference_label.get("page_reference") if reference_label else None
+    connector_key = str(
+        (line_label or {}).get("normalized_text") or (line_label or {}).get("text") or ""
+    ).strip()
+    return {
+        "page_reference": page_reference,
+        "target_sheet_reference": str((page_reference or {}).get("reference_value") or "").strip(),
+        "raw_reference_text": str((reference_label or {}).get("text") or "").strip(),
+        "connector_key": connector_key,
+    }

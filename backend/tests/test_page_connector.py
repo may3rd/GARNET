@@ -4,10 +4,39 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from garnet.page_connector import classify_off_page_reference, find_nearby_text
+from garnet.page_connector import classify_off_page_reference, find_nearby_text, select_connector_metadata
 
 
 class PageConnectorTests(unittest.TestCase):
+    def test_select_connector_metadata_uses_reference_and_line_labels_independently(self) -> None:
+        metadata = select_connector_metadata(
+            [
+                {
+                    "text": "10-P-100-A",
+                    "normalized_text": "10-P-100-A",
+                    "semantic_class": "line_number",
+                    "distance_px": 5.0,
+                    "page_reference": None,
+                },
+                {
+                    "text": "SEE DWG 200-02",
+                    "normalized_text": "SEE DWG 200-02",
+                    "semantic_class": "reference",
+                    "distance_px": 12.0,
+                    "page_reference": {
+                        "reference_type": "drawing",
+                        "reference_value": "200-02",
+                        "matched_text": "DWG 200-02",
+                    },
+                },
+            ]
+        )
+
+        self.assertEqual(metadata["connector_key"], "10-P-100-A")
+        self.assertEqual(metadata["target_sheet_reference"], "200-02")
+        self.assertEqual(metadata["raw_reference_text"], "SEE DWG 200-02")
+        self.assertEqual(metadata["page_reference"]["reference_type"], "drawing")
+
     def test_classify_sheet_pattern(self) -> None:
         self.assertEqual(
             classify_off_page_reference("SHEET P-101"),

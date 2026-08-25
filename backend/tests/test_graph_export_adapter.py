@@ -169,13 +169,7 @@ class GraphExportAdapterTests(unittest.TestCase):
         self.assertEqual(node["text"], "SHEET P-101")
         self.assertEqual(node["tags"]["page_reference"]["reference_value"], "P-101")
 
-    def test_off_page_connector_set_on_attach_edge(self) -> None:
-        """off_page_connector is set on the attach_edge whose source is the
-        page-connection node, joined via det_id / object_id.
-
-        The join key is the graph topology (attach_edge.source = 'connection::{det_id}'),
-        NOT the attachment's own edge_id field (which refers to a pipe edge elsewhere).
-        """
+    def test_off_page_connector_prefers_first_sorted_source_edge(self) -> None:
         payload = build_graph_v1_payload(
             stage12_graph={
                 "image_id": "sample.png",
@@ -189,16 +183,22 @@ class GraphExportAdapterTests(unittest.TestCase):
                 ],
                 "edges": [
                     {
-                        "id": "attach_edge::obj_9",
+                        "id": "source_b",
                         "source": "connection::obj_9",
                         "target": "attach::obj_9",
                         "polyline": [{"x": 10, "y": 20}, {"x": 20, "y": 20}],
                     },
                     {
-                        "id": "pipe_001",
+                        "id": "target_a",
                         "source": "endpoint_1",
-                        "target": "endpoint_2",
+                        "target": "connection::obj_9",
                         "polyline": [{"x": 0, "y": 0}, {"x": 10, "y": 10}],
+                    },
+                    {
+                        "id": "source_a",
+                        "source": "connection::obj_9",
+                        "target": "attach::obj_10",
+                        "polyline": [{"x": 10, "y": 20}, {"x": 30, "y": 20}],
                     },
                 ],
             },
@@ -229,33 +229,94 @@ class GraphExportAdapterTests(unittest.TestCase):
                     }
                 ]
             },
-            connection_attachments_payload={
-                "accepted": [
-                    {
-                        "class_name": "page connection",
-                        "det_id": "obj_9",
-                        "edge_id": "pipe_001",   # wrong join key — must be ignored
-                        "anchor_name": "top",
-                        "bbox": [10, 20, 20, 30],
-                    }
-                ]
-            },
             image_dimensions={"width": 100, "height": 80},
         )
 
         edges_by_id = {e["id"]: e for e in payload["edges"]}
-
-        # off_page_connector must appear on attach_edge (via graph topology join),
-        # NOT on pipe_001 (attachment.edge_id is a red herring)
-        self.assertIn("off_page_connector", edges_by_id["attach_edge::obj_9"])
-        off = edges_by_id["attach_edge::obj_9"]["off_page_connector"]
+        off = edges_by_id["source_a"]["off_page_connector"]
         self.assertEqual(off["reference_type"], "sheet")
         self.assertEqual(off["reference_value"], "P-101")
-        self.assertEqual(off["exit_terminal"], "destination")   # anchor=top → destination
-        self.assertEqual(off["direction"], "input")
+        self.assertEqual(off["exit_terminal"], "source")
+        self.assertEqual(off["direction"], "bidirectional")
+        self.assertEqual(off["local_edge_id"], "source_a")
+        self.assertNotIn("off_page_connector", edges_by_id["source_b"])
+        self.assertNotIn("off_page_connector", edges_by_id["target_a"])
 
-        # pipe_001 must NOT have off_page_connector
-        self.assertNotIn("off_page_connector", edges_by_id["pipe_001"])
+    def test_off_page_connector_exports_separate_reference_and_line_key(self) -> None:
+        payload = build_graph_v1_payload(
+            stage12_graph={
+                "image_id": "DWG-100",
+                "nodes": [{"id": "connection::obj_9", "type": "page connection"}],
+                "edges": [{"id": "edge_1", "source": "connection::obj_9", "target": "node_1"}],
+            },
+            page_connector_labels_payload={
+                "connectors": [{
+                    "object_id": "obj_9",
+                    "labels": [
+                        {
+                            "text": "10-P-100-A",
+                            "normalized_text": "10-P-100-A",
+                            "semantic_class": "line_number",
+                            "distance_px": 4.0,
+                        },
+                        {
+                            "text": "SEE DWG 200-02",
+                            "normalized_text": "SEE DWG 200-02",
+                            "semantic_class": "reference",
+                            "distance_px": 9.0,
+                            "page_reference": {
+                                "reference_type": "drawing",
+                                "reference_value": "200-02",
+                                "matched_text": "DWG 200-02",
+                            },
+                        },
+                    ],
+                }]
+            },
+        )
+
+        connector = payload["edges"][0]["off_page_connector"]
+        self.assertEqual(connector["connector_key"], "10-P-100-A")
+        self.assertEqual(connector["target_sheet_reference"], "200-02")
+        self.assertEqual(connector["raw_reference_text"], "SEE DWG 200-02")
+        self.assertEqual(payload["nodes"][0]["tags"]["page_reference"]["reference_value"], "200-02")
+
+    def test_off_page_connector_uses_first_sorted_target_edge(self) -> None:
+        payload = build_graph_v1_payload(
+            stage12_graph={
+                "nodes": [{"id": "connection::obj_9", "type": "page connection"}],
+                "edges": [
+                    {"id": "target_b", "source": "node_b", "target": "connection::obj_9"},
+                    {"id": "target_a", "source": "node_a", "target": "connection::obj_9"},
+                ],
+            },
+            page_connector_labels_payload={
+                "connectors": [{
+                    "object_id": "obj_9",
+                    "labels": [{"page_reference": {"reference_type": "drawing", "reference_value": "D-12"}}],
+                }]
+            },
+        )
+
+        edges_by_id = {edge["id"]: edge for edge in payload["edges"]}
+        off = edges_by_id["target_a"]["off_page_connector"]
+        self.assertEqual(off["exit_terminal"], "destination")
+        self.assertEqual(off["direction"], "bidirectional")
+        self.assertNotIn("off_page_connector", edges_by_id["target_b"])
+
+    def test_off_page_connector_without_reference_is_exported_for_merge_review(self) -> None:
+        payload = build_graph_v1_payload(
+            stage12_graph={
+                "nodes": [{"id": "connection::obj_9", "type": "page connection"}],
+                "edges": [{"id": "edge_1", "source": "connection::obj_9", "target": "node_1"}],
+            },
+            page_connector_labels_payload={"connectors": [{"object_id": "obj_9", "labels": []}]},
+        )
+
+        connector = payload["edges"][0]["off_page_connector"]
+        self.assertEqual(connector["connector_key"], "")
+        self.assertEqual(connector["target_sheet_reference"], "")
+        self.assertEqual(connector["direction"], "bidirectional")
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 GARNET API Service - Pure API backend for React frontend
 
 This is the API-only backend service. Run with:
-    uvicorn api:app --reload --port 8001
+    uvicorn api:app --reload --port 8090
 
 The React frontend should run separately on port 5173 (dev) or be built for production.
 """
@@ -66,6 +66,7 @@ RUNS_DIR = os.path.join(BACKEND_DIR, "runs")
 DETECT_DIR = os.path.join(RUNS_DIR, "detect")
 ULTRALYTICS_RUNS_DIR = os.path.join(BACKEND_DIR, ".ultralytics_runs")
 PIPELINE_JOBS_DIR = os.path.join(BACKEND_DIR, "output", "pipeline_jobs")
+PIPELINE_SYSTEMS_DIR = os.path.join(BACKEND_DIR, "output", "pipeline_systems")
 
 # Load environment from repository root first, then backend-local fallback.
 load_dotenv(os.path.join(ROOT_DIR, ".env"), override=False)
@@ -81,7 +82,7 @@ class AppConfig:
 
     # Server
     HOST = os.getenv("HOST", "localhost")
-    PORT = int(os.getenv("PORT", "8001"))
+    PORT = int(os.getenv("PORT", "8090"))
 
     # CORS
     ALLOWED_ORIGINS = os.getenv(
@@ -365,6 +366,24 @@ class ReviewStateRequest(BaseModel):
     workspace_objects: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
 
 
+class ConnectorOverrideRequest(BaseModel):
+    connector_id: str = Field(..., min_length=1)
+    target_sheet_id: str | None = None
+    connector_key: str | None = None
+    review_state: str = "accepted"
+
+
+class ManualConnectorPairRequest(BaseModel):
+    left_connector_id: str = Field(..., min_length=1)
+    right_connector_id: str = Field(..., min_length=1)
+
+
+class ConnectorReviewRequest(BaseModel):
+    connector_overrides: list[ConnectorOverrideRequest] = Field(default_factory=list)
+    manual_pairs: list[ManualConnectorPairRequest] = Field(default_factory=list)
+    reviewer: str | None = None
+
+
 # =============================================================================
 # Global State
 # =============================================================================
@@ -375,6 +394,9 @@ RESULTS_CREATED_AT: dict[str, float] = {}
 RESULTS_LOCK = threading.RLock()
 PIPELINE_JOBS: dict[str, dict[str, Any]] = {}
 PIPELINE_JOBS_LOCK = threading.RLock()
+PIPELINE_SYSTEMS_LOCK = threading.RLock()
+# ponytail: system locks live for the process lifetime; prune only if system volume makes this measurable.
+PIPELINE_SYSTEM_RUN_LOCKS: dict[str, threading.Lock] = {}
 
 PIPELINE_STAGE_ORDER: list[tuple[int, str]] = [
     (1, "stage1_input_normalization"),
@@ -1011,6 +1033,12 @@ def _pipeline_job_from_disk(job_id: str) -> dict[str, Any] | None:
         "image_path": input_path,
         "recovered_from_disk": True,
     }
+    metadata_path = os.path.join(job_dir, "job_metadata.json")
+    if os.path.isfile(metadata_path):
+        with open(metadata_path, "r", encoding="utf-8") as f:
+            metadata = json.load(f)
+        if isinstance(metadata, dict):
+            payload.update(metadata)
     with PIPELINE_JOBS_LOCK:
         PIPELINE_JOBS[job_id] = payload
     return payload
@@ -1032,7 +1060,7 @@ def _serialize_pipeline_job(job_id: str) -> dict[str, Any]:
             manifest = json.load(f)
     payload["manifest"] = manifest
     payload["artifacts"] = _pipeline_job_artifacts(job_id, payload["job_dir"])
-    graph_v1_path = os.path.join(payload["job_dir"], "stage12b_graph_v1.json")
+    graph_v1_path = os.path.join(payload["job_dir"], "stage7b_graph_v1.json")
     if os.path.exists(graph_v1_path):
         with open(graph_v1_path, "r", encoding="utf-8") as f:
             payload["graph_v1"] = json.load(f)
@@ -1067,8 +1095,14 @@ def _resolve_pipeline_stage(stage: str) -> tuple[int, str]:
     if raw_stage.isdigit():
         stage_num = int(raw_stage)
         matching = [(num, name) for num, name in PIPELINE_STAGE_ORDER if num == stage_num]
-        if matching:
-            return matching[-1]
+        if len(matching) == 1:
+            return matching[0]
+        if len(matching) > 1:
+            alternatives = ", ".join(name for _num, name in matching)
+            raise HTTPException(
+                status_code=400,
+                detail=f"Ambiguous pipeline stage {stage_num}; use one of: {alternatives}",
+            )
 
     if raw_stage in PIPELINE_STAGE_NUMBERS:
         return PIPELINE_STAGE_NUMBERS[raw_stage], raw_stage
@@ -1300,7 +1334,7 @@ def _resolve_pipeline_job_image_path(job_dir: str) -> str:
     raise HTTPException(status_code=404, detail="Pipeline input image not found")
 
 
-def _run_pipeline_job(
+def _execute_pipeline_job(
     job_id: str,
     image_path: str,
     job_dir: str,
@@ -1327,6 +1361,9 @@ def _run_pipeline_job(
                 job["error"] = stage.get("error", "Pipeline stage failed")
 
     try:
+        with PIPELINE_JOBS_LOCK:
+            document_id = (PIPELINE_JOBS.get(job_id) or {}).get("document_id")
+        identity_kwargs = {"document_id": document_id} if document_id else {}
         pipe = PIDPipeline(
             image_path=image_path,
             output_dir=job_dir,
@@ -1337,6 +1374,7 @@ def _run_pipeline_job(
                 detection_weight_path=weight_file,
                 debug_artifacts=debug_artifacts,
             ),
+            **identity_kwargs,
         )
         pipe.run(stop_after=stop_after, resume=resume)
     except Exception as exc:
@@ -1354,6 +1392,366 @@ def _run_pipeline_job(
             completed_stages = pipe.stage_manifest.get("stages", [])
             if completed_stages:
                 job["current_stage"] = completed_stages[-1]["name"]
+            system_id = job.get("system_id")
+        else:
+            system_id = None
+    if system_id:
+        _maybe_regenerate_pipeline_system(str(system_id))
+
+
+def _run_pipeline_job(
+    job_id: str,
+    image_path: str,
+    job_dir: str,
+    stop_after: int,
+    ocr_route: str,
+    gemini_postprocess_match_threshold: float,
+    weight_file: str,
+    debug_artifacts: bool = False,
+    resume: bool = False,
+) -> None:
+    with PIPELINE_JOBS_LOCK:
+        system_id = str((PIPELINE_JOBS.get(job_id) or {}).get("system_id") or "")
+    if not system_id:
+        _execute_pipeline_job(
+            job_id, image_path, job_dir, stop_after, ocr_route,
+            gemini_postprocess_match_threshold, weight_file, debug_artifacts, resume,
+        )
+        return
+    with PIPELINE_SYSTEMS_LOCK:
+        run_lock = PIPELINE_SYSTEM_RUN_LOCKS.setdefault(system_id, threading.Lock())
+    with run_lock:
+        _execute_pipeline_job(
+            job_id, image_path, job_dir, stop_after, ocr_route,
+            gemini_postprocess_match_threshold, weight_file, debug_artifacts, resume,
+        )
+
+
+def _write_json_atomic(path: str, payload: dict[str, Any]) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp_path = os.path.join(os.path.dirname(path), f".{os.path.basename(path)}.tmp")
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)
+        os.replace(tmp_path, path)
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+def _register_pipeline_job(
+    *,
+    input_bytes: bytes,
+    filename: str,
+    stop_after: int,
+    ocr_route: str,
+    gemini_postprocess_match_threshold: float,
+    weight_file: str,
+    debug_artifacts: bool,
+    system_id: str | None = None,
+    document_id: str | None = None,
+) -> dict[str, Any]:
+    job_id = uuid.uuid4().hex
+    job_dir = os.path.join(PIPELINE_JOBS_DIR, job_id)
+    os.makedirs(job_dir, exist_ok=True)
+    ext = os.path.splitext(filename)[1].lower() or ".png"
+    image_path = os.path.join(job_dir, f"input{ext}")
+    with open(image_path, "wb") as f:
+        f.write(input_bytes)
+    job = {
+        "job_id": job_id,
+        "status": "queued",
+        "current_stage": None,
+        "error": None,
+        "job_dir": job_dir,
+        "image_path": image_path,
+        "created_at": time.time(),
+        "stop_after": stop_after,
+        "ocr_route": ocr_route,
+        "gemini_postprocess_match_threshold": gemini_postprocess_match_threshold,
+        "weight_file": weight_file,
+        "debug_artifacts": debug_artifacts,
+        "source_filename": filename,
+        "system_id": system_id,
+        "document_id": document_id,
+    }
+    with PIPELINE_JOBS_LOCK:
+        PIPELINE_JOBS[job_id] = job
+    _write_json_atomic(
+        os.path.join(job_dir, "job_metadata.json"),
+        {key: value for key, value in job.items() if key not in {"job_dir", "image_path", "status", "error", "current_stage"}},
+    )
+    return job
+
+
+def _pipeline_system_dir(system_id: str) -> str:
+    if not system_id or system_id != os.path.basename(system_id):
+        raise HTTPException(status_code=400, detail="Invalid pipeline system ID")
+    root = os.path.abspath(PIPELINE_SYSTEMS_DIR)
+    system_dir = os.path.abspath(os.path.join(root, system_id))
+    if os.path.commonpath([root, system_dir]) != root:
+        raise HTTPException(status_code=400, detail="Invalid pipeline system ID")
+    return system_dir
+
+
+def _pipeline_system_manifest_path(system_id: str) -> str:
+    return os.path.join(_pipeline_system_dir(system_id), "system_manifest.json")
+
+
+def _read_pipeline_system_manifest(system_id: str) -> dict[str, Any]:
+    path = _pipeline_system_manifest_path(system_id)
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="Pipeline system not found")
+    with open(path, "r", encoding="utf-8") as f:
+        payload = json.load(f)
+    if payload.get("manifest_version") != 1 or payload.get("system_id") != system_id:
+        raise HTTPException(status_code=409, detail="Pipeline system manifest is invalid")
+    return payload
+
+
+def _write_pipeline_system_manifest(system_id: str, manifest: dict[str, Any]) -> None:
+    _write_json_atomic(_pipeline_system_manifest_path(system_id), manifest)
+
+
+def _system_page_graphs(manifest: dict[str, Any]) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    result: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    for page in manifest.get("pages", []):
+        job_id = str(page.get("job_id") or "")
+        payload = _serialize_pipeline_job(job_id)
+        graph_path = os.path.join(payload["job_dir"], "stage7b_graph_v1.json")
+        if not os.path.isfile(graph_path):
+            raise HTTPException(status_code=409, detail=f"Page {page.get('sheet_id')} is missing stage7b_graph_v1.json")
+        with open(graph_path, "r", encoding="utf-8") as f:
+            graph = json.load(f)
+        result.append((page, graph))
+    return result
+
+
+def _system_connector_inventory(
+    page_graphs: list[tuple[dict[str, Any], dict[str, Any]]],
+) -> dict[str, dict[str, Any]]:
+    inventory: dict[str, dict[str, Any]] = {}
+    for page, graph in page_graphs:
+        for edge in graph.get("edges", []):
+            connector = edge.get("off_page_connector")
+            if not isinstance(connector, dict):
+                continue
+            local_edge_id = str(connector.get("local_edge_id") or edge.get("id") or "")
+            if not local_edge_id:
+                continue
+            connector_id = f"{page['sheet_id']}::{local_edge_id}"
+            inventory[connector_id] = {
+                "connector_id": connector_id,
+                "sheet_id": page["sheet_id"],
+                "local_edge_id": local_edge_id,
+                "target_sheet_id": str(
+                    connector.get("target_sheet_reference") or connector.get("reference_value") or ""
+                ),
+                "connector_key": str(connector.get("connector_key") or ""),
+                "raw_reference_text": str(connector.get("raw_reference_text") or ""),
+                "review_state": "accepted",
+            }
+    return dict(sorted(inventory.items()))
+
+
+def _job_completed_stage(job_dir: str, stage_name: str) -> bool:
+    manifest = _pipeline_job_manifest(job_dir) or {}
+    latest = {
+        entry.get("name"): entry
+        for entry in manifest.get("stages", [])
+        if isinstance(entry, dict) and isinstance(entry.get("name"), str)
+    }
+    return latest.get(stage_name, {}).get("status") == "completed"
+
+
+def _system_pages_complete(manifest: dict[str, Any]) -> bool:
+    for page in manifest.get("pages", []):
+        payload = _serialize_pipeline_job(str(page.get("job_id") or ""))
+        if payload.get("status") != "completed" or not _job_completed_stage(
+            payload["job_dir"], "stage11_connection_overlay"
+        ):
+            return False
+    return True
+
+
+def _regenerate_pipeline_system_graph(system_id: str) -> dict[str, Any]:
+    with PIPELINE_SYSTEMS_LOCK:
+        manifest = _read_pipeline_system_manifest(system_id)
+        if not _system_pages_complete(manifest):
+            raise HTTPException(status_code=409, detail="All pages must complete Stage 11 before system merge")
+        page_graphs = _system_page_graphs(manifest)
+        review = manifest.get("connector_review") or {}
+        overrides = {
+            str(item.get("connector_id") or ""): item
+            for item in review.get("connector_overrides", [])
+            if str(item.get("connector_id") or "")
+        }
+        merge_result = resolve_merge_pairs(
+            [graph for _page, graph in page_graphs],
+            strict=True,
+            connector_overrides=overrides,
+            manual_pairs=list(review.get("manual_pairs", [])),
+        ).to_dict()
+        graph_payload = {
+            **merge_result,
+            "document": {
+                "doc_id": system_id,
+                "source_sheets": [page["sheet_id"] for page, _graph in page_graphs],
+            },
+            "sheets": [
+                {
+                    "sheet_id": page["sheet_id"],
+                    "source_filename": page["source_filename"],
+                    "job_id": page["job_id"],
+                    "graph_v1": graph,
+                }
+                for page, graph in page_graphs
+            ],
+            "connector_review": review,
+            "connector_review_audit": manifest.get("connector_review_audit", []),
+        }
+        graph_path = os.path.join(_pipeline_system_dir(system_id), "system_graph_v2.json")
+        _write_json_atomic(graph_path, graph_payload)
+        updated_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        merge_status = (
+            "awaiting_connector_review"
+            if int(review.get("revision", 0)) == 0 or merge_result["merge_issues"]
+            else "completed"
+        )
+        manifest["merge"] = {
+            "status": merge_status,
+            "updated_at": updated_at,
+            "graph_artifact": "system_graph_v2.json",
+            "resolved_count": len(merge_result["cross_sheet_edges"]),
+            "issue_count": len(merge_result["merge_issues"]),
+        }
+        manifest["status"] = merge_status
+        manifest.setdefault("audit_history", []).append(
+            {"event": "graph_regenerated", "status": merge_status, "timestamp": updated_at}
+        )
+        _write_pipeline_system_manifest(system_id, manifest)
+        return graph_payload
+
+
+def _maybe_regenerate_pipeline_system(system_id: str) -> None:
+    try:
+        manifest = _read_pipeline_system_manifest(system_id)
+        if _system_pages_complete(manifest):
+            _regenerate_pipeline_system_graph(system_id)
+    except HTTPException as exc:
+        if exc.status_code not in {404, 409}:
+            logger.warning("Pipeline system refresh failed for %s: %s", system_id, exc.detail)
+    except Exception as exc:
+        logger.exception("Pipeline system refresh failed for %s: %s", system_id, exc)
+
+
+def _invalidate_pipeline_system(system_id: str) -> None:
+    with PIPELINE_SYSTEMS_LOCK:
+        manifest = _read_pipeline_system_manifest(system_id)
+        manifest["merge"] = {
+            "status": "stale",
+            "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+        manifest["status"] = "processing"
+        manifest.setdefault("audit_history", []).append(
+            {
+                "event": "graph_invalidated",
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            }
+        )
+        graph_path = os.path.join(_pipeline_system_dir(system_id), "system_graph_v2.json")
+        if os.path.isfile(graph_path):
+            os.unlink(graph_path)
+        _write_pipeline_system_manifest(system_id, manifest)
+
+
+def _page_system_status(job: dict[str, Any]) -> str:
+    if job.get("status") == "failed":
+        return "failed"
+    if job.get("status") in {"queued", "running"}:
+        return "processing"
+    completed = {
+        stage["name"]
+        for stage in _pipeline_stage_status(job["job_dir"])
+        if stage.get("status") == "completed"
+    }
+    if "stage11_connection_overlay" in completed:
+        return "completed"
+    if "stage8_graph_qa" in completed and "stage9_apply_review_decisions" not in completed:
+        return "awaiting_graph_review"
+    if "stage5b_pipe_trace" in completed and "stage6_trace_associations" not in completed:
+        return "awaiting_trace_review"
+    if "stage4_instrument_tag_fusion" in completed and "stage5_pipe_mask" not in completed:
+        return "awaiting_object_review"
+    return "processing"
+
+
+def _serialize_pipeline_system(system_id: str) -> dict[str, Any]:
+    manifest = _read_pipeline_system_manifest(system_id)
+    pages = []
+    page_statuses = []
+    for page in manifest.get("pages", []):
+        job = _serialize_pipeline_job(str(page.get("job_id") or ""))
+        page_status = _page_system_status(job)
+        page_statuses.append(page_status)
+        pages.append({**page, "status": page_status, "job": job})
+    merge = manifest.get("merge") or {}
+    if "failed" in page_statuses:
+        status_value = "failed"
+    elif merge.get("status") in {"completed", "awaiting_connector_review"}:
+        status_value = merge["status"]
+    else:
+        status_value = next(
+            (status for status in ("awaiting_object_review", "awaiting_trace_review", "awaiting_graph_review") if status in page_statuses),
+            "processing",
+        )
+    if manifest.get("status") != status_value:
+        with PIPELINE_SYSTEMS_LOCK:
+            latest = _read_pipeline_system_manifest(system_id)
+            previous_status = latest.get("status")
+            latest["status"] = status_value
+            latest.setdefault("audit_history", []).append(
+                {
+                    "event": "status_changed",
+                    "from": previous_status,
+                    "to": status_value,
+                    "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                }
+            )
+            _write_pipeline_system_manifest(system_id, latest)
+    return {
+        "system_id": system_id,
+        "status": status_value,
+        "created_at": manifest.get("created_at"),
+        "pages": pages,
+        "connector_review": manifest.get("connector_review"),
+        "merge": merge,
+        "graph_url": f"/api/pipeline/systems/{system_id}/graph" if merge.get("graph_artifact") else None,
+    }
+
+
+def _start_pipeline_system(system_id: str) -> None:
+    def run_pages() -> None:
+        manifest = _read_pipeline_system_manifest(system_id)
+        for page in manifest.get("pages", []):
+            job_id = str(page["job_id"])
+            with PIPELINE_JOBS_LOCK:
+                job = PIPELINE_JOBS.get(job_id)
+            if not job:
+                continue
+            _run_pipeline_job(
+                job_id,
+                job["image_path"],
+                job["job_dir"],
+                4,
+                job["ocr_route"],
+                job["gemini_postprocess_match_threshold"],
+                job["weight_file"],
+                debug_artifacts=bool(job.get("debug_artifacts", False)),
+            )
+
+    # ponytail: one coordinator per system; add a bounded shared pool only if concurrent systems contend.
+    threading.Thread(target=run_pages, daemon=True).start()
 
 
 def sanitize_excel_sheet_name(name: str, fallback: str = "Sheet") -> str:
@@ -1407,6 +1805,9 @@ def initialize_application_runtime() -> None:
 
     MODEL_LIST = list_weight_files()
     CONFIG_FILE_LIST = list_config_files()
+    logger.info(
+        f"Found {len(MODEL_LIST)} weight files: {extract_item_list(MODEL_LIST)}"
+    )
 
     # Preload at least one model to verify API readiness.
     try:
@@ -1572,6 +1973,199 @@ async def api_pdf_extract(file_input: UploadFile = File(...)):
     return {"count": len(pages), "pages": pages}
 
 
+@app.post("/api/pipeline/systems")
+async def create_pipeline_system(
+    files: list[UploadFile] = File(...),
+    sheet_ids: list[str] = Form(...),
+    ocr_route: str = Form(...),
+    gemini_postprocess_match_threshold: float = Form(0.1),
+    weight_file: str = Form(""),
+    debug_artifacts: bool = Form(False),
+):
+    if not 2 <= len(files) <= 50:
+        raise HTTPException(status_code=400, detail="Pipeline systems require 2 to 50 pages")
+    if len(files) != len(sheet_ids):
+        raise HTTPException(status_code=400, detail="files and sheet_ids must have the same count")
+    submitted_sheet_ids = [str(sheet_id) for sheet_id in sheet_ids]
+    normalized_sheet_ids = [" ".join(sheet_id.casefold().split()) for sheet_id in submitted_sheet_ids]
+    if any(not sheet_id for sheet_id in normalized_sheet_ids):
+        raise HTTPException(status_code=400, detail="Every page requires a non-empty sheet ID")
+    if len(set(normalized_sheet_ids)) != len(normalized_sheet_ids):
+        raise HTTPException(status_code=400, detail="Sheet IDs must be unique")
+    if ocr_route not in {"easyocr", "gemini", "paddleocr", "ocrmac"}:
+        raise HTTPException(status_code=400, detail="Invalid ocr_route")
+    if not 0 <= gemini_postprocess_match_threshold <= 1:
+        raise HTTPException(status_code=400, detail="gemini_postprocess_match_threshold must be between 0 and 1")
+    try:
+        resolved_weight_file = resolve_pipeline_weight_file(weight_file)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    uploads: list[tuple[str, bytes]] = []
+    for upload in files:
+        validate_image_file(upload)
+        data = await upload.read()
+        await upload.close()
+        if not data:
+            raise HTTPException(status_code=400, detail=f"Uploaded image is empty: {upload.filename}")
+        if len(data) > config.MAX_FILE_SIZE_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File too large: {upload.filename}. Maximum size: {config.MAX_FILE_SIZE_MB}MB",
+            )
+        uploads.append((str(upload.filename or "page.png"), data))
+
+    system_id = uuid.uuid4().hex
+    os.makedirs(_pipeline_system_dir(system_id), exist_ok=True)
+    pages = []
+    for (filename, data), sheet_id in zip(uploads, submitted_sheet_ids, strict=True):
+        job = _register_pipeline_job(
+            input_bytes=data,
+            filename=filename,
+            stop_after=4,
+            ocr_route=ocr_route,
+            gemini_postprocess_match_threshold=gemini_postprocess_match_threshold,
+            weight_file=resolved_weight_file,
+            debug_artifacts=debug_artifacts,
+            system_id=system_id,
+            document_id=sheet_id,
+        )
+        pages.append({"sheet_id": sheet_id, "source_filename": filename, "job_id": job["job_id"]})
+    created_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    manifest = {
+        "manifest_version": 1,
+        "system_id": system_id,
+        "created_at": created_at,
+        "status": "processing",
+        "config": {
+            "ocr_route": ocr_route,
+            "gemini_postprocess_match_threshold": gemini_postprocess_match_threshold,
+            "weight_file": resolved_weight_file,
+            "debug_artifacts": debug_artifacts,
+        },
+        "pages": pages,
+        "connector_review": {"revision": 0, "connector_overrides": [], "manual_pairs": []},
+        "connector_review_audit": [],
+        "audit_history": [{"event": "system_created", "timestamp": created_at}],
+        "merge": {"status": "stale"},
+    }
+    _write_pipeline_system_manifest(system_id, manifest)
+    _start_pipeline_system(system_id)
+    return {"system_id": system_id, "status": "processing", "pages": pages}
+
+
+@app.get("/api/pipeline/systems/{system_id}")
+async def get_pipeline_system(system_id: str):
+    return _serialize_pipeline_system(system_id)
+
+
+@app.get("/api/pipeline/systems/{system_id}/graph")
+async def get_pipeline_system_graph(system_id: str):
+    manifest = _read_pipeline_system_manifest(system_id)
+    graph_artifact = str((manifest.get("merge") or {}).get("graph_artifact") or "")
+    if graph_artifact != "system_graph_v2.json":
+        raise HTTPException(status_code=409, detail="Pipeline system graph is not ready")
+    graph_path = os.path.join(_pipeline_system_dir(system_id), graph_artifact)
+    if not os.path.isfile(graph_path):
+        raise HTTPException(status_code=409, detail="Pipeline system graph is not ready")
+    return FileResponse(graph_path, media_type="application/json", filename=f"{system_id}-graph-v2.json")
+
+
+@app.put("/api/pipeline/systems/{system_id}/connector-review")
+async def put_pipeline_system_connector_review(system_id: str, request: ConnectorReviewRequest):
+    with PIPELINE_SYSTEMS_LOCK:
+        manifest = _read_pipeline_system_manifest(system_id)
+        page_graphs = _system_page_graphs(manifest)
+        raw_connectors = _system_connector_inventory(page_graphs)
+        connector_sheet = {
+            connector_id: str(connector["sheet_id"])
+            for connector_id, connector in raw_connectors.items()
+        }
+        sheet_ids = {str(page["sheet_id"]) for page in manifest.get("pages", [])}
+        sheet_by_normalized = {" ".join(sheet_id.casefold().split()): sheet_id for sheet_id in sheet_ids}
+
+        overrides = []
+        seen_override_ids: set[str] = set()
+        for item in request.connector_overrides:
+            if item.connector_id not in connector_sheet:
+                raise HTTPException(status_code=400, detail=f"Unknown connector: {item.connector_id}")
+            if item.connector_id in seen_override_ids:
+                raise HTTPException(status_code=400, detail=f"Duplicate connector override: {item.connector_id}")
+            if item.review_state not in {"accepted", "rejected"}:
+                raise HTTPException(status_code=400, detail="review_state must be accepted or rejected")
+            payload = item.model_dump()
+            if item.target_sheet_id:
+                normalized_target = " ".join(item.target_sheet_id.strip().casefold().split())
+                if normalized_target not in sheet_by_normalized:
+                    raise HTTPException(status_code=400, detail=f"Unknown target sheet: {item.target_sheet_id}")
+                payload["target_sheet_id"] = sheet_by_normalized[normalized_target]
+            overrides.append(payload)
+            seen_override_ids.add(item.connector_id)
+
+        override_by_id = {item["connector_id"]: item for item in overrides}
+        effective_connectors = []
+        for connector_id, raw_connector in raw_connectors.items():
+            override = override_by_id.get(connector_id, {})
+            effective_connectors.append(
+                {
+                    **raw_connector,
+                    "target_sheet_id": override.get("target_sheet_id") or raw_connector["target_sheet_id"],
+                    "connector_key": override.get("connector_key") or raw_connector["connector_key"],
+                    "review_state": override.get("review_state") or raw_connector["review_state"],
+                }
+            )
+
+        pairs = []
+        used_ids: set[str] = set()
+        rejected_ids = {item["connector_id"] for item in overrides if item["review_state"] == "rejected"}
+        for pair in request.manual_pairs:
+            left_id, right_id = pair.left_connector_id, pair.right_connector_id
+            if left_id not in connector_sheet or right_id not in connector_sheet:
+                missing_id = left_id if left_id not in connector_sheet else right_id
+                raise HTTPException(status_code=400, detail=f"Unknown connector: {missing_id}")
+            if left_id == right_id or connector_sheet[left_id] == connector_sheet[right_id]:
+                raise HTTPException(status_code=400, detail="Manual pairs must connect two different sheets")
+            if left_id in used_ids or right_id in used_ids:
+                raise HTTPException(status_code=400, detail="A connector can appear in only one manual pair")
+            if left_id in rejected_ids or right_id in rejected_ids:
+                raise HTTPException(status_code=400, detail="Rejected connectors cannot be manually paired")
+            pairs.append(pair.model_dump())
+            used_ids.update((left_id, right_id))
+
+        previous = manifest.get("connector_review") or {}
+        next_review = {
+            "revision": int(previous.get("revision", 0)) + 1,
+            "connector_overrides": overrides,
+            "manual_pairs": pairs,
+            "raw_connectors": list(raw_connectors.values()),
+            "effective_connectors": effective_connectors,
+            "reviewer": request.reviewer,
+            "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+        same_content = (
+            previous.get("connector_overrides", []) == overrides
+            and previous.get("manual_pairs", []) == pairs
+            and previous.get("raw_connectors", []) == list(raw_connectors.values())
+            and previous.get("effective_connectors", []) == effective_connectors
+            and previous.get("reviewer") == request.reviewer
+            and int(previous.get("revision", 0)) > 0
+        )
+        if not same_content:
+            manifest["connector_review"] = next_review
+            manifest.setdefault("connector_review_audit", []).append(next_review)
+            manifest.setdefault("audit_history", []).append(
+                {
+                    "event": "connector_review_replaced",
+                    "revision": next_review["revision"],
+                    "timestamp": next_review["updated_at"],
+                }
+            )
+            _write_pipeline_system_manifest(system_id, manifest)
+    if not same_content:
+        _regenerate_pipeline_system_graph(system_id)
+    return _serialize_pipeline_system(system_id)
+
+
 @app.post("/api/pipeline/jobs")
 async def create_pipeline_job(
     file_input: UploadFile = File(...),
@@ -1604,32 +2198,20 @@ async def create_pipeline_job(
         )
     await file_input.close()
 
-    ext = os.path.splitext(file_input.filename or "")[1].lower() or ".png"
-    job_id = uuid.uuid4().hex
-    job_dir = os.path.join(PIPELINE_JOBS_DIR, job_id)
-    os.makedirs(job_dir, exist_ok=True)
-    image_path = os.path.join(job_dir, f"input{ext}")
-    with open(image_path, "wb") as f:
-        f.write(input_bytes)
-
-    with PIPELINE_JOBS_LOCK:
-        PIPELINE_JOBS[job_id] = {
-            "job_id": job_id,
-            "status": "queued",
-            "current_stage": None,
-            "error": None,
-            "job_dir": job_dir,
-            "created_at": time.time(),
-            "stop_after": stop_after,
-            "ocr_route": ocr_route,
-            "gemini_postprocess_match_threshold": gemini_postprocess_match_threshold,
-            "weight_file": resolved_weight_file,
-            "debug_artifacts": debug_artifacts,
-        }
+    job = _register_pipeline_job(
+        input_bytes=input_bytes,
+        filename=str(file_input.filename or "input.png"),
+        stop_after=stop_after,
+        ocr_route=ocr_route,
+        gemini_postprocess_match_threshold=gemini_postprocess_match_threshold,
+        weight_file=resolved_weight_file,
+        debug_artifacts=debug_artifacts,
+    )
+    job_id = job["job_id"]
 
     worker = threading.Thread(
         target=_run_pipeline_job,
-        args=(job_id, image_path, job_dir, stop_after, ocr_route, gemini_postprocess_match_threshold, resolved_weight_file),
+        args=(job_id, job["image_path"], job["job_dir"], stop_after, ocr_route, gemini_postprocess_match_threshold, resolved_weight_file),
         kwargs={"debug_artifacts": debug_artifacts},
         daemon=True,
     )
@@ -1674,12 +2256,15 @@ async def resume_pipeline_job_from_stage(job_id: str, stage: str, stop_after: in
         gemini_threshold = float(job.get("gemini_postprocess_match_threshold") or 0.1)
         weight_file = str(job.get("weight_file") or resolve_pipeline_weight_file(""))
         debug_artifacts = bool(job.get("debug_artifacts", False))
+        system_id = str(job.get("system_id") or "")
         job["status"] = "queued"
         job["current_stage"] = stage_name
         job["error"] = None
         job["stop_after"] = target_stop_after
 
     _mark_pipeline_stale_from(job_dir, stage_name, f"resume_from:{stage_name}")
+    if system_id:
+        _invalidate_pipeline_system(system_id)
 
     worker = threading.Thread(
         target=_run_pipeline_job,
@@ -1697,24 +2282,21 @@ async def resume_pipeline_job_from_stage(job_id: str, stage: str, stop_after: in
 
 
 class MergeSheetsRequest(BaseModel):
-    job_ids: list[str] = Field(..., description="Pipeline job IDs to merge. Each must have a stage12b_graph_v1.json artifact.")
+    job_ids: list[str] = Field(..., description="Pipeline job IDs to merge. Each must have a stage7b_graph_v1.json artifact.")
 
 
 @app.post("/api/pipeline/merge", response_model=dict[str, Any])
 async def post_pipeline_merge(request: MergeSheetsRequest):
     """Run the multi-sheet merge engine on a list of completed pipeline jobs.
 
-    Each job_id must have a ``stage12b_graph_v1.json`` artifact (stage 12b must
-    have completed).  The merge engine pairs off-page connectors by
-    ``(reference_type, reference_value)`` across different sheets and returns
-    ``cross_sheet_edges`` plus any ``merge_issues`` requiring human review.
+    Each job_id must have a current ``stage7b_graph_v1.json`` artifact.
     """
     graphs: list[dict[str, Any]] = []
     missing: list[str] = []
 
     for job_id in request.job_ids:
         payload = _serialize_pipeline_job(job_id)
-        graph_path = os.path.join(payload["job_dir"], "stage12b_graph_v1.json")
+        graph_path = os.path.join(payload["job_dir"], "stage7b_graph_v1.json")
         if not os.path.exists(graph_path):
             missing.append(job_id)
             continue
@@ -1725,7 +2307,7 @@ async def post_pipeline_merge(request: MergeSheetsRequest):
         raise HTTPException(
             status_code=404,
             detail={
-                "message": "One or more job IDs do not have stage12b_graph_v1.json artifacts.",
+                "message": "One or more job IDs do not have stage7b_graph_v1.json artifacts.",
                 "missing_job_ids": missing,
             },
         )
@@ -1733,7 +2315,7 @@ async def post_pipeline_merge(request: MergeSheetsRequest):
     if not graphs:
         raise HTTPException(status_code=400, detail="No valid graph payloads found.")
 
-    result = resolve_merge_pairs(graphs)
+    result = resolve_merge_pairs(graphs, strict=True)
     return result.to_dict()
 
 

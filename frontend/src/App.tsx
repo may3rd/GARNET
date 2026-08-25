@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Header } from '@/components/Header'
 import { UploadZone } from '@/components/UploadZone'
 import { DetectionSetup } from '@/components/DetectionSetup'
@@ -12,6 +12,12 @@ const PipelineResultsView = lazy(() =>
 )
 const BatchResultsView = lazy(() =>
   import('@/components/BatchResultsView').then((module) => ({ default: module.BatchResultsView }))
+)
+const PipelineSystemSetupView = lazy(() =>
+  import('@/components/PipelineSystemSetupView').then((module) => ({ default: module.PipelineSystemSetupView }))
+)
+const PipelineSystemView = lazy(() =>
+  import('@/components/PipelineSystemView').then((module) => ({ default: module.PipelineSystemView }))
 )
 
 function ViewLoading() {
@@ -52,7 +58,13 @@ function PreviewPane() {
 
 export default function App() {
   const currentView = useAppStore((state) => state.currentView)
+  const processingMode = useAppStore((state) => state.processingMode)
   const pipelineJob = useAppStore((state) => state.pipelineJob)
+  const restorePipelineSystem = useAppStore((state) => state.restorePipelineSystem)
+
+  useEffect(() => {
+    void restorePipelineSystem()
+  }, [restorePipelineSystem])
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg-primary)]">
@@ -74,11 +86,17 @@ export default function App() {
         {currentView === 'batch' && (
           <Suspense fallback={<ViewLoading />}>
             <div className="flex h-full flex-col lg:flex-row">
-              <BatchResultsView />
+              {processingMode === 'pipeline' ? <PipelineSystemSetupView /> : <BatchResultsView />}
               <div className="w-full lg:w-[320px] border-t lg:border-t-0 lg:border-l border-[var(--border-muted)] bg-[var(--bg-secondary)] overflow-y-auto max-h-[45vh] lg:max-h-none">
                 <DetectionSetup />
               </div>
             </div>
+          </Suspense>
+        )}
+
+        {currentView === 'system' && (
+          <Suspense fallback={<ViewLoading />}>
+            <PipelineSystemView />
           </Suspense>
         )}
 

@@ -259,87 +259,58 @@ def _tiling_payload(image_dimensions: dict[str, Any] | None) -> dict[str, Any]:
 
 
 
-def _exit_terminal_for_anchor(anchor_name: str) -> str:
-    """Map anchor_name to exit_terminal value."""
-    # anchor_name corresponds to which edge terminal the off-page connector is attached to
-    # top/bottom anchors → destination terminal (pipe going out the sheet top/bottom)
-    # left/right anchors → source terminal (pipe coming from left/right boundary)
-    if anchor_name in ("top", "bottom"):
-        return "destination"
-    return "source"
-
-
 def _build_off_page_connector_map(
     stage12_graph: dict[str, Any],
-    connection_attachments_payload: dict[str, Any] | None,
     page_connector_labels_payload: dict[str, Any] | None,
 ) -> dict[str, dict[str, Any]]:
-    """Build a map from edge_id → off_page_connector dict for page-connection edges.
+    """Build deterministic graph-native off-page connector metadata by edge ID."""
+    from garnet.page_connector import select_connector_metadata
 
-    Each accepted page-connection attachment carries a det_id (the page connection
-    object).  The graph contains an attach_edge whose source is
-    ``connection::{det_id}`` — that is the edge that physically exits the sheet
-    boundary.  We look up that attach_edge, join with the stage-12c labels via
-    the det_id / object_id key, and return off_page_connector data for that edge.
-
-    Only attachments with resolved labels (non-empty labels list with a
-    page_reference) produce off_page_connector entries.
-    """
-    if not connection_attachments_payload:
-        return {}
-
-    # Build source-node-id → attach_edge-id map.
-    # Each page-connection node (type='page connection', id='connection::{det_id}')
-    # is the source of exactly one attach_edge.
-    attach_edge_by_pc_source: dict[str, str] = {}
-    for edge in stage12_graph.get("edges", []):
-        src = str(edge.get("source", ""))
-        if src.startswith("connection::"):
-            attach_edge_by_pc_source[src] = str(edge.get("id", ""))
-
+    edges = stage12_graph.get("edges", [])
     pc_labels = _page_connector_labels_by_object_id(page_connector_labels_payload)
+    connector_payloads = {
+        str(connector.get("object_id") or ""): connector
+        for connector in (page_connector_labels_payload or {}).get("connectors", [])
+        if str(connector.get("object_id") or "")
+    }
     result: dict[str, dict[str, Any]] = {}
-
-    for att in connection_attachments_payload.get("accepted", []):
-        if att.get("class_name") != "page connection":
-            continue
-
-        obj_id = str(att.get("det_id") or att.get("object_id") or "")
-        if not obj_id:
-            continue
-
-        # Look up the attach_edge that has this page-connection node as its source.
-        pc_source = f"connection::{obj_id}"
-        edge_id = attach_edge_by_pc_source.get(pc_source)
-        if not edge_id:
-            continue
-
-        labels = pc_labels.get(obj_id, [])
-        if not labels:
-            continue
-
-        first_label = labels[0]
-        ref = first_label.get("page_reference")
-        if not ref:
-            continue
-
+    for obj_id, labels in pc_labels.items():
+        selected_metadata = select_connector_metadata(labels)
+        selected_metadata.update(
+            {
+                key: value
+                for key, value in connector_payloads.get(obj_id, {}).items()
+                if key in {"page_reference", "target_sheet_reference", "raw_reference_text", "connector_key"}
+                and value not in (None, "")
+            }
+        )
+        ref = selected_metadata.get("page_reference") or {}
+        connector_key = str(selected_metadata.get("connector_key") or "").strip()
         ref_type = str(ref.get("reference_type", "sheet") or "sheet")
         ref_value = str(ref.get("reference_value") or "")
-        if not ref_value:
+        node_id = f"connection::{obj_id}"
+        source_edges = sorted(
+            (edge for edge in edges if str(edge.get("source", "")) == node_id),
+            key=lambda edge: str(edge.get("id", "")),
+        )
+        target_edges = sorted(
+            (edge for edge in edges if str(edge.get("target", "")) == node_id),
+            key=lambda edge: str(edge.get("id", "")),
+        )
+        selected = (source_edges or target_edges or [None])[0]
+        if selected is None:
             continue
-
-        anchor_name = str(att.get("anchor_name", ""))
-        exit_terminal = _exit_terminal_for_anchor(anchor_name)
-        direction = "output" if exit_terminal == "source" else "input"
-
+        edge_id = str(selected.get("id", ""))
         result[edge_id] = {
             "reference_type": ref_type,
             "reference_value": ref_value,
-            "direction": direction,
-            "exit_terminal": exit_terminal,
+            "target_sheet_reference": str(selected_metadata.get("target_sheet_reference") or ref_value),
+            "connector_key": connector_key,
+            "raw_reference_text": str(selected_metadata.get("raw_reference_text") or ""),
+            "direction": "bidirectional",
+            "exit_terminal": "source" if str(selected.get("source", "")) == node_id else "destination",
             "local_edge_id": edge_id,
         }
-
     return result
 
 
@@ -349,7 +320,6 @@ def build_graph_v1_payload(
     line_numbers_payload: dict[str, Any] | None = None,
     instrument_tags_payload: dict[str, Any] | None = None,
     page_connector_labels_payload: dict[str, Any] | None = None,
-    connection_attachments_payload: dict[str, Any] | None = None,
     image_dimensions: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     objects = (objects_payload or {}).get("objects", [])
@@ -395,14 +365,13 @@ def build_graph_v1_payload(
         if node["id"] not in page_connector_node_ids:
             continue
         labels = page_connector_labels.get(_object_key_from_node_id(node["id"]) or "", [])
-        first_label = labels[0] if labels else None
-        node["text"] = first_label.get("normalized_text") if first_label else None
-        node.setdefault("tags", {})["page_reference"] = first_label.get("page_reference") if first_label else None
+        reference_label = next((label for label in labels if label.get("page_reference")), None)
+        node["text"] = reference_label.get("normalized_text") if reference_label else None
+        node.setdefault("tags", {})["page_reference"] = reference_label.get("page_reference") if reference_label else None
 
     edges: list[dict[str, Any]] = []
     off_page_by_edge = _build_off_page_connector_map(
         stage12_graph,
-        connection_attachments_payload,
         page_connector_labels_payload,
     )
     for source_edge in stage12_graph.get("edges", []):

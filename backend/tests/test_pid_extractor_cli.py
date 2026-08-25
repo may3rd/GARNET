@@ -13,10 +13,16 @@ from garnet import pid_extractor
 
 
 class FakePipeline(pid_extractor.PIDPipeline):
-    def __init__(self, out_dir: str | Path, fail_stage: int | None = None) -> None:
+    def __init__(
+        self,
+        out_dir: str | Path,
+        fail_stage: int | None = None,
+        cfg: pid_extractor.PipelineConfig | None = None,
+    ) -> None:
         self._input_path = Path(out_dir) / "image.png"
-        self._input_path.write_bytes(b"placeholder")
-        super().__init__(str(self._input_path), output_dir=out_dir)
+        if not self._input_path.exists():
+            self._input_path.write_bytes(b"placeholder")
+        super().__init__(str(self._input_path), output_dir=out_dir, cfg=cfg)
         self.called: list[str] = []
         self.fail_stage = fail_stage
 
@@ -72,6 +78,14 @@ class FakePipeline(pid_extractor.PIDPipeline):
         self._record("stage11")
 
 class PIDPipelineRunnerTests(unittest.TestCase):
+    def test_document_id_defaults_to_filename_and_accepts_confirmed_sheet_id(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            default_pipe = pid_extractor.PIDPipeline("input.png", output_dir=tmp)
+            system_pipe = pid_extractor.PIDPipeline("input.png", output_dir=tmp, document_id="DWG-200-02")
+
+            self.assertEqual(default_pipe._image_id(), "input.png")
+            self.assertEqual(system_pipe._image_id(), "DWG-200-02")
+
     def test_stage_definitions_follow_master_plan_order(self) -> None:
         pipe = FakePipeline(tempfile.mkdtemp())
 
@@ -167,6 +181,145 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             self.assertEqual(manifest["stages"][1]["status"], "failed")
             self.assertIn("stage2 failed", manifest["stages"][1]["error"])
 
+    def test_run_manifest_records_v2_signature(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = FakePipeline(tmp)
+
+            pipe.run(stop_after=1)
+
+            manifest = json.loads((Path(tmp) / "stage_manifest.json").read_text())
+            self.assertEqual(manifest["manifest_version"], 2)
+            self.assertEqual(manifest["run_signature"]["input"]["size_bytes"], len(b"placeholder"))
+            self.assertEqual(manifest["run_signature"]["config"]["ocr_route"], "ocrmac")
+            self.assertIn("sha256", manifest["run_signature"]["input"])
+            self.assertIn("git_revision", manifest["run_signature"])
+
+    def test_resume_rejects_changed_input_before_rewriting_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = FakePipeline(tmp)
+            pipe.run(stop_after=1)
+            manifest_path = Path(tmp) / "stage_manifest.json"
+            pipe._input_path.write_bytes(b"changed")
+
+            with self.assertRaisesRegex(ValueError, "input.sha256"):
+                FakePipeline(tmp).run(stop_after=4, resume=True)
+
+            self.assertEqual(json.loads(manifest_path.read_text())["stop_after"], 1)
+
+    def test_resume_rejects_changed_config_before_rewriting_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = FakePipeline(tmp)
+            pipe.run(stop_after=1)
+            manifest_path = Path(tmp) / "stage_manifest.json"
+
+            with self.assertRaisesRegex(ValueError, "config.ocr_route"):
+                FakePipeline(tmp, cfg=pid_extractor.PipelineConfig(ocr_route="easyocr")).run(
+                    stop_after=4,
+                    resume=True,
+                )
+
+            self.assertEqual(json.loads(manifest_path.read_text())["stop_after"], 1)
+
+    def test_resume_rejects_changed_weight_contents(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            weight_path = Path(tmp) / "model.pt"
+            weight_path.write_bytes(b"first")
+            cfg = pid_extractor.PipelineConfig(detection_weight_path=str(weight_path))
+            pipe = FakePipeline(tmp, cfg=cfg)
+            pipe.run(stop_after=1)
+            weight_path.write_bytes(b"second")
+
+            with self.assertRaisesRegex(ValueError, "detection_weight.sha256"):
+                FakePipeline(tmp, cfg=cfg).run(stop_after=1, resume=True)
+
+    def test_resume_rejects_missing_completed_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = FakePipeline(tmp)
+            pipe.run(stop_after=1)
+            (Path(tmp) / "stage1_artifact.json").unlink()
+
+            with self.assertRaisesRegex(ValueError, "stage1_artifact.json"):
+                FakePipeline(tmp).run(stop_after=1, resume=True)
+
+    def test_resume_rejects_non_contiguous_completed_stages(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = FakePipeline(tmp)
+            pipe.run(stop_after=4)
+            manifest_path = Path(tmp) / "stage_manifest.json"
+            manifest = json.loads(manifest_path.read_text())
+            next(item for item in manifest["stages"] if item["name"] == "stage2_ocr_discovery")["status"] = "stale"
+            manifest_path.write_text(json.dumps(manifest))
+
+            with self.assertRaisesRegex(ValueError, "contiguous"):
+                FakePipeline(tmp).run(stop_after=4, resume=True)
+
+    def test_resume_rejects_unsafe_artifact_name(self) -> None:
+        for artifact in ("../outside.json", ".."):
+            with self.subTest(artifact=artifact), tempfile.TemporaryDirectory() as tmp:
+                FakePipeline(tmp).run(stop_after=1)
+                manifest_path = Path(tmp) / "stage_manifest.json"
+                manifest = json.loads(manifest_path.read_text())
+                manifest["stages"][0]["artifacts"] = [artifact]
+                manifest_path.write_text(json.dumps(manifest))
+
+                with self.assertRaisesRegex(ValueError, "invalid artifact name"):
+                    FakePipeline(tmp).run(stop_after=1, resume=True)
+
+    def test_resume_rejects_symlink_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            FakePipeline(tmp).run(stop_after=1)
+            manifest_path = Path(tmp) / "stage_manifest.json"
+            manifest = json.loads(manifest_path.read_text())
+            real_path = Path(tmp) / "real.json"
+            real_path.write_text("{}")
+            (Path(tmp) / "link.json").symlink_to(real_path)
+            manifest["stages"][0]["artifacts"] = ["link.json"]
+            manifest_path.write_text(json.dumps(manifest))
+
+            with self.assertRaisesRegex(ValueError, "not a regular file"):
+                FakePipeline(tmp).run(stop_after=1, resume=True)
+
+    def test_resume_allows_git_revision_change_and_runs_next_stage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("garnet.pid_extractor._git_revision", return_value="old"):
+                FakePipeline(tmp).run(stop_after=1)
+
+            resumed = FakePipeline(tmp)
+            with patch("garnet.pid_extractor._git_revision", return_value="new"):
+                resumed.run(stop_after=2, resume=True)
+
+            self.assertEqual(resumed.called, ["stage2"])
+
+    def test_resume_rejects_legacy_manifest_without_signature(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = FakePipeline(tmp)
+            (Path(tmp) / "stage_manifest.json").write_text(json.dumps({"stages": []}))
+
+            with self.assertRaisesRegex(ValueError, "manifest version 2"):
+                pipe.run(stop_after=1, resume=True)
+
+    def test_save_img_rejects_failed_cv2_write(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline("image.png", output_dir=tmp)
+
+            with patch("garnet.pid_extractor.cv2.imwrite", return_value=False):
+                with self.assertRaisesRegex(OSError, "Failed to save image"):
+                    pipe._save_img("failed", np.zeros((2, 2), dtype=np.uint8))
+
+            self.assertEqual(pipe._current_stage_artifacts, [])
+
+    def test_save_json_failure_preserves_existing_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline("image.png", output_dir=tmp)
+            artifact_path = Path(tmp) / "artifact.json"
+            artifact_path.write_text('{"old": true}', encoding="utf-8")
+
+            with self.assertRaises(TypeError):
+                pipe._save_json("artifact", {"bad": object()})
+
+            self.assertEqual(json.loads(artifact_path.read_text(encoding="utf-8")), {"old": True})
+            self.assertFalse((Path(tmp) / ".artifact.json.tmp").exists())
+
     def test_stage2_uses_plain_gray_artifact_as_ocr_input(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             pipe = pid_extractor.PIDPipeline(
@@ -189,14 +342,146 @@ class PIDPipelineRunnerTests(unittest.TestCase):
 
             self.assertEqual(Path(mock_ocr.call_args.args[0]).name, "stage1_gray.png")
 
+    def test_stage2_reruns_when_ocr_artifact_already_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline(
+                "image.png",
+                output_dir=tmp,
+                cfg=pid_extractor.PipelineConfig(ocr_route="easyocr"),
+            )
+            pipe._save_img("stage1_gray", np.zeros((20, 20), dtype=np.uint8))
+            pipe._save_json("stage2_ocr_regions", {"text_regions": [{"text": "stale"}]})
+
+            with patch("garnet.pid_extractor.run_easyocr_sahi") as mock_ocr:
+                mock_ocr.return_value = {
+                    "regions_payload": {"image_id": "", "pass_type": "sheet", "text_regions": []},
+                    "summary": {"image_id": "", "pass_type": "sheet"},
+                    "exception_candidates": [],
+                    "overlay_image": np.zeros((20, 20, 3), dtype=np.uint8),
+                }
+
+                pipe.stage2_ocr_discovery()
+
+            mock_ocr.assert_called_once()
+            payload = json.loads((Path(tmp) / "stage2_ocr_regions.json").read_text())
+            self.assertEqual(payload["text_regions"], [])
+
+    def test_pipeline_rejects_unknown_constructor_keyword(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(TypeError):
+                pid_extractor.PIDPipeline("image.png", output_dir=tmp, out_dir="ignored")
+
+    def test_stage7c_labels_non_rejected_stage4_page_connections(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline("image.png", output_dir=tmp)
+            pipe._save_json(
+                "stage4_objects",
+                {
+                    "objects": [
+                        {
+                            "id": "accepted",
+                            "class_name": "page connection",
+                            "review_state": "accepted",
+                            "bbox": {"x_min": 0, "y_min": 0, "x_max": 20, "y_max": 20},
+                        },
+                        {
+                            "id": "rejected",
+                            "class_name": "page connection",
+                            "review_state": "rejected",
+                            "bbox": {"x_min": 0, "y_min": 0, "x_max": 20, "y_max": 20},
+                        },
+                        {
+                            "id": "pump",
+                            "class_name": "pump",
+                            "bbox": {"x_min": 0, "y_min": 0, "x_max": 20, "y_max": 20},
+                        },
+                    ]
+                },
+            )
+            pipe._save_json(
+                "stage2_ocr_regions",
+                {
+                    "text_regions": [{
+                        "id": "ocr_1",
+                        "text": "SHEET P-101",
+                        "bbox": {"x_min": 20, "y_min": 0, "x_max": 40, "y_max": 20},
+                    }]
+                },
+            )
+
+            pipe.stage7c_page_connector_labeling()
+
+            payload = json.loads((Path(tmp) / "stage7_page_connector_labels.json").read_text())
+            summary = json.loads((Path(tmp) / "stage7_page_connector_labels_summary.json").read_text())
+            self.assertEqual([item["object_id"] for item in payload["connectors"]], ["accepted"])
+            self.assertEqual(payload["connectors"][0]["labels"][0]["normalized_text"], "SHEET P-101")
+            self.assertEqual(summary["total_connectors"], 1)
+
+    def test_stage11_renders_current_graph_without_legacy_placeholders(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline("image.png", output_dir=tmp)
+            pipe.image_bgr = np.zeros((20, 20, 3), dtype=np.uint8)
+            pipe._save_json("stage7_graph", {"nodes": [], "edges": []})
+
+            with patch(
+                "garnet.trace_graph_builder.render_stage12_graph_overlay",
+                return_value=np.zeros((20, 20, 3), dtype=np.uint8),
+            ):
+                pipe.stage11_connection_overlay()
+
+            self.assertTrue((Path(tmp) / "stage11_connection_pipeline_overlay.png").is_file())
+            for name in (
+                "stage7_connection_attachments.json",
+                "stage7_edge_connections.json",
+                "stage7_edge_terminals.json",
+            ):
+                self.assertFalse((Path(tmp) / name).exists())
+
     def test_pipeline_config_defaults_to_ocrmac_route(self) -> None:
         cfg = pid_extractor.PipelineConfig()
 
         self.assertEqual(cfg.ocr_route, "ocrmac")
         self.assertEqual(cfg.gemini_postprocess_match_threshold, 0.1)
-        self.assertEqual(cfg.polyline_simplify_epsilon, 2.0)
-        self.assertEqual(cfg.arrow_proximity_px, 40.0)
-        self.assertEqual(cfg.inline_split_confidence_threshold, 0.5)
+
+    def test_pipeline_config_rejects_removed_fields(self) -> None:
+        removed = (
+            "equipment_tag_fusion_max_distance_px",
+            "equipment_tag_attachment_max_distance_px",
+            "pipe_mask_continuity_ocr_padding",
+            "pipe_mask_continuity_min_component_area",
+            "pipe_seal_horizontal_close_kernel",
+            "pipe_seal_vertical_close_kernel",
+            "pipe_seal_min_component_area",
+            "node_cluster_eps",
+            "node_cluster_min_samples",
+            "min_edge_length_px",
+            "crossing_branch_stub_length_px",
+            "crossing_branch_merge_angle_tolerance_deg",
+            "crossing_opposite_angle_tolerance_deg",
+            "crossing_center_blob_radius_px",
+            "crossing_center_blob_threshold",
+            "crossing_stage4_marker_match_distance_px",
+            "polyline_simplify_epsilon",
+            "arrow_proximity_px",
+            "inline_split_confidence_threshold",
+            "equipment_attachment_classes",
+            "equipment_attachment_max_distance_px",
+            "equipment_attachment_k_candidate_edges",
+            "connection_attachment_classes",
+            "connection_attachment_max_distance_px",
+            "connection_attachment_k_candidate_edges",
+            "line_text_attachment_max_distance_px",
+            "terminal_equipment_classes",
+            "terminal_connection_classes",
+            "terminal_inline_passthrough_classes",
+            "terminal_match_distance_px",
+            "graph_inline_connector_classes",
+            "graph_inline_connector_match_distance_px",
+        )
+        self.assertEqual(len(removed), 32)
+        for name in removed:
+            with self.subTest(name=name), self.assertRaises(TypeError):
+                pid_extractor.PipelineConfig(**{name: 1})
 
     def test_resolve_cli_weight_file_accepts_backend_relative_path(self) -> None:
         weight_dir = pid_extractor.BACKEND_DIR / "yolo_weights"
