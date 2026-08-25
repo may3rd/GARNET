@@ -4,7 +4,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from garnet.page_connector import classify_off_page_reference, find_nearby_text, select_connector_metadata
+from garnet.page_connector import (
+    classify_off_page_reference,
+    find_nearby_text,
+    line_number_by_trace_id,
+    select_connector_metadata,
+)
 
 
 class PageConnectorTests(unittest.TestCase):
@@ -110,6 +115,72 @@ class PageConnectorTests(unittest.TestCase):
         )
 
         self.assertEqual(labels[0]["page_reference"]["reference_value"], "5")
+
+    def test_select_connector_metadata_uses_fallback_line_number_when_no_line_label(self) -> None:
+        """When no line-number OCR label is near the connector, the fallback
+        (the line number attached to the traced pipe) becomes the connector key."""
+        metadata = select_connector_metadata(
+            [
+                {
+                    "text": "SEE DWG 200-02",
+                    "normalized_text": "SEE DWG 200-02",
+                    "semantic_class": "reference",
+                    "distance_px": 12.0,
+                    "page_reference": {
+                        "reference_type": "drawing",
+                        "reference_value": "200-02",
+                        "matched_text": "DWG 200-02",
+                    },
+                }
+            ],
+            fallback_line_number="2NAS-25-003004-B2A2-NI",
+        )
+
+        self.assertEqual(metadata["connector_key"], "2NAS-25-003004-B2A2-NI")
+        self.assertEqual(metadata["target_sheet_reference"], "200-02")
+
+    def test_select_connector_metadata_prefers_nearby_line_label_over_fallback(self) -> None:
+        """A real line-number label near the connector wins over the fallback."""
+        metadata = select_connector_metadata(
+            [
+                {
+                    "text": "10-P-100-A",
+                    "normalized_text": "10-P-100-A",
+                    "semantic_class": "line_number",
+                    "distance_px": 5.0,
+                    "page_reference": None,
+                }
+            ],
+            fallback_line_number="2NAS-25-003004-B2A2-NI",
+        )
+
+        self.assertEqual(metadata["connector_key"], "10-P-100-A")
+
+    def test_line_number_by_trace_id_picks_highest_confidence(self) -> None:
+        payload = {
+            "associations": {
+                "line_numbers": {
+                    "accepted": [
+                        {"trace_id": "obj_000195", "text": "2NAS-25-003004-B2A2-NI", "confidence": 0.9},
+                        {"trace_id": "obj_000195", "text": "2NAS-25-003004-B2A2-NI", "confidence": 0.95},
+                        {"trace_id": "obj_000191", "text": "4\"-CUL-25-002017-B1A2-NI", "confidence": 0.8},
+                        {"trace_id": "", "text": "ignored-no-trace", "confidence": 0.9},
+                        {"trace_id": "obj_000200", "text": "", "confidence": 0.9},
+                    ]
+                }
+            }
+        }
+
+        result = line_number_by_trace_id(payload)
+
+        self.assertEqual(result["obj_000195"], "2NAS-25-003004-B2A2-NI")
+        self.assertEqual(result["obj_000191"], "4\"-CUL-25-002017-B1A2-NI")
+        self.assertNotIn("", result)
+        self.assertNotIn("obj_000200", result)
+
+    def test_line_number_by_trace_id_handles_empty_payload(self) -> None:
+        self.assertEqual(line_number_by_trace_id(None), {})
+        self.assertEqual(line_number_by_trace_id({}), {})
 
 
 if __name__ == "__main__":

@@ -282,6 +282,25 @@ def _normalize_match_text(value: Any) -> str:
     return " ".join(str(value or "").strip().casefold().split())
 
 
+_LINE_NUMBER_RE = re.compile(r"\d{2}-\d{6}")
+
+
+def _normalize_connector_key(value: Any) -> str:
+    """Canonicalize a connector key for cross-sheet matching.
+
+    Connector keys are pipe line numbers (e.g. "2NAS-25-003004-B2A2-NI") that
+    OCR renders with noise (size/suffix fragments, stray characters). The unique
+    line identifier is the `NN-NNNNNN` drawing-line number, so matching on that
+    lets the same line detected on two sheets resolve despite OCR differences.
+    Falls back to the cleaned text when no line-number pattern is present.
+    """
+    text = _normalize_match_text(value)
+    if not text:
+        return text
+    match = _LINE_NUMBER_RE.search(text)
+    return match.group(0) if match else text
+
+
 def _strict_connectors(
     graphs: list[dict[str, Any]],
     connector_overrides: dict[str, dict[str, Any]],
@@ -430,14 +449,14 @@ def _resolve_strict_merge(
         for connector in connectors
         if connector["connector_id"] not in used
         and connector["review_state"] != "rejected"
-        and _normalize_match_text(connector["connector_key"])
+        and _normalize_connector_key(connector["connector_key"])
         and _normalize_match_text(connector["target_sheet_id"]) in sheet_by_normalized
     ]
     for index, left in enumerate(eligible):
         for right in eligible[index + 1 :]:
             if left["doc_id"] == right["doc_id"]:
                 continue
-            if _normalize_match_text(left["connector_key"]) != _normalize_match_text(right["connector_key"]):
+            if _normalize_connector_key(left["connector_key"]) != _normalize_connector_key(right["connector_key"]):
                 continue
             if _normalize_match_text(left["target_sheet_id"]) != _normalize_match_text(right["doc_id"]):
                 continue
@@ -463,7 +482,7 @@ def _resolve_strict_merge(
         if connector["review_state"] == "rejected":
             issues.append(_strict_issue("rejected_connector", connector))
             continue
-        key = _normalize_match_text(connector["connector_key"])
+        key = _normalize_connector_key(connector["connector_key"])
         target = _normalize_match_text(connector["target_sheet_id"])
         if not key:
             issues.append(_strict_issue("missing_connector_key", connector))
@@ -476,7 +495,7 @@ def _resolve_strict_merge(
         else:
             same_key_on_target = any(
                 other["doc_id"] == sheet_by_normalized[target]
-                and _normalize_match_text(other["connector_key"]) == key
+                and _normalize_connector_key(other["connector_key"]) == key
                 for other in connectors
             )
             issues.append(

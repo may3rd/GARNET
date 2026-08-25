@@ -9,6 +9,7 @@ from garnet.pipe_sheet_merge import (
     MergeResult,
     CrossSheetEdge,
     MergeIssue,
+    _normalize_connector_key,
 )
 
 
@@ -271,6 +272,52 @@ class ResolveMergePairsTests(unittest.TestCase):
         issue = d["merge_issues"][0]
         self.assertEqual(issue["type"], "dangling_connector")
         self.assertIn("H-1", issue["issue_id"])
+
+    def test_normalize_connector_key_extracts_line_number(self):
+        """OCR-noisy renderings of the same line number canonicalize to one key."""
+        self.assertEqual(_normalize_connector_key("2NAS-25-003004-B2A2-NI"), "25-003004")
+        self.assertEqual(_normalize_connector_key('1I,"-NAS-25-003004-82A2-NI'), "25-003004")
+        self.assertEqual(_normalize_connector_key("3\"-PL-26-003008-N2A1-NI"), "26-003008")
+
+    def test_normalize_connector_key_falls_back_to_cleaned_text(self):
+        """Keys without a line-number pattern keep their cleaned text."""
+        self.assertEqual(_normalize_connector_key("10-P-100-A"), "10-p-100-a")
+        self.assertEqual(_normalize_connector_key(""), "")
+
+    def test_merge_resolves_reciprocal_connectors_with_ocr_noisy_keys(self):
+        """Two sheets whose connectors reference each other and share a line
+        number (rendered with OCR noise) resolve to a cross-sheet edge."""
+        g1 = _graph(
+            "25-0002",
+            [
+                {
+                    "id": "e1",
+                    "off_page_connector": {
+                        "connector_key": "2NAS-25-003004-B2A2-NI",
+                        "target_sheet_reference": "25-0003",
+                        "reference_type": "sheet",
+                    },
+                }
+            ],
+        )
+        g2 = _graph(
+            "25-0003",
+            [
+                {
+                    "id": "e2",
+                    "off_page_connector": {
+                        "connector_key": '1I,"-NAS-25-003004-82A2-NI',
+                        "target_sheet_reference": "25-0002",
+                        "reference_type": "sheet",
+                    },
+                }
+            ],
+        )
+
+        d = resolve_merge_pairs([g1, g2], strict=True).to_dict()
+
+        self.assertEqual(len(d["cross_sheet_edges"]), 1)
+        self.assertEqual(len(d["merge_issues"]), 0)
 
 
 if __name__ == "__main__":

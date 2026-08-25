@@ -1014,7 +1014,7 @@ class PIDPipeline(Stage5bPipelineMixin):
 
     def stage7c_page_connector_labeling(self) -> None:
         """Attach nearby OCR labels to accepted page-connection objects."""
-        from garnet.page_connector import find_nearby_text, select_connector_metadata
+        from garnet.page_connector import find_nearby_text, line_number_by_trace_id, select_connector_metadata
 
         accepted = [
             obj
@@ -1023,15 +1023,23 @@ class PIDPipeline(Stage5bPipelineMixin):
         ]
         ocr_payload = self._load_json_artifact("stage2_ocr_regions")
         text_regions = ocr_payload.get("text_regions", [])
+        # Fall back to the line number attached to the traced pipe that terminates
+        # at each connector when no line-number OCR label sits near the symbol.
+        trace_assoc = self._load_json_artifact_or_default("stage6_trace_associations", {})
+        line_number_by_trace = line_number_by_trace_id(trace_assoc)
         all_labels = []
         for obj in accepted:
             bbox = obj.get("bbox", {})
             labels = find_nearby_text(bbox, text_regions, max_distance_px=80.0)
+            obj_id = obj.get("id") or obj.get("det_id")
             all_labels.append(
                 {
-                    "object_id": obj.get("id") or obj.get("det_id"),
+                    "object_id": obj_id,
                     "labels": labels,
-                    **select_connector_metadata(labels),
+                    **select_connector_metadata(
+                        labels,
+                        fallback_line_number=line_number_by_trace.get(str(obj_id), ""),
+                    ),
                 }
             )
         self._save_json("stage7_page_connector_labels", {"connectors": all_labels})

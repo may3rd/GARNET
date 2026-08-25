@@ -90,8 +90,16 @@ def find_nearby_text(
     return attached
 
 
-def select_connector_metadata(labels: list[dict[str, Any]]) -> dict[str, Any]:
-    """Select the nearest destination reference and line/tag independently."""
+def select_connector_metadata(
+    labels: list[dict[str, Any]],
+    fallback_line_number: str = "",
+) -> dict[str, Any]:
+    """Select the nearest destination reference and line/tag independently.
+
+    `fallback_line_number` supplies the connector key when no line-number OCR
+    label sits near the connector symbol (e.g. the line number attached to the
+    traced pipe that terminates at the connector).
+    """
     ordered = sorted(labels or [], key=lambda item: float(item.get("distance_px", float("inf"))))
     reference_label = next((item for item in ordered if item.get("page_reference")), None)
     line_label = next(
@@ -107,9 +115,41 @@ def select_connector_metadata(labels: list[dict[str, Any]]) -> dict[str, Any]:
     connector_key = str(
         (line_label or {}).get("normalized_text") or (line_label or {}).get("text") or ""
     ).strip()
+    if not connector_key and fallback_line_number:
+        connector_key = str(fallback_line_number).strip()
     return {
         "page_reference": page_reference,
         "target_sheet_reference": str((page_reference or {}).get("reference_value") or "").strip(),
         "raw_reference_text": str((reference_label or {}).get("text") or "").strip(),
         "connector_key": connector_key,
     }
+
+
+def line_number_by_trace_id(trace_associations_payload: dict[str, Any] | None) -> dict[str, str]:
+    """Map trace_id -> best (highest-confidence) attached line-number text.
+
+    Reads the Stage 6 trace-association payload, where each accepted line number
+    records the `trace_id` of the pipe it is attached to. Used to give an
+    off-page connector the line number of the pipe that terminates at it.
+    """
+    accepted = (
+        (trace_associations_payload or {})
+        .get("associations", {})
+        .get("line_numbers", {})
+        .get("accepted", [])
+    )
+    best: dict[str, tuple[float, str]] = {}
+    for item in accepted:
+        if not isinstance(item, dict):
+            continue
+        trace_id = str(item.get("trace_id") or "").strip()
+        text = str(item.get("normalized_text") or item.get("text") or "").strip()
+        if not trace_id or not text:
+            continue
+        try:
+            confidence = float(item.get("confidence") or 0.0)
+        except (TypeError, ValueError):
+            confidence = 0.0
+        if trace_id not in best or confidence > best[trace_id][0]:
+            best[trace_id] = (confidence, text)
+    return {trace_id: text for trace_id, (_conf, text) in best.items()}
