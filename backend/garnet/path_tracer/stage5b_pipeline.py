@@ -1709,10 +1709,13 @@ class Stage5bPipelineMixin:
         branch_results: dict[str, dict],
         node_symbols: list[dict[str, Any]],
     ) -> None:
-        """Move saved tee endpoints to the node bbox center after discovery.
+        """Anchor saved tee terminals at the node bbox center after discovery.
 
         This keeps the iterative branch search using the raw traced geometry,
-        while the final JSON/overlay lands node terminals on the visible tee dot.
+        while the final JSON/overlay places the terminal anchor on the visible
+        tee dot. The pipe polyline stays at the traced extent (honest geometry);
+        it is not extended to the dot center so it does not over-draw beyond the
+        traced mask.
         """
         node_by_id = {
             str(node.get("id", "")): node
@@ -1731,30 +1734,13 @@ class Stage5bPipelineMixin:
             bbox = node["bbox"]
             terminal_x = (int(bbox["x_min"]) + int(bbox["x_max"])) // 2
             terminal_y = (int(bbox["y_min"]) + int(bbox["y_max"])) // 2
+            # Keep the terminal anchor at the tee-node bbox center but leave the
+            # pipe polyline at the traced extent. Extending the last segment to
+            # the node center fabricates a few pixels of pipe (measured ~2-6px
+            # elongation on real smoke-run traces) and can over-draw toward the
+            # dot center.
             result["terminal_x"] = terminal_x
             result["terminal_y"] = terminal_y
-            segments = result.get("segments") or []
-            if not segments:
-                continue
-            last = segments[-1]
-            same_axis = (
-                last["direction"] in ("LEFT", "RIGHT")
-                and abs(int(last["y2"]) - terminal_y) <= 3
-            ) or (
-                last["direction"] in ("UP", "DOWN")
-                and abs(int(last["x2"]) - terminal_x) <= 3
-            )
-            if not same_axis:
-                continue
-            old_len = int(last.get("length_px", 0))
-            last["x2"] = terminal_x
-            last["y2"] = terminal_y
-            new_len = max(
-                abs(int(last["x2"]) - int(last["x1"])),
-                abs(int(last["y2"]) - int(last["y1"])),
-            )
-            last["length_px"] = new_len
-            result["trace_length_px"] = int(result.get("trace_length_px", 0)) + new_len - old_len
 
     def _rebuild_stage5b_turns_from_segments(
         self,
@@ -1839,19 +1825,9 @@ class Stage5bPipelineMixin:
         result["terminal_obj_id"] = node_id
         result["terminal_x"] = cx
         result["terminal_y"] = cy
-        segments = result.get("segments") or []
-        if not segments:
-            return
-        last = segments[-1]
-        old_len = int(last.get("length_px", 0))
-        last["x2"] = cx
-        last["y2"] = cy
-        new_len = max(
-            abs(int(last["x2"]) - int(last["x1"])),
-            abs(int(last["y2"]) - int(last["y1"])),
-        )
-        last["length_px"] = new_len
-        result["trace_length_px"] = int(result.get("trace_length_px", 0)) + new_len - old_len
+        # Keep the terminal anchor at the nearest tee-node center but leave the
+        # pipe polyline at the traced extent (same honest-geometry treatment as
+        # the branch-node terminals above).
 
     def _reverse_stage5b_trace_result(
         self,
