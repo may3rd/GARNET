@@ -6,6 +6,10 @@ with a compact node/edge summary plus a document of process-design rules
 same issue shape used by `trace_graph_qa`, so they can flow into the existing review
 queue. Geometry remains authoritative; semantics are only ever a flag.
 
+Status: **not yet wired into the pipeline.** This module has no callers in
+`pid_extractor.py` or `api.py`; it is retained as advisory scaffolding for future
+work. See `tests/test_semantic_graph_qa.py` for the locked-in fail-soft contract.
+
 Model-agnostic and configurable via `SemanticQaConfig`. No fine-tuning; domain
 knowledge is injected as prompt context only. The stage is designed to fail soft:
 if no API key is present or the model call errors, it returns an empty issue list

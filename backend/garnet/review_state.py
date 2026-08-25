@@ -138,6 +138,12 @@ def build_stage4_line_numbers_from_review_state(
     manifest: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Materialize reviewed Stage 4 line-number boxes into the Stage 4 artifact contract."""
+    # A fresh run has no review state file yet; `load_review_state` would hand back
+    # an empty default with `stage4_line_number: []`, which this builder would
+    # mistake for a real (empty) review and overwrite the fused line numbers with
+    # nothing. Preserve the fused results until an actual review exists.
+    if not review_state_path(job_dir).exists():
+        return None
     review_payload = load_review_state(job_dir, manifest)
     workspace_objects = review_payload.get("workspace_objects", {})
     if not isinstance(workspace_objects, dict) or "stage4_line_number" not in workspace_objects:

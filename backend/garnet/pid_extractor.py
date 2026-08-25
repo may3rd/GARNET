@@ -215,7 +215,7 @@ class PipelineConfig:
     ocr_line_merge_y_tolerance_px: int = 10
     ocr_enable_rotated: bool = True
     ocrmac_framework: str = "vision"
-    ocrmac_recognition_level: str = "accurate"
+    ocrmac_recognition_level: str = "fast"
     detection_weight_path: str = field(default_factory=_default_detection_weight_path)
     detection_image_size: int = 640
     detection_overlap_ratio: float = 0.2
