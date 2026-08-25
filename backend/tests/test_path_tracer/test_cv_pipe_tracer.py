@@ -142,5 +142,23 @@ class TestCvPipeTracerInlineSymbols(unittest.TestCase):
         self.assertGreaterEqual(result.terminal_x, 85)
 
 
+class TestCvPipeTracerWarmupSegStart(unittest.TestCase):
+    def test_first_segment_starts_before_warmup_walk(self):
+        # A short pipe stub whose far end lies within the warmup walk. The first
+        # recorded segment must begin at the snapped (pre-warmup) start, so the
+        # walk-clear-of-source distance is preserved. A regression here would drop
+        # that stub and leave no recorded segment at all.
+        mask = np.zeros((80, 100), dtype=np.uint8)
+        mask[40, 10:29] = 255
+        tracer = CVPipeTracer(mask, min_step=5, straight_min_step=10)
+        result = tracer.trace(12, 40, "RIGHT")
+
+        self.assertEqual(result.terminal_type, TerminalType.DEAD_END.value)
+        self.assertEqual(len(result.segments), 1)
+        first = result.segments[0]
+        self.assertEqual((first.x1, first.y1), (12, 40))
+        self.assertEqual((first.x2, first.y2), (28, 40))
+
+
 if __name__ == "__main__":
     unittest.main()

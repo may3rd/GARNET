@@ -1131,8 +1131,7 @@ class CVPipeTracer:
         init = self._init_trace_start(result, start_x, start_y, start_dir)
         if init is None:
             return result
-        x, y, direction, dx, dy = init
-        seg_start_x, seg_start_y = x, y
+        x, y, direction, dx, dy, seg_start_x, seg_start_y = init
         steps = 0
         state_counts: dict[tuple[int, int, str], int] = {}
         exact_positions: set[tuple[int, int, str]] = set()
@@ -1258,58 +1257,27 @@ class CVPipeTracer:
             right_connected = self._has_connected_side_path(x, y, right_dir, connected_turn_min)
             strict_straight_raycast = False
 
-            side_junction = self._find_bidirectional_side_junction(x, y, direction)
-            if side_junction is not None:
-                raycast = self._find_straight_raycast_candidate(x, y, direction, source_obj_id)
-                if raycast is not None:
-                    self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
-                    x, y = raycast
-                    seg_start_x, seg_start_y = x, y
-                    continue
-                jx, jy = side_junction
-                resumed = self._continue_if_axis_open(
-                    result, seg_start_x, seg_start_y, jx, jy, direction
-                )
-                if resumed is not None:
-                    x, y = resumed
-                    seg_start_x, seg_start_y = x, y
-                    continue
-                self._append_segment(result, seg_start_x, seg_start_y, jx, jy, direction)
-                result.terminal_type = TerminalType.TEE_JUNCTION.value
-                result.terminal_x, result.terminal_y = jx, jy
-                break
-
-            # Once a trace has already taken multiple elbows, a true
-            # bidirectional side branch is a tee terminal.  Gap-only side
-            # candidates can be nearby text/leader strokes, so require physical
-            # side-pipe connectivity before promoting the point to a tee.
-            turn_dirs = {c[2] for c in turn_candidates if c[2] in (left_dir, right_dir)}
-            if len(result.turns) >= 2 and len(turn_dirs) > 1:
-                connected_turn_dirs = set()
-                if left_connected:
-                    connected_turn_dirs.add(left_dir)
-                if right_connected:
-                    connected_turn_dirs.add(right_dir)
-                if len(connected_turn_dirs) > 1:
-                    raycast = self._find_straight_raycast_candidate(x, y, direction, source_obj_id)
-                    if raycast is not None:
-                        self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
-                        x, y = raycast
-                        seg_start_x, seg_start_y = x, y
-                        continue
-                    resumed = self._continue_if_axis_open(
-                        result, seg_start_x, seg_start_y, x, y, direction
-                    )
-                    if resumed is not None:
-                        x, y = resumed
-                        seg_start_x, seg_start_y = x, y
-                        continue
-                    self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
-                    result.terminal_type = TerminalType.TEE_JUNCTION.value
-                    result.terminal_x, result.terminal_y = x, y
+            side_action = self._handle_side_junction(
+                result, seg_start_x, seg_start_y, x, y, direction, source_obj_id
+            )
+            if side_action is not None:
+                if side_action[0] == "break":
                     break
-                turn_candidates = [c for c in turn_candidates if c[2] in connected_turn_dirs]
-                strict_straight_raycast = True
+                _, x, y, _dir, seg_start_x, seg_start_y = side_action
+                continue
+
+            multi = self._handle_multi_elbow_tee(
+                result, seg_start_x, seg_start_y, x, y, direction, source_obj_id,
+                turn_candidates, left_dir, right_dir, left_connected, right_connected,
+            )
+            if multi is not None:
+                if multi[0] == "break":
+                    break
+                if multi[0] == "continue":
+                    _, x, y, direction, seg_start_x, seg_start_y = multi
+                    continue
+                # "next" — narrow turn_candidates and enable strict straight raycast
+                turn_candidates, strict_straight_raycast = multi[1], multi[2]
 
             # A directly connected elbow should turn before any straight
             # ray-cast jump. Require a long adjacent side-pipe run so short
@@ -1321,142 +1289,27 @@ class CVPipeTracer:
             raycast = self._find_straight_raycast_candidate(
                 x, y, direction, source_obj_id, **raycast_kwargs
             )
-            exact_turn_dir = None
-            if left_connected and not right_connected:
-                exact_turn_dir = left_dir
-            elif right_connected and not left_connected:
-                exact_turn_dir = right_dir
-            if exact_turn_dir is not None:
-                if self._is_backtrack_turn(result, x, y, exact_turn_dir):
-                    exact_turn_dir = None
-                else:
-                    turn_hits_blocking_terminal = self._turn_hits_blocking_terminal(
-                        x, y, exact_turn_dir, source_obj_id
-                    )
-                    if raycast is None and turn_hits_blocking_terminal:
-                        raycast = self._find_straight_raycast_candidate(
-                            x,
-                            y,
-                            direction,
-                            source_obj_id,
-                            ray_start=5,
-                            ray_max=50,
-                            ray_step=1,
-                            relaxed_band=True,
-                        )
-                    if (
-                        self._is_page_connection_source(source_obj_id)
-                        and self._turn_hits_terminal_type(
-                            x,
-                            y,
-                            exact_turn_dir,
-                            source_obj_id,
-                            TerminalType.PAGE_CONNECTION.value,
-                        )
-                    ):
-                        resumed = self._continue_if_axis_open(
-                            result, seg_start_x, seg_start_y, x, y, direction
-                        )
-                        if resumed is not None:
-                            x, y = resumed
-                            seg_start_x, seg_start_y = x, y
-                            continue
-                        self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
-                        result.terminal_type = TerminalType.TEE_JUNCTION.value
-                        result.terminal_x, result.terminal_y = x, y
-                        break
-                    if (
-                        raycast is not None
-                        and turn_hits_blocking_terminal
-                    ):
-                        self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
-                        x, y = raycast
-                        seg_start_x, seg_start_y = x, y
-                        continue
-                    if self._has_bidirectional_turn_leg(x, y, exact_turn_dir):
-                        resumed = self._continue_if_axis_open(
-                            result, seg_start_x, seg_start_y, x, y, direction
-                        )
-                        if resumed is not None:
-                            x, y = resumed
-                            seg_start_x, seg_start_y = x, y
-                            continue
-                        self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
-                        result.terminal_type = TerminalType.TEE_JUNCTION.value
-                        result.terminal_x, result.terminal_y = x, y
-                        break
-                    self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
-                    result.turns.append((x, y, exact_turn_dir))
-                    direction = exact_turn_dir
-                    dx, dy = DIRECTION_DELTA[direction]
-                    turn_x, turn_y = x, y
-                    x, y = self._enter_turn_leg(turn_x, turn_y, direction)
-                    seg_start_x, seg_start_y = self._turn_segment_start(
-                        turn_x, turn_y, x, y, direction
-                    )
-                    continue
-            candidate_turn_dirs = {c[2] for c in turn_candidates if c[2] in (left_dir, right_dir)}
-            if len(candidate_turn_dirs) == 1 and direction == "UP":
-                turn_dir = next(iter(candidate_turn_dirs))
-                turn = self._nearest_candidate_point(
-                    x,
-                    y,
-                    [c for c in turn_candidates if c[2] == turn_dir],
-                )
-                straight_missing_or_far = (
-                    raycast is None
-                    or max(abs(raycast[0] - x), abs(raycast[1] - y)) > 40
-                )
-                turn_target = (
-                    self._find_straight_raycast_candidate(
-                        turn[0],
-                        turn[1],
-                        turn_dir,
-                        source_obj_id,
-                        ray_start=5,
-                        ray_max=80,
-                        ray_step=1,
-                        relaxed_band=True,
-                    )
-                    if turn is not None else None
-                )
-                if (
-                    turn is not None
-                    and turn_dir == left_dir
-                    and straight_missing_or_far
-                    and turn_target is not None
-                    and _has_line_of_sight_axis_band(
-                        self.mask,
-                        turn_target[0],
-                        turn_target[1],
-                        turn_dir,
-                        40,
-                        band_width=1,
-                    )
-                    and not self._is_backtrack_turn(result, turn[0], turn[1], turn_dir)
-                ):
-                    tx, ty, turn_dir = turn
-                    if self._has_bidirectional_turn_leg(tx, ty, turn_dir):
-                        resumed = self._continue_if_axis_open(
-                            result, seg_start_x, seg_start_y, tx, ty, direction
-                        )
-                        if resumed is not None:
-                            x, y = resumed
-                            seg_start_x, seg_start_y = x, y
-                            continue
-                        self._append_segment(result, seg_start_x, seg_start_y, tx, ty, direction)
-                        result.terminal_type = TerminalType.TEE_JUNCTION.value
-                        result.terminal_x, result.terminal_y = tx, ty
-                        break
-                    self._append_segment(result, seg_start_x, seg_start_y, tx, ty, direction)
-                    result.turns.append((tx, ty, turn_dir))
-                    direction = turn_dir
-                    dx, dy = DIRECTION_DELTA[direction]
-                    x, y = self._enter_turn_leg(tx, ty, direction)
-                    seg_start_x, seg_start_y = self._turn_segment_start(
-                        tx, ty, x, y, direction
-                    )
-                    continue
+            exact = self._handle_exact_turn(
+                result, seg_start_x, seg_start_y, x, y, direction, source_obj_id,
+                left_dir, right_dir, left_connected, right_connected, raycast,
+            )
+            if exact is not None:
+                if exact[0] == "break":
+                    break
+                _, x, y, direction, seg_start_x, seg_start_y = exact
+                dx, dy = DIRECTION_DELTA[direction]
+                continue
+
+            cand_up = self._handle_candidate_up_turn(
+                result, seg_start_x, seg_start_y, x, y, direction, source_obj_id,
+                turn_candidates, left_dir, right_dir, raycast,
+            )
+            if cand_up is not None:
+                if cand_up[0] == "break":
+                    break
+                _, x, y, direction, seg_start_x, seg_start_y = cand_up
+                dx, dy = DIRECTION_DELTA[direction]
+                continue
 
             if raycast is not None:
                 self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
@@ -1481,125 +1334,29 @@ class CVPipeTracer:
                 seg_start_x, seg_start_y = x, y
                 continue
 
-            if left_ok and right_ok:
-                extended_raycast = self._find_straight_raycast_candidate(
-                    x, y, direction, source_obj_id, ray_max=50, ray_step=1
-                )
-                if extended_raycast is not None:
-                    self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
-                    x, y = extended_raycast
-                    seg_start_x, seg_start_y = x, y
-                    continue
-                left_raycast = self._find_straight_raycast_candidate(x, y, left_dir, source_obj_id)
-                right_raycast = self._find_straight_raycast_candidate(x, y, right_dir, source_obj_id)
-                if (left_raycast is not None) != (right_raycast is not None):
-                    turn_dir = left_dir if left_raycast is not None else right_dir
-                    turn_target = left_raycast if left_raycast is not None else right_raycast
-                    if self._is_backtrack_turn(result, x, y, turn_dir):
-                        turn_target = None
-                if (left_raycast is not None) != (right_raycast is not None) and turn_target is not None:
-                    self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
-                    if self._has_bidirectional_turn_leg(x, y, turn_dir):
-                        if self._axis_continues_past(
-                            x, y, direction, origin=(seg_start_x, seg_start_y)
-                        ):
-                            x, y = self._resume_along_axis(
-                                result, x, y, direction, (seg_start_x, seg_start_y)
-                            )
-                            seg_start_x, seg_start_y = x, y
-                            continue
-                        result.terminal_type = TerminalType.TEE_JUNCTION.value
-                        result.terminal_x, result.terminal_y = x, y
-                        break
-                    turn_x, turn_y = x, y
-                    result.turns.append((turn_x, turn_y, turn_dir))
-                    x, y = turn_target
-                    direction = turn_dir
-                    dx, dy = DIRECTION_DELTA[direction]
-                    if max(abs(x - turn_x), abs(y - turn_y)) <= 50:
-                        seg_start_x, seg_start_y = self._turn_segment_start(
-                            turn_x, turn_y, x, y, direction
-                        )
-                    else:
-                        seg_start_x, seg_start_y = x, y
-                    continue
-                self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
-                if (
-                    direction == "UP"
-                    and self._is_page_connection_source(source_obj_id)
-                    and _has_line_of_sight_axis_exact(self.mask, x, y, left_dir, self.straight_min_step)
-                    and _has_line_of_sight_axis_exact(self.mask, x, y, right_dir, self.straight_min_step)
-                ):
-                    turn_dir = left_dir
-                    result.turns.append((x, y, turn_dir))
-                    direction = turn_dir
-                    dx, dy = DIRECTION_DELTA[direction]
-                    x, y = self._enter_turn_leg(x, y, direction)
-                    seg_start_x, seg_start_y = self._turn_segment_start(
-                        result.turns[-1][0], result.turns[-1][1], x, y, direction
-                    )
-                    continue
-                if self._axis_continues_past(x, y, direction, origin=(seg_start_x, seg_start_y)):
-                    x, y = self._resume_along_axis(result, x, y, direction, (seg_start_x, seg_start_y))
-                    seg_start_x, seg_start_y = x, y
-                    continue
-                result.terminal_type = TerminalType.TEE_JUNCTION.value
-                result.terminal_x, result.terminal_y = x, y
-                break
-
-            turn = self._nearest_candidate_point(x, y, turn_candidates)
-            if turn is not None:
-                tx, ty, turn_dir = turn
-                if self._is_backtrack_turn(result, tx, ty, turn_dir):
-                    turn = None
-            if turn is not None:
-                tx, ty, turn_dir = turn
-                turn_leg_len = max(abs(tx - seg_start_x), abs(ty - seg_start_y))
-                self._append_segment(result, seg_start_x, seg_start_y, tx, ty, direction)
-                candidate_dirs = {c[2] for c in turn_candidates}
-                if len(result.turns) == 1 and turn_leg_len < 200 and len(candidate_dirs) > 1:
-                    if (
-                        source_obj_id.startswith("equip_")
-                        and turn_leg_len < 20
-                        and result.trace_length_px > 200
-                    ):
-                        result.terminal_type = TerminalType.DEAD_END.value
-                        result.terminal_x, result.terminal_y = tx, ty
-                        break
-                    if self._axis_continues_past(
-                        tx, ty, direction, origin=(seg_start_x, seg_start_y)
-                    ):
-                        x, y = self._resume_along_axis(
-                            result, tx, ty, direction, (seg_start_x, seg_start_y)
-                        )
-                        seg_start_x, seg_start_y = x, y
-                        continue
-                    result.terminal_type = TerminalType.TEE_JUNCTION.value
-                    result.terminal_x, result.terminal_y = tx, ty
+            both_ok = self._handle_left_sides_ok(
+                result, seg_start_x, seg_start_y, x, y, direction, source_obj_id,
+                left_dir, right_dir, left_ok, right_ok,
+            )
+            if both_ok is not None:
+                if both_ok[0] == "break":
                     break
-                if self._has_bidirectional_turn_leg(tx, ty, turn_dir):
-                    if self._axis_continues_past(
-                        tx, ty, direction, origin=(seg_start_x, seg_start_y)
-                    ):
-                        x, y = self._resume_along_axis(
-                            result, tx, ty, direction, (seg_start_x, seg_start_y)
-                        )
-                        seg_start_x, seg_start_y = x, y
-                        continue
-                    result.terminal_type = TerminalType.TEE_JUNCTION.value
-                    result.terminal_x, result.terminal_y = tx, ty
-                    break
-                entered_x = tx + DIRECTION_DELTA[turn_dir][0] * self.min_step
-                entered_y = ty + DIRECTION_DELTA[turn_dir][1] * self.min_step
-                x, y = self._snap_to_centerline(entered_x, entered_y, turn_dir)
-                result.turns.append((tx, ty, turn_dir))
-                direction = turn_dir
+                _, x, y, direction, seg_start_x, seg_start_y = both_ok
                 dx, dy = DIRECTION_DELTA[direction]
-                seg_start_x, seg_start_y = self._turn_segment_start(
-                    tx, ty, x, y, direction
-                )
                 continue
 
+            nc = self._handle_nearest_candidate_turn(
+                result, seg_start_x, seg_start_y, x, y, direction, source_obj_id,
+                turn_candidates,
+            )
+            if nc is not None:
+                if nc[0] == "break":
+                    break
+                _, x, y, direction, seg_start_x, seg_start_y = nc
+                dx, dy = DIRECTION_DELTA[direction]
+                continue
+
+            # No candidate turn available — the trace ends here.
             self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
             if self._is_sheet_edge(x, y, direction):
                 result.terminal_type = TerminalType.SHEET_EDGE.value
@@ -1735,12 +1492,14 @@ class CVPipeTracer:
         start_x: int,
         start_y: int,
         start_dir: str,
-    ) -> Optional[tuple[int, int, str, int, int]]:
+    ) -> Optional[tuple[int, int, str, int, int, int, int]]:
         """Validate and snap the trace start, then walk clear of the source.
 
-        Returns ``(x, y, direction, dx, dy)`` ready for the main walk loop, or
-        ``None`` when the trace should bail immediately (result is already
-        finalized for return).
+        Returns ``(x, y, direction, dx, dy, seg_start_x, seg_start_y)`` ready for
+        the main walk loop, or ``None`` when the trace should bail immediately
+        (result is already finalized for return). ``seg_start`` is captured
+        *before* the warmup walk so the first segment still covers the distance
+        walked clear of the source symbol (matching the original inline flow).
         """
         x, y = start_x, start_y
         direction = start_dir.upper()
@@ -1750,7 +1509,7 @@ class CVPipeTracer:
             direction = alt_map.get(direction, direction)
         if direction not in DIRECTION_DELTA:
             # Unknown/malformed start direction — bail with a clean result
-            # rather than raising a KeyError mid-trace.
+            # rather than raising a ValueError mid-trace.
             log.warning("CVPipeTracer: invalid start direction %r", start_dir)
             result.status = "no_pipe"
             result.terminal_type = TerminalType.NO_PIPE.value
@@ -1774,6 +1533,7 @@ class CVPipeTracer:
 
         # Ensure we start centered on the line before any walk.
         x, y = self._snap_to_centerline(x, y, direction)
+        seg_start_x, seg_start_y = x, y
 
         # Walk clear of source symbol before first terminal check
         for _ in range(self.warmup_steps):
@@ -1786,7 +1546,395 @@ class CVPipeTracer:
             if 0 <= y < self.h and 0 <= x < self.w:
                 self.visited[y, x] = 1
         x, y = self._snap_to_centerline(x, y, direction)
-        return x, y, direction, dx, dy
+        return x, y, direction, dx, dy, seg_start_x, seg_start_y
+
+    def _handle_side_junction(
+        self,
+        result: TraceResult,
+        seg_start_x: int,
+        seg_start_y: int,
+        x: int,
+        y: int,
+        direction: str,
+        source_obj_id: str,
+    ) -> Optional[tuple]:
+        """Handle a bidirectional side junction (tee) at the current position.
+
+        Returns ``None`` when there is no side junction (caller keeps going), or
+        an action tuple ``("continue", x, y, direction, seg_start_x, seg_start_y)``
+        to resume walking, or ``("break",)`` once a tee terminal was recorded.
+        """
+        side_junction = self._find_bidirectional_side_junction(x, y, direction)
+        if side_junction is None:
+            return None
+        raycast = self._find_straight_raycast_candidate(x, y, direction, source_obj_id)
+        if raycast is not None:
+            self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+            x, y = raycast
+            return "continue", x, y, direction, x, y
+        jx, jy = side_junction
+        resumed = self._continue_if_axis_open(
+            result, seg_start_x, seg_start_y, jx, jy, direction
+        )
+        if resumed is not None:
+            x, y = resumed
+            return "continue", x, y, direction, x, y
+        self._append_segment(result, seg_start_x, seg_start_y, jx, jy, direction)
+        result.terminal_type = TerminalType.TEE_JUNCTION.value
+        result.terminal_x, result.terminal_y = jx, jy
+        return "break",
+
+    def _handle_multi_elbow_tee(
+        self,
+        result: TraceResult,
+        seg_start_x: int,
+        seg_start_y: int,
+        x: int,
+        y: int,
+        direction: str,
+        source_obj_id: str,
+        turn_candidates: list,
+        left_dir: str,
+        right_dir: str,
+        left_connected: bool,
+        right_connected: bool,
+    ) -> Optional[tuple]:
+        """Promote a bidirectional side branch to a tee after multiple elbows.
+
+        Returns ``None`` when the condition does not apply, ``("continue", ...)``
+        to resume walking, ``("break",)`` after a tee terminal is recorded, or
+        ``("next", turn_candidates, strict_straight_raycast)`` when shared state
+        was narrowed and the caller should continue to the next turn heuristic.
+        """
+        turn_dirs = {c[2] for c in turn_candidates if c[2] in (left_dir, right_dir)}
+        if not (len(result.turns) >= 2 and len(turn_dirs) > 1):
+            return None
+        connected_turn_dirs = set()
+        if left_connected:
+            connected_turn_dirs.add(left_dir)
+        if right_connected:
+            connected_turn_dirs.add(right_dir)
+        if len(connected_turn_dirs) > 1:
+            raycast = self._find_straight_raycast_candidate(x, y, direction, source_obj_id)
+            if raycast is not None:
+                self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+                x, y = raycast
+                return "continue", x, y, direction, x, y
+            resumed = self._continue_if_axis_open(
+                result, seg_start_x, seg_start_y, x, y, direction
+            )
+            if resumed is not None:
+                x, y = resumed
+                return "continue", x, y, direction, x, y
+            self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+            result.terminal_type = TerminalType.TEE_JUNCTION.value
+            result.terminal_x, result.terminal_y = x, y
+            return "break",
+        return "next", [c for c in turn_candidates if c[2] in connected_turn_dirs], True
+
+    def _handle_exact_turn(
+        self,
+        result: TraceResult,
+        seg_start_x: int,
+        seg_start_y: int,
+        x: int,
+        y: int,
+        direction: str,
+        source_obj_id: str,
+        left_dir: str,
+        right_dir: str,
+        left_connected: bool,
+        right_connected: bool,
+        raycast: Optional[tuple],
+    ) -> Optional[tuple]:
+        """Take an exact turn when only one side has connected pipe.
+
+        Returns ``None`` when there is no exact-turn direction (caller proceeds
+        to the next heuristic), ``("continue", x, y, direction, seg_start_x, seg_start_y)``
+        to resume walking/turn, or ``("break",)`` once a tee terminal is recorded.
+        """
+        exact_turn_dir = None
+        if left_connected and not right_connected:
+            exact_turn_dir = left_dir
+        elif right_connected and not left_connected:
+            exact_turn_dir = right_dir
+        if exact_turn_dir is None:
+            return None
+        if self._is_backtrack_turn(result, x, y, exact_turn_dir):
+            return None
+        turn_hits_blocking_terminal = self._turn_hits_blocking_terminal(
+            x, y, exact_turn_dir, source_obj_id
+        )
+        if raycast is None and turn_hits_blocking_terminal:
+            raycast = self._find_straight_raycast_candidate(
+                x,
+                y,
+                direction,
+                source_obj_id,
+                ray_start=5,
+                ray_max=50,
+                ray_step=1,
+                relaxed_band=True,
+            )
+        if (
+            self._is_page_connection_source(source_obj_id)
+            and self._turn_hits_terminal_type(
+                x,
+                y,
+                exact_turn_dir,
+                source_obj_id,
+                TerminalType.PAGE_CONNECTION.value,
+            )
+        ):
+            resumed = self._continue_if_axis_open(
+                result, seg_start_x, seg_start_y, x, y, direction
+            )
+            if resumed is not None:
+                return "continue", resumed[0], resumed[1], direction, resumed[0], resumed[1]
+            self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+            result.terminal_type = TerminalType.TEE_JUNCTION.value
+            result.terminal_x, result.terminal_y = x, y
+            return "break",
+        if raycast is not None and turn_hits_blocking_terminal:
+            self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+            x, y = raycast
+            return "continue", x, y, direction, x, y
+        if self._has_bidirectional_turn_leg(x, y, exact_turn_dir):
+            resumed = self._continue_if_axis_open(
+                result, seg_start_x, seg_start_y, x, y, direction
+            )
+            if resumed is not None:
+                return "continue", resumed[0], resumed[1], direction, resumed[0], resumed[1]
+            self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+            result.terminal_type = TerminalType.TEE_JUNCTION.value
+            result.terminal_x, result.terminal_y = x, y
+            return "break",
+        self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+        result.turns.append((x, y, exact_turn_dir))
+        direction = exact_turn_dir
+        turn_x, turn_y = x, y
+        x, y = self._enter_turn_leg(turn_x, turn_y, direction)
+        seg_start_x, seg_start_y = self._turn_segment_start(
+            turn_x, turn_y, x, y, direction
+        )
+        return "continue", x, y, direction, seg_start_x, seg_start_y
+
+    def _handle_candidate_up_turn(
+        self,
+        result: TraceResult,
+        seg_start_x: int,
+        seg_start_y: int,
+        x: int,
+        y: int,
+        direction: str,
+        source_obj_id: str,
+        turn_candidates: list,
+        left_dir: str,
+        right_dir: str,
+        raycast: Optional[tuple],
+    ) -> Optional[tuple]:
+        """Take a turn toward a single candidate when travelling straight up.
+
+        Returns ``None`` when the candidate-UP heuristic does not apply, or an
+        action tuple ``("continue", x, y, direction, seg_start_x, seg_start_y)``
+        or ``("break",)``.
+        """
+        candidate_turn_dirs = {c[2] for c in turn_candidates if c[2] in (left_dir, right_dir)}
+        if not (len(candidate_turn_dirs) == 1 and direction == "UP"):
+            return None
+        turn_dir = next(iter(candidate_turn_dirs))
+        turn = self._nearest_candidate_point(
+            x, y, [c for c in turn_candidates if c[2] == turn_dir]
+        )
+        straight_missing_or_far = (
+            raycast is None
+            or max(abs(raycast[0] - x), abs(raycast[1] - y)) > 40
+        )
+        turn_target = (
+            self._find_straight_raycast_candidate(
+                turn[0], turn[1], turn_dir, source_obj_id,
+                ray_start=5, ray_max=80, ray_step=1, relaxed_band=True,
+            )
+            if turn is not None else None
+        )
+        if not (
+            turn is not None
+            and turn_dir == left_dir
+            and straight_missing_or_far
+            and turn_target is not None
+            and _has_line_of_sight_axis_band(
+                self.mask, turn_target[0], turn_target[1], turn_dir, 40, band_width=1,
+            )
+            and not self._is_backtrack_turn(result, turn[0], turn[1], turn_dir)
+        ):
+            return None
+        tx, ty, turn_dir = turn
+        if self._has_bidirectional_turn_leg(tx, ty, turn_dir):
+            resumed = self._continue_if_axis_open(
+                result, seg_start_x, seg_start_y, tx, ty, direction
+            )
+            if resumed is not None:
+                return "continue", resumed[0], resumed[1], direction, resumed[0], resumed[1]
+            self._append_segment(result, seg_start_x, seg_start_y, tx, ty, direction)
+            result.terminal_type = TerminalType.TEE_JUNCTION.value
+            result.terminal_x, result.terminal_y = tx, ty
+            return "break",
+        self._append_segment(result, seg_start_x, seg_start_y, tx, ty, direction)
+        result.turns.append((tx, ty, turn_dir))
+        direction = turn_dir
+        x, y = self._enter_turn_leg(tx, ty, direction)
+        seg_start_x, seg_start_y = self._turn_segment_start(tx, ty, x, y, direction)
+        return "continue", x, y, direction, seg_start_x, seg_start_y
+
+    def _handle_left_sides_ok(
+        self,
+        result: TraceResult,
+        seg_start_x: int,
+        seg_start_y: int,
+        x: int,
+        y: int,
+        direction: str,
+        source_obj_id: str,
+        left_dir: str,
+        right_dir: str,
+        left_ok: bool,
+        right_ok: bool,
+    ) -> Optional[tuple]:
+        """Resolve a fork where both adjacent sides have open pipe.
+
+        Returns ``None`` when not both sides are open, or an action tuple
+        ``("continue", ...)`` / ``("break",)``.
+        """
+        if not (left_ok and right_ok):
+            return None
+        extended_raycast = self._find_straight_raycast_candidate(
+            x, y, direction, source_obj_id, ray_max=50, ray_step=1
+        )
+        if extended_raycast is not None:
+            self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+            x, y = extended_raycast
+            return "continue", x, y, direction, x, y
+        left_raycast = self._find_straight_raycast_candidate(x, y, left_dir, source_obj_id)
+        right_raycast = self._find_straight_raycast_candidate(x, y, right_dir, source_obj_id)
+        turn_dir = None
+        turn_target = None
+        if (left_raycast is not None) != (right_raycast is not None):
+            turn_dir = left_dir if left_raycast is not None else right_dir
+            turn_target = left_raycast if left_raycast is not None else right_raycast
+            if self._is_backtrack_turn(result, x, y, turn_dir):
+                turn_target = None
+        if (left_raycast is not None) != (right_raycast is not None) and turn_target is not None:
+            self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+            if self._has_bidirectional_turn_leg(x, y, turn_dir):
+                if self._axis_continues_past(
+                    x, y, direction, origin=(seg_start_x, seg_start_y)
+                ):
+                    x, y = self._resume_along_axis(
+                        result, x, y, direction, (seg_start_x, seg_start_y)
+                    )
+                    return "continue", x, y, direction, x, y
+                result.terminal_type = TerminalType.TEE_JUNCTION.value
+                result.terminal_x, result.terminal_y = x, y
+                return "break",
+            turn_x, turn_y = x, y
+            result.turns.append((turn_x, turn_y, turn_dir))
+            x, y = turn_target
+            direction = turn_dir
+            if max(abs(x - turn_x), abs(y - turn_y)) <= 50:
+                seg_start_x, seg_start_y = self._turn_segment_start(
+                    turn_x, turn_y, x, y, direction
+                )
+            else:
+                seg_start_x, seg_start_y = x, y
+            return "continue", x, y, direction, seg_start_x, seg_start_y
+        self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+        if (
+            direction == "UP"
+            and self._is_page_connection_source(source_obj_id)
+            and _has_line_of_sight_axis_exact(self.mask, x, y, left_dir, self.straight_min_step)
+            and _has_line_of_sight_axis_exact(self.mask, x, y, right_dir, self.straight_min_step)
+        ):
+            turn_dir = left_dir
+            result.turns.append((x, y, turn_dir))
+            direction = turn_dir
+            x, y = self._enter_turn_leg(x, y, direction)
+            seg_start_x, seg_start_y = self._turn_segment_start(
+                result.turns[-1][0], result.turns[-1][1], x, y, direction
+            )
+            return "continue", x, y, direction, seg_start_x, seg_start_y
+        if self._axis_continues_past(x, y, direction, origin=(seg_start_x, seg_start_y)):
+            x, y = self._resume_along_axis(result, x, y, direction, (seg_start_x, seg_start_y))
+            return "continue", x, y, direction, x, y
+        result.terminal_type = TerminalType.TEE_JUNCTION.value
+        result.terminal_x, result.terminal_y = x, y
+        return "break",
+
+    def _handle_nearest_candidate_turn(
+        self,
+        result: TraceResult,
+        seg_start_x: int,
+        seg_start_y: int,
+        x: int,
+        y: int,
+        direction: str,
+        source_obj_id: str,
+        turn_candidates: list,
+    ) -> Optional[tuple]:
+        """Take a turn toward the nearest candidate turn point.
+
+        Returns ``None`` when there is no candidate (caller records a dead end),
+        or an action tuple ``("continue", ...)`` / ``("break",)``.
+        """
+        turn = self._nearest_candidate_point(x, y, turn_candidates)
+        if turn is not None:
+            tx, ty, turn_dir = turn
+            if self._is_backtrack_turn(result, tx, ty, turn_dir):
+                turn = None
+        if turn is None:
+            return None
+        tx, ty, turn_dir = turn
+        turn_leg_len = max(abs(tx - seg_start_x), abs(ty - seg_start_y))
+        self._append_segment(result, seg_start_x, seg_start_y, tx, ty, direction)
+        candidate_dirs = {c[2] for c in turn_candidates}
+        if len(result.turns) == 1 and turn_leg_len < 200 and len(candidate_dirs) > 1:
+            if (
+                source_obj_id.startswith("equip_")
+                and turn_leg_len < 20
+                and result.trace_length_px > 200
+            ):
+                result.terminal_type = TerminalType.DEAD_END.value
+                result.terminal_x, result.terminal_y = tx, ty
+                return "break",
+            if self._axis_continues_past(
+                tx, ty, direction, origin=(seg_start_x, seg_start_y)
+            ):
+                x, y = self._resume_along_axis(
+                    result, tx, ty, direction, (seg_start_x, seg_start_y)
+                )
+                return "continue", x, y, direction, x, y
+            result.terminal_type = TerminalType.TEE_JUNCTION.value
+            result.terminal_x, result.terminal_y = tx, ty
+            return "break",
+        if self._has_bidirectional_turn_leg(tx, ty, turn_dir):
+            if self._axis_continues_past(
+                tx, ty, direction, origin=(seg_start_x, seg_start_y)
+            ):
+                x, y = self._resume_along_axis(
+                    result, tx, ty, direction, (seg_start_x, seg_start_y)
+                )
+                return "continue", x, y, direction, x, y
+            result.terminal_type = TerminalType.TEE_JUNCTION.value
+            result.terminal_x, result.terminal_y = tx, ty
+            return "break",
+        entered_x = tx + DIRECTION_DELTA[turn_dir][0] * self.min_step
+        entered_y = ty + DIRECTION_DELTA[turn_dir][1] * self.min_step
+        x, y = self._snap_to_centerline(entered_x, entered_y, turn_dir)
+        result.turns.append((tx, ty, turn_dir))
+        direction = turn_dir
+        seg_start_x, seg_start_y = self._turn_segment_start(
+            tx, ty, x, y, direction
+        )
+        return "continue", x, y, direction, seg_start_x, seg_start_y
 
     def _check_terminals(self, x: int, y: int, direction: str,
                          source_obj_id: str = "", look_ahead: int = 0) -> Optional[tuple]:
