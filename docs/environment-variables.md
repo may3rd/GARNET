@@ -9,7 +9,7 @@ DEBUG=true
 
 # Server Configuration
 HOST=localhost
-PORT=8001
+PORT=8090
 
 # CORS - Comma-separated list of allowed origins
 ALLOWED_ORIGINS=http://localhost:5173,http://localhost:4173
@@ -57,7 +57,7 @@ PREDICTIONS_DIR=static/images/predictions
 
 ```bash
 # API Configuration
-VITE_API_URL=http://localhost:8001
+VITE_API_URL=http://localhost:8090
 
 # Development Server
 VITE_PORT=5173

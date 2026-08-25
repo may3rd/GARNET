@@ -12,4 +12,4 @@ from api import app  # re-export canonical FastAPI app
 
 
 if __name__ == "__main__":
-    uvicorn.run("api:app", reload=True, port=8001)
+    uvicorn.run("api:app", reload=True, port=8090)

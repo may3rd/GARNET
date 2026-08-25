@@ -89,7 +89,7 @@ GARNET is an AI-powered tool designed to **automate symbol detection, classifica
    ```bash
    # Terminal 1 - Start API backend
    cd backend
-   uvicorn api:app --reload --port 8001
+   uvicorn api:app --reload --port 8090
    
    # Terminal 2 - Start React frontend
    cd frontend

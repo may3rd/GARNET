@@ -126,7 +126,7 @@ The backend and garnet module live under `backend/`. Always run backend commands
 │   │   ├── lib/                    # API client, export utilities, helpers
 │   │   └── types.ts                # TypeScript type definitions
 │   ├── package.json                # Bun dependencies
-│   ├── vite.config.ts              # Vite config (proxies /api and /runs to :8001)
+│   ├── vite.config.ts              # Vite config (proxies /api and /runs to :8090)
 │   └── tailwind.config.ts
 ├── DeepLSD/                        # Line detection submodule
 ├── design/                         # Design references and assets
@@ -148,8 +148,8 @@ All backend commands must be run from the `backend/` directory.
 ```bash
 cd backend
 
-# Start FastAPI server on port 8001
-uvicorn api:app --reload --port 8001
+# Start FastAPI server on port 8090
+uvicorn api:app --reload --port 8090
 
 # Install Python dependencies
 pip install -r requirements.txt
@@ -186,7 +186,7 @@ cd frontend
 # Install dependencies
 bun install
 
-# Start dev server on port 5173 (proxies /api and /runs to localhost:8001)
+# Start dev server on port 5173 (proxies /api and /runs to localhost:8090)
 bun run dev
 
 # Build for production
@@ -221,7 +221,7 @@ Copy `.env.example` (root) to `.env` and configure:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ENV` | `development` | Environment mode |
-| `HOST` / `PORT` | `localhost` / `8001` | Server bind address |
+| `HOST` / `PORT` | `localhost` / `8090` | Server bind address |
 | `ALLOWED_ORIGINS` | `http://localhost:5173,...` | CORS origins (comma-separated) |
 | `MAX_FILE_SIZE_MB` | `50` | Upload size limit |
 | `DEFAULT_CONF_THRESHOLD` | `0.8` | Default detection confidence |
@@ -245,7 +245,7 @@ Copy `.env.example` (root) to `.env` and configure:
 ```
 ┌──────────────────┐         ┌───────────────────┐         ┌──────────────────┐
 │  React Frontend  │ ──HTTP─→│  FastAPI Backend  │ ──→───  │  garnet/ Module  │
-│  (Port 5173)     │ ←──JSON─│  (Port 8001)      │ ←───   │  (Pipeline Core) │
+│  (Port 5173)     │ ←──JSON─│  (Port 8090)      │ ←───   │  (Pipeline Core) │
 └──────────────────┘         └───────────────────┘         └──────────────────┘
         │                             │                              │
         │ Zustand State               │ Model Cache                  │ 60+ Python files
@@ -402,7 +402,7 @@ Frontend has no test framework configured — verify with `bun run lint` and `bu
 
 ## Debugging
 
-- FastAPI auto-docs: `http://localhost:8001/docs`
+- FastAPI auto-docs: `http://localhost:8090/docs`
 - Backend logs: `garnet.log` in the backend working directory
 - React DevTools for component tree and Zustand store inspection
 - Pipeline debug: use `run_debug.sh` for verbose stage output
@@ -411,7 +411,7 @@ Frontend has no test framework configured — verify with `bun run lint` and `bu
 **Common issues:**
 - **Model not found**: Check `backend/yolo_weights/` for .pt/.onnx files
 - **OCR fails**: Ensure EasyOCR is installed and cached reader initializes (check `OCR_GPU` setting)
-- **Frontend proxy error**: Backend must be running on port 8001
+- **Frontend proxy error**: Backend must be running on port 8090
 - **CUDA OOM**: Reduce `image_size` or set `device="cpu"`
 - **Import errors**: Always run from `backend/` directory
 - **Gemini OCR fails**: Verify `OPENROUTER_API_KEY` is set in `.env`

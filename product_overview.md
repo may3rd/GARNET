@@ -35,7 +35,7 @@ UPLOAD → DETECT → REVIEW → CORRECT → EXPORT
 
 | Component     | Technology                            | Rationale                       |
 | ------------- | ------------------------------------- | ------------------------------- |
-| Backend       | FastAPI (Python), use port: 8001      | Async, modern, ML-friendly      |
+| Backend       | FastAPI (Python), use port: 8090      | Async, modern, ML-friendly      |
 | Frontend      | React 18 + TypeScript                 | Type safety, ecosystem          |
 | UI Components | Shadcn/ui + Radix                     | Accessible, unstyled primitives |
 | Styling       | Tailwind CSS                          | Utility-first, consistent       |

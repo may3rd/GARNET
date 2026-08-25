@@ -115,7 +115,7 @@
 ## Runtime and verification
 - Run backend commands from `/Users/maetee/Code/GARNET/backend` so relative paths for weights, outputs, and datasets resolve consistently.
 - Install dependencies with `pip install -r requirements.txt` inside the backend environment.
-- Start the API with `uvicorn api:app --reload --port 8001`.
+- Start the API with `uvicorn api:app --reload --port 8090`.
 - Run the pipeline entrypoint with `python -m garnet.pid_extractor`.
 - Use `python -m py_compile garnet/*.py garnet/utils/*.py api.py` as the minimum non-destructive verification after edits.
 - Prefer `python -m unittest discover -s tests -p 'test*.py' -v` for backend regression checks.
