@@ -1128,56 +1128,15 @@ class CVPipeTracer:
         result = TraceResult()
         result.terminal_type = None
 
-        x, y = start_x, start_y
-        direction = start_dir.upper()
-        if direction not in DIRECTION_DELTA:
-            # Map alternate names
-            alt_map = {"TOP": "UP", "BOTTOM": "DOWN"}
-            direction = alt_map.get(direction, direction)
-        if direction not in DIRECTION_DELTA:
-            # Unknown/malformed start direction — bail with a clean result
-            # rather than raising a KeyError mid-trace.
-            log.warning("CVPipeTracer: invalid start direction %r", start_dir)
-            result.status = "no_pipe"
-            result.terminal_type = TerminalType.NO_PIPE.value
-            result.terminal_x, result.terminal_y = x, y
+        init = self._init_trace_start(result, start_x, start_y, start_dir)
+        if init is None:
             return result
-        dx, dy = DIRECTION_DELTA[direction]
-
-        # Verify start point is on pipe
-        if not _is_pipe(self.mask, x, y):
-            # Try walking forward a few pixels to find pipe
-            for step in range(1, 15):
-                nx = x + step * dx
-                ny = y + step * dy
-                if _is_pipe(self.mask, nx, ny):
-                    x, y = nx, ny
-                    break
-            else:
-                result.status = "no_pipe"
-                result.terminal_type = TerminalType.NO_PIPE.value
-                return result
-
-        # Ensure we start centered on the line before any walk.
-        x, y = self._snap_to_centerline(x, y, direction)
+        x, y, direction, dx, dy = init
         seg_start_x, seg_start_y = x, y
         steps = 0
         state_counts: dict[tuple[int, int, str], int] = {}
         exact_positions: set[tuple[int, int, str]] = set()
         exact_position_repeats: dict[tuple[int, int, str], int] = {}
-
-        # Walk clear of source symbol before first terminal check
-        warmup_steps = self.warmup_steps
-        for _ in range(warmup_steps):
-            x += dx
-            y += dy
-            if not _is_pipe(self.mask, x, y):
-                x -= dx
-                y -= dy
-                break
-            if 0 <= y < self.h and 0 <= x < self.w:
-                self.visited[y, x] = 1
-        x, y = self._snap_to_centerline(x, y, direction)
 
         while steps < self.max_steps:
             steps += 1
@@ -1205,36 +1164,12 @@ class CVPipeTracer:
             # Check for inline symbols (valve, reducer) — these are
             # traversed through, not terminals.  Compute the exit position
             # on the far side of the inline object (or overlapping group).
-            inline_hits = self._find_inline_overlap(x, y)
-            if inline_hits:
-                for hit in inline_hits:
-                    result.hits.append(InlineHit(
-                        class_name=hit.get("class_name", "unknown"),
-                        x=x, y=y,
-                    ))
-                psv_exit = (
-                    self._compute_pressure_relief_exit(x, y, direction, inline_hits)
-                    if self._is_pressure_relief_group(inline_hits)
-                    else None
-                )
-                if psv_exit is not None:
-                    far_x, far_y, exit_dir = psv_exit
-                    self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
-                    result.turns.append((x, y, exit_dir))
-                    x, y = self._snap_to_centerline(far_x, far_y, exit_dir)
-                    direction = exit_dir
-                    dx, dy = DIRECTION_DELTA[direction]
-                    seg_start_x, seg_start_y = x, y
-                    continue
-                # Exit position: far edge of the furthest overlapping inline obj
-                far_x, far_y = self._compute_inline_exit(x, y, direction, inline_hits)
-                if _is_pipe(self.mask, far_x, far_y) or _is_pipe_band(self.mask, far_x, far_y, direction):
-                    x, y = far_x, far_y
-                else:
-                    # Fallback: jump by the object extent
-                    extent = self._inline_group_extent(direction, inline_hits)
-                    x += dx * (extent + 10)
-                    y += dy * (extent + 10)
+            inline_state = self._handle_inline_symbols(
+                result, seg_start_x, seg_start_y, x, y, direction
+            )
+            if inline_state is not None:
+                x, y, direction, seg_start_x, seg_start_y = inline_state
+                dx, dy = DIRECTION_DELTA[direction]
                 continue
 
             # Look ahead — what's in front?
@@ -1298,49 +1233,14 @@ class CVPipeTracer:
                 x, y = self._snap_to_centerline(x, y, direction)
                 continue
 
-            terminal = self._check_terminals(x, y, direction, source_obj_id, look_ahead=0)
-            if terminal and not self._terminal_is_pass_through(terminal, direction):
-                raycast = self._find_straight_raycast_candidate(x, y, direction, source_obj_id)
-                terminal_obj_id = terminal[1] if len(terminal) > 1 else None
-                terminal_bbox = self._terminal_bbox_by_type(terminal[0], terminal_obj_id)
-                if (
-                    raycast is None
-                    and terminal[0] == TerminalType.INSTRUMENT_TAG.value
-                    and terminal_bbox
-                    and not _is_inside_bbox_exact(x, y, terminal_bbox)
-                ):
-                    raycast = self._find_straight_raycast_candidate(
-                        x,
-                        y,
-                        direction,
-                        source_obj_id,
-                        allow_nearby_instrument=True,
-                        relaxed_band=True,
-                    )
-                if (
-                    raycast is not None
-                    and terminal[0] == TerminalType.INSTRUMENT_TAG.value
-                    and terminal_bbox
-                    and not _is_inside_bbox_exact(x, y, terminal_bbox)
-                ):
-                    self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
-                    x, y = raycast
-                    seg_start_x, seg_start_y = x, y
-                    continue
-                result.terminal_type = terminal[0]
-                result.terminal_obj_id = terminal[1] if len(terminal) > 1 else None
-                x, y = self._retreat_from_terminal_bbox(x, y, direction, result.terminal_type, result.terminal_obj_id)
-                terminal_inline_hits = self._find_inline_overlap(x, y)
-                for hit in terminal_inline_hits:
-                    hit_key = (hit.get("class_name", "unknown"), x, y)
-                    if not any((h.class_name, h.x, h.y) == hit_key for h in result.hits):
-                        result.hits.append(InlineHit(
-                            class_name=hit.get("class_name", "unknown"),
-                            x=x, y=y,
-                        ))
-                result.terminal_x, result.terminal_y = x, y
-                self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
-                break
+            terminal_act = self._resolve_stage5b_terminal(
+                result, seg_start_x, seg_start_y, x, y, direction, source_obj_id
+            )
+            if terminal_act is not None:
+                if terminal_act[0] == "break":
+                    break
+                _, x, y, seg_start_x, seg_start_y = terminal_act
+                continue
 
             turn_candidates = self._find_nearby_turn_candidates(x, y, direction, source_obj_id)
             left_dir = TURN_LEFT[direction]
@@ -1716,6 +1616,177 @@ class CVPipeTracer:
 
         self._anchor_close_turn_segments(result)
         return result
+
+    def _handle_inline_symbols(
+        self,
+        result: TraceResult,
+        seg_start_x: int,
+        seg_start_y: int,
+        x: int,
+        y: int,
+        direction: str,
+    ) -> Optional[tuple[int, int, str, int, int]]:
+        """Handle traversal through an inline symbol (valve, reducer, PSV).
+
+        Inline symbols are passed through, not treated as terminals. Returns the
+        updated walker state ``(x, y, direction, seg_start_x, seg_start_y)`` when
+        an inline overlap was handled, or ``None`` when there is no inline symbol
+        at the current position (caller should keep walking).
+        """
+        inline_hits = self._find_inline_overlap(x, y)
+        if not inline_hits:
+            return None
+        dx, dy = DIRECTION_DELTA.get(direction, (0, 0))
+        for hit in inline_hits:
+            result.hits.append(InlineHit(
+                class_name=hit.get("class_name", "unknown"),
+                x=x, y=y,
+            ))
+        psv_exit = (
+            self._compute_pressure_relief_exit(x, y, direction, inline_hits)
+            if self._is_pressure_relief_group(inline_hits)
+            else None
+        )
+        if psv_exit is not None:
+            far_x, far_y, exit_dir = psv_exit
+            self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+            result.turns.append((x, y, exit_dir))
+            x, y = self._snap_to_centerline(far_x, far_y, exit_dir)
+            direction = exit_dir
+            return x, y, direction, x, y
+        # Exit position: far edge of the furthest overlapping inline obj
+        far_x, far_y = self._compute_inline_exit(x, y, direction, inline_hits)
+        if _is_pipe(self.mask, far_x, far_y) or _is_pipe_band(self.mask, far_x, far_y, direction):
+            x, y = far_x, far_y
+        else:
+            # Fallback: jump by the object extent
+            extent = self._inline_group_extent(direction, inline_hits)
+            x += dx * (extent + 10)
+            y += dy * (extent + 10)
+        return x, y, direction, seg_start_x, seg_start_y
+
+    def _resolve_stage5b_terminal(
+        self,
+        result: TraceResult,
+        seg_start_x: int,
+        seg_start_y: int,
+        x: int,
+        y: int,
+        direction: str,
+        source_obj_id: str,
+    ) -> Optional[tuple]:
+        """Resolve whether the current position is a real terminal.
+
+        Returns ``None`` when the position is not a terminal (caller keeps
+        walking/turning). Otherwise returns an action tuple:
+          ``("continue", x, y, seg_start_x, seg_start_y)`` to skip over a nearby
+          instrument-tag via raycast and keep walking, or ``("break",)`` after a
+          terminal has been recorded on ``result``.
+        """
+        terminal = self._check_terminals(x, y, direction, source_obj_id, look_ahead=0)
+        if not terminal or self._terminal_is_pass_through(terminal, direction):
+            return None
+
+        raycast = self._find_straight_raycast_candidate(x, y, direction, source_obj_id)
+        terminal_obj_id = terminal[1] if len(terminal) > 1 else None
+        terminal_bbox = self._terminal_bbox_by_type(terminal[0], terminal_obj_id)
+        if (
+            raycast is None
+            and terminal[0] == TerminalType.INSTRUMENT_TAG.value
+            and terminal_bbox
+            and not _is_inside_bbox_exact(x, y, terminal_bbox)
+        ):
+            raycast = self._find_straight_raycast_candidate(
+                x,
+                y,
+                direction,
+                source_obj_id,
+                allow_nearby_instrument=True,
+                relaxed_band=True,
+            )
+        if (
+            raycast is not None
+            and terminal[0] == TerminalType.INSTRUMENT_TAG.value
+            and terminal_bbox
+            and not _is_inside_bbox_exact(x, y, terminal_bbox)
+        ):
+            self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+            x, y = raycast
+            return "continue", x, y, x, y
+
+        result.terminal_type = terminal[0]
+        result.terminal_obj_id = terminal[1] if len(terminal) > 1 else None
+        x, y = self._retreat_from_terminal_bbox(x, y, direction, result.terminal_type, result.terminal_obj_id)
+        terminal_inline_hits = self._find_inline_overlap(x, y)
+        for hit in terminal_inline_hits:
+            hit_key = (hit.get("class_name", "unknown"), x, y)
+            if not any((h.class_name, h.x, h.y) == hit_key for h in result.hits):
+                result.hits.append(InlineHit(
+                    class_name=hit.get("class_name", "unknown"),
+                    x=x, y=y,
+                ))
+        result.terminal_x, result.terminal_y = x, y
+        self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+        return "break",
+
+    def _init_trace_start(
+        self,
+        result: TraceResult,
+        start_x: int,
+        start_y: int,
+        start_dir: str,
+    ) -> Optional[tuple[int, int, str, int, int]]:
+        """Validate and snap the trace start, then walk clear of the source.
+
+        Returns ``(x, y, direction, dx, dy)`` ready for the main walk loop, or
+        ``None`` when the trace should bail immediately (result is already
+        finalized for return).
+        """
+        x, y = start_x, start_y
+        direction = start_dir.upper()
+        if direction not in DIRECTION_DELTA:
+            # Map alternate names
+            alt_map = {"TOP": "UP", "BOTTOM": "DOWN"}
+            direction = alt_map.get(direction, direction)
+        if direction not in DIRECTION_DELTA:
+            # Unknown/malformed start direction — bail with a clean result
+            # rather than raising a KeyError mid-trace.
+            log.warning("CVPipeTracer: invalid start direction %r", start_dir)
+            result.status = "no_pipe"
+            result.terminal_type = TerminalType.NO_PIPE.value
+            result.terminal_x, result.terminal_y = x, y
+            return None
+        dx, dy = DIRECTION_DELTA[direction]
+
+        # Verify start point is on pipe
+        if not _is_pipe(self.mask, x, y):
+            # Try walking forward a few pixels to find pipe
+            for step in range(1, 15):
+                nx = x + step * dx
+                ny = y + step * dy
+                if _is_pipe(self.mask, nx, ny):
+                    x, y = nx, ny
+                    break
+            else:
+                result.status = "no_pipe"
+                result.terminal_type = TerminalType.NO_PIPE.value
+                return None
+
+        # Ensure we start centered on the line before any walk.
+        x, y = self._snap_to_centerline(x, y, direction)
+
+        # Walk clear of source symbol before first terminal check
+        for _ in range(self.warmup_steps):
+            x += dx
+            y += dy
+            if not _is_pipe(self.mask, x, y):
+                x -= dx
+                y -= dy
+                break
+            if 0 <= y < self.h and 0 <= x < self.w:
+                self.visited[y, x] = 1
+        x, y = self._snap_to_centerline(x, y, direction)
+        return x, y, direction, dx, dy
 
     def _check_terminals(self, x: int, y: int, direction: str,
                          source_obj_id: str = "", look_ahead: int = 0) -> Optional[tuple]:
