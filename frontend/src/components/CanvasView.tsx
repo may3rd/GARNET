@@ -1178,10 +1178,11 @@ export const CanvasView = forwardRef(function CanvasView(
                   onClick={() => {
                     onSetReviewStatus(objectKey(selectedObject), 'accepted')
                   }}
+                  disabled={reviewStatus[objectKey(selectedObject)] === 'accepted'}
                   className={cn(
-                    'w-full px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all',
+                    'w-full px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50',
                     reviewStatus[objectKey(selectedObject)] === 'accepted'
-                      ? 'bg-[var(--success)] text-white hover:brightness-95'
+                      ? 'bg-[var(--success)] text-white'
                       : 'bg-[var(--bg-primary)] border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--success)] hover:text-[var(--success)] hover:bg-[var(--success)]/5'
                   )}
                 >

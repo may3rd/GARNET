@@ -588,10 +588,11 @@ export function ObjectSidebar({
                           <button
                             type="button"
                             onClick={() => onSetReviewStatus(objectKey(obj), 'accepted')}
+                            disabled={reviewStatus[objectKey(obj)] === 'accepted'}
                             className={cn(
-                              'px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all',
+                              'px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50',
                               reviewStatus[objectKey(obj)] === 'accepted'
-                                ? 'bg-[var(--success)] text-white hover:brightness-95'
+                                ? 'bg-[var(--success)] text-white'
                                 : 'bg-[var(--bg-primary)] border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--success)] hover:text-[var(--success)] hover:bg-[var(--success)]/5'
                             )}
                           >
