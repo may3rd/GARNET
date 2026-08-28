@@ -135,6 +135,57 @@ def _stable_choice_index(key: str, count: int) -> int:
     return sum((index + 1) * ord(char) for index, char in enumerate(key)) % count
 
 
+def _bbox_point_distance(bbox: dict[str, Any] | None, point: tuple[float, float] | None) -> float:
+    """Distance from a point to a bbox (0.0 when inside); inf when either is missing."""
+    if not bbox or point is None:
+        return float("inf")
+    try:
+        x_min = float(bbox["x_min"])
+        y_min = float(bbox["y_min"])
+        x_max = float(bbox["x_max"])
+        y_max = float(bbox["y_max"])
+    except (KeyError, TypeError, ValueError):
+        return float("inf")
+    px, py = point
+    dx = max(x_min - px, 0.0, px - x_max)
+    dy = max(y_min - py, 0.0, py - y_max)
+    return float(math.hypot(dx, dy))
+
+
+def _trace_reference_points(edge: dict[str, Any]) -> list[tuple[float, float]]:
+    """Endpoints that anchor a trace geometrically: polyline ends and terminal."""
+    points: list[tuple[float, float]] = []
+    polyline = edge.get("polyline") or []
+    if polyline:
+        for index in (0, -1):
+            point = polyline[index]
+            if isinstance(point, (list, tuple)) and len(point) >= 2:
+                points.append((float(point[0]), float(point[1])))
+    terminal = edge.get("terminal_xy")
+    if isinstance(terminal, (list, tuple)) and len(terminal) >= 2:
+        points.append((float(terminal[0]), float(terminal[1])))
+    return points
+
+
+def _nearest_template_index(edge: dict[str, Any], reviewed_pool: list[dict[str, Any]], trace_id: str) -> int:
+    """Index of the pool line number geometrically nearest this trace.
+
+    Prefers the accepted line number closest to the trace's endpoints (ports
+    and terminal); falls back to the stable hash pick when either side lacks
+    usable geometry so the assignment stays deterministic.
+    """
+    fallback = _stable_choice_index(trace_id, len(reviewed_pool))
+    points = _trace_reference_points(edge)
+    if not points:
+        return fallback
+    best_index, best_distance = fallback, float("inf")
+    for index, template in enumerate(reviewed_pool):
+        distance = min(_bbox_point_distance(template.get("bbox"), point) for point in points)
+        if distance < best_distance:
+            best_index, best_distance = index, distance
+    return best_index
+
+
 def simulate_line_number_hitl_for_missing_traces(
     edges: list[dict[str, Any]],
     reviewed_line_numbers: list[dict[str, Any]],
@@ -155,7 +206,7 @@ def simulate_line_number_hitl_for_missing_traces(
         if line_numbers:
             continue
         trace_id = str(edge.get("trace_id") or "")
-        template = reviewed_pool[_stable_choice_index(trace_id, len(reviewed_pool))]
+        template = reviewed_pool[_nearest_template_index(edge, reviewed_pool, trace_id)]
         line_id = str(template.get("id") or template.get("source_object_id") or "")
         assignment = {
             "id": line_id,

@@ -3,6 +3,7 @@ from copy import deepcopy
 
 from garnet.trace_associations import (
     LINE_NUMBER_REVIEW_ASSUMPTION,
+    _stable_choice_index,
     apply_stage6_line_number_review,
     _mark_line_number_review_state,
     simulate_line_number_hitl_for_missing_traces,
@@ -68,6 +69,55 @@ class Stage6LineNumberHitlTests(unittest.TestCase):
         self.assertTrue(all(item["review_source"] == "human_simulated" for item in first))
         self.assertEqual({item["trace_id"] for item in first}, {"trace_b", "trace_c"})
         self.assertTrue(all(edge.get("attachments", {}).get("line_numbers") for edge in first_edges))
+
+    def test_simulate_line_number_hitl_picks_line_number_nearest_trace_port(self) -> None:
+        # Regression: a connector trace whose port sits next to line number A
+        # must receive A, not a hash-picked line number from elsewhere on the
+        # sheet. Real case: 25-0004 obj_000137 got 4"-F-25-004006 (1123px away)
+        # instead of 3"-CUL-25-003001 (188px from the port).
+        edges = [
+            {
+                "trace_id": "connector_trace",
+                "attachments": {},
+                "polyline": [[370, 1275], [1202, 1275]],
+                "terminal_xy": [1690, 1587],
+            },
+        ]
+        reviewed_line_numbers = [
+            {
+                "id": "line_far",
+                "normalized_text": '4"-F-25-004006-L1A1-NI',
+                "review_state": "accepted",
+                "bbox": {"x_min": 1000, "y_min": 620, "x_max": 1370, "y_max": 645},
+            },
+            {
+                "id": "line_near",
+                "normalized_text": '3"-CUL-25-003001-B1A2-NI',
+                "review_state": "accepted",
+                "bbox": {"x_min": 380, "y_min": 1235, "x_max": 730, "y_max": 1258},
+            },
+        ]
+
+        simulate_line_number_hitl_for_missing_traces(edges, reviewed_line_numbers)
+
+        assigned = edges[0]["attachments"]["line_numbers"]
+        self.assertEqual(len(assigned), 1)
+        self.assertEqual(assigned[0]["id"], "line_near")
+        self.assertEqual(assigned[0]["normalized_text"], '3"-CUL-25-003001-B1A2-NI')
+
+    def test_simulate_line_number_hitl_falls_back_to_stable_pick_without_geometry(self) -> None:
+        edges = [{"trace_id": "trace_b", "attachments": {}}]
+        reviewed_line_numbers = [
+            {"id": "line_1", "text": "1-A", "review_state": "accepted"},
+            {"id": "line_2", "text": "2-B", "review_state": "accepted"},
+            {"id": "line_3", "text": "3-C", "review_state": "accepted"},
+        ]
+
+        simulate_line_number_hitl_for_missing_traces(edges, reviewed_line_numbers)
+
+        assigned = edges[0]["attachments"]["line_numbers"]
+        expected = reviewed_line_numbers[_stable_choice_index("trace_b", 3)]
+        self.assertEqual(assigned[0]["id"], expected["id"])
 
     def test_apply_stage6_line_number_review_replaces_trace_attachments(self) -> None:
         stage6_payload = {
