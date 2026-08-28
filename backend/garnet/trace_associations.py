@@ -205,6 +205,14 @@ def simulate_line_number_hitl_for_missing_traces(
         line_numbers = attachments.setdefault("line_numbers", [])
         if line_numbers:
             continue
+        # Only sheet-boundary connectors need a line number (they feed the
+        # off-page connector key used by strict multi-sheet merge). Equipment
+        # ports and branch stubs without a nearby label stay empty and are
+        # reported in traces_without_line_number instead of getting a
+        # fabricated number drawn onto the wrong pipe.
+        source_type = str(edge.get("source_obj_type") or "").casefold()
+        if "connection" not in source_type:
+            continue
         trace_id = str(edge.get("trace_id") or "")
         template = reviewed_pool[_nearest_template_index(edge, reviewed_pool, trace_id)]
         line_id = str(template.get("id") or template.get("source_object_id") or "")
@@ -403,6 +411,77 @@ def _nearest_bbox(bbox: dict[str, Any], edges: list[dict[str, Any]]) -> Optional
     return best
 
 
+_LABEL_ORIENTATION_MIN_RATIO = 1.5
+
+
+def _label_orientation(bbox: dict[str, Any]) -> Optional[str]:
+    """Aspect orientation of a text label: 'horizontal', 'vertical', or None.
+
+    Near-square labels are orientation-ambiguous and get no preference.
+    """
+    try:
+        width = float(bbox["x_max"]) - float(bbox["x_min"])
+        height = float(bbox["y_max"]) - float(bbox["y_min"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if width <= 0 or height <= 0:
+        return None
+    if width >= height * _LABEL_ORIENTATION_MIN_RATIO:
+        return "horizontal"
+    if height >= width * _LABEL_ORIENTATION_MIN_RATIO:
+        return "vertical"
+    return None
+
+
+def _segment_orientation(segment: dict[str, Any]) -> str:
+    dx = abs(float(segment["x2"]) - float(segment["x1"]))
+    dy = abs(float(segment["y2"]) - float(segment["y1"]))
+    return "horizontal" if dx > dy else "vertical"
+
+
+def _nearest_bbox_oriented(
+    bbox: dict[str, Any],
+    edges: list[dict[str, Any]],
+    orientation: str,
+    max_distance_px: float,
+) -> Optional[dict[str, Any]]:
+    """Nearest segment whose direction matches the label orientation.
+
+    Mirrors the corner-sampling metric of `_nearest_bbox`, but only considers
+    candidates within `max_distance_px`; returns None when no orientation-
+    matching candidate qualifies so the caller can fall back to the pure
+    nearest segment.
+    """
+    best: Optional[dict[str, Any]] = None
+    for edge in edges:
+        cumulative = 0.0
+        for index, segment in enumerate(edge.get("segments", [])):
+            if _segment_orientation(segment) != orientation:
+                cumulative += max(abs(float(segment["x2"]) - float(segment["x1"])), abs(float(segment["y2"]) - float(segment["y1"])))
+                continue
+            ax = float(segment["x1"])
+            ay = float(segment["y1"])
+            bx = float(segment["x2"])
+            by = float(segment["y2"])
+            seg_len = max(abs(bx - ax), abs(by - ay))
+            for point in _bbox_points(bbox):
+                qx, qy, t, distance = _point_to_segment(point[0], point[1], ax, ay, bx, by)
+                if best is None or distance < best["distance_px"]:
+                    best = {
+                        "trace_id": edge["trace_id"],
+                        "trace_kind": edge["trace_kind"],
+                        "segment_index": index,
+                        "projected_xy": [round(qx, 2), round(qy, 2)],
+                        "distance_px": round(distance, 2),
+                        "t": round(t, 4),
+                        "trace_distance_px": round(cumulative + t * seg_len, 2),
+                    }
+            cumulative += seg_len
+    if best is not None and best["distance_px"] <= max_distance_px:
+        return best
+    return None
+
+
 def _add_attachment(
     edges_by_id: dict[str, dict[str, Any]],
     trace_id: str,
@@ -424,6 +503,7 @@ def _attach_bbox_items(
     max_distance_px: float,
     id_key: str = "id",
     class_key: str = "class_name",
+    prefer_orientation_match: bool = False,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     accepted: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
@@ -434,6 +514,16 @@ def _attach_bbox_items(
             rejected.append({"id": item_id, "reason": "missing_bbox", "source": item})
             continue
         nearest = _nearest_bbox(bbox, edges)
+        if prefer_orientation_match and nearest is not None:
+            # A text label annotates the line it is written along: when the
+            # globally nearest segment runs perpendicular to the label's long
+            # axis (e.g. a crossing pipe clipping the label corner), prefer a
+            # direction-matching segment within threshold.
+            orientation = _label_orientation(bbox)
+            if orientation is not None:
+                aligned = _nearest_bbox_oriented(bbox, edges, orientation, max_distance_px)
+                if aligned is not None:
+                    nearest = aligned
         if nearest is None:
             rejected.append({"id": item_id, "reason": "no_trace_edges", "source": item})
             continue
@@ -637,6 +727,7 @@ def build_trace_associations(
         group="line_numbers",
         items=line_numbers,
         max_distance_px=text_max_distance_px,
+        prefer_orientation_match=True,
     )
     associations["line_numbers"]["accepted"] = accepted
     associations["line_numbers"]["rejected"] = rejected
