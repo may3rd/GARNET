@@ -439,7 +439,15 @@ class PIDPipeline(Stage5bPipelineMixin):
             "started_at": started_at,
             "artifacts": [],
         }
-        self.stage_manifest["stages"].append(entry)
+        # Re-running a stage (rework/resume) must update the existing manifest
+        # entry rather than append a duplicate, so the stage list stays clean.
+        existing = next((item for item in self.stage_manifest["stages"] if item.get("name") == stage_name), None)
+        if existing is not None:
+            existing.clear()
+            existing.update(entry)
+            entry = existing
+        else:
+            self.stage_manifest["stages"].append(entry)
         self._write_stage_manifest()
         self._notify_stage_callback({"event": "stage_started", "stage": entry.copy(), "manifest": self.stage_manifest})
         self._current_stage_artifacts = []

@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, ChevronDown, Clock, Maximize2, PanelLeftClose, PanelLeftOpen, RotateCcw, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { CheckCircle2, ChevronDown, Clock, Loader2, Maximize2, PanelLeftClose, PanelLeftOpen, RotateCcw, X } from 'lucide-react'
 import type { DetectedObject, PipelineArtifact, PipelineJob, PipelineReviewBucket, PipelineReviewDecision, PipelineReviewItem, PipelineStageManifest } from '@/types'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { PipelineArtifactCanvas } from '@/components/PipelineArtifactCanvas'
 import { PipelineHitlReviewView } from '@/components/PipelineHitlReviewView'
 import { PipelineReviewWorkspaceView } from '@/components/PipelineReviewWorkspaceView'
-import { ProcessingView } from '@/components/ProcessingView'
 import { GraphQaReviewView } from '@/components/GraphQaReviewView'
 import { Stage6LineAssociationReview } from '@/components/Stage6LineAssociationReview'
 import { getPipelineJob, getPipelineReviewedGraph, getPipelineReviewedQa, getPipelineStageStatus, putPipelineArtifact, resumePipelineFromStage } from '@/lib/api'
@@ -32,6 +31,37 @@ const HITL_GATES: Array<{ id: HitlGateId; after: string; name: string }> = [
 type ReviewRow =
   | { kind: 'stage'; stage: PipelineStageManifest }
   | { kind: 'gate'; gateId: HitlGateId }
+
+// Canonical pipeline stage order. Re-runs (rework/resume) can leave duplicate
+// entries in a job's manifest, so stages are deduplicated by name and sorted by
+// this order before rendering.
+const PIPELINE_STAGE_ORDER = [
+  'stage1_input_normalization',
+  'stage2_ocr_discovery',
+  'stage4_object_detection',
+  'stage4_line_number_fusion',
+  'stage4_instrument_tag_fusion',
+  'stage5_pipe_mask',
+  'stage5b_pipe_trace',
+  'stage6_trace_associations',
+  'stage7_geometric_graph_assembly',
+  'stage7c_page_connector_labeling',
+  'stage7b_graph_export',
+  'stage8_graph_qa',
+  'stage9_apply_review_decisions',
+  'stage10_process_exports',
+  'stage11_connection_overlay',
+]
+
+function dedupeStages(stages: PipelineStageManifest[]): PipelineStageManifest[] {
+  const byName = new Map<string, PipelineStageManifest>()
+  for (const stage of stages) {
+    if (stage && typeof stage.name === 'string') byName.set(stage.name, stage)
+  }
+  return Array.from(byName.values()).sort(
+    (a, b) => PIPELINE_STAGE_ORDER.indexOf(a.name) - PIPELINE_STAGE_ORDER.indexOf(b.name)
+  )
+}
 
 function normalizedClassName(value: string | undefined): string {
   return (value ?? '').toLowerCase().replace(/[_-]+/g, ' ').trim()
@@ -343,7 +373,7 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   const [graphMode, setGraphMode] = useState<'raw' | 'reviewed'>('raw')
   const [reviewedGraphSummary, setReviewedGraphSummary] = useState<JsonObject | null>(null)
   const [reviewedQaSummary, setReviewedQaSummary] = useState<JsonObject | null>(null)
-  const stages = stageStatuses.length ? stageStatuses : activeJob.manifest?.stages ?? []
+  const stages = dedupeStages(stageStatuses.length ? stageStatuses : activeJob.manifest?.stages ?? [])
   const imageArtifacts = useMemo(
     () => activeJob.artifacts.filter((artifact) => /\.(png|jpg|jpeg|webp)$/i.test(artifact.name)),
     [activeJob.artifacts]
@@ -701,6 +731,19 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
     setWorkspaceOpen(true)
   }, [isResuming, preStage5ReviewDismissed, requiresPreStage5Review, workspaceOpen])
 
+  // When a resume completes, reveal the awaiting HITL gate (trace / stage 6 /
+  // graph QA) instead of leaving the stage-output view active. The resume loop
+  // sets stageOutputActive(true) to show the canvas while it runs.
+  const prevIsResumingRef = useRef(isResuming)
+  useEffect(() => {
+    const wasResuming = prevIsResumingRef.current
+    prevIsResumingRef.current = isResuming
+    if (!wasResuming || isResuming) return
+    if (requiresTraceReview || requiresStage6Review || requiresGraphQaReview) {
+      setStageOutputActive(false)
+    }
+  }, [isResuming, requiresTraceReview, requiresStage6Review, requiresGraphQaReview])
+
   const saveStage3Equipment = async (objects: DetectedObject[]) => {
     setPipelineActionError(null)
     const payload = equipmentObjectsToStage3Artifact(objects)
@@ -732,6 +775,7 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
     options: { continueStage5bForTraceReview?: boolean } = {}
   ) => {
     setIsResuming(true)
+    setShowArtifactDetails(false)
     setWorkspaceOpen(false)
     setPreStage5ReviewActive(false)
     setPreStage5ReviewDismissed(true)
@@ -763,11 +807,22 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
             percent,
           },
         })
+        let latestStages: PipelineStageManifest[] = []
         try {
           const statusPayload = await getPipelineStageStatus(activeJob.job_id)
           setStageStatuses(statusPayload.stages)
+          latestStages = statusPayload.stages
         } catch {
-          setStageStatuses(nextJob.manifest?.stages ?? [])
+          latestStages = nextJob.manifest?.stages ?? []
+          setStageStatuses(latestStages)
+        }
+        // Follow the most recently completed stage so the canvas shows its
+        // artifact as the pipeline advances.
+        const lastCompleted = latestStages.filter((stage) => stage.status === 'completed').pop()
+        if (lastCompleted) {
+          setSelectedStageName(lastCompleted.name)
+          setCanvasOverrideName(null)
+          setStageOutputActive(true)
         }
         if (
           nextJob.status === 'completed'
@@ -880,10 +935,6 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
       setPreStage5ReviewDismissed(true)
     }
     setWorkspaceOpen(false)
-  }
-
-  if (isResuming) {
-    return <ProcessingView />
   }
 
   if (expandedArtifact) {
@@ -1477,7 +1528,7 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-hidden">
+            <div className="relative min-h-0 flex-1 overflow-hidden">
               {canvasArtifact ? (
                 <PipelineArtifactCanvas imageUrl={canvasArtifact.url} title={canvasArtifact.name} />
               ) : (
@@ -1504,6 +1555,15 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
                   ) : null}
                 </div>
               )}
+              {isResuming ? (
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-[var(--bg-canvas)]/70 backdrop-blur-sm">
+                  <Loader2 className="h-10 w-10 animate-spin text-[var(--accent)]" />
+                  <div className="text-sm font-semibold">Resuming pipeline…</div>
+                  <div className="text-xs text-[var(--text-secondary)]">
+                    {(activeJob.current_stage ?? 'Preparing').replaceAll('_', ' ')}
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             {selectedStageArtifacts.images.length > 1 ? (

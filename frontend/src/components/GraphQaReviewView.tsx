@@ -592,89 +592,16 @@ export function GraphQaReviewView({
 
       <aside
         className={layout === 'workspace'
-          ? 'min-h-0 w-[380px] shrink-0 overflow-auto border-l border-[var(--border-muted)] bg-[var(--bg-secondary)] p-4'
-          : 'rounded-xl border border-[var(--border-muted)] bg-[var(--bg-primary)] p-4'}
+          ? 'relative flex min-h-0 w-[380px] shrink-0 flex-col overflow-hidden border-l border-[var(--border-muted)] bg-[var(--bg-secondary)]'
+          : 'relative flex min-h-[420px] flex-col overflow-hidden rounded-xl border border-[var(--border-muted)] bg-[var(--bg-primary)] p-4'}
       >
-        {selectedItem && selectedDraft ? (
-          <>
-            {/* ── item meta ─────────────────────────────────────────────── */}
-            <div className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">Selected Item</div>
-            <div className="mt-1 break-all font-mono text-xs text-[var(--text-secondary)]">{selectedItem.id}</div>
-            <span className={`mt-2 inline-block rounded-full border px-2 py-0.5 text-xs font-semibold capitalize ${severityClasses(selectedItem.severity, selectedItem.priority)}`}>
-              {selectedItem.severity}
-            </span>
-            <div className="mt-3 text-sm font-semibold">{formatCategory(selectedItem.category)}</div>
-            <div className="mt-1 text-sm text-[var(--text-secondary)]">{selectedItem.message}</div>
-
-            {/* ── evidence ──────────────────────────────────────────────── */}
-            {Object.keys(selectedItem.evidence).length > 0 ? (
-              <div className="mt-4">
-                <div className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">Evidence</div>
-                <div className="mt-2 space-y-1">
-                  {Object.entries(selectedItem.evidence).map(([key, val]) => (
-                    <div key={key} className="flex gap-2 text-xs">
-                      <span className="w-36 shrink-0 text-[var(--text-secondary)]">{key}</span>
-                      <span className="min-w-0 break-all font-mono text-[var(--text-primary)]">
-                        {Array.isArray(val) ? val.join(', ') : String(val ?? '')}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            {/* ── decision chips ────────────────────────────────────────── */}
-            <div className="mt-5">
-              <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Decision</div>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {decisionsForType(selectedItem.reviewItemType).map((decision) => {
-                  const active = selectedDraft.decision === decision
-                  return (
-                    <button
-                      key={decision}
-                      type="button"
-                      onClick={() => handleDecisionChipClick(selectedItem, decision)}
-                      className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
-                        active
-                          ? decisionActiveClasses(decision)
-                          : 'border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--accent)]/50'
-                      }`}
-                    >
-                      {DECISION_LABELS[decision]}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* ── set_line_number sub-controls ──────────────────────────── */}
-            {selectedDraft.decision === 'set_line_number' ? (
-              <LineNumberControls item={selectedItem} draft={selectedDraft} />
-            ) : null}
-
-            {/* ── note field ────────────────────────────────────────────── */}
-            <label className="mt-4 block">
-              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Note (optional)</span>
-              <textarea
-                value={selectedDraft.note ?? ''}
-                onChange={(event) => setDraft(selectedItem.id, { note: event.target.value })}
-                rows={2}
-                placeholder="Add a note for this decision…"
-                className="mt-1.5 w-full resize-none rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-              />
-            </label>
-          </>
-        ) : (
-          <div className="text-sm text-[var(--text-secondary)]">Select a flagged item to inspect evidence and set a decision.</div>
-        )}
-
-        {/* ── item list ─────────────────────────────────────────────────── */}
-        <div className="mt-6">
+        {/* ── All Items list (fills height) ─────────────────────────────── */}
+        <div className={layout === 'workspace' ? 'flex min-h-0 flex-1 flex-col p-4' : 'flex min-h-0 flex-1 flex-col'}>
           <div className="flex items-center justify-between">
             <div className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">All Items</div>
             <div className="text-xs text-[var(--text-secondary)]">{counts.decided} / {counts.total} decided</div>
           </div>
-          <div className="mt-2 space-y-1">
+          <div className="mt-2 min-h-0 flex-1 space-y-1 overflow-y-auto">
             {items.map((item) => {
               const draft = drafts[item.id]
               const hasError = saveAttempted && validationErrors.has(item.id)
@@ -709,12 +636,82 @@ export function GraphQaReviewView({
               )
             })}
           </div>
+
+          {/* ── auto-accept hint ──────────────────────────────────────────── */}
+          {counts.undecided > 0 && !hasErrors ? (
+            <div className="mt-3 rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+              {counts.undecided} item{counts.undecided !== 1 ? 's' : ''} without a decision will be auto-accepted by Stage 9.
+            </div>
+          ) : null}
         </div>
 
-        {/* ── auto-accept hint ──────────────────────────────────────────── */}
-        {counts.undecided > 0 && !hasErrors ? (
-          <div className="mt-4 rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] px-3 py-2 text-xs text-[var(--text-secondary)]">
-            {counts.undecided} item{counts.undecided !== 1 ? 's' : ''} without a decision will be auto-accepted by Stage 9.
+        {/* ── Selected Item popup from bottom ───────────────────────────── */}
+        {selectedItem && selectedDraft ? (
+          <div className={layout === 'workspace'
+            ? 'absolute inset-x-0 bottom-0 z-10 animate-slide-up border-t border-[var(--border-muted)] bg-[var(--bg-secondary)] p-4 shadow-[0_-8px_24px_rgba(0,0,0,0.15)]'
+            : 'absolute inset-x-0 bottom-0 z-10 animate-slide-up border-t border-[var(--border-muted)] bg-[var(--bg-primary)] p-4 shadow-[0_-8px_24px_rgba(0,0,0,0.15)]'}
+          >
+            <div className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">Selected Item</div>
+            <div className="mt-1 break-all font-mono text-xs text-[var(--text-secondary)]">{selectedItem.id}</div>
+            <span className={`mt-2 inline-block rounded-full border px-2 py-0.5 text-xs font-semibold capitalize ${severityClasses(selectedItem.severity, selectedItem.priority)}`}>
+              {selectedItem.severity}
+            </span>
+            <div className="mt-3 text-sm font-semibold">{formatCategory(selectedItem.category)}</div>
+            <div className="mt-1 text-sm text-[var(--text-secondary)]">{selectedItem.message}</div>
+
+            {Object.keys(selectedItem.evidence).length > 0 ? (
+              <div className="mt-4">
+                <div className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">Evidence</div>
+                <div className="mt-2 space-y-1">
+                  {Object.entries(selectedItem.evidence).map(([key, val]) => (
+                    <div key={key} className="flex gap-2 text-xs">
+                      <span className="w-36 shrink-0 text-[var(--text-secondary)]">{key}</span>
+                      <span className="min-w-0 break-all font-mono text-[var(--text-primary)]">
+                        {Array.isArray(val) ? val.join(', ') : String(val ?? '')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="mt-5">
+              <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Decision</div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {decisionsForType(selectedItem.reviewItemType).map((decision) => {
+                  const active = selectedDraft.decision === decision
+                  return (
+                    <button
+                      key={decision}
+                      type="button"
+                      onClick={() => handleDecisionChipClick(selectedItem, decision)}
+                      className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
+                        active
+                          ? decisionActiveClasses(decision)
+                          : 'border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--accent)]/50'
+                      }`}
+                    >
+                      {DECISION_LABELS[decision]}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {selectedDraft.decision === 'set_line_number' ? (
+              <LineNumberControls item={selectedItem} draft={selectedDraft} />
+            ) : null}
+
+            <label className="mt-4 block">
+              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Note (optional)</span>
+              <textarea
+                value={selectedDraft.note ?? ''}
+                onChange={(event) => setDraft(selectedItem.id, { note: event.target.value })}
+                rows={2}
+                placeholder="Add a note for this decision…"
+                className="mt-1.5 w-full resize-none rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+              />
+            </label>
           </div>
         ) : null}
 
