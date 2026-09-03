@@ -200,3 +200,5 @@ PTTEP/
 
 # Generated design-canvas payloads (seeded from the .dc.html sources)
 design/**/garnet-digitizer.html
+frontend/tsconfig.tsbuildinfo
+frontend_old/node_modules
