@@ -1,0 +1,69 @@
+/* HeroUI v3 ships its own `@import "tailwindcss"` plus the full token set
+   (--background, --surface*, --accent, --muted, --border, --separator, ...)
+   for both themes. Do not re-import tailwindcss here — it would double up. */
+@import "@heroui/styles/css";
+
+/* Tell Tailwind v4 to scan our sources plus HeroUI's compiled classes. */
+@source "../";
+@source "../../node_modules/@heroui/react/dist";
+
+/* ---------------------------------------------------------------------------
+   Tokens the design canvas adds on top of HeroUI's set.
+   Radii follow HeroUI's own scale: --radius 0.5rem, field = radius*1.5,
+   button rounded-3xl, chip rounded-2xl, card min(32px, radius-3xl).
+   --------------------------------------------------------------------------- */
+:root {
+  --r-field: 12px;
+  --r-btn: 24px;
+  --r-chip: 16px;
+  --r-card: 32px;
+  --r-table: 20px;
+
+  /* The P&ID raster is white paper in both themes. On light it needs a
+     hairline edge (white on near-white has no edge of its own); on dark it
+     needs a shadow to lift off the backdrop. */
+  --sheet-shadow: 0 2px 14px rgba(0, 0, 0, 0.1);
+  --sheet-edge: oklch(88% 0.004 286.32);
+
+  /* Soft fills derive from the base tokens, so they follow the theme with
+     no per-theme override needed. */
+  --accent-soft: color-mix(in oklab, var(--accent) 15%, transparent);
+  --accent-soft-fg: color-mix(in oklab, var(--accent) 70%, var(--foreground) 30%);
+  --success-soft: color-mix(in oklab, var(--success) 15%, transparent);
+  --success-soft-fg: color-mix(in oklab, var(--success) 80%, var(--foreground) 60%);
+  --warning-soft: color-mix(in oklab, var(--warning) 15%, transparent);
+  --warning-soft-fg: color-mix(in oklab, var(--warning) 80%, var(--foreground) 70%);
+  --danger-soft: color-mix(in oklab, var(--danger) 15%, transparent);
+  --danger-soft-fg: color-mix(in oklab, var(--danger) 70%, var(--foreground) 40%);
+}
+
+[data-theme="dark"] {
+  --sheet-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  --sheet-edge: transparent;
+}
+
+/* Overlay ink is drawn ON the white raster, so it is judged against white in
+   both themes and must NOT be swapped per theme. */
+:root {
+  --ink-trace: #16a34a;
+  --ink-branch: #0891b2;
+  --ink-object: #2563eb;
+  --ink-equipment: #9333ea;
+  --ink-port: #ea580c;
+  --ink-error: #dc2626;
+  --ink-warn: #ea580c;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mono {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
