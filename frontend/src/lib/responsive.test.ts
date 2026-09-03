@@ -21,6 +21,11 @@ check('at tablet is tablet', widthFor(BREAKPOINTS.tablet), 'tablet')
 check('just below desktop is tablet', widthFor(1279), 'tablet')
 check('at desktop is desktop', widthFor(BREAKPOINTS.desktop), 'desktop')
 check('phone frame from the canvas', widthFor(390), 'phone')
+// An unmeasured viewport (hidden tab, collapsed pane) must not be mistaken
+// for a phone, or it withholds screens a phone is not offered.
+check('zero width is not a phone', widthFor(0), 'desktop')
+check('negative width is not a phone', widthFor(-1), 'desktop')
+check('NaN width is not a phone', widthFor(Number.NaN), 'desktop')
 check('tablet frame from the canvas', widthFor(1024), 'tablet')
 check('desktop frame from the canvas', widthFor(1440), 'desktop')
 

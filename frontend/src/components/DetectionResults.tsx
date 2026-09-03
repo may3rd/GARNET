@@ -32,6 +32,14 @@ const FIELD: React.CSSProperties = {
   boxSizing: 'border-box',
 }
 
+type LabelMode = 'off' | 'class' | 'tag'
+
+const LABEL_MODES: { key: LabelMode; label: string }[] = [
+  { key: 'off', label: 'Hidden' },
+  { key: 'class', label: 'Class name' },
+  { key: 'tag', label: 'Tag / text' },
+]
+
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n))
 
 /** Where an object-fit:contain image actually sits inside its box. */
@@ -100,7 +108,10 @@ export function DetectionResults() {
   const [zoom, setZoom] = useState<number | null>(null) // null = fit
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [busy, setBusy] = useState(false)
-  const [showLabels, setShowLabels] = useState(false)
+  // Off / class name / tag text. With OCR off the backend fills Text with a
+  // placeholder ("instrument tag - no. 1"), so the class is the useful label
+  // and the tag is only worth showing when OCR actually ran.
+  const [labelMode, setLabelMode] = useState<LabelMode>('off')
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const viewportRef = useRef<HTMLDivElement>(null)
   const [viewport, setViewport] = useState({ w: 0, h: 0 })
@@ -362,9 +373,43 @@ export function DetectionResults() {
             onMouseDown={startPan}
           >
             {sheet.progress && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center gap-2">
-                <Spinner size="sm" />
-                <span style={{ fontSize: 13, color: 'var(--muted)' }}>{sheet.progress.step}</span>
+              <div
+                className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4"
+                style={{
+                  // A scrim over the canvas: the sheet underneath is stale
+                  // while a run is in flight, so it should read as inactive.
+                  background: 'color-mix(in oklab, var(--foreground) 28%, transparent)',
+                  backdropFilter: 'blur(1.5px)',
+                  cursor: 'progress',
+                }}
+                // Swallow drags and clicks so the stale canvas cannot be
+                // panned or have a box selected mid-run.
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                {/* xl is 40px, which reads as an afterthought on a canvas this
+                    big; scaled up so it is unmistakably the focus. transform
+                    does not grow the layout box, so the extra margin keeps the
+                    scaled ring off the text below it. */}
+                <Spinner
+                  size="xl"
+                  color="current"
+                  style={{
+                    color: 'var(--white)',
+                    transform: 'scale(1.6)',
+                    marginBottom: 14,
+                  }}
+                />
+                <div className="flex flex-col items-center gap-1">
+                  <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--white)' }}>
+                    {sheet.progress.step}
+                  </span>
+                  <span
+                    className="mono"
+                    style={{ fontSize: 12, color: 'color-mix(in oklab, var(--white) 75%, transparent)' }}
+                  >
+                    {sheet.label}
+                  </span>
+                </div>
               </div>
             )}
 
@@ -427,7 +472,7 @@ export function DetectionResults() {
                           strokeWidth={(isSel ? 3 : 1.6) / scale}
                           pointerEvents="none"
                         />
-                        {showLabels && (
+                        {labelMode !== 'off' && (
                           // Stroke-then-fill gives the text a white outline so
                           // it stays readable over the drawing's own linework.
                           <text
@@ -441,7 +486,7 @@ export function DetectionResults() {
                             style={{ fontWeight: 600 }}
                             pointerEvents="none"
                           >
-                            {o.Text?.trim() || o.Object}
+                            {labelMode === 'tag' ? o.Text?.trim() || o.Object : o.Object}
                           </text>
                         )}
                       </g>
@@ -517,10 +562,10 @@ export function DetectionResults() {
               />
               <button
                 type="button"
-                title={showLabels ? 'Hide labels' : 'Show labels'}
+                title={labelMode === 'off' ? 'Show object labels' : 'Hide object labels'}
                 aria-label="Toggle labels"
-                aria-pressed={showLabels}
-                onClick={() => setShowLabels((v) => !v)}
+                aria-pressed={labelMode !== 'off'}
+                onClick={() => setLabelMode((m) => (m === 'off' ? 'class' : 'off'))}
                 className="flex items-center justify-center"
                 style={{
                   width: ctlH,
@@ -528,8 +573,8 @@ export function DetectionResults() {
                   border: 0,
                   borderRadius: 'var(--r-btn)',
                   cursor: 'pointer',
-                  background: showLabels ? 'var(--accent-soft)' : 'transparent',
-                  color: showLabels ? 'var(--accent-soft-fg)' : 'var(--foreground)',
+                  background: labelMode !== 'off' ? 'var(--accent-soft)' : 'transparent',
+                  color: labelMode !== 'off' ? 'var(--accent-soft-fg)' : 'var(--foreground)',
                 }}
               >
                 <TagIcon size={16} strokeWidth={1.6} />
@@ -800,6 +845,20 @@ export function DetectionResults() {
                 {weightFiles.map((w) => (
                   <option key={w} value={w}>
                     {w.replace(/^.*\//, '')}
+                  </option>
+                ))}
+              </select>
+            </LabelledField>
+            <LabelledField label="Object labels on canvas">
+              <select
+                aria-label="Object labels on canvas"
+                value={labelMode}
+                onChange={(e) => setLabelMode(e.target.value as LabelMode)}
+                style={FIELD}
+              >
+                {LABEL_MODES.map((m) => (
+                  <option key={m.key} value={m.key}>
+                    {m.label}
                   </option>
                 ))}
               </select>

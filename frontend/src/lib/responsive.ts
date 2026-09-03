@@ -10,6 +10,11 @@ export type Width = 'phone' | 'tablet' | 'desktop'
 export const BREAKPOINTS = { tablet: 768, desktop: 1280 } as const
 
 export function widthFor(px: number): Width {
+  // A zero or nonsensical width means "not measured yet" — a hidden tab, a
+  // collapsed container, a pane that has not laid out. Treating that as a
+  // phone would wrongly withhold screens that a phone is not offered, so
+  // assume desktop until a real measurement arrives.
+  if (!Number.isFinite(px) || px <= 0) return 'desktop'
   if (px < BREAKPOINTS.tablet) return 'phone'
   if (px < BREAKPOINTS.desktop) return 'tablet'
   return 'desktop'
