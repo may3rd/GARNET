@@ -32,3 +32,109 @@ export function fitScale(imgW: number, imgH: number, viewW: number, viewH: numbe
   if (!imgW || !imgH || !viewW || !viewH) return 1
   return Math.min(viewW / imgW, viewH / imgH)
 }
+
+/* ---------------------------------------------------------------------------
+   Box editing. Coordinates are image pixels, matching DetectedObject.
+   --------------------------------------------------------------------------- */
+
+export type Box = { Left: number; Top: number; Width: number; Height: number }
+
+/** The eight anchors, named by compass point. */
+export type Handle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
+
+export const HANDLES: Handle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
+
+/** Which cursor each anchor should show. */
+export const HANDLE_CURSOR: Record<Handle, string> = {
+  nw: 'nwse-resize',
+  n: 'ns-resize',
+  ne: 'nesw-resize',
+  e: 'ew-resize',
+  se: 'nwse-resize',
+  s: 'ns-resize',
+  sw: 'nesw-resize',
+  w: 'ew-resize',
+}
+
+/** Anchor position in image coordinates, for drawing the handle. */
+export function handlePoint(box: Box, handle: Handle): { x: number; y: number } {
+  const midX = box.Left + box.Width / 2
+  const midY = box.Top + box.Height / 2
+  const right = box.Left + box.Width
+  const bottom = box.Top + box.Height
+  switch (handle) {
+    case 'nw': return { x: box.Left, y: box.Top }
+    case 'n': return { x: midX, y: box.Top }
+    case 'ne': return { x: right, y: box.Top }
+    case 'e': return { x: right, y: midY }
+    case 'se': return { x: right, y: bottom }
+    case 's': return { x: midX, y: bottom }
+    case 'sw': return { x: box.Left, y: bottom }
+    case 'w': return { x: box.Left, y: midY }
+  }
+}
+
+const round = (b: Box): Box => ({
+  Left: Math.round(b.Left),
+  Top: Math.round(b.Top),
+  Width: Math.round(b.Width),
+  Height: Math.round(b.Height),
+})
+
+/**
+ * Drag one anchor to (x, y).
+ *
+ * Dragging an edge past its opposite flips the box rather than producing a
+ * negative size, and the result is clamped inside the sheet with a minimum
+ * size so a box can never be dragged away to nothing.
+ */
+export function resizeBox(
+  start: Box,
+  handle: Handle,
+  x: number,
+  y: number,
+  imgW: number,
+  imgH: number,
+  min = 4
+): Box {
+  let left = start.Left
+  let top = start.Top
+  let right = start.Left + start.Width
+  let bottom = start.Top + start.Height
+
+  if (handle.includes('w')) left = x
+  if (handle.includes('e')) right = x
+  if (handle.includes('n')) top = y
+  if (handle.includes('s')) bottom = y
+
+  // A flipped drag is a valid gesture; normalise instead of going negative.
+  if (right < left) [left, right] = [right, left]
+  if (bottom < top) [top, bottom] = [bottom, top]
+
+  left = Math.max(0, Math.min(left, imgW))
+  right = Math.max(0, Math.min(right, imgW))
+  top = Math.max(0, Math.min(top, imgH))
+  bottom = Math.max(0, Math.min(bottom, imgH))
+
+  let width = Math.max(min, right - left)
+  let height = Math.max(min, bottom - top)
+  // Honouring the minimum must not push the box outside the sheet.
+  if (left + width > imgW) left = Math.max(0, imgW - width)
+  if (top + height > imgH) top = Math.max(0, imgH - height)
+  width = Math.min(width, imgW)
+  height = Math.min(height, imgH)
+
+  return round({ Left: left, Top: top, Width: width, Height: height })
+}
+
+/** Move the whole box by a delta, kept inside the sheet. */
+export function moveBox(start: Box, dx: number, dy: number, imgW: number, imgH: number): Box {
+  const width = Math.min(start.Width, imgW)
+  const height = Math.min(start.Height, imgH)
+  return round({
+    Left: Math.max(0, Math.min(start.Left + dx, imgW - width)),
+    Top: Math.max(0, Math.min(start.Top + dy, imgH - height)),
+    Width: width,
+    Height: height,
+  })
+}

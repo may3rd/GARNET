@@ -1,12 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Spinner } from '@heroui/react'
-import { ChevronDown, ChevronRight, Maximize2, Minus, Monitor, Plus, RotateCw, Scan, Tag as TagIcon, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, Maximize2, Minus, Monitor, Pencil, Plus, RotateCw, Scan, Tag as TagIcon, Trash2, X } from 'lucide-react'
 import { Card, SectionHeader, Tag, Toggle } from '@/components/ui/primitives'
 import { classColor, summarizeClasses, normalizeClass } from '@/lib/detectionClasses'
 import { exportCoco } from '@/lib/exportFormats'
 import { exportResultsToExcel } from '@/lib/api'
 import { availabilityOf, controlHeight, GIVES_WAY, useWidth } from '@/lib/responsive'
-import { clampPan, fitScale as computeFit } from '@/lib/viewport'
+import {
+  clampPan,
+  fitScale as computeFit,
+  HANDLE_CURSOR,
+  HANDLES,
+  handlePoint,
+  moveBox,
+  resizeBox,
+  type Box,
+  type Handle,
+} from '@/lib/viewport'
 import { useRunStore } from '@/stores/runStore'
 import type { DetectedObject } from '@/types'
 
@@ -72,6 +82,29 @@ function LabelledField({
   )
 }
 
+/** A label over its value as text, for the panel's read-only state. */
+function ReadOnly({
+  label,
+  value,
+  mono,
+}: {
+  label: string
+  value: string
+  mono?: boolean
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--muted)' }}>{label}</span>
+      <span
+        className={mono ? 'mono truncate' : 'truncate'}
+        style={{ fontSize: 14, fontWeight: 500 }}
+      >
+        {value}
+      </span>
+    </div>
+  )
+}
+
 function download(name: string, blob: Blob) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -113,6 +146,8 @@ export function DetectionResults() {
   // and the tag is only worth showing when OCR actually ran.
   const [labelMode, setLabelMode] = useState<LabelMode>('off')
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [editing, setEditing] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const viewportRef = useRef<HTMLDivElement>(null)
   const [viewport, setViewport] = useState({ w: 0, h: 0 })
 
@@ -137,6 +172,8 @@ export function DetectionResults() {
 
   useEffect(() => {
     setDraft(selected ? { ...selected } : null)
+    setEditing(false)
+    setConfirmDelete(false)
   }, [selectedIndex, selected?.Index])
 
   // The panel keeps rendering the last object while it slides back down, so
@@ -247,6 +284,45 @@ export function DetectionResults() {
     const box = e.currentTarget.getBoundingClientRect()
     panFromMinimap(e.clientX - box.left, e.clientY - box.top)
     const move = (ev: MouseEvent) => panFromMinimap(ev.clientX - box.left, ev.clientY - box.top)
+    const up = () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+  }
+
+  /**
+   * Drag an anchor, or the box body, in image coordinates. pan and scale are
+   * captured at mousedown: panning is suppressed while a box drag is live, so
+   * they cannot change underneath it.
+   */
+  const startBoxDrag = (mode: Handle | 'move', e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!canEdit || !draft) return
+    const el = viewportRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const start: Box = { ...draft }
+    const toImage = (ev: MouseEvent | React.MouseEvent) => ({
+      x: (ev.clientX - rect.left - pan.x) / scale,
+      y: (ev.clientY - rect.top - pan.y) / scale,
+    })
+    const origin = toImage(e)
+
+    const move = (ev: MouseEvent) => {
+      const p = toImage(ev)
+      setDraft((d) =>
+        d === null
+          ? d
+          : {
+              ...d,
+              ...(mode === 'move'
+                ? moveBox(start, p.x - origin.x, p.y - origin.y, imgW, imgH)
+                : resizeBox(start, mode, p.x, p.y, imgW, imgH)),
+            }
+      )
+    }
     const up = () => {
       window.removeEventListener('mousemove', move)
       window.removeEventListener('mouseup', up)
@@ -447,37 +523,73 @@ export function DetectionResults() {
                 >
                   {visible.map((o) => {
                     const isSel = o.Index === selectedIndex
-                    const color = classColor(o.Object)
+                    // In edit mode the box being edited comes from the draft,
+                    // so the outline tracks the drag live.
+                    const box: Box = isSel && editing && draft ? draft : o
+                    // Everything else is muted while editing, so the box under
+                    // the cursor is unambiguous.
+                    const muted = editing && !isSel
+                    const color = muted ? 'var(--muted)' : classColor(o.Object)
                     return (
-                      <g key={o.Index} onMouseDown={(e) => e.stopPropagation()}>
+                      <g key={o.Index} onMouseDown={(e) => e.stopPropagation()} opacity={muted ? 0.3 : 1}>
                         {/* Wide transparent stroke so thin boxes stay clickable. */}
                         <rect
-                          x={o.Left}
-                          y={o.Top}
-                          width={o.Width}
-                          height={o.Height}
+                          x={box.Left}
+                          y={box.Top}
+                          width={box.Width}
+                          height={box.Height}
                           fill="transparent"
                           stroke="transparent"
                           strokeWidth={12 / scale}
-                          style={{ cursor: 'pointer' }}
-                          onClick={() => setSelectedIndex(o.Index)}
+                          style={{
+                            cursor: muted ? 'default' : isSel && editing ? 'move' : 'pointer',
+                            pointerEvents: muted ? 'none' : undefined,
+                          }}
+                          onClick={() => !editing && setSelectedIndex(o.Index)}
+                          onMouseDown={(e) => {
+                            if (isSel && editing) startBoxDrag('move', e)
+                            else e.stopPropagation()
+                          }}
                         />
                         <rect
-                          x={o.Left}
-                          y={o.Top}
-                          width={o.Width}
-                          height={o.Height}
-                          fill={isSel ? `${color}22` : 'transparent'}
+                          x={box.Left}
+                          y={box.Top}
+                          width={box.Width}
+                          height={box.Height}
+                          fill={isSel ? `${muted ? 'transparent' : classColor(o.Object)}22` : 'transparent'}
                           stroke={color}
                           strokeWidth={(isSel ? 3 : 1.6) / scale}
+                          strokeDasharray={isSel && editing ? `${6 / scale} ${4 / scale}` : undefined}
                           pointerEvents="none"
                         />
-                        {labelMode !== 'off' && (
+                        {isSel && editing && (
+                          <g>
+                            {HANDLES.map((h) => {
+                              const pt = handlePoint(box, h)
+                              const size = 9 / scale
+                              return (
+                                <rect
+                                  key={h}
+                                  x={pt.x - size / 2}
+                                  y={pt.y - size / 2}
+                                  width={size}
+                                  height={size}
+                                  fill="var(--white)"
+                                  stroke="var(--accent)"
+                                  strokeWidth={2 / scale}
+                                  style={{ cursor: HANDLE_CURSOR[h] }}
+                                  onMouseDown={(e) => startBoxDrag(h, e)}
+                                />
+                              )
+                            })}
+                          </g>
+                        )}
+                        {labelMode !== 'off' && !muted && (
                           // Stroke-then-fill gives the text a white outline so
                           // it stays readable over the drawing's own linework.
                           <text
-                            x={o.Left}
-                            y={o.Top - 5 / scale}
+                            x={box.Left}
+                            y={box.Top - 5 / scale}
                             fontSize={13 / scale}
                             fill={color}
                             stroke="#ffffff"
@@ -649,7 +761,9 @@ export function DetectionResults() {
             <div
               style={{
                 background: 'var(--overlay)',
-                borderRadius: 'var(--r-card)',
+                // Tighter than a card's 32px: this is a docked strip, and a
+                // large radius on a full-width panel reads as a floating pill.
+                borderRadius: 14,
                 padding: 16,
                 boxShadow: 'inset 0 0 0 1px var(--border), 0 -8px 32px rgba(0,0,0,.16)',
               }}
@@ -702,72 +816,140 @@ export function DetectionResults() {
                       Read-only at this width — {GIVES_WAY.detection}
                     </div>
                   )}
-                  <div className="flex flex-wrap items-end gap-2.5">
-                    <LabelledField label="Class" flex={1.6}>
-                      <input
-                        list="detection-classes"
-                        value={shown.Object}
-                        onChange={(e) => setDraft({ ...shown, Object: e.target.value })}
-                        style={FIELD}
-                        aria-label="Class"
-                        readOnly={!canEdit}
-                      />
-                      <datalist id="detection-classes">
-                        {classes.map((c) => (
-                          <option key={c.name} value={c.name} />
-                        ))}
-                      </datalist>
-                    </LabelledField>
-                    <LabelledField label="Text / tag" flex={1.4}>
-                      <input
-                        value={shown.Text}
-                        onChange={(e) => setDraft({ ...shown, Text: e.target.value })}
-                        style={FIELD}
-                        aria-label="Text or tag"
-                        readOnly={!canEdit}
-                      />
-                    </LabelledField>
-                    {(['Left', 'Top', 'Width', 'Height'] as const).map((k) => (
-                      <LabelledField
-                        key={k}
-                        width={78}
-                        label={{ Left: 'x', Top: 'y', Width: 'w', Height: 'h' }[k]}
+
+                  {confirmDelete ? (
+                    /* Deleting is destructive and immediate on the server, so
+                       it asks first. */
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span style={{ fontSize: 13 }}>
+                        Delete this <strong>{shown.Object}</strong>
+                        {shown.Text?.trim() ? ` (${shown.Text.trim()})` : ''}? This cannot be undone.
+                      </span>
+                      <div className="flex-1" />
+                      <Button
+                        variant="ghost"
+                        style={{ height: ctlH, borderRadius: 'var(--r-btn)' }}
+                        onPress={() => setConfirmDelete(false)}
                       >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        style={{
+                          height: ctlH,
+                          borderRadius: 'var(--r-btn)',
+                          background: 'var(--danger)',
+                          color: 'var(--white)',
+                        }}
+                        onPress={() => {
+                          void deleteObject(sheet.id, shown)
+                          setConfirmDelete(false)
+                          setSelectedIndex(null)
+                        }}
+                      >
+                        <Trash2 size={15} strokeWidth={1.8} />
+                        Delete
+                      </Button>
+                    </div>
+                  ) : editing ? (
+                    <div className="flex flex-wrap items-end gap-2.5">
+                      <LabelledField label="Class" flex={1.6}>
                         <input
-                          type="number"
-                          aria-label={k}
-                          value={shown[k]}
-                          onChange={(e) => setDraft({ ...shown, [k]: Number(e.target.value) })}
+                          list="detection-classes"
+                          value={shown.Object}
+                          onChange={(e) => setDraft({ ...shown, Object: e.target.value })}
                           style={FIELD}
-                          readOnly={!canEdit}
+                          aria-label="Class"
+                        />
+                        <datalist id="detection-classes">
+                          {classes.map((c) => (
+                            <option key={c.name} value={c.name} />
+                          ))}
+                        </datalist>
+                      </LabelledField>
+                      <LabelledField label="Text / tag" flex={1.4}>
+                        <input
+                          value={shown.Text}
+                          onChange={(e) => setDraft({ ...shown, Text: e.target.value })}
+                          style={FIELD}
+                          aria-label="Text or tag"
                         />
                       </LabelledField>
-                    ))}
-                    <Button
-                      variant="ghost"
-                      isDisabled={!canEdit}
-                      style={{
-                        height: ctlH,
-                        borderRadius: 'var(--r-btn)',
-                        background: 'var(--danger-soft)',
-                        color: 'var(--danger-soft-fg)',
-                      }}
-                      onPress={() => {
-                        void deleteObject(sheet.id, shown)
-                        setSelectedIndex(null)
-                      }}
-                    >
-                      Delete
-                    </Button>
-                    <Button
-                      variant="primary"
-                      isDisabled={!canEdit}
-                      style={{ height: ctlH, borderRadius: 'var(--r-btn)' }}
-                      onPress={() => void updateObject(sheet.id, shown)}
-                    >
-                      Apply
-                    </Button>
-                  </div>
+                      {(['Left', 'Top', 'Width', 'Height'] as const).map((k) => (
+                        <LabelledField
+                          key={k}
+                          width={78}
+                          label={{ Left: 'x', Top: 'y', Width: 'w', Height: 'h' }[k]}
+                        >
+                          <input
+                            type="number"
+                            aria-label={k}
+                            value={shown[k]}
+                            onChange={(e) => setDraft({ ...shown, [k]: Number(e.target.value) })}
+                            style={FIELD}
+                          />
+                        </LabelledField>
+                      ))}
+                      <Button
+                        variant="ghost"
+                        style={{ height: ctlH, borderRadius: 'var(--r-btn)' }}
+                        onPress={() => {
+                          // Abandon the drag edits by reverting to the server copy.
+                          setDraft(selected ? { ...selected } : null)
+                          setEditing(false)
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="primary"
+                        style={{ height: ctlH, borderRadius: 'var(--r-btn)' }}
+                        onPress={() => {
+                          void updateObject(sheet.id, shown)
+                          setEditing(false)
+                        }}
+                      >
+                        <Check size={15} strokeWidth={2.2} />
+                        OK
+                      </Button>
+                    </div>
+                  ) : (
+                    /* Read-only by default: the values as text, nothing to
+                       mistype, and the two actions. */
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                      <ReadOnly label="Class" value={shown.Object} />
+                      <ReadOnly label="Text / tag" value={shown.Text?.trim() || '—'} />
+                      <ReadOnly
+                        label="Bounding box"
+                        mono
+                        value={`${shown.Left}, ${shown.Top}, ${shown.Width} × ${shown.Height}`}
+                      />
+                      <div className="flex-1" />
+                      <Button
+                        variant="ghost"
+                        isDisabled={!canEdit}
+                        style={{
+                          height: ctlH,
+                          borderRadius: 'var(--r-btn)',
+                          background: 'var(--danger-soft)',
+                          color: 'var(--danger-soft-fg)',
+                        }}
+                        onPress={() => setConfirmDelete(true)}
+                      >
+                        <Trash2 size={15} strokeWidth={1.8} />
+                        Delete
+                      </Button>
+                      <Button
+                        variant="primary"
+                        isDisabled={!canEdit}
+                        style={{ height: ctlH, borderRadius: 'var(--r-btn)' }}
+                        onPress={() => setEditing(true)}
+                      >
+                        <Pencil size={15} strokeWidth={1.8} />
+                        Edit
+                      </Button>
+                    </div>
+                  )}
                 </>
               )}
             </div>

@@ -1,5 +1,5 @@
 /** Runnable check: `bun run src/lib/viewport.test.ts` */
-import { clampPan, fitScale } from './viewport'
+import { clampPan, fitScale, HANDLES, handlePoint, moveBox, resizeBox, type Box } from './viewport'
 
 let failures = 0
 function check(label: string, actual: unknown, expected: unknown) {
@@ -53,5 +53,73 @@ cases.forEach((c) => {
 check('zero view is safe', clampPan({ x: 5, y: 5 }, 1, 100, 100, 0, 0), { x: 0, y: 0 })
 check('fit scale with no image', fitScale(0, 0, 800, 600), 1)
 
+
+/* --------------------------------------------------------------------------
+   Box editing
+   -------------------------------------------------------------------------- */
+
+const B: Box = { Left: 100, Top: 100, Width: 200, Height: 100 } // right 300, bottom 200
+const SHEET = { w: 1000, h: 800 }
+const rs = (h: Parameters<typeof resizeBox>[1], x: number, y: number) =>
+  resizeBox(B, h, x, y, SHEET.w, SHEET.h)
+
+// --- Each anchor moves only the edges it names --------------------------
+check('nw moves left+top', rs('nw', 60, 70), { Left: 60, Top: 70, Width: 240, Height: 130 })
+check('se moves right+bottom', rs('se', 360, 260), { Left: 100, Top: 100, Width: 260, Height: 160 })
+check('n moves top only', rs('n', 999, 40), { Left: 100, Top: 40, Width: 200, Height: 160 })
+check('s moves bottom only', rs('s', 999, 260), { Left: 100, Top: 100, Width: 200, Height: 160 })
+check('w moves left only', rs('w', 40, 999), { Left: 40, Top: 100, Width: 260, Height: 100 })
+check('e moves right only', rs('e', 360, 999), { Left: 100, Top: 100, Width: 260, Height: 100 })
+
+// --- Anchor positions are where the handles get drawn -------------------
+check('nw point', handlePoint(B, 'nw'), { x: 100, y: 100 })
+check('se point', handlePoint(B, 'se'), { x: 300, y: 200 })
+check('n point is the top midpoint', handlePoint(B, 'n'), { x: 200, y: 100 })
+check('e point is the right midpoint', handlePoint(B, 'e'), { x: 300, y: 150 })
+check('there are eight anchors', HANDLES.length, 8)
+
+// --- Dragging an edge past its opposite flips instead of going negative -
+const flipped = rs('e', 20, 999)
+check('flip keeps width positive', flipped.Width > 0, true)
+check('flip lands left of the old left edge', flipped.Left, 20)
+check('flip right edge is the old left edge', flipped.Left + flipped.Width, 100)
+
+// --- Never leaves the sheet, never collapses to nothing -----------------
+const outside = rs('nw', -500, -500)
+check('clamped to the sheet origin', [outside.Left, outside.Top], [0, 0])
+const past = rs('se', 99999, 99999)
+check('clamped to the sheet extent', [past.Left + past.Width, past.Top + past.Height], [SHEET.w, SHEET.h])
+// Collapsing an edge onto its opposite must still leave a grabbable box.
+const collapsed = rs('e', 100, 999)
+check('minimum width is honoured', collapsed.Width >= 4, true)
+const collapsedV = rs('s', 999, 100)
+check('minimum height is honoured', collapsedV.Height >= 4, true)
+
+HANDLES.forEach((h) => {
+  const r = resizeBox(B, h, -9999, -9999, SHEET.w, SHEET.h)
+  const inside =
+    r.Left >= 0 && r.Top >= 0 && r.Left + r.Width <= SHEET.w && r.Top + r.Height <= SHEET.h
+  check(`${h} stays inside the sheet`, inside, true)
+  check(`${h} keeps a usable size`, r.Width >= 4 && r.Height >= 4, true)
+})
+
+// --- Moving ------------------------------------------------------------
+check('move by a delta', moveBox(B, 25, -30, SHEET.w, SHEET.h), {
+  Left: 125, Top: 70, Width: 200, Height: 100,
+})
+check('move cannot cross the top-left', moveBox(B, -9999, -9999, SHEET.w, SHEET.h), {
+  Left: 0, Top: 0, Width: 200, Height: 100,
+})
+check('move cannot cross the bottom-right', moveBox(B, 9999, 9999, SHEET.w, SHEET.h), {
+  Left: SHEET.w - 200, Top: SHEET.h - 100, Width: 200, Height: 100,
+})
+// Moving preserves size — a drag must never resize.
+const moved = moveBox(B, 40, 40, SHEET.w, SHEET.h)
+check('move preserves size', [moved.Width, moved.Height], [B.Width, B.Height])
+
+// --- Integer output: these are pixel coordinates on a raster ------------
+const fract = resizeBox({ Left: 10.4, Top: 10.6, Width: 50.5, Height: 50.5 }, 'se', 80.7, 90.2, SHEET.w, SHEET.h)
+check('coordinates are integers', Object.values(fract).every(Number.isInteger), true)
+
 if (failures > 0) throw new Error(`${failures} viewport check(s) failed`)
-console.log('viewport: all checks passed')
+console.log('viewport (with box editing): all checks passed')
