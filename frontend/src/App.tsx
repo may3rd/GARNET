@@ -1,6 +1,7 @@
 import { AppShell } from '@/components/AppShell'
 import { SheetsIntake } from '@/components/SheetsIntake'
 import { TaskFork } from '@/components/TaskFork'
+import { DetectionResults } from '@/components/DetectionResults'
 import { ExportsView, NotBuilt, ReviewQueue, RunMonitor } from '@/components/screens'
 import { useRunStore } from '@/stores/runStore'
 
@@ -15,14 +16,7 @@ export default function App() {
       {screen === 'run' && <RunMonitor />}
       {screen === 'review' && <ReviewQueue />}
       {screen === 'exports' && <ExportsView />}
-      {screen === 'detection' && (
-        <NotBuilt
-          title="Detection results"
-          artboard="DetectionRun"
-          needs="Needs the legacy POST /api/detect path plus the editable box canvas (add, move, retype, delete) and the Excel/JSON/COCO exports."
-          goTo={{ label: 'Choose a task', screen: 'task' }}
-        />
-      )}
+      {screen === 'detection' && <DetectionResults />}
       {screen === 'merge' && (
         <NotBuilt
           title="Merge"

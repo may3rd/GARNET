@@ -1,15 +1,19 @@
 import { create } from 'zustand'
 import {
   APIError,
+  createResultObject,
+  deleteResultObject,
   extractPdfPages,
   getPipelineJob,
   getPipelineStageStatus,
   resumePipelineFromStage,
+  runDetection as runDetectionApi,
   startPipelineJob,
+  updateResultObject,
 } from '@/lib/api'
 import { activeGate, firstLegStopAfter, GATES, humanStage, runPercent, type GateId } from '@/lib/gates'
 import type { Screen } from '@/lib/nav'
-import type { OcrRoute, PipelineJob, PipelineStageManifest } from '@/types'
+import type { DetectedObject, DetectionResult, OcrRoute, PipelineJob, PipelineStageManifest } from '@/types'
 
 export type TaskKind = 'detection' | 'extraction'
 
@@ -33,6 +37,8 @@ export type Sheet = {
   stages: PipelineStageManifest[]
   progress: { step: string; percent: number } | null
   error: string | null
+  /** Detection-task result. Held per sheet so each keeps its own boxes. */
+  detection: DetectionResult | null
 }
 
 export type RunConfig = {
@@ -47,6 +53,11 @@ export type RunConfig = {
    * Off: run straight through to stage 8 and queue all four gates at once.
    */
   pauseAtEveryGate: boolean
+  /** Detection-task settings (the legacy /api/detect path). */
+  confTh: number
+  imageSize: number
+  overlapRatio: number
+  textOCR: boolean
 }
 
 type RunState = {
@@ -75,6 +86,13 @@ type RunState = {
   startRun: () => Promise<void>
   resumeGate: (sheetId: string, gate: GateId) => Promise<void>
   gateFor: (sheetId: string) => GateId | null
+
+  /** Detection task: POST /api/detect for one sheet, or re-run it. */
+  runDetectionFor: (sheetId: string) => Promise<void>
+  /** Object edits persist to the server's in-memory result store. */
+  updateObject: (sheetId: string, obj: DetectedObject) => Promise<void>
+  deleteObject: (sheetId: string, obj: DetectedObject) => Promise<void>
+  addObject: (sheetId: string, obj: Omit<DetectedObject, 'Index'>) => Promise<void>
 }
 
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
@@ -103,6 +121,7 @@ function makeSheet(file: File, label: string, task: TaskKind, ocrRoute: OcrRoute
     stages: [],
     progress: null,
     error: null,
+    detection: null,
   }
 }
 
@@ -128,6 +147,10 @@ export const useRunStore = create<RunState>((set, get) => ({
     debugArtifacts: false,
     stopAfterStage: 11,
     pauseAtEveryGate: true,
+    confTh: 0.8,
+    imageSize: 640,
+    overlapRatio: 0.2,
+    textOCR: false,
   },
   theme: 'default',
   isExtracting: false,
@@ -220,7 +243,7 @@ export const useRunStore = create<RunState>((set, get) => ({
       sheets.map(async (sheet) => {
         if (sheet.jobId) return
         if (sheet.task === 'detection') {
-          patchSheet(set, sheet.id, { error: 'Detection route not wired yet' })
+          await get().runDetectionFor(sheet.id)
           return
         }
         patchSheet(set, sheet.id, {
@@ -277,9 +300,97 @@ export const useRunStore = create<RunState>((set, get) => ({
     if (!sheet?.job) return null
     return activeGate(sheet.job, sheet.stages)
   },
+
+  runDetectionFor: async (sheetId) => {
+    const { sheets, config } = get()
+    const sheet = sheets.find((s) => s.id === sheetId)
+    if (!sheet) return
+
+    patchSheet(set, sheetId, {
+      error: null,
+      progress: { step: 'Detecting…', percent: 20 },
+    })
+    try {
+      const result = await runDetectionApi(sheet.file, {
+        confTh: config.confTh,
+        imageSize: config.imageSize,
+        overlapRatio: config.overlapRatio,
+        textOCR: config.textOCR,
+        weightFile: config.weightFile,
+      })
+      patchSheet(set, sheetId, { detection: result, progress: null })
+    } catch (error) {
+      patchSheet(set, sheetId, {
+        progress: null,
+        error:
+          error instanceof APIError && error.isCanceled
+            ? 'Canceled'
+            : error instanceof Error
+              ? error.message
+              : 'Detection failed',
+      })
+    }
+  },
+
+  updateObject: async (sheetId, obj) => {
+    const sheet = get().sheets.find((s) => s.id === sheetId)
+    if (!sheet?.detection) return
+    // Optimistic: the panel should not lag a keystroke behind the canvas.
+    patchDetection(set, sheetId, (objects) =>
+      objects.map((o) => (o.Index === obj.Index ? obj : o))
+    )
+    try {
+      await updateResultObject(sheet.detection.id, obj.Index, obj)
+    } catch (error) {
+      patchSheet(set, sheetId, {
+        error: error instanceof Error ? error.message : 'Could not save the edit',
+      })
+    }
+  },
+
+  deleteObject: async (sheetId, obj) => {
+    const sheet = get().sheets.find((s) => s.id === sheetId)
+    if (!sheet?.detection) return
+    patchDetection(set, sheetId, (objects) => objects.filter((o) => o.Index !== obj.Index))
+    try {
+      await deleteResultObject(sheet.detection.id, obj.Index)
+    } catch (error) {
+      patchSheet(set, sheetId, {
+        error: error instanceof Error ? error.message : 'Could not delete the object',
+      })
+    }
+  },
+
+  addObject: async (sheetId, obj) => {
+    const sheet = get().sheets.find((s) => s.id === sheetId)
+    if (!sheet?.detection) return
+    try {
+      const created = await createResultObject(sheet.detection.id, obj)
+      patchDetection(set, sheetId, (objects) => [...objects, created])
+    } catch (error) {
+      patchSheet(set, sheetId, {
+        error: error instanceof Error ? error.message : 'Could not add the object',
+      })
+    }
+  },
 }))
 
 type SetFn = (fn: (state: RunState) => Partial<RunState>) => void
+
+/** Replace a sheet's detection objects, keeping count in sync. */
+function patchDetection(
+  set: SetFn,
+  id: string,
+  fn: (objects: DetectedObject[]) => DetectedObject[]
+) {
+  set((state) => ({
+    sheets: state.sheets.map((s) => {
+      if (s.id !== id || !s.detection) return s
+      const objects = fn(s.detection.objects)
+      return { ...s, detection: { ...s.detection, objects, count: objects.length } }
+    }),
+  }))
+}
 
 function patchSheet(set: SetFn, id: string, patch: Partial<Sheet>) {
   set((state) => ({

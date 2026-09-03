@@ -148,7 +148,9 @@ export function TaskFork() {
   const extractionSheets = sheets.filter((s) => s.task === 'extraction').length
 
   const onContinue = async () => {
-    setScreen('run')
+    // Follow the chosen task: detection has its own results screen and never
+    // goes through the run monitor, which is extraction's stage tracker.
+    setScreen(task === 'detection' ? 'detection' : 'run')
     void startRun()
   }
 

@@ -62,11 +62,15 @@ function stageLine(sheet: Sheet) {
 
 /** 4 · ExtractionRun — live stage state for every sheet in the run. */
 export function RunMonitor() {
-  const sheets = useRunStore((s) => s.sheets)
+  const allSheets = useRunStore((s) => s.sheets)
   const setScreen = useRunStore((s) => s.setScreen)
   const selectSheet = useRunStore((s) => s.selectSheet)
   const gateFor = useRunStore((s) => s.gateFor)
 
+  // Extraction only: detection sheets have no stage manifest and no gates,
+  // so listing them here would show every one as "not started" forever.
+  const sheets = allSheets.filter((s) => s.task === 'extraction')
+  const detectionCount = allSheets.length - sheets.length
   const anyRunning = sheets.some((s) => s.progress !== null)
 
   return (
@@ -95,7 +99,25 @@ export function RunMonitor() {
         <Card padding={20}>
           <SectionHeader
             title="Nothing to show"
-            description="Stage some sheets and start a run first."
+            description={
+              detectionCount > 0
+                ? `This run has ${detectionCount} detection sheet${
+                    detectionCount === 1 ? '' : 's'
+                  } and no extraction sheets — detection results live on the Detection screen.`
+                : 'Stage some sheets and start a run first.'
+            }
+            actions={
+              detectionCount > 0 ? (
+                <Button
+                  variant="secondary"
+                  style={{ height: 32, borderRadius: 'var(--r-btn)' }}
+                  onPress={() => setScreen('detection')}
+                >
+                  Detection results
+                  <ArrowRight size={15} strokeWidth={1.5} />
+                </Button>
+              ) : undefined
+            }
           />
         </Card>
       ) : (
