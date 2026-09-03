@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Spinner } from '@heroui/react'
-import { Maximize2, Minus, Plus, RotateCw, Scan, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Maximize2, Minus, Monitor, Plus, RotateCw, Scan, Tag as TagIcon, X } from 'lucide-react'
 import { Card, SectionHeader, Tag, Toggle } from '@/components/ui/primitives'
 import { classColor, summarizeClasses, normalizeClass } from '@/lib/detectionClasses'
 import { exportCoco } from '@/lib/exportFormats'
 import { exportResultsToExcel } from '@/lib/api'
+import { availabilityOf, controlHeight, GIVES_WAY, useWidth } from '@/lib/responsive'
+import { clampPan, fitScale as computeFit } from '@/lib/viewport'
 import { useRunStore } from '@/stores/runStore'
 import type { DetectedObject } from '@/types'
 
@@ -81,6 +83,12 @@ export function DetectionResults() {
   const updateObject = useRunStore((s) => s.updateObject)
   const deleteObject = useRunStore((s) => s.deleteObject)
   const setScreen = useRunStore((s) => s.setScreen)
+  const weightFiles = useRunStore((s) => s.weightFiles)
+  const loadWeightFiles = useRunStore((s) => s.loadWeightFiles)
+  const width = useWidth()
+  const availability = availabilityOf('detection', width)
+  const canEdit = availability === 'full'
+  const ctlH = controlHeight(width)
 
   const detectionSheets = sheets.filter((s) => s.task === 'detection')
   const sheet =
@@ -92,6 +100,8 @@ export function DetectionResults() {
   const [zoom, setZoom] = useState<number | null>(null) // null = fit
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [busy, setBusy] = useState(false)
+  const [showLabels, setShowLabels] = useState(false)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const viewportRef = useRef<HTMLDivElement>(null)
   const [viewport, setViewport] = useState({ w: 0, h: 0 })
 
@@ -100,6 +110,18 @@ export function DetectionResults() {
   const imgH = sheet?.detection?.image_height ?? sheet?.size?.height ?? 0
 
   const classes = useMemo(() => summarizeClasses(objects), [objects])
+  /** Objects per class, for the class > object tree. */
+  const byClass = useMemo(() => {
+    const map = new Map<string, DetectedObject[]>()
+    objects.forEach((o) => {
+      const k = normalizeClass(o.Object)
+      const list = map.get(k)
+      if (list) list.push(o)
+      else map.set(k, [o])
+    })
+    map.forEach((list) => list.sort((a, b) => b.Score - a.Score))
+    return map
+  }, [objects])
   const selected = objects.find((o) => o.Index === selectedIndex) ?? null
 
   useEffect(() => {
@@ -115,6 +137,10 @@ export function DetectionResults() {
   const shown = draft ?? lastDraft
 
   useEffect(() => {
+    void loadWeightFiles()
+  }, [loadWeightFiles])
+
+  useEffect(() => {
     const el = viewportRef.current
     if (!el) return
     const measure = () => setViewport({ w: el.clientWidth, h: el.clientHeight })
@@ -124,9 +150,21 @@ export function DetectionResults() {
     return () => ro.disconnect()
   }, [sheet?.id])
 
-  const fitScale =
-    imgW && imgH && viewport.w && viewport.h ? Math.min(viewport.w / imgW, viewport.h / imgH) : 1
+  const fitScale = computeFit(imgW, imgH, viewport.w, viewport.h)
   const scale = zoom ?? fitScale
+
+  /** Every pan goes through here, so the sheet can never expose a gutter. */
+  const settle = useCallback(
+    (p: { x: number; y: number }, atScale: number) =>
+      clampPan(p, atScale, imgW, imgH, viewport.w, viewport.h),
+    [imgW, imgH, viewport.w, viewport.h]
+  )
+
+  // Re-settle whenever the frame or the scale changes, so a resize or a zoom
+  // cannot leave the sheet parked off-centre with empty space beside it.
+  useEffect(() => {
+    setPan((p) => settle(p, scale))
+  }, [settle, scale])
   const visible = objects.filter((o) => !hidden.has(normalizeClass(o.Object)))
 
   /** Zoom about a point in viewport coordinates, keeping it under the cursor. */
@@ -138,10 +176,10 @@ export function DetectionResults() {
         const imgX = (cx - prevPan.x) / current
         const imgY = (cy - prevPan.y) / current
         setZoom(next)
-        return { x: cx - imgX * next, y: cy - imgY * next }
+        return settle({ x: cx - imgX * next, y: cy - imgY * next }, next)
       })
     },
-    [zoom, fitScale]
+    [zoom, fitScale, settle]
   )
 
   // Wheel zoom needs a non-passive listener to be able to preventDefault, so
@@ -162,10 +200,12 @@ export function DetectionResults() {
   const startPan = (e: React.MouseEvent) => {
     const origin = { px: pan.x, py: pan.y, mx: e.clientX, my: e.clientY }
     const move = (ev: MouseEvent) =>
-      setPan({
-        x: origin.px + (ev.clientX - origin.mx),
-        y: origin.py + (ev.clientY - origin.my),
-      })
+      setPan(
+        settle(
+          { x: origin.px + (ev.clientX - origin.mx), y: origin.py + (ev.clientY - origin.my) },
+          scale
+        )
+      )
     const up = () => {
       window.removeEventListener('mousemove', move)
       window.removeEventListener('mouseup', up)
@@ -181,12 +221,14 @@ export function DetectionResults() {
       const r = containRect(MINIMAP.w, MINIMAP.h, imgW, imgH)
       const fx = clamp((mx - r.x) / r.w, 0, 1)
       const fy = clamp((my - r.y) / r.h, 0, 1)
-      setPan({
-        x: viewport.w / 2 - fx * imgW * scale,
-        y: viewport.h / 2 - fy * imgH * scale,
-      })
+      setPan(
+        settle(
+          { x: viewport.w / 2 - fx * imgW * scale, y: viewport.h / 2 - fy * imgH * scale },
+          scale
+        )
+      )
     },
-    [imgW, imgH, scale, viewport.w, viewport.h]
+    [imgW, imgH, scale, viewport.w, viewport.h, settle]
   )
 
   const startMinimapDrag = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -236,6 +278,36 @@ export function DetectionResults() {
     }
   }
 
+  // The contract from the Breakpoints artboard: box editing "needs a pointer
+  // and room", so this screen is not offered on a phone rather than shipping
+  // a version that fails in the field.
+  if (availability === 'not-offered') {
+    return (
+      <div className="flex h-full flex-col gap-4 p-5">
+        <Card padding={20} className="flex flex-col gap-3">
+          <div className="flex items-start gap-3">
+            <span style={{ color: 'var(--warning)', marginTop: 2 }}>
+              <Monitor size={18} strokeWidth={1.6} />
+            </span>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 500 }}>Open this on a larger screen</div>
+              <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>
+                {GIVES_WAY.detection} Detection results needs a tablet or a desktop.
+              </div>
+            </div>
+          </div>
+          <Button
+            variant="secondary"
+            style={{ alignSelf: 'flex-start', height: ctlH, borderRadius: 'var(--r-btn)' }}
+            onPress={() => setScreen('sheets')}
+          >
+            Back to sheets
+          </Button>
+        </Card>
+      </div>
+    )
+  }
+
   if (!sheet) {
     return (
       <div className="flex h-full flex-col gap-4 p-6">
@@ -269,7 +341,10 @@ export function DetectionResults() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex min-h-0 flex-1 gap-4" style={{ padding: '16px 24px' }}>
+      <div
+        className="flex min-h-0 flex-1 gap-4"
+        style={{ padding: width === 'desktop' ? '16px 24px' : '12px 16px' }}
+      >
         {/*
           Canvas column — relative so the object sheet can slide up over it,
           and overflow-hidden so the sheet is genuinely gone when parked, not
@@ -352,6 +427,23 @@ export function DetectionResults() {
                           strokeWidth={(isSel ? 3 : 1.6) / scale}
                           pointerEvents="none"
                         />
+                        {showLabels && (
+                          // Stroke-then-fill gives the text a white outline so
+                          // it stays readable over the drawing's own linework.
+                          <text
+                            x={o.Left}
+                            y={o.Top - 5 / scale}
+                            fontSize={13 / scale}
+                            fill={color}
+                            stroke="#ffffff"
+                            strokeWidth={3 / scale}
+                            paintOrder="stroke"
+                            style={{ fontWeight: 600 }}
+                            pointerEvents="none"
+                          >
+                            {o.Text?.trim() || o.Object}
+                          </text>
+                        )}
                       </g>
                     )
                   })}
@@ -388,7 +480,7 @@ export function DetectionResults() {
                   label: 'Fit',
                   run: () => {
                     setZoom(null)
-                    setPan({ x: 0, y: 0 })
+                    setPan(settle({ x: 0, y: 0 }, fitScale))
                   },
                 },
                 {
@@ -396,7 +488,7 @@ export function DetectionResults() {
                   label: 'Actual size',
                   run: () => {
                     setZoom(1)
-                    setPan({ x: 0, y: 0 })
+                    setPan(settle({ x: 0, y: 0 }, 1))
                   },
                 },
               ].map((b) => (
@@ -408,8 +500,8 @@ export function DetectionResults() {
                   onClick={b.run}
                   className="flex items-center justify-center"
                   style={{
-                    width: 32,
-                    height: 32,
+                    width: ctlH,
+                    height: ctlH,
                     border: 0,
                     background: 'transparent',
                     borderRadius: 'var(--r-btn)',
@@ -420,6 +512,28 @@ export function DetectionResults() {
                   {b.icon}
                 </button>
               ))}
+              <span
+                style={{ width: 1, height: 20, background: 'var(--separator)', margin: '0 4px' }}
+              />
+              <button
+                type="button"
+                title={showLabels ? 'Hide labels' : 'Show labels'}
+                aria-label="Toggle labels"
+                aria-pressed={showLabels}
+                onClick={() => setShowLabels((v) => !v)}
+                className="flex items-center justify-center"
+                style={{
+                  width: ctlH,
+                  height: ctlH,
+                  border: 0,
+                  borderRadius: 'var(--r-btn)',
+                  cursor: 'pointer',
+                  background: showLabels ? 'var(--accent-soft)' : 'transparent',
+                  color: showLabels ? 'var(--accent-soft-fg)' : 'var(--foreground)',
+                }}
+              >
+                <TagIcon size={16} strokeWidth={1.6} />
+              </button>
               <span
                 style={{ width: 1, height: 20, background: 'var(--separator)', margin: '0 4px' }}
               />
@@ -444,7 +558,7 @@ export function DetectionResults() {
                   background: '#ffffff',
                   borderRadius: 10,
                   boxShadow: 'inset 0 0 0 1px var(--border)',
-                  cursor: 'crosshair',
+                  cursor: 'grab',
                 }}
                 onMouseDown={startMinimapDrag}
               >
@@ -535,6 +649,14 @@ export function DetectionResults() {
                     </button>
                   </div>
 
+                  {!canEdit && (
+                    <div
+                      className="mb-2"
+                      style={{ fontSize: 12, color: 'var(--warning-soft-fg)' }}
+                    >
+                      Read-only at this width — {GIVES_WAY.detection}
+                    </div>
+                  )}
                   <div className="flex flex-wrap items-end gap-2.5">
                     <LabelledField label="Class" flex={1.6}>
                       <input
@@ -543,6 +665,7 @@ export function DetectionResults() {
                         onChange={(e) => setDraft({ ...shown, Object: e.target.value })}
                         style={FIELD}
                         aria-label="Class"
+                        readOnly={!canEdit}
                       />
                       <datalist id="detection-classes">
                         {classes.map((c) => (
@@ -556,6 +679,7 @@ export function DetectionResults() {
                         onChange={(e) => setDraft({ ...shown, Text: e.target.value })}
                         style={FIELD}
                         aria-label="Text or tag"
+                        readOnly={!canEdit}
                       />
                     </LabelledField>
                     {(['Left', 'Top', 'Width', 'Height'] as const).map((k) => (
@@ -570,13 +694,15 @@ export function DetectionResults() {
                           value={shown[k]}
                           onChange={(e) => setDraft({ ...shown, [k]: Number(e.target.value) })}
                           style={FIELD}
+                          readOnly={!canEdit}
                         />
                       </LabelledField>
                     ))}
                     <Button
                       variant="ghost"
+                      isDisabled={!canEdit}
                       style={{
-                        height: 36,
+                        height: ctlH,
                         borderRadius: 'var(--r-btn)',
                         background: 'var(--danger-soft)',
                         color: 'var(--danger-soft-fg)',
@@ -590,7 +716,8 @@ export function DetectionResults() {
                     </Button>
                     <Button
                       variant="primary"
-                      style={{ height: 36, borderRadius: 'var(--r-btn)' }}
+                      isDisabled={!canEdit}
+                      style={{ height: ctlH, borderRadius: 'var(--r-btn)' }}
                       onPress={() => void updateObject(sheet.id, shown)}
                     >
                       Apply
@@ -605,7 +732,7 @@ export function DetectionResults() {
         {/* Right panel */}
         <div
           className="flex shrink-0 flex-col gap-3.5 overflow-y-auto"
-          style={{ width: 340 }}
+          style={{ width: width === 'tablet' ? 288 : 340 }}
         >
           <Card className="flex shrink-0 flex-col gap-3">
             <SectionHeader
@@ -662,6 +789,21 @@ export function DetectionResults() {
                 </select>
               </LabelledField>
             </div>
+            <LabelledField label="Detection weights">
+              <select
+                aria-label="Detection weights"
+                value={config.weightFile}
+                onChange={(e) => setConfig({ weightFile: e.target.value })}
+                style={FIELD}
+              >
+                <option value="">Server default</option>
+                {weightFiles.map((w) => (
+                  <option key={w} value={w}>
+                    {w.replace(/^.*\//, '')}
+                  </option>
+                ))}
+              </select>
+            </LabelledField>
             <Toggle
               label="Text recognition (OCR)"
               checked={config.textOCR}
@@ -710,55 +852,125 @@ export function DetectionResults() {
               )}
               {classes.map((c) => {
                 const isHidden = hidden.has(c.name)
+                const isOpen = expanded.has(c.name)
+                const children = byClass.get(c.name) ?? []
                 return (
-                  <div
-                    key={c.name}
-                    className="flex shrink-0 items-center gap-2.5"
-                    style={{ padding: '8px 12px', borderRadius: 10, opacity: isHidden ? 0.45 : 1 }}
-                  >
-                    <span
-                      className="shrink-0"
-                      style={{ width: 20, height: 20, borderRadius: 6, background: c.color }}
-                    />
-                    <span className="min-w-0 flex-1 truncate" style={{ fontSize: 13 }}>
-                      {c.name}
-                    </span>
-                    <span className="mono shrink-0" style={{ fontSize: 13, color: 'var(--muted)' }}>
-                      {c.count}
-                    </span>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={!isHidden}
-                      aria-label={`Show ${c.name}`}
-                      onClick={() => toggleClass(c.name)}
-                      className="relative shrink-0"
-                      style={{
-                        width: 38,
-                        height: 22,
-                        border: 0,
-                        padding: 0,
-                        cursor: 'pointer',
-                        borderRadius: 999,
-                        background: isHidden
-                          ? 'color-mix(in oklab, var(--foreground) 22%, transparent)'
-                          : 'var(--accent)',
-                      }}
+                  <div key={c.name} className="shrink-0">
+                    <div
+                      className="flex items-center gap-1.5"
+                      style={{ padding: '8px 6px 8px 2px', borderRadius: 10, opacity: isHidden ? 0.45 : 1 }}
                     >
-                      <span
+                      <button
+                        type="button"
+                        aria-label={isOpen ? `Collapse ${c.name}` : `Expand ${c.name}`}
+                        aria-expanded={isOpen}
+                        onClick={() =>
+                          setExpanded((prev) => {
+                            const next = new Set(prev)
+                            if (next.has(c.name)) next.delete(c.name)
+                            else next.add(c.name)
+                            return next
+                          })
+                        }
+                        className="flex shrink-0 items-center justify-center"
                         style={{
-                          position: 'absolute',
-                          top: 2,
-                          left: isHidden ? 2 : 18,
-                          width: 18,
-                          height: 18,
-                          borderRadius: 999,
-                          background: 'var(--white)',
-                          boxShadow: '0 1px 2px rgba(0,0,0,.28)',
-                          transition: 'left .15s',
+                          width: 22,
+                          height: 22,
+                          border: 0,
+                          background: 'transparent',
+                          borderRadius: 6,
+                          color: 'var(--muted)',
+                          cursor: 'pointer',
                         }}
+                      >
+                        {isOpen ? (
+                          <ChevronDown size={14} strokeWidth={2} />
+                        ) : (
+                          <ChevronRight size={14} strokeWidth={2} />
+                        )}
+                      </button>
+                      <span
+                        className="shrink-0"
+                        style={{ width: 20, height: 20, borderRadius: 6, background: c.color }}
                       />
-                    </button>
+                      <span className="min-w-0 flex-1 truncate" style={{ fontSize: 13 }}>
+                        {c.name}
+                      </span>
+                      <span className="mono shrink-0" style={{ fontSize: 13, color: 'var(--muted)' }}>
+                        {c.count}
+                      </span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={!isHidden}
+                        aria-label={`Show ${c.name}`}
+                        onClick={() => toggleClass(c.name)}
+                        className="relative shrink-0"
+                        style={{
+                          width: 38,
+                          height: 22,
+                          border: 0,
+                          padding: 0,
+                          cursor: 'pointer',
+                          borderRadius: 999,
+                          background: isHidden
+                            ? 'color-mix(in oklab, var(--foreground) 22%, transparent)'
+                            : 'var(--accent)',
+                        }}
+                      >
+                        <span
+                          style={{
+                            position: 'absolute',
+                            top: 2,
+                            left: isHidden ? 2 : 18,
+                            width: 18,
+                            height: 18,
+                            borderRadius: 999,
+                            background: 'var(--white)',
+                            boxShadow: '0 1px 2px rgba(0,0,0,.28)',
+                            transition: 'left .15s',
+                          }}
+                        />
+                      </button>
+                    </div>
+
+                    {isOpen && (
+                      <div
+                        className="flex flex-col"
+                        style={{ marginLeft: 32, borderLeft: '1px solid var(--separator)' }}
+                      >
+                        {children.map((o) => {
+                          const isSel = o.Index === selectedIndex
+                          return (
+                            <button
+                              key={o.Index}
+                              type="button"
+                              onClick={() => setSelectedIndex(o.Index)}
+                              className="flex items-center gap-2 text-left"
+                              style={{
+                                padding: '6px 8px',
+                                marginLeft: 6,
+                                border: 0,
+                                borderRadius: 8,
+                                cursor: 'pointer',
+                                background: isSel ? 'var(--accent-soft)' : 'transparent',
+                                color: isSel ? 'var(--accent-soft-fg)' : 'var(--foreground)',
+                              }}
+                            >
+                              <span className="mono shrink-0" style={{ fontSize: 11, color: 'var(--muted)' }}>
+                                #{o.Index}
+                              </span>
+                              <span className="min-w-0 flex-1 truncate" style={{ fontSize: 12 }}>
+                                {o.Text?.trim() || o.Object}
+                              </span>
+                              <span className="mono shrink-0" style={{ fontSize: 11, color: 'var(--muted)' }}>
+                                {o.Score.toFixed(2)}
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                 )
               })}

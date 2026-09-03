@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Button } from '@heroui/react'
 import { ArrowRight, Eye, FileUp, Trash2, Upload, X } from 'lucide-react'
 import { Card, PageHeader, SectionHeader, Tag } from '@/components/ui/primitives'
+import { controlHeight, useWidth } from '@/lib/responsive'
 import { useRunStore, type Sheet } from '@/stores/runStore'
 
 /** Column widths are the artboard's: 300/130/130/120/300/110/108. */
@@ -58,6 +59,10 @@ export function SheetsIntake() {
   const clearSheets = useRunStore((s) => s.clearSheets)
   const setScreen = useRunStore((s) => s.setScreen)
 
+  const width = useWidth()
+  const isPhone = width === 'phone'
+  const ctlH = controlHeight(width)
+
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
 
@@ -89,7 +94,7 @@ export function SheetsIntake() {
             <Button
               variant="ghost"
               isDisabled={sheets.length === 0}
-              style={{ height: 36, borderRadius: 'var(--r-btn)' }}
+              style={{ height: ctlH, borderRadius: 'var(--r-btn)' }}
               onPress={clearSheets}
             >
               <Trash2 size={16} strokeWidth={1.5} />
@@ -98,7 +103,7 @@ export function SheetsIntake() {
             <Button
               variant="primary"
               isDisabled={sheets.length === 0}
-              style={{ height: 36, borderRadius: 'var(--r-btn)' }}
+              style={{ height: ctlH, borderRadius: 'var(--r-btn)' }}
               onPress={() => setScreen('task')}
             >
               Choose task
@@ -108,8 +113,8 @@ export function SheetsIntake() {
         }
       />
 
-      {/* Dropzone + PDF page picker */}
-      <div className="flex items-stretch gap-4">
+      {/* Dropzone + PDF page picker — stacked below 768 */}
+      <div className={`flex items-stretch gap-4 ${isPhone ? 'flex-col' : ''}`}>
         <div className="min-w-0" style={{ flex: 1.35 }}>
           {/*
             The drop target is a plain div, not a role="button": the "Browse
@@ -256,7 +261,67 @@ export function SheetsIntake() {
             }
           />
 
+          {isPhone ? (
+            /*
+              The contract is explicit: "Tables become cards — never a
+              horizontal table." A 1360px-wide row on a 390px screen is not a
+              table anyone can read.
+            */
+            <div className="flex flex-col gap-2">
+              {sheets.map((sheet) => (
+                <div
+                  key={sheet.id}
+                  className="flex flex-col gap-2"
+                  style={{
+                    padding: 12,
+                    borderRadius: 'var(--r-field)',
+                    background: 'var(--surface-secondary)',
+                  }}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <img
+                      src={sheet.previewUrl}
+                      alt=""
+                      className="shrink-0"
+                      style={{
+                        width: 34,
+                        height: 34,
+                        objectFit: 'cover',
+                        borderRadius: 6,
+                        outline: '1px solid var(--border)',
+                      }}
+                    />
+                    <span className="min-w-0 flex-1 truncate" style={{ fontSize: 13, fontWeight: 500 }}>
+                      {sheet.label}
+                    </span>
+                    <StatusCell sheet={sheet} />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Tag tone="accent">
+                      {sheet.task === 'extraction' ? 'Extraction' : 'Detection'}
+                    </Tag>
+                    {sheet.task !== 'detection' && <Tag>{sheet.ocrRoute}</Tag>}
+                    <span className="mono" style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                      {sheet.size ? `${sheet.size.width} × ${sheet.size.height}` : '—'}
+                    </span>
+                    <div className="flex-1" />
+                    <Button
+                      variant="ghost"
+                      isIconOnly
+                      aria-label={`Remove ${sheet.label}`}
+                      isDisabled={Boolean(sheet.progress)}
+                      style={{ width: ctlH, height: ctlH, borderRadius: 'var(--r-btn)' }}
+                      onPress={() => removeSheet(sheet.id)}
+                    >
+                      <X size={16} strokeWidth={1.6} />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
           <div
+            className="overflow-x-auto"
             style={{
               padding: 4,
               background: 'var(--surface-secondary)',
@@ -357,6 +422,7 @@ export function SheetsIntake() {
               ))}
             </div>
           </div>
+          )}
         </Card>
       )}
     </div>

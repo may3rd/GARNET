@@ -5,6 +5,7 @@ import {
   deleteResultObject,
   extractPdfPages,
   getPipelineJob,
+  getWeightFiles,
   getPipelineStageStatus,
   resumePipelineFromStage,
   runDetection as runDetectionApi,
@@ -71,9 +72,12 @@ type RunState = {
   theme: 'default' | 'dark'
   isExtracting: boolean
   intakeError: string | null
+  /** Weight files the server actually has, from GET /api/weight-files. */
+  weightFiles: string[]
 
   setScreen: (screen: Screen) => void
   selectSheet: (id: string | null) => void
+  loadWeightFiles: () => Promise<void>
   addFiles: (files: File[]) => Promise<void>
   setSheetTask: (id: string, task: TaskKind) => void
   setSheetOcrRoute: (id: string, route: OcrRoute) => void
@@ -155,10 +159,21 @@ export const useRunStore = create<RunState>((set, get) => ({
   theme: 'default',
   isExtracting: false,
   intakeError: null,
+  weightFiles: [],
 
   setScreen: (screen) => set({ screen }),
 
   selectSheet: (selectedSheetId) => set({ selectedSheetId }),
+
+  loadWeightFiles: async () => {
+    if (get().weightFiles.length > 0) return
+    try {
+      set({ weightFiles: await getWeightFiles() })
+    } catch {
+      // A missing list is not worth an error banner; the field falls back to
+      // the server default.
+    }
+  },
 
   addFiles: async (files) => {
     set({ intakeError: null })

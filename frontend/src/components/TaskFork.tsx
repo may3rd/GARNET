@@ -10,6 +10,7 @@ import {
   Tag,
   Toggle,
 } from '@/components/ui/primitives'
+import { controlHeight, useWidth } from '@/lib/responsive'
 import { useRunStore, type TaskKind } from '@/stores/runStore'
 import type { OcrRoute } from '@/types'
 
@@ -35,6 +36,7 @@ const STOP_AFTER_STAGES: { value: number; label: string }[] = [
 ]
 
 type TaskCardProps = {
+  fixedHeight: boolean
   task: TaskKind
   selected: boolean
   onSelect: () => void
@@ -48,6 +50,7 @@ type TaskCardProps = {
 }
 
 function TaskCard({
+  fixedHeight,
   selected,
   onSelect,
   icon,
@@ -66,7 +69,7 @@ function TaskCard({
         aria-pressed={selected}
         className="flex w-full flex-col gap-4 text-left"
         style={{
-          height: 436,
+          height: fixedHeight ? 436 : undefined,
           padding: 20,
           boxSizing: 'border-box',
           background: 'var(--surface)',
@@ -145,6 +148,10 @@ export function TaskFork() {
   const setScreen = useRunStore((s) => s.setScreen)
   const startRun = useRunStore((s) => s.startRun)
 
+  const width = useWidth()
+  const isPhone = width === 'phone'
+  const ctlH = controlHeight(width)
+
   const extractionSheets = sheets.filter((s) => s.task === 'extraction').length
 
   const onContinue = async () => {
@@ -163,7 +170,7 @@ export function TaskFork() {
           <>
             <Button
               variant="ghost"
-              style={{ height: 36, borderRadius: 'var(--r-btn)' }}
+              style={{ height: ctlH, borderRadius: 'var(--r-btn)' }}
               onPress={() => setScreen('sheets')}
             >
               <ArrowLeft size={16} strokeWidth={1.5} />
@@ -172,7 +179,7 @@ export function TaskFork() {
             <Button
               variant="primary"
               isDisabled={sheets.length === 0}
-              style={{ height: 36, borderRadius: 'var(--r-btn)' }}
+              style={{ height: ctlH, borderRadius: 'var(--r-btn)' }}
               onPress={onContinue}
             >
               Continue to run
@@ -182,8 +189,9 @@ export function TaskFork() {
         }
       />
 
-      <div className="flex items-stretch gap-4">
+      <div className={`flex items-stretch gap-4 ${isPhone ? 'flex-col' : ''}`}>
         <TaskCard
+          fixedHeight={!isPhone}
           task="detection"
           selected={task === 'detection'}
           onSelect={() => setTask('detection')}
@@ -201,6 +209,7 @@ export function TaskFork() {
           gates={{ label: 'no gates', tone: 'success' }}
         />
         <TaskCard
+          fixedHeight={!isPhone}
           task="extraction"
           selected={task === 'extraction'}
           onSelect={() => setTask('extraction')}
@@ -228,7 +237,7 @@ export function TaskFork() {
             }. Override per sheet on the Sheets screen.`}
           />
 
-          <div className="flex items-stretch gap-3.5">
+          <div className={`flex items-stretch gap-3.5 ${isPhone ? 'flex-col' : ''}`}>
             <SelectField
               label="OCR route"
               value={config.ocrRoute}
@@ -282,7 +291,7 @@ export function TaskFork() {
 
           <Separator />
 
-          <div className="flex items-center gap-6">
+          <div className={`flex gap-6 ${isPhone ? 'flex-col' : 'items-center'}`}>
             <Toggle
               label="Debug artifacts"
               description="Writes intermediate masks and overlays. Slower, large output."

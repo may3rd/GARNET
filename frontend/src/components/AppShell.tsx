@@ -12,6 +12,7 @@ import {
   Sun,
   Workflow,
 } from 'lucide-react'
+import { controlHeight, useWidth } from '@/lib/responsive'
 import {
   breadcrumbFor,
   RAIL_FOR,
@@ -22,6 +23,9 @@ import {
   type RailKey,
 } from '@/lib/nav'
 import { useRunStore } from '@/stores/runStore'
+
+/** The phone tab bar carries the flow's spine, not all six rail entries. */
+const PHONE_TABS: RailKey[] = ['sheets', 'extraction', 'review', 'exports']
 
 const RAIL_ICON: Record<RailKey, ReactNode> = {
   sheets: <FileText size={20} strokeWidth={1.5} />,
@@ -40,6 +44,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const sheets = useRunStore((s) => s.sheets)
   const selectedSheetId = useRunStore((s) => s.selectedSheetId)
   const gateFor = useRunStore((s) => s.gateFor)
+
+  const width = useWidth()
+  const isPhone = width === 'phone'
+  const tabH = controlHeight(width)
 
   const selected = sheets.find((s) => s.id === selectedSheetId)
   const ctx = {
@@ -64,6 +72,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       className="flex h-screen overflow-hidden"
       style={{ background: 'var(--background)', color: 'var(--foreground)' }}
     >
+      {!isPhone && (
       <aside
         className="flex w-16 shrink-0 flex-col items-center gap-1.5 py-3"
         style={{ background: 'var(--surface)' }}
@@ -185,11 +194,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           ML
         </span>
       </aside>
+      )}
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header
-          className="flex h-14 shrink-0 items-center gap-2 px-5"
-          style={{ borderBottom: '1px solid var(--separator)' }}
+          className="flex h-14 shrink-0 items-center gap-2"
+          style={{
+            padding: isPhone ? '0 14px' : '0 20px',
+            borderBottom: '1px solid var(--separator)',
+          }}
         >
           <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2">
             {crumbs.map((crumb, i) => {
@@ -242,7 +255,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex-1" />
 
           <div className="flex items-center gap-2.5">
-            {chip && (
+            {chip && !isPhone && (
               <span
                 className="inline-flex w-fit shrink-0 items-center"
                 style={{
@@ -259,25 +272,48 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {chip}
               </span>
             )}
-            <button
-              type="button"
-              aria-label="Help"
-              aria-disabled
-              title="Help — not built yet"
-              className="flex items-center justify-center"
-              style={{
-                width: 32,
-                height: 32,
-                border: 0,
-                background: 'transparent',
-                borderRadius: 'var(--r-btn)',
-                color: 'var(--muted)',
-                opacity: 0.55,
-                cursor: 'default',
-              }}
-            >
-              <CircleHelp size={17} strokeWidth={1.5} />
-            </button>
+            {isPhone ? (
+              // The rail is gone on a phone, so the theme control moves here
+              // rather than disappearing with it.
+              <button
+                type="button"
+                onClick={toggleTheme}
+                aria-label="Toggle theme"
+                title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
+                className="flex items-center justify-center"
+                style={{
+                  width: 40,
+                  height: 40,
+                  border: 0,
+                  background: 'transparent',
+                  borderRadius: 'var(--r-btn)',
+                  color: 'var(--muted)',
+                  cursor: 'pointer',
+                }}
+              >
+                {theme === 'dark' ? <Sun size={18} strokeWidth={1.6} /> : <Moon size={18} strokeWidth={1.6} />}
+              </button>
+            ) : (
+              <button
+                type="button"
+                aria-label="Help"
+                aria-disabled
+                title="Help — not built yet"
+                className="flex items-center justify-center"
+                style={{
+                  width: 32,
+                  height: 32,
+                  border: 0,
+                  background: 'transparent',
+                  borderRadius: 'var(--r-btn)',
+                  color: 'var(--muted)',
+                  opacity: 0.55,
+                  cursor: 'default',
+                }}
+              >
+                <CircleHelp size={17} strokeWidth={1.5} />
+              </button>
+            )}
             <span
               className="inline-flex shrink-0 items-center justify-center"
               style={{
@@ -296,6 +332,62 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         <main className="min-h-0 flex-1">{children}</main>
+
+        {isPhone && (
+          <nav
+            aria-label="Sections"
+            className="flex shrink-0 items-stretch"
+            style={{ background: 'var(--surface)', borderTop: '1px solid var(--separator)' }}
+          >
+            {PHONE_TABS.map((key) => {
+              const isActive = key === activeRail
+              const badge = key === 'review' && openGates > 0 ? openGates : null
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  aria-label={RAIL_LABEL[key]}
+                  aria-current={isActive ? 'page' : undefined}
+                  onClick={() => setScreen(RAIL_TARGET[key])}
+                  className="relative flex flex-1 flex-col items-center justify-center gap-1"
+                  style={{
+                    // 48px touch targets, and the OS safe area is left empty.
+                    minHeight: tabH,
+                    padding: '8px 0 10px',
+                    border: 0,
+                    background: 'transparent',
+                    color: isActive ? 'var(--accent)' : 'var(--muted)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {RAIL_ICON[key]}
+                  <span style={{ fontSize: 11, fontWeight: 500 }}>{RAIL_LABEL[key]}</span>
+                  {badge !== null && (
+                    <span
+                      className="mono absolute"
+                      style={{
+                        top: 4,
+                        right: '26%',
+                        minWidth: 15,
+                        height: 15,
+                        padding: '0 3px',
+                        borderRadius: 999,
+                        background: 'var(--warning)',
+                        color: 'var(--eclipse)',
+                        fontSize: 9,
+                        fontWeight: 600,
+                        lineHeight: '15px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {badge}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </nav>
+        )}
       </div>
     </div>
   )
