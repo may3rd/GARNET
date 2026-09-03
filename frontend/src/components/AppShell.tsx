@@ -56,7 +56,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div
-      className="flex min-h-screen"
+      // h-screen, not min-h-screen: the shell must be exactly the viewport so
+      // main gets a bounded height. Otherwise flex-1/h-full children size to
+      // their content, the page scrolls, and anything pinned to the bottom of
+      // a screen (the detection footer, the selected-object sheet) ends up
+      // below the fold. Screens that need to scroll do it internally.
+      className="flex h-screen overflow-hidden"
       style={{ background: 'var(--background)', color: 'var(--foreground)' }}
     >
       <aside
