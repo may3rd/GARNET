@@ -12,6 +12,8 @@ const MINIMAP = { w: 150, h: 100 }
 const ZOOM_RANGE = { min: 0.02, max: 8 }
 /** The class legend may shrink to fit the window, but not below this. */
 const CLASSES_MIN_HEIGHT = 220
+/** How far the object sheet is pushed down when parked, in px. */
+const PARKED_OFFSET = 360
 
 const FIELD: React.CSSProperties = {
   height: 36,
@@ -103,6 +105,14 @@ export function DetectionResults() {
   useEffect(() => {
     setDraft(selected ? { ...selected } : null)
   }, [selectedIndex, selected?.Index])
+
+  // The panel keeps rendering the last object while it slides back down, so
+  // the content does not vanish mid-animation. It is clipped once parked.
+  const [lastDraft, setLastDraft] = useState<DetectedObject | null>(null)
+  useEffect(() => {
+    if (draft) setLastDraft(draft)
+  }, [draft])
+  const shown = draft ?? lastDraft
 
   useEffect(() => {
     const el = viewportRef.current
@@ -260,8 +270,12 @@ export function DetectionResults() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex min-h-0 flex-1 gap-4" style={{ padding: '16px 24px' }}>
-        {/* Canvas column — relative so the object sheet can slide up over it */}
-        <div className="relative flex min-w-0 flex-1 flex-col">
+        {/*
+          Canvas column — relative so the object sheet can slide up over it,
+          and overflow-hidden so the sheet is genuinely gone when parked, not
+          hovering over the footer below.
+        */}
+        <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
           <div
             ref={viewportRef}
             className="relative min-h-0 flex-1 overflow-hidden"
@@ -457,7 +471,7 @@ export function DetectionResults() {
             )}
           </div>
 
-          {/* Selected object — slides up from the bottom */}
+          {/* Selected object — slides up from the bottom, absent when parked */}
           <div
             aria-hidden={!draft}
             style={{
@@ -465,8 +479,11 @@ export function DetectionResults() {
               left: 0,
               right: 0,
               bottom: 0,
-              transform: draft ? 'translateY(0)' : 'translateY(115%)',
+              // A fixed offset, not a percentage: the panel's own height is not
+              // a reliable basis to translate by, and the parent clips it.
+              transform: draft ? 'translateY(0)' : `translateY(${PARKED_OFFSET}px)`,
               transition: 'transform .22s cubic-bezier(.32,.72,0,1)',
+              visibility: shown ? 'visible' : 'hidden',
               pointerEvents: draft ? 'auto' : 'none',
             }}
           >
@@ -478,7 +495,7 @@ export function DetectionResults() {
                 boxShadow: 'inset 0 0 0 1px var(--border), 0 -8px 32px rgba(0,0,0,.16)',
               }}
             >
-              {draft && (
+              {shown && (
                 <>
                   <div className="mb-3 flex items-center gap-2.5">
                     <span style={{ fontSize: 14, fontWeight: 500 }}>Selected object</span>
@@ -488,14 +505,14 @@ export function DetectionResults() {
                         width: 12,
                         height: 12,
                         borderRadius: 4,
-                        background: classColor(draft.Object),
+                        background: classColor(shown.Object),
                       }}
                     />
                     <span className="mono" style={{ fontSize: 12, color: 'var(--muted)' }}>
-                      #{draft.Index}
+                      #{shown.Index}
                     </span>
-                    <Tag tone={draft.Score >= 0.8 ? 'success' : 'warning'}>
-                      {draft.Score.toFixed(2)}
+                    <Tag tone={shown.Score >= 0.8 ? 'success' : 'warning'}>
+                      {shown.Score.toFixed(2)}
                     </Tag>
                     <div className="flex-1" />
                     <button
@@ -522,8 +539,8 @@ export function DetectionResults() {
                     <LabelledField label="Class" flex={1.6}>
                       <input
                         list="detection-classes"
-                        value={draft.Object}
-                        onChange={(e) => setDraft({ ...draft, Object: e.target.value })}
+                        value={shown.Object}
+                        onChange={(e) => setDraft({ ...shown, Object: e.target.value })}
                         style={FIELD}
                         aria-label="Class"
                       />
@@ -535,8 +552,8 @@ export function DetectionResults() {
                     </LabelledField>
                     <LabelledField label="Text / tag" flex={1.4}>
                       <input
-                        value={draft.Text}
-                        onChange={(e) => setDraft({ ...draft, Text: e.target.value })}
+                        value={shown.Text}
+                        onChange={(e) => setDraft({ ...shown, Text: e.target.value })}
                         style={FIELD}
                         aria-label="Text or tag"
                       />
@@ -550,8 +567,8 @@ export function DetectionResults() {
                         <input
                           type="number"
                           aria-label={k}
-                          value={draft[k]}
-                          onChange={(e) => setDraft({ ...draft, [k]: Number(e.target.value) })}
+                          value={shown[k]}
+                          onChange={(e) => setDraft({ ...shown, [k]: Number(e.target.value) })}
                           style={FIELD}
                         />
                       </LabelledField>
@@ -565,7 +582,7 @@ export function DetectionResults() {
                         color: 'var(--danger-soft-fg)',
                       }}
                       onPress={() => {
-                        void deleteObject(sheet.id, draft)
+                        void deleteObject(sheet.id, shown)
                         setSelectedIndex(null)
                       }}
                     >
@@ -574,7 +591,7 @@ export function DetectionResults() {
                     <Button
                       variant="primary"
                       style={{ height: 36, borderRadius: 'var(--r-btn)' }}
-                      onPress={() => void updateObject(sheet.id, draft)}
+                      onPress={() => void updateObject(sheet.id, shown)}
                     >
                       Apply
                     </Button>
