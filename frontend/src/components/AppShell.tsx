@@ -32,8 +32,6 @@ const RAIL_ICON: Record<RailKey, ReactNode> = {
   exports: <Download size={20} strokeWidth={1.5} />,
 }
 
-const PROJECT = 'Unit 210'
-
 export function AppShell({ children }: { children: ReactNode }) {
   const screen = useRunStore((s) => s.screen)
   const setScreen = useRunStore((s) => s.setScreen)
@@ -45,12 +43,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const selected = sheets.find((s) => s.id === selectedSheetId)
   const ctx = {
-    project: PROJECT,
     sheetLabel: selected?.label,
     gate: selected ? gateFor(selected.id) : null,
+    sheetCount: sheets.length,
   }
   const crumbs = breadcrumbFor(screen, ctx)
   const activeRail = RAIL_FOR[screen]
+  const chip = topbarChip(screen, ctx)
 
   /** Sheets with a gate waiting, for the Review badge. */
   const openGates = sheets.filter((s) => gateFor(s.id) !== null).length
@@ -238,21 +237,23 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex-1" />
 
           <div className="flex items-center gap-2.5">
-            <span
-              className="inline-flex w-fit shrink-0 items-center"
-              style={{
-                padding: '2px 8px',
-                borderRadius: 'var(--r-chip)',
-                fontSize: 12,
-                lineHeight: '20px',
-                fontWeight: 500,
-                background: 'transparent',
-                color: 'var(--muted)',
-                boxShadow: 'inset 0 0 0 1px var(--border)',
-              }}
-            >
-              {topbarChip(screen, ctx)}
-            </span>
+            {chip && (
+              <span
+                className="inline-flex w-fit shrink-0 items-center"
+                style={{
+                  padding: '2px 8px',
+                  borderRadius: 'var(--r-chip)',
+                  fontSize: 12,
+                  lineHeight: '20px',
+                  fontWeight: 500,
+                  background: 'transparent',
+                  color: 'var(--muted)',
+                  boxShadow: 'inset 0 0 0 1px var(--border)',
+                }}
+              >
+                {chip}
+              </span>
+            )}
             <button
               type="button"
               aria-label="Help"
