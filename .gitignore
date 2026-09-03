@@ -197,3 +197,6 @@ frontend/dist
 DeepLSD/
 PTTEP/
 
+
+# Generated design-canvas payloads (seeded from the .dc.html sources)
+design/**/garnet-digitizer.html

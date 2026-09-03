@@ -1,0 +1,357 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1024,
+      "title": "1 · Sheets intake",
+      "page": "page-light"
+    },
+    {
+      "file": "MainDark.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1024,
+      "title": "1 · Sheets intake",
+      "page": "page-dark"
+    },
+    {
+      "file": "TaskFork.dc.html",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 1024,
+      "title": "2 · Task fork",
+      "page": "page-light"
+    },
+    {
+      "file": "TaskForkDark.dc.html",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 1024,
+      "title": "2 · Task fork",
+      "page": "page-dark"
+    },
+    {
+      "file": "DetectionRun.dc.html",
+      "x": 3120,
+      "y": 0,
+      "w": 1440,
+      "h": 1024,
+      "title": "3 · Detection results",
+      "page": "page-light"
+    },
+    {
+      "file": "DetectionRunDark.dc.html",
+      "x": 3120,
+      "y": 0,
+      "w": 1440,
+      "h": 1024,
+      "title": "3 · Detection results",
+      "page": "page-dark"
+    },
+    {
+      "file": "ExtractionRun.dc.html",
+      "x": 0,
+      "y": 1184,
+      "w": 1440,
+      "h": 1024,
+      "title": "4 · Extraction run",
+      "page": "page-light"
+    },
+    {
+      "file": "ExtractionRunDark.dc.html",
+      "x": 0,
+      "y": 1184,
+      "w": 1440,
+      "h": 1024,
+      "title": "4 · Extraction run",
+      "page": "page-dark"
+    },
+    {
+      "file": "Gate1.dc.html",
+      "x": 1560,
+      "y": 1184,
+      "w": 1440,
+      "h": 1024,
+      "title": "5 · Gate 1 — objects",
+      "page": "page-light"
+    },
+    {
+      "file": "Gate1Dark.dc.html",
+      "x": 1560,
+      "y": 1184,
+      "w": 1440,
+      "h": 1024,
+      "title": "5 · Gate 1 — objects",
+      "page": "page-dark"
+    },
+    {
+      "file": "Gate2.dc.html",
+      "x": 3120,
+      "y": 1184,
+      "w": 1440,
+      "h": 1024,
+      "title": "6 · Gate 2 — traces",
+      "page": "page-light"
+    },
+    {
+      "file": "Gate2Dark.dc.html",
+      "x": 3120,
+      "y": 1184,
+      "w": 1440,
+      "h": 1024,
+      "title": "6 · Gate 2 — traces",
+      "page": "page-dark"
+    },
+    {
+      "file": "Gate3.dc.html",
+      "x": 0,
+      "y": 2368,
+      "w": 1440,
+      "h": 1024,
+      "title": "7 · Gate 3 — line association",
+      "page": "page-light"
+    },
+    {
+      "file": "Gate3Dark.dc.html",
+      "x": 0,
+      "y": 2368,
+      "w": 1440,
+      "h": 1024,
+      "title": "7 · Gate 3 — line association",
+      "page": "page-dark"
+    },
+    {
+      "file": "Gate4.dc.html",
+      "x": 1560,
+      "y": 2368,
+      "w": 1440,
+      "h": 1024,
+      "title": "8 · Gate 4 — graph QA",
+      "page": "page-light"
+    },
+    {
+      "file": "Gate4Dark.dc.html",
+      "x": 1560,
+      "y": 2368,
+      "w": 1440,
+      "h": 1024,
+      "title": "8 · Gate 4 — graph QA",
+      "page": "page-dark"
+    },
+    {
+      "file": "Exports.dc.html",
+      "x": 3120,
+      "y": 2368,
+      "w": 1440,
+      "h": 1024,
+      "title": "9 · Exports and merge",
+      "page": "page-light"
+    },
+    {
+      "file": "ExportsDark.dc.html",
+      "x": 3120,
+      "y": 2368,
+      "w": 1440,
+      "h": 1024,
+      "title": "9 · Exports and merge",
+      "page": "page-dark"
+    },
+    {
+      "file": "Tokens.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1024,
+      "title": "Theme tokens",
+      "page": "page-tokens"
+    },
+    {
+      "file": "Breakpoints.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1024,
+      "title": "Breakpoint contract",
+      "page": "page-responsive"
+    },
+    {
+      "file": "TabletGate.dc.html",
+      "x": 1560,
+      "y": 0,
+      "w": 1024,
+      "h": 768,
+      "title": "Tablet landscape · Gate 1",
+      "page": "page-responsive"
+    },
+    {
+      "file": "TabletRun.dc.html",
+      "x": 2704,
+      "y": 0,
+      "w": 768,
+      "h": 1024,
+      "title": "Tablet portrait · Extraction run",
+      "page": "page-responsive"
+    },
+    {
+      "file": "MobileSheets.dc.html",
+      "x": 3592,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Phone · Sheets intake",
+      "page": "page-responsive"
+    },
+    {
+      "file": "MobileRun.dc.html",
+      "x": 4102,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Phone · Run monitor",
+      "page": "page-responsive"
+    },
+    {
+      "file": "MobileGate.dc.html",
+      "x": 4612,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Phone · Gate 4 triage",
+      "page": "page-responsive"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "row-intake",
+      "page": "page-light",
+      "x": -540,
+      "y": 120,
+      "w": 460,
+      "text": "RUN SETUP — one sheet is one job.\nPOST /api/pipeline/jobs takes a single file, so a 5-sheet PDF becomes 5 independent jobs with 5 independent gate queues. Nothing is merged until every sheet has passed Gate 4."
+    },
+    {
+      "id": "row-run",
+      "page": "page-light",
+      "x": -540,
+      "y": 1304,
+      "w": 460,
+      "text": "THE RUN — the real stage order is 1, 2, 4, 5, 5b, 6, 7, 7c, 7b, 8, 9, 10, 11.\nThere is no stage 3 in the CLI: it is the manual object gate. stop_after accepts {1,2,4,5,6,7,8,9,10,11}; resume-from re-runs only what a parameter change invalidated."
+    },
+    {
+      "id": "row-gates",
+      "page": "page-light",
+      "x": -540,
+      "y": 2488,
+      "w": 460,
+      "text": "THE FOUR GATES — each writes to a different store.\nGate 1 to review_workspace objects / equipment / manual_ports. Gate 2 to trace_overrides. Gate 3 to line_association_overrides. Gate 4 saves a GraphQaDecision per item straight to the stage8_review_decisions.json artifact (not review_state — that store is only for gates 1-3). Stage 9 applies them: deferred items pass through untouched, and anything left undecided is auto-accepted."
+    },
+    {
+      "id": "light-mode",
+      "page": "page-light",
+      "x": 4700,
+      "y": 120,
+      "w": 320,
+      "text": "LIGHT is HeroUI's default theme and the default here. The same nine screens in dark are on the Dark page; the token values for both are on the Tokens page."
+    },
+    {
+      "id": "scope",
+      "page": "page-light",
+      "x": 4700,
+      "y": 1304,
+      "w": 320,
+      "text": "NOT DRAWN\nNo billing, org or SSO screens. The backend has no user model and the job store is in memory; the only auth it knows is API_KEY_ENABLED. Drawing those screens would be inventing a product that is not there."
+    },
+    {
+      "id": "sheet",
+      "page": "page-light",
+      "x": 4700,
+      "y": 2488,
+      "w": 320,
+      "text": "THE P&ID ITSELF is drawn, not photographed — no sample sheet ships with the repo. Density, tag style and title block follow a real feed-surge-and-charge-pump sheet so the overlays are judged at a realistic scale."
+    },
+    {
+      "id": "dark-mode",
+      "page": "page-dark",
+      "x": -540,
+      "y": 120,
+      "w": 460,
+      "text": "DARK — the same nine screens, same content, same layout.\nEach artboard is pinned to its theme rather than following your system setting, so both modes stay visible side by side. In the real app one root attribute swaps the whole set."
+    },
+    {
+      "id": "dark-canvas",
+      "page": "page-dark",
+      "x": -540,
+      "y": 1304,
+      "w": 460,
+      "text": "WHAT CHANGES ON THE CANVAS — the P&ID raster is white paper in both modes. On dark it gets a drop shadow to lift it off the backdrop; on light it gets a hairline outline instead, because a white sheet on a light backdrop has no edge of its own."
+    },
+    {
+      "id": "dark-overlay",
+      "page": "page-dark",
+      "x": -540,
+      "y": 2488,
+      "w": 460,
+      "text": "WHAT DOES NOT CHANGE — the overlay colours. They are drawn on the raster, so they are judged against white, not against the chrome. Swapping them per theme would put unreadable ink on the sheet."
+    },
+    {
+      "id": "tokens-note",
+      "page": "page-tokens",
+      "x": -540,
+      "y": 120,
+      "w": 460,
+      "text": "Every value below is lifted from @heroui/styles 3.2.4 — the version npm serves as latest, and the one heroui.com documents. Note that v3 dropped content1-4 for the surface / overlay system, so v2 token names will not resolve."
+    },
+    {
+      "id": "resp-intro",
+      "page": "page-responsive",
+      "x": -540,
+      "y": 120,
+      "w": 460,
+      "text": "THREE WIDTHS — phone under 768, tablet 768 to 1279, desktop 1280 and up.\\nThe Breakpoint contract at left is the one to read first: it lists, per screen, what each width can and cannot do, and why."
+    },
+    {
+      "id": "resp-safe",
+      "page": "page-responsive",
+      "x": -540,
+      "y": 440,
+      "w": 460,
+      "text": "NO FAKE CHROME on the phone frames. The blank strips at top and bottom are the OS safe areas — the real status bar and home indicator draw there. Painting our own would look doubled up on a device."
+    },
+    {
+      "id": "resp-theme",
+      "page": "page-responsive",
+      "x": -540,
+      "y": 700,
+      "w": 460,
+      "text": "These are drawn in the light theme. They inherit exactly the same token names as the desktop set, so the dark values on the Tokens page apply unchanged — no separate responsive palette exists."
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "page-light"
+  },
+  "pages": [
+    {
+      "id": "page-light",
+      "name": "Light"
+    },
+    {
+      "id": "page-dark",
+      "name": "Dark"
+    },
+    {
+      "id": "page-responsive",
+      "name": "Responsive"
+    },
+    {
+      "id": "page-tokens",
+      "name": "Tokens"
+    }
+  ]
+}
