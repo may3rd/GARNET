@@ -8,6 +8,7 @@ import {
   startPipelineJob,
 } from '@/lib/api'
 import { activeGate, firstLegStopAfter, GATES, humanStage, runPercent, type GateId } from '@/lib/gates'
+import type { Screen } from '@/lib/nav'
 import type { OcrRoute, PipelineJob, PipelineStageManifest } from '@/types'
 
 export type TaskKind = 'detection' | 'extraction'
@@ -48,10 +49,10 @@ export type RunConfig = {
   pauseAtEveryGate: boolean
 }
 
-export type Screen = 'sheets' | 'task' | 'run'
-
 type RunState = {
   screen: Screen
+  /** Sheet in focus for the sheet-scoped screens (detection results, gates). */
+  selectedSheetId: string | null
   sheets: Sheet[]
   /** Run-level task, chosen on the Task fork screen. Sheets inherit it. */
   task: TaskKind
@@ -61,6 +62,7 @@ type RunState = {
   intakeError: string | null
 
   setScreen: (screen: Screen) => void
+  selectSheet: (id: string | null) => void
   addFiles: (files: File[]) => Promise<void>
   setSheetTask: (id: string, task: TaskKind) => void
   setSheetOcrRoute: (id: string, route: OcrRoute) => void
@@ -115,6 +117,7 @@ function measure(sheet: Sheet, set: SetFn) {
 
 export const useRunStore = create<RunState>((set, get) => ({
   screen: 'sheets',
+  selectedSheetId: null,
   sheets: [],
   task: 'extraction',
   config: {
@@ -131,6 +134,8 @@ export const useRunStore = create<RunState>((set, get) => ({
   intakeError: null,
 
   setScreen: (screen) => set({ screen }),
+
+  selectSheet: (selectedSheetId) => set({ selectedSheetId }),
 
   addFiles: async (files) => {
     set({ intakeError: null })
@@ -178,13 +183,16 @@ export const useRunStore = create<RunState>((set, get) => ({
     set((state) => {
       const sheet = state.sheets.find((s) => s.id === id)
       if (sheet) URL.revokeObjectURL(sheet.previewUrl)
-      return { sheets: state.sheets.filter((s) => s.id !== id) }
+      return {
+        sheets: state.sheets.filter((s) => s.id !== id),
+        selectedSheetId: state.selectedSheetId === id ? null : state.selectedSheetId,
+      }
     }),
 
   clearSheets: () =>
     set((state) => {
       state.sheets.forEach((s) => URL.revokeObjectURL(s.previewUrl))
-      return { sheets: [] }
+      return { sheets: [], selectedSheetId: null }
     }),
 
   setTask: (task) =>

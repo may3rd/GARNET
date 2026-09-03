@@ -12,86 +12,119 @@ import {
   Sun,
   Workflow,
 } from 'lucide-react'
-import { useRunStore, type Screen } from '@/stores/runStore'
+import {
+  breadcrumbFor,
+  RAIL_FOR,
+  RAIL_LABEL,
+  RAIL_ORDER,
+  RAIL_TARGET,
+  topbarChip,
+  type RailKey,
+} from '@/lib/nav'
+import { useRunStore } from '@/stores/runStore'
 
-/** Rail keys that map to a screen that actually exists. */
-const NAV_TARGETS: Partial<Record<string, Screen>> = {
-  sheets: 'sheets',
-  detection: 'task',
-  extraction: 'run',
+const RAIL_ICON: Record<RailKey, ReactNode> = {
+  sheets: <FileText size={20} strokeWidth={1.5} />,
+  detection: <ScanSearch size={20} strokeWidth={1.5} />,
+  extraction: <Workflow size={20} strokeWidth={1.5} />,
+  review: <Eye size={20} strokeWidth={1.5} />,
+  merge: <Share2 size={20} strokeWidth={1.5} />,
+  exports: <Download size={20} strokeWidth={1.5} />,
 }
 
-type RailItem = { key: string; label: string; icon: ReactNode }
+const PROJECT = 'Unit 210'
 
-const RAIL: RailItem[] = [
-  { key: 'sheets', label: 'Sheets', icon: <FileText size={20} strokeWidth={1.5} /> },
-  { key: 'detection', label: 'Detection', icon: <ScanSearch size={20} strokeWidth={1.5} /> },
-  { key: 'extraction', label: 'Extraction', icon: <Workflow size={20} strokeWidth={1.5} /> },
-  { key: 'review', label: 'Review', icon: <Eye size={20} strokeWidth={1.5} /> },
-  { key: 'merge', label: 'Merge', icon: <Share2 size={20} strokeWidth={1.5} /> },
-  { key: 'exports', label: 'Exports', icon: <Download size={20} strokeWidth={1.5} /> },
-]
-
-export function AppShell({
-  active,
-  breadcrumb,
-  project = 'GARNET',
-  children,
-}: {
-  active: string
-  breadcrumb: string[]
-  project?: string
-  children: ReactNode
-}) {
+export function AppShell({ children }: { children: ReactNode }) {
+  const screen = useRunStore((s) => s.screen)
+  const setScreen = useRunStore((s) => s.setScreen)
   const theme = useRunStore((s) => s.theme)
   const toggleTheme = useRunStore((s) => s.toggleTheme)
-  const setScreen = useRunStore((s) => s.setScreen)
+  const sheets = useRunStore((s) => s.sheets)
+  const selectedSheetId = useRunStore((s) => s.selectedSheetId)
+  const gateFor = useRunStore((s) => s.gateFor)
+
+  const selected = sheets.find((s) => s.id === selectedSheetId)
+  const ctx = {
+    project: PROJECT,
+    sheetLabel: selected?.label,
+    gate: selected ? gateFor(selected.id) : null,
+  }
+  const crumbs = breadcrumbFor(screen, ctx)
+  const activeRail = RAIL_FOR[screen]
+
+  /** Sheets with a gate waiting, for the Review badge. */
+  const openGates = sheets.filter((s) => gateFor(s.id) !== null).length
 
   return (
-    <div className="flex min-h-screen" style={{ background: 'var(--background)', color: 'var(--foreground)' }}>
-      {/* Icon rail */}
+    <div
+      className="flex min-h-screen"
+      style={{ background: 'var(--background)', color: 'var(--foreground)' }}
+    >
       <aside
         className="flex w-16 shrink-0 flex-col items-center gap-1.5 py-3"
         style={{ background: 'var(--surface)' }}
       >
-        <div
-          className="flex h-10 w-10 items-center justify-center text-[15px] font-semibold tracking-tight"
+        <button
+          type="button"
+          onClick={() => setScreen('sheets')}
+          title="GARNET — start over"
+          className="flex items-center justify-center text-[15px] font-semibold tracking-tight"
           style={{
+            width: 40,
+            height: 40,
+            border: 0,
+            cursor: 'pointer',
             borderRadius: 12,
             background: 'linear-gradient(145deg, oklch(0.62 0.195 253.83), oklch(0.72 0.15 220))',
             color: 'var(--snow)',
           }}
         >
           G
-        </div>
+        </button>
         <div className="h-2.5" />
 
-        {RAIL.map((item) => {
-          const isActive = item.key === active
-          // Only screens that exist are navigable; the rest are marked
-          // unavailable rather than being buttons that swallow a click.
-          const target = NAV_TARGETS[item.key]
-          const available = Boolean(target)
+        {RAIL_ORDER.map((key) => {
+          const isActive = key === activeRail
+          const badge = key === 'review' && openGates > 0 ? openGates : null
           return (
             <button
-              key={item.key}
+              key={key}
               type="button"
-              title={available ? item.label : `${item.label} — not built yet`}
-              aria-label={item.label}
+              title={RAIL_LABEL[key]}
+              aria-label={RAIL_LABEL[key]}
               aria-current={isActive ? 'page' : undefined}
-              aria-disabled={available ? undefined : true}
-              onClick={() => target && setScreen(target)}
-              className="flex h-10 w-10 items-center justify-center"
+              onClick={() => setScreen(RAIL_TARGET[key])}
+              className="relative flex items-center justify-center"
               style={{
+                width: 40,
+                height: 40,
                 border: 0,
+                cursor: 'pointer',
                 borderRadius: 'var(--r-field)',
                 background: isActive ? 'var(--accent-soft)' : 'transparent',
                 color: isActive ? 'var(--accent-soft-fg)' : 'var(--muted)',
-                cursor: available ? 'pointer' : 'default',
-                opacity: available || isActive ? 1 : 0.55,
               }}
             >
-              {item.icon}
+              {RAIL_ICON[key]}
+              {badge !== null && (
+                <span
+                  className="mono absolute flex items-center justify-center"
+                  style={{
+                    top: 4,
+                    right: 3,
+                    minWidth: 15,
+                    height: 15,
+                    padding: '0 3px',
+                    borderRadius: 999,
+                    background: 'var(--warning)',
+                    color: 'var(--eclipse)',
+                    fontSize: 9,
+                    fontWeight: 600,
+                  }}
+                >
+                  {badge}
+                </span>
+              )}
             </button>
           )
         })}
@@ -103,8 +136,10 @@ export function AppShell({
           onClick={toggleTheme}
           title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
           aria-label="Toggle theme"
-          className="flex h-10 w-10 items-center justify-center"
+          className="flex items-center justify-center"
           style={{
+            width: 40,
+            height: 40,
             border: 0,
             background: 'transparent',
             borderRadius: 'var(--r-field)',
@@ -119,8 +154,10 @@ export function AppShell({
           title="Settings — not built yet"
           aria-label="Settings"
           aria-disabled
-          className="flex h-10 w-10 items-center justify-center"
+          className="flex items-center justify-center"
           style={{
+            width: 40,
+            height: 40,
             border: 0,
             background: 'transparent',
             borderRadius: 'var(--r-field)',
@@ -132,8 +169,14 @@ export function AppShell({
           <Settings size={20} strokeWidth={1.5} />
         </button>
         <span
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-xs font-semibold"
-          style={{ borderRadius: 999, background: 'var(--surface-tertiary)', color: 'var(--foreground)' }}
+          className="inline-flex shrink-0 items-center justify-center text-xs font-semibold"
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 999,
+            background: 'var(--surface-tertiary)',
+            color: 'var(--foreground)',
+          }}
         >
           ML
         </span>
@@ -144,20 +187,53 @@ export function AppShell({
           className="flex h-14 shrink-0 items-center gap-2 px-5"
           style={{ borderBottom: '1px solid var(--separator)' }}
         >
-          {breadcrumb.map((crumb, i) => (
-            <span key={crumb} className="flex items-center gap-2">
-              {i > 0 && <ChevronRight size={14} strokeWidth={1.5} style={{ color: 'var(--muted)' }} />}
-              <span
-                style={{
-                  fontSize: 14,
-                  color: i === breadcrumb.length - 1 ? 'var(--foreground)' : 'var(--muted)',
-                  fontWeight: i === breadcrumb.length - 1 ? 500 : 400,
-                }}
-              >
-                {crumb}
-              </span>
-            </span>
-          ))}
+          <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2">
+            {crumbs.map((crumb, i) => {
+              const isLast = i === crumbs.length - 1
+              return (
+                <span key={`${crumb.label}-${i}`} className="flex items-center gap-2">
+                  {i > 0 && (
+                    <ChevronRight size={14} strokeWidth={1.5} style={{ color: 'var(--muted)' }} />
+                  )}
+                  {crumb.to && !isLast ? (
+                    <button
+                      type="button"
+                      onClick={() => setScreen(crumb.to!)}
+                      style={{
+                        border: 0,
+                        background: 'transparent',
+                        padding: 0,
+                        fontSize: 14,
+                        fontFamily: 'inherit',
+                        color: 'var(--muted)',
+                        cursor: 'pointer',
+                        textDecoration: 'none',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = 'var(--foreground)'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = 'var(--muted)'
+                      }}
+                    >
+                      {crumb.label}
+                    </button>
+                  ) : (
+                    <span
+                      aria-current={isLast ? 'page' : undefined}
+                      style={{
+                        fontSize: 14,
+                        color: isLast ? 'var(--foreground)' : 'var(--muted)',
+                        fontWeight: isLast ? 500 : 400,
+                      }}
+                    >
+                      {crumb.label}
+                    </span>
+                  )}
+                </span>
+              )
+            })}
+          </nav>
 
           <div className="flex-1" />
 
@@ -175,7 +251,7 @@ export function AppShell({
                 boxShadow: 'inset 0 0 0 1px var(--border)',
               }}
             >
-              {project}
+              {topbarChip(screen, ctx)}
             </span>
             <button
               type="button"
