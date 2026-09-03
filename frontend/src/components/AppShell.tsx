@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import {
   ChevronRight,
+  CircleHelp,
   Download,
   Eye,
   FileText,
@@ -27,10 +28,12 @@ const RAIL: RailItem[] = [
 export function AppShell({
   active,
   breadcrumb,
+  project = 'GARNET',
   children,
 }: {
   active: string
   breadcrumb: string[]
+  project?: string
   children: ReactNode
 }) {
   const theme = useRunStore((s) => s.theme)
@@ -114,8 +117,8 @@ export function AppShell({
             <span key={crumb} className="flex items-center gap-2">
               {i > 0 && <ChevronRight size={14} strokeWidth={1.5} style={{ color: 'var(--muted)' }} />}
               <span
-                className="text-sm"
                 style={{
+                  fontSize: 14,
                   color: i === breadcrumb.length - 1 ? 'var(--foreground)' : 'var(--muted)',
                   fontWeight: i === breadcrumb.length - 1 ? 500 : 400,
                 }}
@@ -124,6 +127,56 @@ export function AppShell({
               </span>
             </span>
           ))}
+
+          <div className="flex-1" />
+
+          <div className="flex items-center gap-2.5">
+            <span
+              className="inline-flex w-fit shrink-0 items-center"
+              style={{
+                padding: '2px 8px',
+                borderRadius: 'var(--r-chip)',
+                fontSize: 12,
+                lineHeight: '20px',
+                fontWeight: 500,
+                background: 'transparent',
+                color: 'var(--muted)',
+                boxShadow: 'inset 0 0 0 1px var(--border)',
+              }}
+            >
+              {project}
+            </span>
+            <button
+              type="button"
+              aria-label="Help"
+              className="flex items-center justify-center"
+              style={{
+                width: 32,
+                height: 32,
+                border: 0,
+                background: 'transparent',
+                borderRadius: 'var(--r-btn)',
+                color: 'var(--muted)',
+                cursor: 'pointer',
+              }}
+            >
+              <CircleHelp size={17} strokeWidth={1.5} />
+            </button>
+            <span
+              className="inline-flex shrink-0 items-center justify-center"
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 999,
+                background: 'var(--accent)',
+                color: 'var(--accent-foreground)',
+                fontSize: 12,
+                fontWeight: 600,
+              }}
+            >
+              ML
+            </span>
+          </div>
         </header>
 
         <main className="min-h-0 flex-1">{children}</main>

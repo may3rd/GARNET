@@ -95,6 +95,21 @@ export function activeGate(
   return null
 }
 
+/**
+ * `stop_after` for the run's first leg.
+ *
+ * Pausing at every gate parks after stage 4 so Gate 1 opens first. Not pausing
+ * runs straight to stage 8, which queues all four gates at once. Either way the
+ * run never overshoots the ceiling the user picked.
+ */
+export function firstLegStopAfter(opts: {
+  pauseAtEveryGate: boolean
+  stopAfterStage: number
+}): number {
+  const target = opts.pauseAtEveryGate ? GATES[1].stopAfter : GATES[4].stopAfter
+  return Math.min(target, opts.stopAfterStage)
+}
+
 /** True once the run has produced its final exports and overlay. */
 export function isRunComplete(stages: PipelineStageManifest[]): boolean {
   return isComplete(stages, 'stage10_process_exports')

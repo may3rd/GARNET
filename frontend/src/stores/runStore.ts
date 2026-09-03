@@ -7,7 +7,7 @@ import {
   resumePipelineFromStage,
   startPipelineJob,
 } from '@/lib/api'
-import { activeGate, GATES, humanStage, runPercent, type GateId } from '@/lib/gates'
+import { activeGate, firstLegStopAfter, GATES, humanStage, runPercent, type GateId } from '@/lib/gates'
 import type { OcrRoute, PipelineJob, PipelineStageManifest } from '@/types'
 
 export type TaskKind = 'detection' | 'extraction'
@@ -39,21 +39,34 @@ export type RunConfig = {
   weightFile: string
   geminiPostprocessMatchThreshold: number
   debugArtifacts: boolean
+  /** Final stage the run targets. One of the API's accepted stop_after values. */
+  stopAfterStage: number
+  /**
+   * On: park at each gate boundary in turn (first leg stops after stage 4).
+   * Off: run straight through to stage 8 and queue all four gates at once.
+   */
+  pauseAtEveryGate: boolean
 }
 
+export type Screen = 'sheets' | 'task' | 'run'
+
 type RunState = {
+  screen: Screen
   sheets: Sheet[]
+  /** Run-level task, chosen on the Task fork screen. Sheets inherit it. */
   task: TaskKind
   config: RunConfig
   theme: 'default' | 'dark'
   isExtracting: boolean
   intakeError: string | null
 
+  setScreen: (screen: Screen) => void
   addFiles: (files: File[]) => Promise<void>
   setSheetTask: (id: string, task: TaskKind) => void
   setSheetOcrRoute: (id: string, route: OcrRoute) => void
   removeSheet: (id: string) => void
   clearSheets: () => void
+  /** Sets the run-level task and re-assigns every sheet that has not started. */
   setTask: (task: TaskKind) => void
   setConfig: (patch: Partial<RunConfig>) => void
   toggleTheme: () => void
@@ -101,6 +114,7 @@ function measure(sheet: Sheet, set: SetFn) {
 }
 
 export const useRunStore = create<RunState>((set, get) => ({
+  screen: 'sheets',
   sheets: [],
   task: 'extraction',
   config: {
@@ -109,10 +123,14 @@ export const useRunStore = create<RunState>((set, get) => ({
     weightFile: '',
     geminiPostprocessMatchThreshold: 0.1,
     debugArtifacts: false,
+    stopAfterStage: 11,
+    pauseAtEveryGate: true,
   },
   theme: 'default',
   isExtracting: false,
   intakeError: null,
+
+  setScreen: (screen) => set({ screen }),
 
   addFiles: async (files) => {
     set({ intakeError: null })
@@ -169,7 +187,12 @@ export const useRunStore = create<RunState>((set, get) => ({
       return { sheets: [] }
     }),
 
-  setTask: (task) => set({ task }),
+  setTask: (task) =>
+    set((state) => ({
+      task,
+      // Sheets inherit the run-level choice; started jobs keep what they ran with.
+      sheets: state.sheets.map((s) => (s.jobId ? s : { ...s, task })),
+    })),
 
   setConfig: (patch) => set((state) => ({ config: { ...state.config, ...patch } })),
 
@@ -183,18 +206,22 @@ export const useRunStore = create<RunState>((set, get) => ({
     const { sheets, config } = get()
     if (sheets.length === 0) return
 
+    const stopAfter = firstLegStopAfter(config)
+
     await Promise.all(
       sheets.map(async (sheet) => {
         if (sheet.jobId) return
+        if (sheet.task === 'detection') {
+          patchSheet(set, sheet.id, { error: 'Detection route not wired yet' })
+          return
+        }
         patchSheet(set, sheet.id, {
           error: null,
           progress: { step: 'Creating job…', percent: 5 },
         })
         try {
           const { job_id } = await startPipelineJob(sheet.file, {
-            // Extraction parks at Gate 1 (stop_after 4) for the object review.
-            // Detection is the legacy single-pass route and does not gate.
-            stopAfter: GATES[1].stopAfter,
+            stopAfter,
             ocrRoute: sheet.ocrRoute,
             geminiPostprocessMatchThreshold: config.geminiPostprocessMatchThreshold,
             weightFile: config.weightFile,

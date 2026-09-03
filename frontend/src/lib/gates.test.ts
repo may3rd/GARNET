@@ -5,7 +5,7 @@
  * matters most is the last: Gate 4 must resume with stop_after 11, or exports
  * and the connection overlay are silently skipped.
  */
-import { activeGate, GATES, isRunComplete, isStaleFrom, runPercent } from './gates'
+import { activeGate, firstLegStopAfter, GATES, isRunComplete, isStaleFrom, runPercent } from './gates'
 import type { PipelineStageManifest } from '@/types'
 
 const s = (
@@ -55,6 +55,13 @@ check('not stale below 9', isStaleFrom(staleFrom9, 10), false)
 // --- Progress clamping ------------------------------------------------------
 check('percent clamps low', runPercent({ status: 'running', manifest: { stages: [], stop_after: 11 } as never }), 10)
 check('percent 100 when complete', runPercent({ status: 'completed', manifest: null }), 100)
+
+// --- First-leg stop_after (Task fork's two switches) ------------------------
+check('pausing parks at gate 1', firstLegStopAfter({ pauseAtEveryGate: true, stopAfterStage: 11 }), 4)
+check('not pausing runs to QA', firstLegStopAfter({ pauseAtEveryGate: false, stopAfterStage: 11 }), 8)
+// A lower ceiling always wins, so the run cannot overshoot what was asked for.
+check('ceiling below gate 1', firstLegStopAfter({ pauseAtEveryGate: true, stopAfterStage: 2 }), 2)
+check('ceiling below QA', firstLegStopAfter({ pauseAtEveryGate: false, stopAfterStage: 5 }), 5)
 
 // --- The resume contract (the bug that was fixed upstream) ------------------
 check('gate 4 resumes through stage 11', GATES[4].resumeStopAfter, 11)
