@@ -12,7 +12,14 @@ import {
   Sun,
   Workflow,
 } from 'lucide-react'
-import { useRunStore } from '@/stores/runStore'
+import { useRunStore, type Screen } from '@/stores/runStore'
+
+/** Rail keys that map to a screen that actually exists. */
+const NAV_TARGETS: Partial<Record<string, Screen>> = {
+  sheets: 'sheets',
+  detection: 'task',
+  extraction: 'run',
+}
 
 type RailItem = { key: string; label: string; icon: ReactNode }
 
@@ -38,6 +45,7 @@ export function AppShell({
 }) {
   const theme = useRunStore((s) => s.theme)
   const toggleTheme = useRunStore((s) => s.toggleTheme)
+  const setScreen = useRunStore((s) => s.setScreen)
 
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--background)', color: 'var(--foreground)' }}>
@@ -60,18 +68,27 @@ export function AppShell({
 
         {RAIL.map((item) => {
           const isActive = item.key === active
+          // Only screens that exist are navigable; the rest are marked
+          // unavailable rather than being buttons that swallow a click.
+          const target = NAV_TARGETS[item.key]
+          const available = Boolean(target)
           return (
             <button
               key={item.key}
               type="button"
-              title={item.label}
+              title={available ? item.label : `${item.label} — not built yet`}
               aria-label={item.label}
               aria-current={isActive ? 'page' : undefined}
+              aria-disabled={available ? undefined : true}
+              onClick={() => target && setScreen(target)}
               className="flex h-10 w-10 items-center justify-center"
               style={{
+                border: 0,
                 borderRadius: 'var(--r-field)',
                 background: isActive ? 'var(--accent-soft)' : 'transparent',
                 color: isActive ? 'var(--accent-soft-fg)' : 'var(--muted)',
+                cursor: available ? 'pointer' : 'default',
+                opacity: available || isActive ? 1 : 0.55,
               }}
             >
               {item.icon}
@@ -87,16 +104,30 @@ export function AppShell({
           title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
           aria-label="Toggle theme"
           className="flex h-10 w-10 items-center justify-center"
-          style={{ borderRadius: 'var(--r-field)', color: 'var(--muted)' }}
+          style={{
+            border: 0,
+            background: 'transparent',
+            borderRadius: 'var(--r-field)',
+            color: 'var(--muted)',
+            cursor: 'pointer',
+          }}
         >
           {theme === 'dark' ? <Sun size={20} strokeWidth={1.5} /> : <Moon size={20} strokeWidth={1.5} />}
         </button>
         <button
           type="button"
-          title="Settings"
+          title="Settings — not built yet"
           aria-label="Settings"
+          aria-disabled
           className="flex h-10 w-10 items-center justify-center"
-          style={{ borderRadius: 'var(--r-field)', color: 'var(--muted)' }}
+          style={{
+            border: 0,
+            background: 'transparent',
+            borderRadius: 'var(--r-field)',
+            color: 'var(--muted)',
+            opacity: 0.55,
+            cursor: 'default',
+          }}
         >
           <Settings size={20} strokeWidth={1.5} />
         </button>
@@ -149,6 +180,8 @@ export function AppShell({
             <button
               type="button"
               aria-label="Help"
+              aria-disabled
+              title="Help — not built yet"
               className="flex items-center justify-center"
               style={{
                 width: 32,
@@ -157,7 +190,8 @@ export function AppShell({
                 background: 'transparent',
                 borderRadius: 'var(--r-btn)',
                 color: 'var(--muted)',
-                cursor: 'pointer',
+                opacity: 0.55,
+                cursor: 'default',
               }}
             >
               <CircleHelp size={17} strokeWidth={1.5} />

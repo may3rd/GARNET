@@ -111,16 +111,16 @@ export function SheetsIntake() {
       {/* Dropzone + PDF page picker */}
       <div className="flex items-stretch gap-4">
         <div className="min-w-0" style={{ flex: 1.35 }}>
+          {/*
+            The drop target is a plain div, not a role="button": the "Browse
+            files" button inside it is the accessible control, and nesting one
+            interactive element in another gives a duplicate tab stop. Clicking
+            the card is a convenience — HeroUI's Button swallows the native
+            click on itself (react-aria preventDefaults the pointer events), so
+            this never double-fires.
+          */}
           <div
-            role="button"
-            tabIndex={0}
             onClick={open}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                open()
-              }
-            }}
             onDragOver={(e) => e.preventDefault()}
             onDragEnter={(e) => {
               e.preventDefault()
@@ -174,7 +174,11 @@ export function SheetsIntake() {
               PDF, PNG, JPG · 50 MB per file · multi-page PDFs are split into one sheet per page
             </div>
             <div style={{ height: 4 }} />
-            <Button variant="secondary" style={{ height: 32, borderRadius: 'var(--r-btn)' }}>
+            <Button
+              variant="secondary"
+              style={{ height: 32, borderRadius: 'var(--r-btn)' }}
+              onPress={open}
+            >
               Browse files
             </Button>
           </div>
@@ -334,6 +338,7 @@ export function SheetsIntake() {
                       isIconOnly
                       aria-label={`Preview ${sheet.label}`}
                       style={{ width: 30, height: 30, borderRadius: 'var(--r-btn)' }}
+                      onPress={() => window.open(sheet.previewUrl, '_blank')}
                     >
                       <Eye size={15} strokeWidth={1.5} />
                     </Button>
