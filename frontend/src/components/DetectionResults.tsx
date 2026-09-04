@@ -149,8 +149,13 @@ export function DetectionResults() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // Armed by the "+" button: the next drag on the canvas draws a box instead
+  // of panning it. drawRect is the live preview while that drag is in flight.
+  const [drawing, setDrawing] = useState(false)
+  const [drawRect, setDrawRect] = useState<Box | null>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const [viewport, setViewport] = useState({ w: 0, h: 0 })
+  const classInputRef = useRef<HTMLInputElement>(null)
 
   const objects = sheet?.detection?.objects ?? []
   const imgW = sheet?.detection?.image_width ?? sheet?.size?.width ?? 0
@@ -180,6 +185,17 @@ export function DetectionResults() {
     openInEditMode.current = false
     setConfirmDelete(false)
   }, [selectedIndex, selected?.Index])
+
+  // Right after drawing a box, the very next thing to do is name its class —
+  // put the cursor there instead of making the user click into it.
+  const focusClassOnEdit = useRef(false)
+  useEffect(() => {
+    if (editing && focusClassOnEdit.current) {
+      classInputRef.current?.focus()
+      classInputRef.current?.select()
+    }
+    focusClassOnEdit.current = false
+  }, [editing])
 
   // The dialog keeps rendering the last object while it fades out, so the
   // content does not vanish mid-animation.
@@ -278,18 +294,14 @@ export function DetectionResults() {
   )
 
   /**
-   * Add a new object when the detector missed one. It lands as a modest box
-   * centred in the current view, already selected and in edit mode — the
-   * existing drag handles and class field are how the user actually places
-   * and classifies it, so this only has to seed a reasonable starting box.
+   * Create an object from a drawn box: the detector missed it, so the user
+   * draws it directly rather than typing coordinates. Lands selected and in
+   * edit mode with the class field focused — an existing class from the
+   * datalist or a freshly typed one both just work, same as editing any
+   * other object's class.
    */
-  const addNewObject = async () => {
-    if (!sheet || !imgW || !imgH) return
-    const cx = (viewport.w / 2 - panRef.current.x) / scaleRef.current
-    const cy = (viewport.h / 2 - panRef.current.y) / scaleRef.current
-    const w = Math.min(120, imgW)
-    const h = Math.min(80, imgH)
-    const box = moveBox({ Left: cx - w / 2, Top: cy - h / 2, Width: w, Height: h }, 0, 0, imgW, imgH)
+  const finishDrawing = async (box: Box) => {
+    if (!sheet) return
     const created = await addObject(sheet.id, {
       Object: classes[0]?.name ?? 'object',
       Text: '',
@@ -298,9 +310,55 @@ export function DetectionResults() {
     })
     if (created) {
       openInEditMode.current = true
+      focusClassOnEdit.current = true
       setSelectedIndex(created.Index)
     }
   }
+
+  /** Draw a new box on the canvas: drag from mousedown to mouseup. */
+  const startDrawBox = (e: React.MouseEvent) => {
+    setDrawing(false)
+    const el = viewportRef.current
+    if (!el || !imgW || !imgH) return
+    const rect = el.getBoundingClientRect()
+    const toImage = (ev: MouseEvent | React.MouseEvent) => ({
+      x: clamp((ev.clientX - rect.left - pan.x) / scale, 0, imgW),
+      y: clamp((ev.clientY - rect.top - pan.y) / scale, 0, imgH),
+    })
+    const origin = toImage(e)
+
+    const asBox = (p: { x: number; y: number }): Box => ({
+      Left: Math.min(origin.x, p.x),
+      Top: Math.min(origin.y, p.y),
+      Width: Math.abs(p.x - origin.x),
+      Height: Math.abs(p.y - origin.y),
+    })
+
+    setDrawRect(asBox(origin))
+    const move = (ev: MouseEvent) => setDrawRect(asBox(toImage(ev)))
+    const up = (ev: MouseEvent) => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+      const box = asBox(toImage(ev))
+      setDrawRect(null)
+      // A drag under ~6 image px reads as a missed click, not an intent to
+      // draw a 1px box, so it is quietly dropped rather than rejected by the
+      // backend's gt=0 width/height validation.
+      if (box.Width >= 6 && box.Height >= 6) void finishDrawing(box)
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+  }
+
+  // Escape backs out of draw mode without drawing anything.
+  useEffect(() => {
+    if (!drawing) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDrawing(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [drawing])
 
   // Wheel zoom needs a non-passive listener to be able to preventDefault, so
   // the page does not scroll while zooming the sheet.
@@ -551,13 +609,13 @@ export function DetectionResults() {
             style={{
               background: 'var(--surface-tertiary)',
               borderRadius: 'var(--r-table)',
-              cursor: 'grab',
+              cursor: drawing ? 'crosshair' : 'grab',
               // Dragging across the sheet would otherwise select the SVG label
               // text and leave it highlighted.
               userSelect: 'none',
               WebkitUserSelect: 'none',
             }}
-            onMouseDown={startPan}
+            onMouseDown={drawing ? startDrawBox : startPan}
           >
             {sheet.progress && (
               <div
@@ -711,6 +769,20 @@ export function DetectionResults() {
                       </g>
                     )
                   })}
+                  {drawRect && (
+                    <rect
+                      x={drawRect.Left}
+                      y={drawRect.Top}
+                      width={drawRect.Width}
+                      height={drawRect.Height}
+                      fill="var(--accent)"
+                      fillOpacity={0.12}
+                      stroke="var(--accent)"
+                      strokeWidth={1.6 / scale}
+                      strokeDasharray={`${6 / scale} ${4 / scale}`}
+                      pointerEvents="none"
+                    />
+                  )}
                 </svg>
               )}
             </div>
@@ -968,6 +1040,7 @@ export function DetectionResults() {
                     <div className="flex flex-wrap items-end gap-2.5">
                       <LabelledField label="Class" flex={1.6}>
                         <input
+                          ref={classInputRef}
                           list="detection-classes"
                           value={shown.Object}
                           onChange={(e) => setDraft({ ...shown, Object: e.target.value })}
@@ -1348,10 +1421,19 @@ export function DetectionResults() {
         <Button
           variant="ghost"
           isIconOnly
-          aria-label="Add an object the detector missed"
-          isDisabled={!canEdit || !sheet.detection}
-          style={{ width: 28, height: 28, borderRadius: 'var(--r-btn)' }}
-          onPress={() => void addNewObject()}
+          aria-pressed={drawing}
+          aria-label={
+            drawing ? 'Cancel drawing (Esc)' : 'Draw a new object the detector missed'
+          }
+          isDisabled={!canEdit || !sheet.detection || editing}
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 'var(--r-btn)',
+            background: drawing ? 'var(--accent-soft)' : undefined,
+            color: drawing ? 'var(--accent-soft-fg)' : undefined,
+          }}
+          onPress={() => setDrawing((d) => !d)}
         >
           <Plus size={15} strokeWidth={2} />
         </Button>
