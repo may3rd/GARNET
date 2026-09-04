@@ -202,3 +202,33 @@ export function zoomAbout(
     pan: clampPan({ x: cx - imgX * next, y: cy - imgY * next }, next, imgW, imgH, viewW, viewH),
   }
 }
+
+export type WheelIntent =
+  | { kind: 'zoom'; delta: number }
+  | { kind: 'pan'; dx: number; dy: number }
+
+/**
+ * What a wheel event means: pan, or zoom.
+ *
+ * The wheel pans. Ctrl — or Cmd, since that is the macOS habit — makes it
+ * zoom instead. A trackpad pinch also arrives as a ctrlKey wheel event (the
+ * browser synthesises it), so pinching zooms through the same branch, and
+ * keeps `wheelPixels`' amplification because pinch deltas are tiny. A
+ * deliberate Cmd+wheel is a normal-sized delta and is left alone.
+ */
+export function wheelIntent(
+  e: { deltaX: number; deltaY: number; deltaMode: number; ctrlKey: boolean; metaKey: boolean },
+  viewW: number,
+  viewH: number
+): WheelIntent {
+  if (e.ctrlKey || e.metaKey) {
+    return { kind: 'zoom', delta: wheelPixels(e.deltaY, e.deltaMode, e.ctrlKey, viewH) }
+  }
+  return {
+    kind: 'pan',
+    // Positive means "scrolled down/right"; the caller negates to move the
+    // sheet the other way, the way a scrollbar would.
+    dx: wheelPixels(e.deltaX, e.deltaMode, false, viewW),
+    dy: wheelPixels(e.deltaY, e.deltaMode, false, viewH),
+  }
+}

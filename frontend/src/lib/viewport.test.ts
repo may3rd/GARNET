@@ -1,5 +1,5 @@
 /** Runnable check: `bun run src/lib/viewport.test.ts` */
-import { clampPan, fitScale, HANDLES, handlePoint, moveBox, resizeBox, wheelPixels, zoomAbout, type Box } from './viewport'
+import { clampPan, fitScale, HANDLES, handlePoint, moveBox, resizeBox, wheelIntent, wheelPixels, zoomAbout, type Box } from './viewport'
 
 let failures = 0
 function check(label: string, actual: unknown, expected: unknown) {
@@ -199,5 +199,46 @@ check('round trip restores pan',
   check(`no gutter at scale ${sc}`, r.pan, settled)
 })
 
+/* --------------------------------------------------------------------------
+   Wheel intent: pan by default, zoom with Ctrl/Cmd
+   -------------------------------------------------------------------------- */
+
+const wheel = (over: Partial<Parameters<typeof wheelIntent>[0]>) =>
+  wheelIntent(
+    { deltaX: 0, deltaY: 0, deltaMode: 0, ctrlKey: false, metaKey: false, ...over },
+    900,
+    700
+  )
+
+// A bare wheel pans, on whichever axis the input carries.
+check('bare wheel pans', wheel({ deltaY: 120 }), { kind: 'pan', dx: 0, dy: 120 })
+check('bare wheel pans horizontally', wheel({ deltaX: 90 }), { kind: 'pan', dx: 90, dy: 0 })
+check('a trackpad two-axis scroll pans both', wheel({ deltaX: 30, deltaY: -40 }), {
+  kind: 'pan', dx: 30, dy: -40,
+})
+// Sign is preserved so the caller can decide which way the sheet moves.
+check('scroll down is positive', (wheel({ deltaY: 10 }) as { dy: number }).dy > 0, true)
+check('scroll up is negative', (wheel({ deltaY: -10 }) as { dy: number }).dy < 0, true)
+
+// Ctrl zooms — and so does a trackpad pinch, which arrives as ctrlKey.
+check('ctrl zooms', wheel({ deltaY: -100, ctrlKey: true }).kind, 'zoom')
+check('cmd zooms', wheel({ deltaY: -100, metaKey: true }).kind, 'zoom')
+// Pinch deltas are tiny, so they keep the amplification; a deliberate
+// Cmd+wheel is already a full-sized delta and must not be multiplied.
+check('pinch is amplified', wheel({ deltaY: -10, ctrlKey: true }), { kind: 'zoom', delta: -40 })
+check('cmd+wheel is not amplified', wheel({ deltaY: -10, metaKey: true }), { kind: 'zoom', delta: -10 })
+
+// Other modifiers must not hijack the wheel into zooming.
+check('shift still pans', wheel({ deltaY: 50, deltaMode: 0 }).kind, 'pan')
+
+// Line/page delta modes are normalised in both branches.
+check('line mode pans in pixels', wheel({ deltaY: 3, deltaMode: 1 }), { kind: 'pan', dx: 0, dy: 48 })
+check('line mode zooms in pixels', wheel({ deltaY: 3, deltaMode: 1, metaKey: true }), {
+  kind: 'zoom', delta: 48,
+})
+// A pan is clamped per event just like a zoom, so one event cannot fling the
+// sheet across the whole raster.
+check('pan is clamped', wheel({ deltaY: 99999 }), { kind: 'pan', dx: 0, dy: 240 })
+
 if (failures > 0) throw new Error(`${failures} viewport check(s) failed`)
-console.log('viewport (box editing + wheel + zoom): all checks passed')
+console.log('viewport (box editing + wheel + zoom + intent): all checks passed')

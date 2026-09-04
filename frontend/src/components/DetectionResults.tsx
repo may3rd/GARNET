@@ -14,7 +14,7 @@ import {
   handlePoint,
   moveBox,
   resizeBox,
-  wheelPixels,
+  wheelIntent,
   zoomAbout,
   type Box,
   type Handle,
@@ -277,6 +277,19 @@ export function DetectionResults() {
     [imgW, imgH, viewport.w, viewport.h]
   )
 
+  /** Shift the view by a pixel delta, settled so no gutter opens up. */
+  const panBy = useCallback(
+    (dx: number, dy: number) => {
+      const next = settle(
+        { x: panRef.current.x + dx, y: panRef.current.y + dy },
+        scaleRef.current
+      )
+      panRef.current = next
+      setPan(next)
+    },
+    [settle]
+  )
+
   /** Pan so a box is centred in the view, without changing zoom. */
   const focusOn = useCallback(
     (o: DetectedObject) => {
@@ -360,36 +373,59 @@ export function DetectionResults() {
     return () => window.removeEventListener('keydown', onKey)
   }, [drawing])
 
-  // Wheel zoom needs a non-passive listener to be able to preventDefault, so
-  // the page does not scroll while zooming the sheet.
+  /*
+   * The wheel pans; Ctrl (or Cmd on macOS) makes it zoom. A trackpad pinch
+   * also lands here as a ctrlKey wheel event, which the browser synthesises,
+   * so pinching zooms without any special handling.
+   *
+   * Needs a non-passive listener to preventDefault, or the page scrolls and
+   * the browser runs its own pinch-zoom on top of ours.
+   */
   useEffect(() => {
     const el = viewportRef.current
     if (!el) return
 
     // A trackpad fires wheel events far faster than the screen refreshes, and
     // each one re-renders every box. Deltas are accumulated and applied once
-    // per frame instead.
-    let pending = 0
+    // per frame instead. Accumulators are clamped as well as each event: if
+    // the frame callback is throttled (a hidden tab, a busy main thread) the
+    // deltas would otherwise pile up and land as one lurch.
+    let zoomDelta = 0
+    let panX = 0
+    let panY = 0
     let originX = 0
     let originY = 0
     let frame = 0
 
     const flush = () => {
       frame = 0
-      const delta = pending
-      pending = 0
-      if (delta !== 0) zoomAt(Math.exp(-delta * 0.0015), originX, originY)
+      if (zoomDelta !== 0) {
+        const delta = zoomDelta
+        zoomDelta = 0
+        zoomAt(Math.exp(-delta * 0.0015), originX, originY)
+      }
+      if (panX !== 0 || panY !== 0) {
+        const dx = panX
+        const dy = panY
+        panX = 0
+        panY = 0
+        // Scrolling down walks down the sheet, so the content moves up.
+        panBy(-dx, -dy)
+      }
     }
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
       const rect = el.getBoundingClientRect()
-      originX = e.clientX - rect.left
-      originY = e.clientY - rect.top
-      // Clamp the accumulator too, not just each event: if the frame callback
-      // is throttled (a hidden tab, a busy main thread) the deltas would
-      // otherwise pile up and land as one lurch when it finally runs.
-      pending = clamp(pending + wheelPixels(e.deltaY, e.deltaMode, e.ctrlKey, rect.height), -240, 240)
+      const intent = wheelIntent(e, rect.width, rect.height)
+      if (intent.kind === 'zoom') {
+        originX = e.clientX - rect.left
+        originY = e.clientY - rect.top
+        zoomDelta = clamp(zoomDelta + intent.delta, -240, 240)
+      } else {
+        panX = clamp(panX + intent.dx, -240, 240)
+        panY = clamp(panY + intent.dy, -240, 240)
+      }
       if (!frame) frame = requestAnimationFrame(flush)
     }
 
@@ -398,7 +434,7 @@ export function DetectionResults() {
       el.removeEventListener('wheel', onWheel)
       if (frame) cancelAnimationFrame(frame)
     }
-  }, [zoomAt])
+  }, [zoomAt, panBy])
 
   const startPan = (e: React.MouseEvent) => {
     const origin = { px: pan.x, py: pan.y, mx: e.clientX, my: e.clientY }
