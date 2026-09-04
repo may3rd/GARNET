@@ -55,7 +55,7 @@ export function classColor(name: string): string {
 
 export type ClassSummary = { name: string; count: number; color: string }
 
-/** Class rows for the legend, most numerous first. */
+/** Class rows for the legend, alphabetical by class name. */
 export function summarizeClasses(objects: DetectedObject[]): ClassSummary[] {
   const counts = new Map<string, number>()
   objects.forEach((o) => {
@@ -64,5 +64,5 @@ export function summarizeClasses(objects: DetectedObject[]): ClassSummary[] {
   })
   return [...counts.entries()]
     .map(([name, count]) => ({ name, count, color: classColor(name) }))
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+    .sort((a, b) => a.name.localeCompare(b.name))
 }

@@ -54,13 +54,26 @@ const objects = [
   obj('line number', 6),
 ]
 const summary = summarizeClasses(objects)
-check('counts and order', summary.map((s) => [s.name, s.count]), [
+// Alphabetical by name, not by how many were found — a legend you scan for a
+// class you already have in mind, so the order has to be predictable.
+check('counts and alphabetical order', summary.map((s) => [s.name, s.count]), [
   ['gate valve', 3],
   ['line number', 2],
   ['pump', 1],
 ])
 check('summary carries colour', summary[0].color, '#dc2626')
 check('total is preserved', summary.reduce((n, s) => n + s.count, 0), objects.length)
+
+// The fixture above is alphabetical and count-descending at once, so it
+// cannot tell the two apart. This one can: the most numerous class sorts last.
+const byName = summarizeClasses([
+  obj('zebra valve', 1),
+  obj('zebra valve', 2),
+  obj('zebra valve', 3),
+  obj('apple valve', 4),
+])
+check('name wins over count', byName.map((s) => s.name), ['apple valve', 'zebra valve'])
+check('counts still correct', byName.map((s) => s.count), [1, 3])
 
 if (failures > 0) throw new Error(`${failures} detectionClasses check(s) failed`)
 console.log('detectionClasses: all checks passed')
