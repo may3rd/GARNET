@@ -842,7 +842,10 @@ export function DetectionResults() {
                 background: 'var(--overlay)',
                 borderRadius: 'var(--r-card)',
                 padding: 16,
-                boxShadow: 'inset 0 0 0 1px var(--border), 0 8px 24px rgba(0,0,0,.18)',
+                // Two layers for depth: a tight contact shadow plus a soft,
+                // far-thrown ambient one — reads as elevated above the canvas.
+                boxShadow:
+                  'inset 0 0 0 1px var(--border), 0 2px 6px rgba(0,0,0,.16), 0 20px 48px rgba(0,0,0,.28)',
               }}
             >
               {shown && (
