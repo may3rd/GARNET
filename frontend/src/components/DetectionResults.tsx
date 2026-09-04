@@ -842,10 +842,13 @@ export function DetectionResults() {
                 background: 'var(--overlay)',
                 borderRadius: 'var(--r-card)',
                 padding: 16,
-                // Two layers for depth: a tight contact shadow plus a soft,
-                // far-thrown ambient one — reads as elevated above the canvas.
+                // Two layers for depth: a crisp contact shadow close to the
+                // card, plus a stronger ambient one thrown further out. The
+                // canvas background sits very close in lightness to the
+                // card's own surface, so a subtle shadow just disappears —
+                // this needs to be strong to read as elevated at all.
                 boxShadow:
-                  'inset 0 0 0 1px var(--border), 0 2px 6px rgba(0,0,0,.16), 0 20px 48px rgba(0,0,0,.28)',
+                  'inset 0 0 0 1px var(--border), 0 1px 2px rgba(0,0,0,.24), 0 14px 32px rgba(0,0,0,.38)',
               }}
             >
               {shown && (
