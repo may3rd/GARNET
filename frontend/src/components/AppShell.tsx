@@ -87,7 +87,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             height: 40,
             border: 0,
             cursor: 'pointer',
-            borderRadius: 12,
+            borderRadius: 8,
             background: 'linear-gradient(145deg, oklch(0.62 0.195 253.83), oklch(0.72 0.15 220))',
             color: 'var(--snow)',
           }}

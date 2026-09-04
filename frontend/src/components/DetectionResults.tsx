@@ -258,6 +258,22 @@ export function DetectionResults() {
     [imgW, imgH, viewport.w, viewport.h]
   )
 
+  /** Pan so a box is centred in the view, without changing zoom. */
+  const focusOn = useCallback(
+    (o: DetectedObject) => {
+      const cx = o.Left + o.Width / 2
+      const cy = o.Top + o.Height / 2
+      const current = scaleRef.current
+      const next = settle(
+        { x: viewport.w / 2 - cx * current, y: viewport.h / 2 - cy * current },
+        current
+      )
+      panRef.current = next
+      setPan(next)
+    },
+    [settle, viewport.w, viewport.h]
+  )
+
   // Wheel zoom needs a non-passive listener to be able to preventDefault, so
   // the page does not scroll while zooming the sheet.
   useEffect(() => {
@@ -824,9 +840,7 @@ export function DetectionResults() {
             <div
               style={{
                 background: 'var(--overlay)',
-                // Tighter than a card's 32px: this is a docked strip, and a
-                // large radius on a full-width panel reads as a floating pill.
-                borderRadius: 14,
+                borderRadius: 'var(--r-card)',
                 padding: 16,
                 boxShadow: 'inset 0 0 0 1px var(--border), 0 -8px 32px rgba(0,0,0,.16)',
               }}
@@ -1162,7 +1176,7 @@ export function DetectionResults() {
                   <div key={c.name} className="shrink-0">
                     <div
                       className="flex items-center gap-1.5"
-                      style={{ padding: '8px 6px 8px 2px', borderRadius: 10, opacity: isHidden ? 0.45 : 1 }}
+                      style={{ padding: '8px 6px 8px 2px', borderRadius: 6, opacity: isHidden ? 0.45 : 1 }}
                     >
                       <button
                         type="button"
@@ -1249,13 +1263,16 @@ export function DetectionResults() {
                             <button
                               key={o.Index}
                               type="button"
-                              onClick={() => setSelectedIndex(o.Index)}
+                              onClick={() => {
+                                setSelectedIndex(o.Index)
+                                focusOn(o)
+                              }}
                               className="flex items-center gap-2 text-left"
                               style={{
                                 padding: '6px 8px',
                                 marginLeft: 6,
                                 border: 0,
-                                borderRadius: 8,
+                                borderRadius: 'var(--r-chip)',
                                 cursor: 'pointer',
                                 background: isSel ? 'var(--accent-soft)' : 'transparent',
                                 color: isSel ? 'var(--accent-soft-fg)' : 'var(--foreground)',

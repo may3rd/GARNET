@@ -13,11 +13,11 @@
    button rounded-3xl, chip rounded-2xl, card min(32px, radius-3xl).
    --------------------------------------------------------------------------- */
 :root {
-  --r-field: 12px;
-  --r-btn: 24px;
-  --r-chip: 16px;
-  --r-card: 32px;
-  --r-table: 20px;
+  --r-field: 6px;
+  --r-btn: 8px;
+  --r-chip: 6px;
+  --r-card: 12px;
+  --r-table: 8px;
 
   /* The P&ID raster is white paper in both themes. On light it needs a
      hairline edge (white on near-white has no edge of its own); on dark it

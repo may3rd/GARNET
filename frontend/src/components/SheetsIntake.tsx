@@ -347,7 +347,7 @@ export function SheetsIntake() {
               ))}
             </div>
 
-            <div style={{ background: 'var(--surface)', borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ background: 'var(--surface)', borderRadius: 8, overflow: 'hidden' }}>
               {sheets.map((sheet, i) => (
                 <div
                   key={sheet.id}
