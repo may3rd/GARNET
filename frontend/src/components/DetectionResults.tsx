@@ -26,8 +26,6 @@ const MINIMAP = { w: 150, h: 100 }
 const ZOOM_RANGE = { min: 0.02, max: 8 }
 /** The class legend may shrink to fit the window, but not below this. */
 const CLASSES_MIN_HEIGHT = 220
-/** How far the object sheet is pushed down when parked, in px. */
-const PARKED_OFFSET = 360
 
 const FIELD: React.CSSProperties = {
   height: 36,
@@ -178,8 +176,8 @@ export function DetectionResults() {
     setConfirmDelete(false)
   }, [selectedIndex, selected?.Index])
 
-  // The panel keeps rendering the last object while it slides back down, so
-  // the content does not vanish mid-animation. It is clipped once parked.
+  // The dialog keeps rendering the last object while it fades out, so the
+  // content does not vanish mid-animation.
   const [lastDraft, setLastDraft] = useState<DetectedObject | null>(null)
   useEffect(() => {
     if (draft) setLastDraft(draft)
@@ -821,18 +819,20 @@ export function DetectionResults() {
             )}
           </div>
 
-          {/* Selected object — slides up from the bottom, absent when parked */}
+          {/* Selected object — a floating dialog over the canvas, not docked to an edge */}
           <div
             aria-hidden={!draft}
             style={{
               position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: 0,
-              // A fixed offset, not a percentage: the panel's own height is not
-              // a reliable basis to translate by, and the parent clips it.
-              transform: draft ? 'translateY(0)' : `translateY(${PARKED_OFFSET}px)`,
-              transition: 'transform .22s cubic-bezier(.32,.72,0,1)',
+              top: 12,
+              right: 12,
+              width: 340,
+              maxWidth: 'calc(100% - 24px)',
+              maxHeight: 'calc(100% - 24px)',
+              overflowY: 'auto',
+              opacity: draft ? 1 : 0,
+              transform: draft ? 'scale(1)' : 'scale(0.96)',
+              transition: 'opacity .16s ease, transform .16s ease',
               visibility: shown ? 'visible' : 'hidden',
               pointerEvents: draft ? 'auto' : 'none',
             }}
@@ -842,7 +842,7 @@ export function DetectionResults() {
                 background: 'var(--overlay)',
                 borderRadius: 'var(--r-card)',
                 padding: 16,
-                boxShadow: 'inset 0 0 0 1px var(--border), 0 -8px 32px rgba(0,0,0,.16)',
+                boxShadow: 'inset 0 0 0 1px var(--border), 0 8px 24px rgba(0,0,0,.18)',
               }}
             >
               {shown && (
