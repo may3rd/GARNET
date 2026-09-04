@@ -597,8 +597,6 @@ settings = Settings.Settings()
 MODEL_CACHE: dict[tuple, DetectionModel] = {}
 MODEL_CACHE_LOCK = threading.Lock()
 MODEL_CACHE_MAX_SIZE = int(os.getenv("MODEL_CACHE_MAX_SIZE", "10"))
-# Spare cache slots kept above the preloaded set for (conf, image_size) variants.
-MODEL_CACHE_HEADROOM = int(os.getenv("MODEL_CACHE_HEADROOM", "8"))
 
 # Model loading status for health check
 MODELS_LOADED = False
@@ -1397,91 +1395,51 @@ def normalize_excel_filename(filename: str) -> str:
 
 def initialize_application_runtime() -> None:
     """Initialize expensive runtime resources in the serving process only."""
-    global APPLICATION_STARTUP_COMPLETE, CONFIG_FILE_LIST, MODEL_CACHE_MAX_SIZE, MODEL_LIST, MODEL_LOAD_ERROR, MODELS_LOADED
+    global APPLICATION_STARTUP_COMPLETE, CONFIG_FILE_LIST, MODEL_LIST, MODEL_LOAD_ERROR, MODELS_LOADED
 
     if APPLICATION_STARTUP_COMPLETE:
         return
 
-    logger.log(logging.INFO, "* *********************************** *")
-    logger.log(logging.INFO, "* Preloading weight files and configs *")
-    logger.log(logging.INFO, "* *********************************** *")
+    logger.log(logging.INFO, "* ******************************** *")
+    logger.log(logging.INFO, "* Discovering weight files and configs *")
+    logger.log(logging.INFO, "* ******************************** *")
 
     MODEL_LIST = list_weight_files()
     CONFIG_FILE_LIST = list_config_files()
 
-    # Preload every weight file, so switching weights in the UI does not pay a
-    # cold load on first use.
+    # Weight files are discovered, not loaded: a model is built on first use and
+    # then cached by get_cached_detection_model. Startup stays cheap and the
+    # process only ever holds the models actually asked for.
     try:
-        preload_errors: list[str] = []
         weight_files = discover_weight_files()
         logger.info(f"Found {len(weight_files)} weight files.")
         for item in weight_files:
             logger.info(f"Found weight file: {item}")
 
-        # Preloading must not evict itself: the ceiling has to hold every weight
-        # file, plus headroom for the per-request (conf, image_size) variants
-        # that get_cached_detection_model keys on separately.
-        if 0 < MODEL_CACHE_MAX_SIZE < len(weight_files) + MODEL_CACHE_HEADROOM:
-            previous = MODEL_CACHE_MAX_SIZE
-            MODEL_CACHE_MAX_SIZE = len(weight_files) + MODEL_CACHE_HEADROOM
-            logger.info(
-                f"Raised model cache ceiling {previous} -> {MODEL_CACHE_MAX_SIZE} "
-                f"to hold {len(weight_files)} preloaded weight files"
-            )
-
-        default_weight = pick_default_weight_file("ultralytics")
         if weight_files:
-            # Default first, so readiness is established before the rest load.
-            ordered = ([default_weight] if default_weight else []) + [
-                item for item in weight_files if item != default_weight
-            ]
-            for index, item in enumerate(ordered, start=1):
-                try:
-                    _ = get_cached_detection_model(
-                        "ultralytics",
-                        item,
-                        config.DEFAULT_CONF_THRESHOLD,
-                        config.DEFAULT_IMAGE_SIZE,
-                    )
-                    if not MODELS_LOADED:
-                        MODELS_LOADED = True
-                        MODEL_LOAD_ERROR = None
-                    logger.info(f"Preloaded ({index}/{len(ordered)}): {item}")
-                except Exception as exc:
-                    # One unreadable weight file must not stop the others.
-                    preload_errors.append(f"{item}: {exc}")
-                    logger.warning(f"Could not preload weight file {item}: {exc}")
-            logger.info(
-                f"Preloaded {len(MODEL_CACHE)} of {len(ordered)} weight files "
-                f"at conf={config.DEFAULT_CONF_THRESHOLD}, imgsz={config.DEFAULT_IMAGE_SIZE}"
-            )
-        else:
-            preload_errors.append("No ultralytics weight files found")
-
-        if not MODELS_LOADED and config.OPENROUTER_API_KEY:
-            logger.info("Preloading gemini detector")
-            _ = get_cached_detection_model("gemini", "", 0.8, 640)
+            # Readiness means "this service can serve a detection", which is
+            # true as soon as there is a weight file to load on demand. It does
+            # not require one to be resident in memory.
             MODELS_LOADED = True
             MODEL_LOAD_ERROR = None
-            logger.info("Gemini detector preloaded successfully")
-        elif not MODELS_LOADED and not config.OPENROUTER_API_KEY:
-            preload_errors.append(
-                "OPENROUTER_API_KEY is not configured for gemini detector")
-
-        if not MODELS_LOADED and preload_errors:
-            MODEL_LOAD_ERROR = "; ".join(preload_errors)
-            logger.warning(MODEL_LOAD_ERROR)
-        elif preload_errors:
-            # Some loaded, so the API is usable; surface the rest rather than
-            # letting them disappear into the log.
+            logger.info(
+                f"Models load on demand; default is "
+                f"{pick_default_weight_file('ultralytics') or 'unset'}"
+            )
+        elif config.OPENROUTER_API_KEY:
+            # No local weights, but the gemini route needs none.
+            MODELS_LOADED = True
+            MODEL_LOAD_ERROR = None
+            logger.info("No local weight files; gemini detector is available")
+        else:
             MODEL_LOAD_ERROR = (
-                f"{len(preload_errors)} weight file(s) failed to preload: "
-                + "; ".join(preload_errors)
+                "No ultralytics weight files found and OPENROUTER_API_KEY is "
+                "not configured for gemini detector"
             )
             logger.warning(MODEL_LOAD_ERROR)
     except Exception as e:
         MODEL_LOAD_ERROR = str(e)
-        logger.error(f"Failed to preload model: {e}")
+        logger.error(f"Failed to discover weight files: {e}")
 
     start_cleanup_scheduler()
     APPLICATION_STARTUP_COMPLETE = True
