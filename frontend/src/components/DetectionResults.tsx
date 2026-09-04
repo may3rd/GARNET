@@ -463,18 +463,14 @@ export function DetectionResults() {
                 onMouseDown={(e) => e.stopPropagation()}
               >
                 {/* xl is 40px, which reads as an afterthought on a canvas this
-                    big; scaled up so it is unmistakably the focus. transform
-                    does not grow the layout box, so the extra margin keeps the
-                    scaled ring off the text below it. */}
-                <Spinner
-                  size="xl"
-                  color="current"
-                  style={{
-                    color: 'var(--white)',
-                    transform: 'scale(1.6)',
-                    marginBottom: 14,
-                  }}
-                />
+                    big, so it is scaled up — but on a WRAPPER, never on the
+                    spinner itself. Its `spin` keyframes animate `transform`
+                    and only declare 100%, so a transform of our own on the
+                    same element becomes the implicit 0% and it interpolates
+                    scale->rotate instead of spinning. */}
+                <div style={{ transform: 'scale(1.6)', marginBottom: 14 }}>
+                  <Spinner size="xl" color="current" style={{ color: 'var(--white)' }} />
+                </div>
                 <div className="flex flex-col items-center gap-1">
                   <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--white)' }}>
                     {sheet.progress.step}
