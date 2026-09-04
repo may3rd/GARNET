@@ -928,7 +928,8 @@ export function DetectionResults() {
               position: 'absolute',
               top: 12,
               right: 12,
-              width: 340,
+              // Wide enough that x/y/w/h sit comfortably four-across.
+              width: 380,
               maxWidth: 'calc(100% - 24px)',
               maxHeight: 'calc(100% - 24px)',
               overflowY: 'auto',
@@ -1005,40 +1006,44 @@ export function DetectionResults() {
                   {confirmDelete ? (
                     /* Deleting is destructive and immediate on the server, so
                        it asks first. */
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span style={{ fontSize: 13 }}>
+                    <div className="flex flex-col gap-3">
+                      <span style={{ fontSize: 13, lineHeight: '19px' }}>
                         Delete this <strong>{shown.Object}</strong>
                         {shown.Text?.trim() ? ` (${shown.Text.trim()})` : ''}? This cannot be undone.
                       </span>
-                      <div className="flex-1" />
-                      <Button
-                        variant="ghost"
-                        style={{ height: ctlH, borderRadius: 'var(--r-btn)' }}
-                        onPress={() => setConfirmDelete(false)}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        style={{
-                          height: ctlH,
-                          borderRadius: 'var(--r-btn)',
-                          background: 'var(--danger)',
-                          color: 'var(--white)',
-                        }}
-                        onPress={() => {
-                          void deleteObject(sheet.id, shown)
-                          setConfirmDelete(false)
-                          setSelectedIndex(null)
-                        }}
-                      >
-                        <Trash2 size={15} strokeWidth={1.8} />
-                        Delete
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          style={{ height: ctlH, borderRadius: 'var(--r-btn)' }}
+                          onPress={() => setConfirmDelete(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          style={{
+                            height: ctlH,
+                            borderRadius: 'var(--r-btn)',
+                            background: 'var(--danger)',
+                            color: 'var(--white)',
+                          }}
+                          onPress={() => {
+                            void deleteObject(sheet.id, shown)
+                            setConfirmDelete(false)
+                            setSelectedIndex(null)
+                          }}
+                        >
+                          <Trash2 size={15} strokeWidth={1.8} />
+                          Delete
+                        </Button>
+                      </div>
                     </div>
                   ) : editing ? (
-                    <div className="flex flex-wrap items-end gap-2.5">
-                      <LabelledField label="Class" flex={1.6}>
+                    /* Stacked, not one wrapping row: the class and tag fields
+                       need the full width, and four number fields plus two
+                       buttons on the same line squeezed them to nothing. */
+                    <div className="flex flex-col gap-2.5">
+                      <LabelledField label="Class">
                         <input
                           ref={classInputRef}
                           list="detection-classes"
@@ -1053,7 +1058,7 @@ export function DetectionResults() {
                           ))}
                         </datalist>
                       </LabelledField>
-                      <LabelledField label="Text / tag" flex={1.4}>
+                      <LabelledField label="Text / tag">
                         <input
                           value={shown.Text}
                           onChange={(e) => setDraft({ ...shown, Text: e.target.value })}
@@ -1061,79 +1066,97 @@ export function DetectionResults() {
                           aria-label="Text or tag"
                         />
                       </LabelledField>
-                      {(['Left', 'Top', 'Width', 'Height'] as const).map((k) => (
-                        <LabelledField
-                          key={k}
-                          width={78}
-                          label={{ Left: 'x', Top: 'y', Width: 'w', Height: 'h' }[k]}
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+                          gap: 8,
+                        }}
+                      >
+                        {(['Left', 'Top', 'Width', 'Height'] as const).map((k) => (
+                          <LabelledField
+                            key={k}
+                            label={{ Left: 'x', Top: 'y', Width: 'w', Height: 'h' }[k]}
+                          >
+                            <input
+                              type="number"
+                              aria-label={k}
+                              value={shown[k]}
+                              onChange={(e) => setDraft({ ...shown, [k]: Number(e.target.value) })}
+                              style={FIELD}
+                            />
+                          </LabelledField>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          style={{ height: ctlH, borderRadius: 'var(--r-btn)' }}
+                          onPress={() => {
+                            // Abandon the drag edits by reverting to the server copy.
+                            setDraft(selected ? { ...selected } : null)
+                            setEditing(false)
+                          }}
                         >
-                          <input
-                            type="number"
-                            aria-label={k}
-                            value={shown[k]}
-                            onChange={(e) => setDraft({ ...shown, [k]: Number(e.target.value) })}
-                            style={FIELD}
-                          />
-                        </LabelledField>
-                      ))}
-                      <Button
-                        variant="ghost"
-                        style={{ height: ctlH, borderRadius: 'var(--r-btn)' }}
-                        onPress={() => {
-                          // Abandon the drag edits by reverting to the server copy.
-                          setDraft(selected ? { ...selected } : null)
-                          setEditing(false)
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        variant="primary"
-                        style={{ height: ctlH, borderRadius: 'var(--r-btn)' }}
-                        onPress={() => {
-                          void updateObject(sheet.id, shown)
-                          setEditing(false)
-                        }}
-                      >
-                        <Check size={15} strokeWidth={2.2} />
-                        OK
-                      </Button>
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="primary"
+                          style={{ height: ctlH, borderRadius: 'var(--r-btn)' }}
+                          onPress={() => {
+                            void updateObject(sheet.id, shown)
+                            setEditing(false)
+                          }}
+                        >
+                          <Check size={15} strokeWidth={2.2} />
+                          OK
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     /* Read-only by default: the values as text, nothing to
                        mistype, and the two actions. */
-                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-                      <ReadOnly label="Class" value={shown.Object} />
-                      <ReadOnly label="Text / tag" value={shown.Text?.trim() || '—'} />
+                    <div className="flex flex-col gap-2.5">
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                          gap: '10px 12px',
+                        }}
+                      >
+                        <ReadOnly label="Class" value={shown.Object} />
+                        <ReadOnly label="Text / tag" value={shown.Text?.trim() || '—'} />
+                      </div>
                       <ReadOnly
                         label="Bounding box"
                         mono
                         value={`${shown.Left}, ${shown.Top}, ${shown.Width} × ${shown.Height}`}
                       />
-                      <div className="flex-1" />
-                      <Button
-                        variant="ghost"
-                        isDisabled={!canEdit}
-                        style={{
-                          height: ctlH,
-                          borderRadius: 'var(--r-btn)',
-                          background: 'var(--danger-soft)',
-                          color: 'var(--danger-soft-fg)',
-                        }}
-                        onPress={() => setConfirmDelete(true)}
-                      >
-                        <Trash2 size={15} strokeWidth={1.8} />
-                        Delete
-                      </Button>
-                      <Button
-                        variant="primary"
-                        isDisabled={!canEdit}
-                        style={{ height: ctlH, borderRadius: 'var(--r-btn)' }}
-                        onPress={() => setEditing(true)}
-                      >
-                        <Pencil size={15} strokeWidth={1.8} />
-                        Edit
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          isDisabled={!canEdit}
+                          style={{
+                            height: ctlH,
+                            borderRadius: 'var(--r-btn)',
+                            background: 'var(--danger-soft)',
+                            color: 'var(--danger-soft-fg)',
+                          }}
+                          onPress={() => setConfirmDelete(true)}
+                        >
+                          <Trash2 size={15} strokeWidth={1.8} />
+                          Delete
+                        </Button>
+                        <Button
+                          variant="primary"
+                          isDisabled={!canEdit}
+                          style={{ height: ctlH, borderRadius: 'var(--r-btn)' }}
+                          onPress={() => setEditing(true)}
+                        >
+                          <Pencil size={15} strokeWidth={1.8} />
+                          Edit
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </>
