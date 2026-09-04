@@ -96,7 +96,14 @@ type RunState = {
   /** Object edits persist to the server's in-memory result store. */
   updateObject: (sheetId: string, obj: DetectedObject) => Promise<void>
   deleteObject: (sheetId: string, obj: DetectedObject) => Promise<void>
-  addObject: (sheetId: string, obj: Omit<DetectedObject, 'Index'>) => Promise<void>
+  addObject: (
+    sheetId: string,
+    // Mirrors the backend's CreateObjectRequest: CategoryID/ObjectID/Score are
+    // genuinely optional there (the server assigns ObjectID), not just absent
+    // from this particular call.
+    obj: Pick<DetectedObject, 'Object' | 'Left' | 'Top' | 'Width' | 'Height' | 'Text'> &
+      Partial<Pick<DetectedObject, 'CategoryID' | 'ObjectID' | 'Score'>>
+  ) => Promise<DetectedObject | undefined>
 }
 
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
@@ -382,6 +389,7 @@ export const useRunStore = create<RunState>((set, get) => ({
     try {
       const created = await createResultObject(sheet.detection.id, obj)
       patchDetection(set, sheetId, (objects) => [...objects, created])
+      return created
     } catch (error) {
       patchSheet(set, sheetId, {
         error: error instanceof Error ? error.message : 'Could not add the object',

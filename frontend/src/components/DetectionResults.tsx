@@ -123,6 +123,7 @@ export function DetectionResults() {
   const runDetectionFor = useRunStore((s) => s.runDetectionFor)
   const updateObject = useRunStore((s) => s.updateObject)
   const deleteObject = useRunStore((s) => s.deleteObject)
+  const addObject = useRunStore((s) => s.addObject)
   const setScreen = useRunStore((s) => s.setScreen)
   const weightFiles = useRunStore((s) => s.weightFiles)
   const loadWeightFiles = useRunStore((s) => s.loadWeightFiles)
@@ -170,9 +171,13 @@ export function DetectionResults() {
   }, [objects])
   const selected = objects.find((o) => o.Index === selectedIndex) ?? null
 
+  // A plain click always lands on the read-only view; a freshly-added object
+  // is the one exception, since it still needs placing and classifying.
+  const openInEditMode = useRef(false)
   useEffect(() => {
     setDraft(selected ? { ...selected } : null)
-    setEditing(false)
+    setEditing(openInEditMode.current)
+    openInEditMode.current = false
     setConfirmDelete(false)
   }, [selectedIndex, selected?.Index])
 
@@ -271,6 +276,31 @@ export function DetectionResults() {
     },
     [settle, viewport.w, viewport.h]
   )
+
+  /**
+   * Add a new object when the detector missed one. It lands as a modest box
+   * centred in the current view, already selected and in edit mode — the
+   * existing drag handles and class field are how the user actually places
+   * and classifies it, so this only has to seed a reasonable starting box.
+   */
+  const addNewObject = async () => {
+    if (!sheet || !imgW || !imgH) return
+    const cx = (viewport.w / 2 - panRef.current.x) / scaleRef.current
+    const cy = (viewport.h / 2 - panRef.current.y) / scaleRef.current
+    const w = Math.min(120, imgW)
+    const h = Math.min(80, imgH)
+    const box = moveBox({ Left: cx - w / 2, Top: cy - h / 2, Width: w, Height: h }, 0, 0, imgW, imgH)
+    const created = await addObject(sheet.id, {
+      Object: classes[0]?.name ?? 'object',
+      Text: '',
+      Score: 1,
+      ...box,
+    })
+    if (created) {
+      openInEditMode.current = true
+      setSelectedIndex(created.Index)
+    }
+  }
 
   // Wheel zoom needs a non-passive listener to be able to preventDefault, so
   // the page does not scroll while zooming the sheet.
@@ -1315,6 +1345,16 @@ export function DetectionResults() {
           {objects.length} objects
           {hidden.size > 0 ? ` · ${objects.length - visible.length} hidden` : ''}
         </span>
+        <Button
+          variant="ghost"
+          isIconOnly
+          aria-label="Add an object the detector missed"
+          isDisabled={!canEdit || !sheet.detection}
+          style={{ width: 28, height: 28, borderRadius: 'var(--r-btn)' }}
+          onPress={() => void addNewObject()}
+        >
+          <Plus size={15} strokeWidth={2} />
+        </Button>
         <div className="flex-1" />
         {detectionSheets.length > 1 && (
           <select
