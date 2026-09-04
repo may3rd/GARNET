@@ -138,3 +138,67 @@ export function moveBox(start: Box, dx: number, dy: number, imgW: number, imgH: 
     Height: height,
   })
 }
+
+/* ---------------------------------------------------------------------------
+   Wheel input
+   --------------------------------------------------------------------------- */
+
+/** Rough pixel equivalents for the non-pixel wheel delta modes. */
+const LINE_PX = 16
+const PAGE_PX = 800
+
+/**
+ * Wheel deltas in comparable pixels.
+ *
+ * `deltaY` is only pixels when `deltaMode` is 0. A mouse wheel commonly
+ * reports lines (mode 1, ~3 per notch) and some browsers report pages
+ * (mode 2), so treating the raw number as pixels makes a wheel notch nearly
+ * imperceptible while a trackpad flick lurches.
+ *
+ * A trackpad pinch arrives as a wheel event with `ctrlKey` set and small
+ * deltas; it is amplified so pinching and scrolling zoom at a similar rate.
+ * The result is clamped because one frame's worth of input should never cross
+ * the whole zoom range.
+ */
+export function wheelPixels(
+  delta: number,
+  deltaMode: number,
+  ctrlKey = false,
+  pagePx = PAGE_PX
+): number {
+  const unit = deltaMode === 1 ? LINE_PX : deltaMode === 2 ? pagePx : 1
+  const px = delta * unit * (ctrlKey ? 4 : 1)
+  return Math.max(-240, Math.min(240, px))
+}
+
+/**
+ * Zoom about a point in viewport coordinates.
+ *
+ * Returns the new scale and the pan that keeps the image point currently under
+ * (cx, cy) under it afterwards, already settled so no gutter opens up. Pure, so
+ * a caller can apply both in one go rather than nesting one state update inside
+ * another — an impure updater gets double-invoked under React StrictMode and
+ * applies the zoom twice.
+ */
+export function zoomAbout(
+  pan: Pan,
+  scale: number,
+  factor: number,
+  cx: number,
+  cy: number,
+  imgW: number,
+  imgH: number,
+  viewW: number,
+  viewH: number,
+  min = 0.02,
+  max = 8
+): { scale: number; pan: Pan } {
+  const next = Math.max(min, Math.min(max, scale * factor))
+  if (next === scale) return { scale, pan }
+  const imgX = (cx - pan.x) / scale
+  const imgY = (cy - pan.y) / scale
+  return {
+    scale: next,
+    pan: clampPan({ x: cx - imgX * next, y: cy - imgY * next }, next, imgW, imgH, viewW, viewH),
+  }
+}

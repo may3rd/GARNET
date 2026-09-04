@@ -14,6 +14,8 @@ import {
   handlePoint,
   moveBox,
   resizeBox,
+  wheelPixels,
+  zoomAbout,
   type Box,
   type Handle,
 } from '@/lib/viewport'
@@ -215,19 +217,45 @@ export function DetectionResults() {
   }, [settle, scale])
   const visible = objects.filter((o) => !hidden.has(normalizeClass(o.Object)))
 
-  /** Zoom about a point in viewport coordinates, keeping it under the cursor. */
+  // Mirrors of the live view, so a zoom can read the current values without
+  // nesting one state updater inside another.
+  const panRef = useRef(pan)
+  panRef.current = pan
+  const scaleRef = useRef(scale)
+  scaleRef.current = scale
+
+  /**
+   * Zoom about a point in viewport coordinates, keeping it under the cursor.
+   *
+   * Both values are computed up front and set separately. The previous version
+   * called setZoom inside the setPan updater; updaters must be pure, and React
+   * double-invokes them under StrictMode, so the zoom was applied twice per
+   * event — which is what made trackpad zooming lurch.
+   */
   const zoomAt = useCallback(
     (factor: number, cx: number, cy: number) => {
-      setPan((prevPan) => {
-        const current = zoom ?? fitScale
-        const next = clamp(current * factor, ZOOM_RANGE.min, ZOOM_RANGE.max)
-        const imgX = (cx - prevPan.x) / current
-        const imgY = (cy - prevPan.y) / current
-        setZoom(next)
-        return settle({ x: cx - imgX * next, y: cy - imgY * next }, next)
-      })
+      const current = scaleRef.current
+      const result = zoomAbout(
+        panRef.current,
+        current,
+        factor,
+        cx,
+        cy,
+        imgW,
+        imgH,
+        viewport.w,
+        viewport.h,
+        ZOOM_RANGE.min,
+        ZOOM_RANGE.max
+      )
+      if (result.scale === current) return
+      // Update the mirrors immediately so several events in one frame compose.
+      scaleRef.current = result.scale
+      panRef.current = result.pan
+      setZoom(result.scale)
+      setPan(result.pan)
     },
-    [zoom, fitScale, settle]
+    [imgW, imgH, viewport.w, viewport.h]
   )
 
   // Wheel zoom needs a non-passive listener to be able to preventDefault, so
@@ -235,28 +263,63 @@ export function DetectionResults() {
   useEffect(() => {
     const el = viewportRef.current
     if (!el) return
+
+    // A trackpad fires wheel events far faster than the screen refreshes, and
+    // each one re-renders every box. Deltas are accumulated and applied once
+    // per frame instead.
+    let pending = 0
+    let originX = 0
+    let originY = 0
+    let frame = 0
+
+    const flush = () => {
+      frame = 0
+      const delta = pending
+      pending = 0
+      if (delta !== 0) zoomAt(Math.exp(-delta * 0.0015), originX, originY)
+    }
+
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
       const rect = el.getBoundingClientRect()
-      const factor = Math.exp(-e.deltaY * 0.0015)
-      zoomAt(factor, e.clientX - rect.left, e.clientY - rect.top)
+      originX = e.clientX - rect.left
+      originY = e.clientY - rect.top
+      // Clamp the accumulator too, not just each event: if the frame callback
+      // is throttled (a hidden tab, a busy main thread) the deltas would
+      // otherwise pile up and land as one lurch when it finally runs.
+      pending = clamp(pending + wheelPixels(e.deltaY, e.deltaMode, e.ctrlKey, rect.height), -240, 240)
+      if (!frame) frame = requestAnimationFrame(flush)
     }
+
     el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      if (frame) cancelAnimationFrame(frame)
+    }
   }, [zoomAt])
 
   const startPan = (e: React.MouseEvent) => {
     const origin = { px: pan.x, py: pan.y, mx: e.clientX, my: e.clientY }
-    const move = (ev: MouseEvent) =>
+    // Distinguish a click from a drag: only a click clears the selection, so
+    // panning the sheet never loses what you were looking at.
+    let dragged = false
+    const move = (ev: MouseEvent) => {
+      if (Math.abs(ev.clientX - origin.mx) > 3 || Math.abs(ev.clientY - origin.my) > 3) {
+        dragged = true
+      }
       setPan(
         settle(
           { x: origin.px + (ev.clientX - origin.mx), y: origin.py + (ev.clientY - origin.my) },
           scale
         )
       )
+    }
     const up = () => {
       window.removeEventListener('mousemove', move)
       window.removeEventListener('mouseup', up)
+      // Boxes and the toolbar stop propagation, so reaching here means empty
+      // canvas. Editing is left alone: clearing it would discard the edit.
+      if (!dragged && !editing) setSelectedIndex(null)
     }
     window.addEventListener('mousemove', move)
     window.addEventListener('mouseup', up)
@@ -445,6 +508,10 @@ export function DetectionResults() {
               background: 'var(--surface-tertiary)',
               borderRadius: 'var(--r-table)',
               cursor: 'grab',
+              // Dragging across the sheet would otherwise select the SVG label
+              // text and leave it highlighted.
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
             }}
             onMouseDown={startPan}
           >

@@ -1,5 +1,5 @@
 /** Runnable check: `bun run src/lib/viewport.test.ts` */
-import { clampPan, fitScale, HANDLES, handlePoint, moveBox, resizeBox, type Box } from './viewport'
+import { clampPan, fitScale, HANDLES, handlePoint, moveBox, resizeBox, wheelPixels, zoomAbout, type Box } from './viewport'
 
 let failures = 0
 function check(label: string, actual: unknown, expected: unknown) {
@@ -121,5 +121,83 @@ check('move preserves size', [moved.Width, moved.Height], [B.Width, B.Height])
 const fract = resizeBox({ Left: 10.4, Top: 10.6, Width: 50.5, Height: 50.5 }, 'se', 80.7, 90.2, SHEET.w, SHEET.h)
 check('coordinates are integers', Object.values(fract).every(Number.isInteger), true)
 
+/* --------------------------------------------------------------------------
+   Wheel normalisation
+   -------------------------------------------------------------------------- */
+
+// Pixel mode passes through.
+check('pixel mode is unchanged', wheelPixels(100, 0), 100)
+check('pixel mode keeps sign', wheelPixels(-100, 0), -100)
+// A wheel notch is ~3 lines; as raw pixels that would barely register.
+check('line mode scales up', wheelPixels(3, 1), 48)
+check('page mode uses the page height', wheelPixels(1, 2, false, 800), 240)
+// A trackpad pinch sends small ctrlKey deltas.
+check('pinch is amplified', wheelPixels(10, 0, true), 40)
+check('pinch and scroll stay comparable', wheelPixels(10, 0, true) > wheelPixels(10, 0), true)
+// One frame of input must never cross the whole zoom range.
+check('clamped high', wheelPixels(99999, 0), 240)
+check('clamped low', wheelPixels(-99999, 0), -240)
+check('clamped after line scaling', wheelPixels(1000, 1), 240)
+// A monotonic input must not change direction after normalising.
+;[1, 3, 10, 100].forEach((d) => {
+  check(`sign preserved for ${d}`, Math.sign(wheelPixels(d, 1)), 1)
+  check(`sign preserved for -${d}`, Math.sign(wheelPixels(-d, 1)), -1)
+})
+
+/* --------------------------------------------------------------------------
+   Zooming about a point
+   -------------------------------------------------------------------------- */
+
+const IMG = { w: 4000, h: 3000 }
+const VP = { w: 900, h: 700 }
+// Start zoomed in enough that both axes overflow, so clamping does not centre.
+const startScale = 1
+const startPan = { x: -1200, y: -900 }
+
+// The image point under the cursor must not move.
+;[
+  { cx: 100, cy: 100 },
+  { cx: 450, cy: 350 },
+  { cx: 880, cy: 690 },
+].forEach(({ cx, cy }) => {
+  ;[1.25, 1 / 1.25, 2, 0.5].forEach((f) => {
+    const r = zoomAbout(startPan, startScale, f, cx, cy, IMG.w, IMG.h, VP.w, VP.h)
+    const before = { x: (cx - startPan.x) / startScale, y: (cy - startPan.y) / startScale }
+    const after = { x: (cx - r.pan.x) / r.scale, y: (cy - r.pan.y) / r.scale }
+    // Only meaningful while clamping has not taken over the axis.
+    const clampedX = r.pan.x === 0 || Math.abs(r.pan.x + IMG.w * r.scale - VP.w) < 0.5
+    const clampedY = r.pan.y === 0 || Math.abs(r.pan.y + IMG.h * r.scale - VP.h) < 0.5
+    if (!clampedX) check(`x anchored at ${cx},${cy} x${f}`, Math.abs(before.x - after.x) < 0.5, true)
+    if (!clampedY) check(`y anchored at ${cx},${cy} x${f}`, Math.abs(before.y - after.y) < 0.5, true)
+  })
+})
+
+// The factor is applied exactly once — the bug was applying it twice.
+const once = zoomAbout(startPan, 1, 1.5, 450, 350, IMG.w, IMG.h, VP.w, VP.h)
+check('factor applied once', once.scale, 1.5)
+check('not applied twice', once.scale === 1.5 * 1.5, false)
+
+// Range is respected, and a no-op returns the input untouched.
+check('clamped to max', zoomAbout(startPan, 8, 4, 450, 350, IMG.w, IMG.h, VP.w, VP.h).scale, 8)
+check('clamped to min', zoomAbout(startPan, 0.02, 0.1, 450, 350, IMG.w, IMG.h, VP.w, VP.h).scale, 0.02)
+const noop = zoomAbout(startPan, 8, 2, 450, 350, IMG.w, IMG.h, VP.w, VP.h)
+check('no-op keeps the pan identical', noop.pan, startPan)
+
+// Zooming in then out by the same factor returns to where it started.
+const inThenOut = (() => {
+  const a = zoomAbout(startPan, 1, 1.25, 450, 350, IMG.w, IMG.h, VP.w, VP.h)
+  return zoomAbout(a.pan, a.scale, 1 / 1.25, 450, 350, IMG.w, IMG.h, VP.w, VP.h)
+})()
+check('round trip restores scale', Math.abs(inThenOut.scale - 1) < 1e-9, true)
+check('round trip restores pan', 
+  Math.abs(inThenOut.pan.x - startPan.x) < 0.5 && Math.abs(inThenOut.pan.y - startPan.y) < 0.5, true)
+
+// Whatever the zoom, the result never opens a gutter.
+;[0.05, 0.2, 1, 3, 8].forEach((sc) => {
+  const r = zoomAbout(startPan, sc, 1.3, 450, 350, IMG.w, IMG.h, VP.w, VP.h)
+  const settled = clampPan(r.pan, r.scale, IMG.w, IMG.h, VP.w, VP.h)
+  check(`no gutter at scale ${sc}`, r.pan, settled)
+})
+
 if (failures > 0) throw new Error(`${failures} viewport check(s) failed`)
-console.log('viewport (with box editing): all checks passed')
+console.log('viewport (box editing + wheel + zoom): all checks passed')
