@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Button } from '@heroui/react'
 import { ArrowLeft, ArrowRight, Check, ScanSearch, Workflow } from 'lucide-react'
 import {
@@ -147,6 +148,12 @@ export function TaskFork() {
   const sheets = useRunStore((s) => s.sheets)
   const setScreen = useRunStore((s) => s.setScreen)
   const startRun = useRunStore((s) => s.startRun)
+  const weightFiles = useRunStore((s) => s.weightFiles)
+  const loadWeightFiles = useRunStore((s) => s.loadWeightFiles)
+
+  useEffect(() => {
+    void loadWeightFiles()
+  }, [loadWeightFiles])
 
   const width = useWidth()
   const isPhone = width === 'phone'
@@ -247,7 +254,10 @@ export function TaskFork() {
             <SelectField
               label="Detection weights"
               value={config.weightFile}
-              options={[{ key: '', label: 'Server default' }]}
+              options={[
+                { key: '', label: 'Server default' },
+                ...weightFiles.map((w) => ({ key: w, label: w.replace(/^.*\//, '') })),
+              ]}
               flex={1.2}
               onChange={(weightFile) => setConfig({ weightFile })}
             />
