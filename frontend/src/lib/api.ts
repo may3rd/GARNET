@@ -184,6 +184,18 @@ export async function getPipelineStageStatus(jobId: string, signal?: AbortSignal
   return requestJson<PipelineStageStatusResponse>(`/api/pipeline/jobs/${jobId}/stage-status`, { signal }, PIPELINE_POLL_TIMEOUT)
 }
 
+export async function getPipelineArtifactJson<T>(
+  jobId: string,
+  artifactName: string,
+  signal?: AbortSignal
+): Promise<T> {
+  return requestJson<T>(
+    `/api/pipeline/jobs/${jobId}/artifacts/${artifactName}`,
+    { signal },
+    PIPELINE_POLL_TIMEOUT
+  )
+}
+
 export async function putPipelineArtifact<TPayload extends Record<string, unknown>>(
   jobId: string,
   artifactName: string,

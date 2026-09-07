@@ -232,3 +232,19 @@ export function wheelIntent(
     dy: wheelPixels(e.deltaY, e.deltaMode, false, viewH),
   }
 }
+
+/* ---------------------------------------------------------------------------
+   bbox <-> Box. The pipeline's stage4_objects.json stores corners
+   (x_min/y_min/x_max/y_max); Box (Left/Top/Width/Height) is what
+   resizeBox/moveBox/handlePoint operate on.
+   --------------------------------------------------------------------------- */
+
+export type Bbox = { x_min: number; y_min: number; x_max: number; y_max: number }
+
+export function boxFromBbox(b: Bbox): Box {
+  return { Left: b.x_min, Top: b.y_min, Width: b.x_max - b.x_min, Height: b.y_max - b.y_min }
+}
+
+export function bboxFromBox(b: Box): Bbox {
+  return { x_min: b.Left, y_min: b.Top, x_max: b.Left + b.Width, y_max: b.Top + b.Height }
+}

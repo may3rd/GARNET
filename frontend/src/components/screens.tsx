@@ -1,6 +1,7 @@
 import { Button } from '@heroui/react'
 import { ArrowRight, Download, FileWarning, Play } from 'lucide-react'
 import { Card, PageHeader, SectionHeader, Separator, Tag } from '@/components/ui/primitives'
+import { Gate1Objects } from '@/components/Gate1Objects'
 import { GATES, isRunComplete, type GateId } from '@/lib/gates'
 import type { Screen } from '@/lib/nav'
 import { useRunStore, type Sheet } from '@/stores/runStore'
@@ -202,6 +203,13 @@ export function ReviewQueue() {
     .map((sheet) => ({ sheet, gate: gateFor(sheet.id) }))
     .filter((x): x is { sheet: Sheet; gate: GateId } => x.gate !== null)
 
+  const focused = waiting.find((w) => w.sheet.id === selectedSheetId)
+  // Gate 1 is the only gate with a real review screen so far; the other
+  // three still fall through to the queue's rubber-stamp confirm.
+  if (focused && focused.gate === 1) {
+    return <Gate1Objects sheet={focused.sheet} onBack={() => selectSheet(null)} />
+  }
+
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto p-6">
       <PageHeader
@@ -265,7 +273,7 @@ export function ReviewQueue() {
                     style={{ height: 30, borderRadius: 'var(--r-btn)', fontSize: 13 }}
                     onPress={() => selectSheet(sheet.id)}
                   >
-                    Focus
+                    {gate === 1 ? 'Review objects' : 'Focus'}
                   </Button>
                   <Button
                     variant="primary"

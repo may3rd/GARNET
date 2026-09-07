@@ -1,5 +1,5 @@
 /** Runnable check: `bun run src/lib/viewport.test.ts` */
-import { clampPan, fitScale, HANDLES, handlePoint, moveBox, resizeBox, wheelIntent, wheelPixels, zoomAbout, type Box } from './viewport'
+import { bboxFromBox, boxFromBbox, clampPan, fitScale, HANDLES, handlePoint, moveBox, resizeBox, wheelIntent, wheelPixels, zoomAbout, type Box } from './viewport'
 
 let failures = 0
 function check(label: string, actual: unknown, expected: unknown) {
@@ -240,5 +240,19 @@ check('line mode zooms in pixels', wheel({ deltaY: 3, deltaMode: 1, metaKey: tru
 // sheet across the whole raster.
 check('pan is clamped', wheel({ deltaY: 99999 }), { kind: 'pan', dx: 0, dy: 240 })
 
+/* --------------------------------------------------------------------------
+   bbox <-> Box
+   -------------------------------------------------------------------------- */
+
+check('bbox to box', boxFromBbox({ x_min: 10, y_min: 20, x_max: 60, y_max: 50 }), {
+  Left: 10, Top: 20, Width: 50, Height: 30,
+})
+check('box to bbox', bboxFromBox({ Left: 10, Top: 20, Width: 50, Height: 30 }), {
+  x_min: 10, y_min: 20, x_max: 60, y_max: 50,
+})
+check('round trip', bboxFromBox(boxFromBbox({ x_min: 5, y_min: 5, x_max: 105, y_max: 55 })), {
+  x_min: 5, y_min: 5, x_max: 105, y_max: 55,
+})
+
 if (failures > 0) throw new Error(`${failures} viewport check(s) failed`)
-console.log('viewport (box editing + wheel + zoom + intent): all checks passed')
+console.log('viewport (box editing + wheel + zoom + intent + bbox): all checks passed')
