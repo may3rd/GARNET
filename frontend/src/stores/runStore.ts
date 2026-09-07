@@ -151,8 +151,8 @@ export const useRunStore = create<RunState>((set, get) => ({
   sheets: [],
   task: 'extraction',
   config: {
-    // Matches the design's staged-sheet default and api.ts's own default.
-    ocrRoute: 'ocrmac',
+    // Matches OCR_ROUTES' top entry in TaskFork.tsx and api.ts's own default.
+    ocrRoute: 'easyocr',
     weightFile: '',
     geminiPostprocessMatchThreshold: 0.1,
     debugArtifacts: false,

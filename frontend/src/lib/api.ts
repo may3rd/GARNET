@@ -138,7 +138,7 @@ export async function startPipelineJob(
 ): Promise<{ job_id: string }> {
   const payload = {
     stopAfter: 4,
-    ocrRoute: 'ocrmac' as OcrRoute,
+    ocrRoute: 'easyocr' as OcrRoute,
     geminiPostprocessMatchThreshold: 0.1,
     weightFile: '',
     debugArtifacts: false,

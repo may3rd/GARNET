@@ -16,8 +16,8 @@ import { useRunStore, type TaskKind } from '@/stores/runStore'
 import type { OcrRoute } from '@/types'
 
 const OCR_ROUTES: { key: OcrRoute; label: string }[] = [
-  { key: 'ocrmac', label: 'ocrmac — Apple Vision (default)' },
-  { key: 'easyocr', label: 'easyocr — local, CPU/GPU' },
+  { key: 'easyocr', label: 'easyocr — local, CPU/GPU (default)' },
+  { key: 'ocrmac', label: 'ocrmac — Apple Vision' },
   { key: 'paddleocr', label: 'paddleocr — detection only' },
   { key: 'gemini', label: 'gemini — via OpenRouter' },
 ]
