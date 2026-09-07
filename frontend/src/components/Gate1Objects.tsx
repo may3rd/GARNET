@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Spinner } from '@heroui/react'
-import { Check, Pencil, Play, Plus, Trash2, X } from 'lucide-react'
+import { Check, Minus, Pencil, Play, Plus, Trash2, X } from 'lucide-react'
 import { Card, SectionHeader, Tag } from '@/components/ui/primitives'
 import { classColor, normalizeClass } from '@/lib/detectionClasses'
 import { getPipelineArtifactJson, putPipelineArtifact } from '@/lib/api'
@@ -522,6 +522,43 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
               }}
               onMouseDown={(e) => e.stopPropagation()}
             >
+              <button
+                type="button"
+                aria-label="Zoom in"
+                title="Zoom in"
+                onClick={() => zoomAt(1.25, viewport.w / 2, viewport.h / 2)}
+                className="flex items-center justify-center"
+                style={{
+                  width: 26,
+                  height: 26,
+                  border: 0,
+                  background: 'transparent',
+                  borderRadius: 'var(--r-btn)',
+                  color: 'var(--foreground)',
+                  cursor: 'pointer',
+                }}
+              >
+                <Plus size={15} strokeWidth={1.8} />
+              </button>
+              <button
+                type="button"
+                aria-label="Zoom out"
+                title="Zoom out"
+                onClick={() => zoomAt(1 / 1.25, viewport.w / 2, viewport.h / 2)}
+                className="flex items-center justify-center"
+                style={{
+                  width: 26,
+                  height: 26,
+                  border: 0,
+                  background: 'transparent',
+                  borderRadius: 'var(--r-btn)',
+                  color: 'var(--foreground)',
+                  cursor: 'pointer',
+                }}
+              >
+                <Minus size={15} strokeWidth={1.8} />
+              </button>
+              <span style={{ width: 1, height: 20, background: 'var(--separator)', margin: '0 2px' }} />
               <span className="mono" style={{ padding: '0 8px', fontSize: 12, color: 'var(--muted)' }}>
                 {Math.round(scale * 100)}%
               </span>
