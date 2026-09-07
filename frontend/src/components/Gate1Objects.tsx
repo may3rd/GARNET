@@ -134,7 +134,12 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
     ro.observe(el)
     measure()
     return () => ro.disconnect()
-  }, [])
+    // The canvas (and viewportRef) doesn't exist until the artifact finishes
+    // loading — it's behind the `if (!objects) return <Spinner>` below — so
+    // this must re-run once that flips, or el stays null forever and
+    // viewport.w/h stay 0, which anchors +/- zoom at the top-left corner
+    // instead of the canvas centre.
+  }, [objects !== null])
 
   const fitScale = computeFit(imgW, imgH, viewport.w, viewport.h)
   const scale = zoom ?? fitScale
