@@ -3,7 +3,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from garnet.review_state import empty_review_state, load_review_state, save_review_state
+from garnet.review_state import (
+    build_stage4_line_numbers_from_review_state,
+    empty_review_state,
+    load_review_state,
+    save_review_state,
+)
 
 
 class ReviewStateTests(unittest.TestCase):
@@ -62,6 +67,32 @@ class ReviewStateTests(unittest.TestCase):
                         "workspace_objects": {},
                     },
                 )
+
+    def test_build_stage4_line_numbers_returns_none_when_no_hitl_review_done(self) -> None:
+        # empty_review_state() always pre-populates "stage4_line_number" as [],
+        # even when no reviewer ever touched it. stage6_trace_associations
+        # must not treat that as "reviewer rejected everything" and overwrite
+        # the real stage4_line_number_fusion output with an empty payload.
+        with tempfile.TemporaryDirectory() as tmp:
+            result = build_stage4_line_numbers_from_review_state(tmp, {"image_path": "sample.png"})
+            self.assertIsNone(result)
+
+    def test_build_stage4_line_numbers_returns_payload_when_reviewed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = {"image_path": "sample.png"}
+            save_review_state(
+                tmp,
+                {
+                    "items": [],
+                    "workspace_objects": {
+                        "stage4_line_number": [{"Text": "L-100", "review_state": "accepted"}],
+                    },
+                },
+                manifest,
+            )
+            result = build_stage4_line_numbers_from_review_state(tmp, manifest)
+            self.assertIsNotNone(result)
+            self.assertEqual(len(result["line_numbers"]), 1)
 
 
 if __name__ == "__main__":

@@ -144,7 +144,12 @@ def build_stage4_line_numbers_from_review_state(
         return None
 
     reviewed_items = workspace_objects.get("stage4_line_number")
-    if not isinstance(reviewed_items, list):
+    if not isinstance(reviewed_items, list) or not reviewed_items:
+        # An empty list means review_state was never used for line numbers on
+        # this job (empty_review_state() always pre-populates the key), not
+        # that a human reviewed it down to zero. Returning a payload here
+        # would make stage6_trace_associations overwrite the real
+        # stage4_line_number_fusion output with nothing on every run.
         return None
 
     image_path = "" if manifest is None else str(manifest.get("image_path") or "")

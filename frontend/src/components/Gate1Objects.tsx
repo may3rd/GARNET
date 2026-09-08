@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button, Spinner } from '@heroui/react'
 import { Check, Minus, Pencil, Play, Plus, Trash2, X } from 'lucide-react'
 import { Card, SectionHeader, Tag } from '@/components/ui/primitives'
@@ -21,16 +21,75 @@ import {
 } from '@/lib/viewport'
 import { useRunStore, type Sheet } from '@/stores/runStore'
 
-/** The real shape of stage4_objects.json — verified against a live job. */
-type Stage4Object = {
+/**
+ * One row from stage4_objects.json / stage4_instrument_tags.json /
+ * stage4_line_numbers.json. The three artifacts share id+bbox but otherwise
+ * diverge (class_name vs. text) — kept loose with a passthrough index so a
+ * save round-trips every field the backend wrote, not just the ones this
+ * editor knows about.
+ */
+type Stage4Item = {
   id: string
-  class_name: string
-  confidence: number
   bbox: Bbox
-  source_model?: string
-  source_weight?: string
+  class_name?: string
+  text?: string
+  confidence?: number
+  fused_confidence?: number
+  [key: string]: unknown
 }
-type Stage4Artifact = { image_id?: string; pass_type?: string; objects: Stage4Object[] }
+
+type BucketKey = 'equipment' | 'instrument' | 'line_number'
+
+type RawArtifact = Record<string, unknown>
+
+const BUCKETS: Record<BucketKey, { artifact: string; itemsKey: string; label: string; hasClass: boolean }> = {
+  equipment: { artifact: 'stage4_objects.json', itemsKey: 'objects', label: 'Equipment', hasClass: true },
+  instrument: { artifact: 'stage4_instrument_tags.json', itemsKey: 'instrument_tags', label: 'Instrument', hasClass: false },
+  line_number: { artifact: 'stage4_line_numbers.json', itemsKey: 'line_numbers', label: 'Line number', hasClass: false },
+}
+const BUCKET_ORDER: BucketKey[] = ['equipment', 'instrument', 'line_number']
+
+/** Fixed pseudo-class so instrument/line-number boxes get a stable, on-brand colour from classColor's NAMED table. */
+const BUCKET_COLOR_CLASS: Record<BucketKey, string> = {
+  equipment: '',
+  instrument: 'instrument tag',
+  line_number: 'line number',
+}
+
+/**
+ * The Equipment tab is scoped to major process equipment — not every
+ * stage4_objects.json detection (valves, instrument-tag markers, arrows,
+ * nodes, etc. stay out of view here; instrument tags get their own tab and
+ * the rest aren't reviewed through Gate 1 at all). Mirrors frontend_old's
+ * stage3_equipment class vocabulary, since the detector doesn't have its own
+ * "equipment" class — these are hand-classified from the same fallback list.
+ */
+const EQUIPMENT_CLASSES = new Set([
+  'blower',
+  'column',
+  'compressor',
+  'fan',
+  'heat exchanger',
+  'mixer',
+  'pump',
+  'tank',
+  'vessel',
+])
+const isEquipmentClass = (className: string | undefined) => EQUIPMENT_CLASSES.has(normalizeClass(className ?? ''))
+
+/**
+ * A box a reviewer drew and classified stays visible on the Equipment tab
+ * even if they typed a class outside the preset vocabulary — otherwise
+ * saving/editing a manually-added box makes it silently vanish from both the
+ * canvas and the sidebar (it's still written to stage4_objects.json, so
+ * "disappeared" reads as "wasn't saved" even though it was).
+ */
+const keepOnEquipmentTab = (o: Stage4Item) => isEquipmentClass(o.class_name) || o.source_model === 'hitl'
+
+const itemsOf = (raw: RawArtifact | null, bucket: BucketKey): Stage4Item[] =>
+  (raw?.[BUCKETS[bucket].itemsKey] as Stage4Item[] | undefined) ?? []
+
+const itemConfidence = (item: Stage4Item): number => item.confidence ?? item.fused_confidence ?? 1
 
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n))
 
@@ -59,23 +118,33 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 /**
- * Gate 1 — the real object/equipment review. Reads and writes
- * stage4_objects.json directly (the same plain artifact PUT the old
- * frontend used), rather than the heavier ports/layers review-workspace
- * system, which is a different, broader tool.
+ * Gate 1 — the real stage 4 review, in its three parts: equipment/object
+ * boxes, instrument tags, and line numbers. All three are stage4_* fusion
+ * outputs that park at the same `stop_after` boundary (see gates.ts), so one
+ * gate reviews all three rather than only the object boxes.
  */
 export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => void }) {
   const resumeGate = useRunStore((s) => s.resumeGate)
+  const setScreen = useRunStore((s) => s.setScreen)
 
-  const [objects, setObjects] = useState<Stage4Object[] | null>(null)
+  const [bucket, setBucket] = useState<BucketKey>('equipment')
+  const [raw, setRaw] = useState<Record<BucketKey, RawArtifact | null>>({
+    equipment: null,
+    instrument: null,
+    line_number: null,
+  })
+  const [dirty, setDirty] = useState<Record<BucketKey, boolean>>({
+    equipment: false,
+    instrument: false,
+    line_number: false,
+  })
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [confirming, setConfirming] = useState(false)
-  const [dirty, setDirty] = useState(false)
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [draft, setDraft] = useState<Stage4Object | null>(null)
+  const [draft, setDraft] = useState<Stage4Item | null>(null)
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [drawing, setDrawing] = useState(false)
@@ -86,26 +155,45 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
   const viewportRef = useRef<HTMLDivElement>(null)
   const [viewport, setViewport] = useState({ w: 0, h: 0 })
 
+  // Floating dialog position, as an offset from its default top-right corner.
+  const [dialogOffset, setDialogOffset] = useState({ x: 0, y: 0 })
+  useEffect(() => {
+    setDialogOffset({ x: 0, y: 0 })
+  }, [selectedId])
+
   const jobId = sheet.jobId
   const imgW = sheet.size?.width ?? 0
   const imgH = sheet.size?.height ?? 0
+  const bucketConfig = BUCKETS[bucket]
+  const loaded = raw.equipment !== null && raw.instrument !== null && raw.line_number !== null
 
   useEffect(() => {
     if (!jobId) return
     let cancelled = false
-    getPipelineArtifactJson<Stage4Artifact>(jobId, 'stage4_objects.json')
-      .then((data) => {
-        if (!cancelled) setObjects(data.objects)
+    Promise.all(
+      BUCKET_ORDER.map((key) => getPipelineArtifactJson<RawArtifact>(jobId, BUCKETS[key].artifact))
+    )
+      .then(([equipment, instrument, lineNumber]) => {
+        if (!cancelled) setRaw({ equipment, instrument, line_number: lineNumber })
       })
       .catch((err) => {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Could not load objects')
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Could not load stage 4 artifacts')
       })
     return () => {
       cancelled = true
     }
   }, [jobId])
 
-  const selected = objects?.find((o) => o.id === selectedId) ?? null
+  const items = itemsOf(raw[bucket], bucket)
+  const setItems = (updater: (current: Stage4Item[]) => Stage4Item[]) => {
+    setRaw((current) => ({
+      ...current,
+      [bucket]: { ...current[bucket], [bucketConfig.itemsKey]: updater(itemsOf(current[bucket], bucket)) },
+    }))
+    setDirty((current) => ({ ...current, [bucket]: true }))
+  }
+
+  const selected = items.find((o) => o.id === selectedId) ?? null
   // A plain click always lands on the read-only view; a freshly-drawn box
   // is the one exception, since it still needs classifying.
   const openInEditMode = useRef(false)
@@ -115,16 +203,23 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
     openInEditMode.current = false
     setConfirmDelete(false)
   }, [selectedId, selected?.id])
-  const [lastDraft, setLastDraft] = useState<Stage4Object | null>(null)
+  const [lastDraft, setLastDraft] = useState<Stage4Item | null>(null)
   useEffect(() => {
     if (draft) setLastDraft(draft)
   }, [draft])
   const shown = draft ?? lastDraft
 
-  const classes = useMemo(() => {
-    const names = new Set((objects ?? []).map((o) => normalizeClass(o.class_name)))
-    return [...names].sort()
-  }, [objects])
+  const switchBucket = (next: BucketKey) => {
+    setBucket(next)
+    setSelectedId(null)
+    setDrawing(false)
+    setDrawRect(null)
+  }
+
+  // Static equipment vocabulary, not the classes actually present — a
+  // reviewer needs to classify a vessel the detector never found, so the
+  // datalist can't be derived from what's already in the file.
+  const classes = bucketConfig.hasClass ? [...EQUIPMENT_CLASSES].sort() : []
 
   useEffect(() => {
     const el = viewportRef.current
@@ -134,12 +229,12 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
     ro.observe(el)
     measure()
     return () => ro.disconnect()
-    // The canvas (and viewportRef) doesn't exist until the artifact finishes
-    // loading — it's behind the `if (!objects) return <Spinner>` below — so
+    // The canvas (and viewportRef) doesn't exist until the artifacts finish
+    // loading — it's behind the `if (!loaded) return <Spinner>` below — so
     // this must re-run once that flips, or el stays null forever and
     // viewport.w/h stay 0, which anchors +/- zoom at the top-left corner
     // instead of the canvas centre.
-  }, [objects !== null])
+  }, [loaded])
 
   const fitScale = computeFit(imgW, imgH, viewport.w, viewport.h)
   const scale = zoom ?? fitScale
@@ -181,6 +276,20 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
       setPan(result.pan)
     },
     [imgW, imgH, viewport.w, viewport.h]
+  )
+
+  /** Pan so a box is centred in the view, without changing zoom — same as the Detection preview's sidebar-select behaviour. */
+  const focusOn = useCallback(
+    (o: Stage4Item) => {
+      const box = boxFromBbox(o.bbox)
+      const cx = box.Left + box.Width / 2
+      const cy = box.Top + box.Height / 2
+      const current = scaleRef.current
+      const next = settle({ x: viewport.w / 2 - cx * current, y: viewport.h / 2 - cy * current }, current)
+      panRef.current = next
+      setPan(next)
+    },
+    [settle, viewport.w, viewport.h]
   )
 
   useEffect(() => {
@@ -282,6 +391,20 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
     window.addEventListener('mouseup', up)
   }
 
+  const startDialogDrag = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const origin = { x: dialogOffset.x, y: dialogOffset.y, mx: e.clientX, my: e.clientY }
+    const move = (ev: MouseEvent) => {
+      setDialogOffset({ x: origin.x + (ev.clientX - origin.mx), y: origin.y + (ev.clientY - origin.my) })
+    }
+    const up = () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+  }
+
   const startDrawBox = (e: React.MouseEvent) => {
     setDrawing(false)
     const el = viewportRef.current
@@ -307,15 +430,20 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
       setDrawRect(null)
       if (box.Width >= 6 && box.Height >= 6) {
         const id = `manual_${Date.now().toString(36)}`
-        const created: Stage4Object = {
-          id,
-          class_name: classes[0] ?? 'object',
-          confidence: 1,
-          bbox: bboxFromBox(box),
-          source_model: 'hitl',
-        }
-        setObjects((prev) => [...(prev ?? []), created])
-        setDirty(true)
+        const created: Stage4Item = bucketConfig.hasClass
+          ? { id, class_name: classes[0] ?? 'object', confidence: 1, bbox: bboxFromBox(box), source_model: 'hitl' }
+          : {
+              id,
+              text: '',
+              normalized_text: '',
+              source_object_id: id,
+              semantic_class: bucket === 'instrument' ? 'instrument_semantic' : 'line_number',
+              fused_confidence: 1,
+              ocr_confirmed: false,
+              source: 'hitl',
+              bbox: bboxFromBox(box),
+            }
+        setItems((prev) => [...prev, created])
         openInEditMode.current = true
         setSelectedId(id)
       }
@@ -335,30 +463,34 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
 
   const applyEdit = () => {
     if (!draft) return
-    setObjects((prev) => (prev ?? []).map((o) => (o.id === draft.id ? draft : o)))
-    setDirty(true)
+    setItems((prev) => prev.map((o) => (o.id === draft.id ? draft : o)))
     setEditing(false)
   }
 
   const doDelete = () => {
     if (!shown) return
-    setObjects((prev) => (prev ?? []).filter((o) => o.id !== shown.id))
-    setDirty(true)
+    setItems((prev) => prev.filter((o) => o.id !== shown.id))
     setConfirmDelete(false)
     setSelectedId(null)
   }
 
+  const saveBucket = async (key: BucketKey): Promise<boolean> => {
+    if (!jobId || !raw[key]) return false
+    try {
+      await putPipelineArtifact(jobId, BUCKETS[key].artifact, raw[key] as Record<string, unknown>)
+      setDirty((current) => ({ ...current, [key]: false }))
+      return true
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : `Could not save ${BUCKETS[key].label.toLowerCase()}`)
+      return false
+    }
+  }
+
   const save = async (): Promise<boolean> => {
-    if (!jobId || !objects) return false
     setSaving(true)
     setSaveError(null)
     try {
-      await putPipelineArtifact(jobId, 'stage4_objects.json', { objects })
-      setDirty(false)
-      return true
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Could not save objects')
-      return false
+      return await saveBucket(bucket)
     } finally {
       setSaving(false)
     }
@@ -366,10 +498,13 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
 
   const saveAndConfirm = async () => {
     setConfirming(true)
+    setSaveError(null)
     try {
-      if (dirty && !(await save())) return
+      for (const key of BUCKET_ORDER) {
+        if (dirty[key] && !(await saveBucket(key))) return
+      }
       await resumeGate(sheet.id, 1)
-      onBack()
+      setScreen('run')
     } finally {
       setConfirming(false)
     }
@@ -381,27 +516,75 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
     return (
       <div className="p-6">
         <Card padding={20}>
-          <SectionHeader title="Could not load stage 4 objects" description={loadError} />
+          <SectionHeader title="Could not load stage 4 artifacts" description={loadError} />
         </Card>
       </div>
     )
   }
 
-  if (!objects) {
+  if (!loaded) {
     return (
       <div className="flex h-full items-center justify-center gap-2">
         <Spinner size="sm" />
-        <span style={{ fontSize: 13, color: 'var(--muted)' }}>Loading objects…</span>
+        <span style={{ fontSize: 13, color: 'var(--muted)' }}>Loading stage 4 artifacts…</span>
       </div>
     )
   }
 
-  const visible = objects
+  const visible = bucket === 'equipment' ? items.filter(keepOnEquipmentTab) : items
+  // Equipment groups by class_name (several groups); instrument/line_number
+  // are already single-class artifacts, so everything lands in one group —
+  // same list UI either way, just with or without multiple headers.
+  const groups = Object.entries(
+    visible.reduce<Record<string, Stage4Item[]>>((acc, o) => {
+      const key = bucketConfig.hasClass ? normalizeClass(o.class_name ?? '') : BUCKET_COLOR_CLASS[bucket]
+      ;(acc[key] ??= []).push(o)
+      return acc
+    }, {})
+  ).sort(([a], [b]) => a.localeCompare(b))
+  const countLabel =
+    bucket === 'equipment' ? `${visible.length} of ${items.length} objects` : `${items.length} ${bucketConfig.label.toLowerCase()}`
+  const anyDirty = BUCKET_ORDER.some((key) => dirty[key])
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 flex flex-wrap gap-2" style={{ padding: '16px 24px 0' }}>
+        {BUCKET_ORDER.map((key) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => switchBucket(key)}
+            className="inline-flex items-center gap-1.5"
+            style={{
+              height: 30,
+              padding: '0 12px',
+              borderRadius: 999,
+              border: 0,
+              fontSize: 12.5,
+              fontWeight: 500,
+              cursor: 'pointer',
+              background: bucket === key ? 'var(--accent-soft)' : 'var(--surface-secondary)',
+              color: bucket === key ? 'var(--accent-soft-fg)' : 'var(--muted)',
+            }}
+          >
+            {BUCKETS[key].label}
+            <span className="mono" style={{ fontSize: 11, opacity: 0.75 }}>
+              {key === 'equipment'
+                ? itemsOf(raw[key], key).filter(keepOnEquipmentTab).length
+                : itemsOf(raw[key], key).length}
+            </span>
+            {dirty[key] && (
+              <span
+                aria-label="Unsaved changes"
+                style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--warning)' }}
+              />
+            )}
+          </button>
+        ))}
+      </div>
+
       <div className="flex min-h-0 flex-1 gap-4" style={{ padding: '16px 24px' }}>
-        <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="relative flex min-w-0 flex-[1.3] flex-col overflow-hidden">
           <div
             ref={viewportRef}
             className="relative min-h-0 flex-1 overflow-hidden"
@@ -439,8 +622,15 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
                   {visible.map((o) => {
                     const isSel = o.id === selectedId
                     const box = isSel && editing && draft ? boxFromBbox(draft.bbox) : boxFromBbox(o.bbox)
-                    const muted = editing && !isSel
-                    const color = muted ? 'var(--muted)' : classColor(o.class_name)
+                    // Greyed out whenever something else is selected, regardless of
+                    // edit mode — but only actively blocked from clicks while
+                    // editing, so a plain selection still lets the reviewer click
+                    // straight to a different box.
+                    const muted = Boolean(selectedId) && !isSel
+                    const blockInteraction = editing && !isSel
+                    const color = muted
+                      ? 'var(--muted)'
+                      : classColor(bucketConfig.hasClass ? o.class_name ?? '' : BUCKET_COLOR_CLASS[bucket])
                     return (
                       <g key={o.id} onMouseDown={(e) => e.stopPropagation()} opacity={muted ? 0.3 : 1}>
                         <rect
@@ -452,8 +642,8 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
                           stroke="transparent"
                           strokeWidth={12 / scale}
                           style={{
-                            cursor: muted ? 'default' : isSel && editing ? 'move' : 'pointer',
-                            pointerEvents: muted ? 'none' : undefined,
+                            cursor: blockInteraction ? 'default' : isSel && editing ? 'move' : 'pointer',
+                            pointerEvents: blockInteraction ? 'none' : undefined,
                           }}
                           onClick={() => !editing && setSelectedId(o.id)}
                           onMouseDown={(e) => {
@@ -466,7 +656,7 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
                           y={box.Top}
                           width={box.Width}
                           height={box.Height}
-                          fill={isSel ? `${muted ? 'transparent' : classColor(o.class_name)}22` : 'transparent'}
+                          fill={isSel ? `${muted ? 'transparent' : color}22` : 'transparent'}
                           stroke={color}
                           strokeWidth={(isSel ? 3 : 1.6) / scale}
                           strokeDasharray={isSel && editing ? `${6 / scale} ${4 / scale}` : undefined}
@@ -590,7 +780,9 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
             </div>
           </div>
 
-          {/* Selected object — floating dialog, matching the Detection pattern */}
+          {/* Selected item — floating dialog, matching the Detection pattern.
+              Position (drag offset) and the open/close animation live on
+              separate layers, so dragging isn't fighting the CSS transition. */}
           <div
             aria-hidden={!draft}
             style={{
@@ -601,11 +793,9 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
               maxWidth: 'calc(100% - 24px)',
               maxHeight: 'calc(100% - 24px)',
               overflowY: 'auto',
-              opacity: draft ? 1 : 0,
-              transform: draft ? 'scale(1)' : 'scale(0.96)',
-              transition: 'opacity .16s ease, transform .16s ease',
               visibility: shown ? 'visible' : 'hidden',
               pointerEvents: draft ? 'auto' : 'none',
+              transform: `translate(${dialogOffset.x}px, ${dialogOffset.y}px)`,
             }}
           >
             <div
@@ -615,23 +805,35 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
                 padding: 16,
                 boxShadow:
                   'inset 0 0 0 1px var(--border), 0 1px 2px rgba(0,0,0,.24), 0 14px 32px rgba(0,0,0,.38)',
+                opacity: draft ? 1 : 0,
+                transform: draft ? 'scale(1)' : 'scale(0.96)',
+                transition: 'opacity .16s ease, transform .16s ease',
               }}
             >
               {shown && (
                 <>
-                  <div className="mb-3 flex items-center gap-2.5">
-                    <span style={{ fontSize: 14, fontWeight: 500 }}>Selected object</span>
+                  <div
+                    className="mb-3 flex items-center gap-2.5"
+                    style={{ cursor: 'move' }}
+                    onMouseDown={startDialogDrag}
+                  >
+                    <span style={{ fontSize: 14, fontWeight: 500 }}>Selected {bucketConfig.label.toLowerCase()}</span>
                     <span
                       className="shrink-0"
-                      style={{ width: 12, height: 12, borderRadius: 4, background: classColor(shown.class_name) }}
+                      style={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: 4,
+                        background: classColor(bucketConfig.hasClass ? shown.class_name ?? '' : BUCKET_COLOR_CLASS[bucket]),
+                      }}
                     />
-                    <Tag tone={shown.confidence >= 0.8 ? 'success' : 'warning'}>
-                      {shown.confidence.toFixed(2)}
+                    <Tag tone={itemConfidence(shown) >= 0.8 ? 'success' : 'warning'}>
+                      {itemConfidence(shown).toFixed(2)}
                     </Tag>
                     <div className="flex-1" />
                     <button
                       type="button"
-                      aria-label="Close selected object"
+                      aria-label="Close selected item"
                       onClick={() => setSelectedId(null)}
                       className="flex items-center justify-center"
                       style={{
@@ -651,8 +853,8 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
                   {confirmDelete ? (
                     <div className="flex flex-col gap-3">
                       <span style={{ fontSize: 13, lineHeight: '19px' }}>
-                        Delete this <strong>{shown.class_name}</strong>? This is undone by re-opening the
-                        gate without saving.
+                        Delete this <strong>{bucketConfig.hasClass ? shown.text || shown.class_name : shown.text || '(blank)'}</strong>? This is
+                        undone by re-opening the gate without saving.
                       </span>
                       <div className="flex items-center justify-end gap-2">
                         <Button variant="ghost" style={{ height: 32, borderRadius: 'var(--r-btn)' }} onPress={() => setConfirmDelete(false)}>
@@ -670,19 +872,29 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
                     </div>
                   ) : editing ? (
                     <div className="flex flex-col gap-2.5">
-                      <Field label="Class">
+                      {bucketConfig.hasClass && (
+                        <Field label="Class">
+                          <input
+                            list="gate1-classes"
+                            value={shown.class_name ?? ''}
+                            onChange={(e) => setDraft({ ...shown, class_name: e.target.value })}
+                            style={FIELD}
+                            aria-label="Class"
+                          />
+                          <datalist id="gate1-classes">
+                            {classes.map((c) => (
+                              <option key={c} value={c} />
+                            ))}
+                          </datalist>
+                        </Field>
+                      )}
+                      <Field label={bucketConfig.hasClass ? 'Label (name or tag number)' : 'Text'}>
                         <input
-                          list="gate1-classes"
-                          value={shown.class_name}
-                          onChange={(e) => setDraft({ ...shown, class_name: e.target.value })}
+                          value={shown.text ?? ''}
+                          onChange={(e) => setDraft({ ...shown, text: e.target.value, normalized_text: e.target.value })}
                           style={FIELD}
-                          aria-label="Class"
+                          aria-label={bucketConfig.hasClass ? 'Label' : 'Text'}
                         />
-                        <datalist id="gate1-classes">
-                          {classes.map((c) => (
-                            <option key={c} value={c} />
-                          ))}
-                        </datalist>
                       </Field>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
                         {(['x_min', 'y_min', 'x_max', 'y_max'] as const).map((k) => (
@@ -719,9 +931,19 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
                   ) : (
                     <div className="flex flex-col gap-2.5">
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px 12px' }}>
+                        {bucketConfig.hasClass && (
+                          <div className="flex flex-col gap-0.5">
+                            <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--muted)' }}>Class</span>
+                            <span style={{ fontSize: 14, fontWeight: 500 }}>{shown.class_name}</span>
+                          </div>
+                        )}
                         <div className="flex flex-col gap-0.5">
-                          <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--muted)' }}>Class</span>
-                          <span style={{ fontSize: 14, fontWeight: 500 }}>{shown.class_name}</span>
+                          <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--muted)' }}>
+                            {bucketConfig.hasClass ? 'Label' : 'Text'}
+                          </span>
+                          <span className="mono" style={{ fontSize: 14, fontWeight: 500 }}>
+                            {shown.text || '(blank)'}
+                          </span>
                         </div>
                         <div className="flex flex-col gap-0.5">
                           <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--muted)' }}>Bounding box</span>
@@ -752,6 +974,78 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
             </div>
           </div>
         </div>
+
+        <div className="flex min-h-0 flex-col gap-2.5 shrink-0" style={{ width: 240 }}>
+          <Card className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden" padding={16}>
+            <SectionHeader
+              title={bucketConfig.label}
+              description={countLabel}
+              actions={bucketConfig.hasClass ? <Tag tone="neutral">{groups.length}</Tag> : undefined}
+            />
+            <Button
+              variant={drawing ? 'secondary' : 'primary'}
+              isDisabled={editing}
+              aria-pressed={drawing}
+              style={{ height: 30, borderRadius: 'var(--r-btn)', fontSize: 12.5 }}
+              onPress={() => setDrawing((d) => !d)}
+            >
+              {drawing ? <X size={14} strokeWidth={2} /> : <Plus size={14} strokeWidth={2.2} />}
+              {drawing ? 'Cancel' : 'Box'}
+            </Button>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {visible.length === 0 && (
+                <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+                  No {bucketConfig.label.toLowerCase()} yet — draw a box on the canvas.
+                </div>
+              )}
+              {groups.map(([className, groupItems]) => (
+                <div key={className} className="shrink-0" style={{ marginBottom: 10 }}>
+                  {bucketConfig.hasClass && (
+                    <div className="flex items-center gap-1.5" style={{ padding: '4px 2px' }}>
+                      <span className="shrink-0" style={{ width: 10, height: 10, borderRadius: 3, background: classColor(className) }} />
+                      <span className="min-w-0 flex-1 truncate" style={{ fontSize: 12.5, fontWeight: 500 }}>
+                        {className}
+                      </span>
+                      <span className="mono shrink-0" style={{ fontSize: 11, color: 'var(--muted)' }}>
+                        {groupItems.length}
+                      </span>
+                    </div>
+                  )}
+                  {groupItems.map((o) => {
+                    const isSel = o.id === selectedId
+                    return (
+                      <button
+                        key={o.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedId(o.id)
+                          focusOn(o)
+                        }}
+                        className="flex w-full items-center gap-2 text-left"
+                        style={{
+                          padding: '6px 8px',
+                          marginLeft: bucketConfig.hasClass ? 16 : 0,
+                          border: 0,
+                          borderRadius: 'var(--r-chip)',
+                          cursor: 'pointer',
+                          background: isSel ? 'var(--accent-soft)' : 'transparent',
+                          color: isSel ? 'var(--accent-soft-fg)' : 'var(--foreground)',
+                        }}
+                      >
+                        <span className="mono min-w-0 flex-1 truncate" style={{ fontSize: 12 }}>
+                          {o.text || (o.normalized_text as string | undefined) || o.id}
+                        </span>
+                        <span className="mono shrink-0" style={{ fontSize: 11, color: 'var(--muted)' }}>
+                          {itemConfidence(o).toFixed(2)}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
       </div>
 
       {/* Footer */}
@@ -760,13 +1054,14 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
         style={{ height: 56, padding: '0 24px', borderTop: '1px solid var(--separator)' }}
       >
         <span className="mono" style={{ fontSize: 13, color: 'var(--muted)' }}>
-          {objects.length} objects{dirty ? ' · unsaved' : ''}
+          {countLabel}
+          {dirty[bucket] ? ' · unsaved' : ''}
         </span>
         <Button
           variant="ghost"
           isIconOnly
           aria-pressed={drawing}
-          aria-label={drawing ? 'Cancel drawing (Esc)' : 'Add an object the detector missed'}
+          aria-label={drawing ? 'Cancel drawing (Esc)' : `Add a missed ${bucketConfig.label.toLowerCase()}`}
           isDisabled={editing}
           style={{
             width: 28,
@@ -786,7 +1081,7 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
         </Button>
         <Button
           variant="secondary"
-          isDisabled={!dirty || saving}
+          isDisabled={!dirty[bucket] || saving}
           style={{ height: 32, borderRadius: 'var(--r-btn)' }}
           onPress={() => void save()}
         >
@@ -799,7 +1094,7 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
           onPress={() => void saveAndConfirm()}
         >
           {confirming ? <Spinner size="sm" /> : <Play size={14} strokeWidth={1.6} />}
-          Save &amp; continue
+          {anyDirty ? 'Save & continue' : 'Continue'}
         </Button>
       </div>
     </div>

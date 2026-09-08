@@ -43,7 +43,7 @@ from sahi.predict import get_sliced_prediction
 import garnet.Settings as Settings
 from garnet.model_defaults import list_weight_files as discover_weight_files
 from garnet.model_defaults import pick_default_weight_file
-from garnet.pid_extractor import PIDPipeline, PipelineConfig
+from garnet.pid_extractor import EQUIPMENT_LABELS, PIDPipeline, PipelineConfig
 from garnet.review_state import build_stage4_line_numbers_from_review_state, load_review_state, save_review_state
 from garnet.review_workspace import (
     load_review_workspace,
@@ -402,6 +402,7 @@ ARTIFACT_INVALIDATION_START_STAGE: dict[str, str] = {
     "stage3_equipment_bboxes.json": "stage5b_pipe_trace",
     "stage4_objects.json": "stage4_line_number_fusion",
     "stage4_line_numbers.json": "stage6_trace_associations",
+    "stage4_instrument_tags.json": "stage6_trace_associations",
     "stage6_line_number_review.json": "stage7_geometric_graph_assembly",
     "stage8_review_decisions.json": "stage9_apply_review_decisions",
 }
@@ -1160,10 +1161,45 @@ def _safe_pipeline_artifact_path(job_dir: str, artifact_name: str) -> str:
     return artifact_path
 
 
+def _derive_stage3_equipment_bboxes(job_dir: str, objects: list[Any]) -> None:
+    """Bridge Gate 1's equipment-class boxes (in stage4_objects.json) into
+    stage3_equipment_bboxes.json — the artifact stage5b's equipment-port
+    detection (_load_equipment_bboxes_for_stage5b) actually reads. The
+    current pipeline has no Stage 3, so without this the equipment-port
+    branch of _compute_connection_ports never has anything to work with and
+    no traces are ever seeded from equipment. Id fallback mirrors
+    frontend_old's equipmentObjectsToStage3Artifact (tag text, else equip_NNN)."""
+    equipment = []
+    for index, obj in enumerate(objects):
+        if not isinstance(obj, dict):
+            continue
+        class_name = str(obj.get("class_name") or "").strip()
+        if class_name.lower() not in EQUIPMENT_LABELS:
+            continue
+        bbox = obj.get("bbox")
+        if not isinstance(bbox, dict):
+            continue
+        tag = str(obj.get("text") or obj.get("normalized_text") or "").strip()
+        equipment.append(
+            {
+                "id": tag or f"equip_{index + 1:03d}",
+                "class_name": class_name,
+                "bbox": bbox,
+                "source": "hitl",
+                "review_state": "accepted",
+            }
+        )
+    artifact_path = os.path.join(job_dir, "stage3_equipment_bboxes.json")
+    with open(artifact_path, "w", encoding="utf-8") as f:
+        json.dump({"equipment": equipment}, f, indent=2)
+
+
 def _refresh_stage4_reviewed_object_artifacts(job_dir: str, payload: dict[str, Any]) -> None:
     objects = payload.get("objects", [])
     if not isinstance(objects, list):
         return
+
+    _derive_stage3_equipment_bboxes(job_dir, objects)
 
     manifest = _pipeline_job_manifest(job_dir) or {}
     image_path = str(manifest.get("image_path") or "")
@@ -1964,7 +2000,10 @@ async def get_pipeline_artifact(job_id: str, artifact_name: str):
     artifact_path = _safe_pipeline_artifact_path(job_dir, artifact_name)
     if not os.path.exists(artifact_path):
         raise HTTPException(status_code=404, detail="Artifact not found")
-    return FileResponse(artifact_path)
+    # Artifacts are mutated in place (HITL PUTs, stage re-runs after a resume) —
+    # without this, a browser can serve a stale cached copy of an artifact URL
+    # it already fetched, even after the file on disk has genuinely changed.
+    return FileResponse(artifact_path, headers={"Cache-Control": "no-store"})
 
 
 @app.post("/api/detect")
