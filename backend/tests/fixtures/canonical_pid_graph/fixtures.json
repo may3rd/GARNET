@@ -1,0 +1,35 @@
+{
+  "schema_version": "canonical_pid_graph_fixture_v1",
+  "fixtures": [
+    {
+      "id": "parallel_bypass",
+      "drawing": {"drawing_id": "P-101", "revision": "B", "content_sha256": "sha256:p101-b", "pixel_dimensions": {"width": 1000, "height": 700}, "coordinate_system": "image_pixel_origin_top_left"},
+      "segments": [
+        {"id": "seg-main", "source": "port:pump-out", "target": "port:vessel-in", "polyline": [{"x": 100, "y": 300}, {"x": 900, "y": 300}], "state": "observed"},
+        {"id": "seg-bypass", "source": "port:pump-out", "target": "port:vessel-in", "polyline": [{"x": 100, "y": 300}, {"x": 300, "y": 220}, {"x": 700, "y": 220}, {"x": 900, "y": 300}], "state": "observed"}
+      ],
+      "line": {"id": "line:P-101:10-P-100-A", "number": "10-P-100-A", "occurrences": ["ocr:1", "ocr:2"]},
+      "direction": {"state": "unknown", "evidence": []}
+    },
+    {
+      "id": "crossing_and_tee",
+      "drawing": {"drawing_id": "P-102", "revision": null, "content_sha256": "sha256:p102", "pixel_dimensions": {"width": 800, "height": 600}, "coordinate_system": "image_pixel_origin_top_left"},
+      "segments": [
+        {"id": "seg-cross-h", "source": "terminal:a", "target": "terminal:b", "polyline": [{"x": 100, "y": 200}, {"x": 700, "y": 200}], "state": "unresolved"},
+        {"id": "seg-cross-v", "source": "terminal:c", "target": "terminal:d", "polyline": [{"x": 400, "y": 50}, {"x": 400, "y": 350}], "state": "unresolved"},
+        {"id": "seg-tee-main", "source": "terminal:e", "target": "junction:tee-1", "polyline": [{"x": 100, "y": 500}, {"x": 400, "y": 500}], "state": "observed"},
+        {"id": "seg-tee-branch", "source": "junction:tee-1", "target": "terminal:f", "polyline": [{"x": 400, "y": 500}, {"x": 400, "y": 350}], "state": "observed"},
+        {"id": "seg-tee-through", "source": "junction:tee-1", "target": "terminal:g", "polyline": [{"x": 400, "y": 500}, {"x": 700, "y": 500}], "state": "observed"}
+      ],
+      "junctions": [{"id": "junction:tee-1", "marker": "node", "incident_segments": ["seg-tee-main", "seg-tee-branch", "seg-tee-through"]}],
+      "direction": {"state": "conflicting", "evidence": ["arrow:up", "arrow:right"]}
+    },
+    {
+      "id": "repeated_labels_multisheet",
+      "drawings": ["P-101", "P-102"],
+      "lines": [{"id": "line:P-101:10-P-100-A", "number": "10-P-100-A", "occurrences": ["ocr:p101:1", "ocr:p101:2"]}, {"id": "line:P-102:10-P-100-A", "number": "10-P-100-A", "occurrences": ["ocr:p102:1"]}],
+      "connector": {"state": "unresolved", "left": "connector:P-101:1", "right": "connector:P-102:1", "match_candidates": ["10-P-100-A"]},
+      "direction": {"state": "unknown", "evidence": []}
+    }
+  ]
+}

@@ -318,6 +318,38 @@ class GraphExportAdapterTests(unittest.TestCase):
         self.assertEqual(connector["target_sheet_reference"], "")
         self.assertEqual(connector["direction"], "bidirectional")
 
+    def test_reviewed_connector_key_uses_corrected_line_label(self) -> None:
+        payload = build_graph_v1_payload(
+            stage12_graph={
+                "nodes": [{"id": "connection::obj_9", "type": "page connection"}],
+                "edges": [{
+                    "id": "edge_1", "source": "connection::obj_9", "target": "node_1",
+                    "line_number_review_state": "human_reviewed",
+                    "effective_line_numbers": [{"id": "line_new", "normalized_text": "NEW-LINE"}],
+                    "effective_line_number_ids": ["line_new"],
+                }],
+            },
+            page_connector_labels_payload={"connectors": [{"object_id": "obj_9", "connector_key": "OLD-LINE", "page_reference": {"reference_type": "sheet", "reference_value": "P-101"}}]},
+        )
+        connector = payload["edges"][0]["off_page_connector"]
+        self.assertEqual(connector["connector_key"], "NEW-LINE")
+        self.assertEqual(connector["target_sheet_reference"], "P-101")
+
+    def test_reviewed_connector_without_line_text_clears_stale_key(self) -> None:
+        payload = build_graph_v1_payload(
+            stage12_graph={
+                "nodes": [{"id": "connection::obj_9", "type": "page connection"}],
+                "edges": [{
+                    "id": "edge_1", "source": "connection::obj_9", "target": "node_1",
+                    "line_number_review_state": "human_reviewed",
+                    "effective_line_numbers": [{"id": "line_new"}],
+                    "effective_line_number_ids": ["line_new"],
+                }],
+            },
+            page_connector_labels_payload={"connectors": [{"object_id": "obj_9", "connector_key": "OLD-LINE", "page_reference": {"reference_type": "sheet", "reference_value": "P-101"}}]},
+        )
+        self.assertEqual(payload["edges"][0]["off_page_connector"]["connector_key"], "")
+
 
 if __name__ == "__main__":
     unittest.main()

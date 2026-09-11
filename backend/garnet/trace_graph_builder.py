@@ -659,6 +659,32 @@ def _merge_attachments(primary: dict[str, Any], duplicate: dict[str, Any]) -> di
         for item in items:
             item_id = str(item.get("id") or item.get("source_object_id") or item) if isinstance(item, dict) else str(item)
             if item_id in seen_ids:
+                if isinstance(item, dict):
+                    existing_index = next(
+                        (index for index, existing in enumerate(existing_items)
+                         if isinstance(existing, dict)
+                         and str(existing.get("id") or existing.get("source_object_id") or existing) == item_id),
+                        None,
+                    )
+                    if existing_index is not None:
+                        existing = existing_items[existing_index]
+                        rank = {"rejected": 5, "accepted": 4, "human_reviewed": 4, "reviewed": 3, "inferred": 2, "unresolved": 1, "provisional": 1}
+                        if rank.get(str(item.get("review_state") or ""), 0) > rank.get(str(existing.get("review_state") or ""), 0):
+                            replacement = deepcopy(item)
+                            provenance = existing.get("provenance")
+                            if provenance is not None and provenance != replacement.get("provenance"):
+                                replacement["merged_provenance"] = [provenance]
+                            merged_provenance = []
+                            for provenance in [existing.get("provenance"), *(existing.get("merged_provenance") or [])]:
+                                if provenance is not None and not any(provenance == prior for prior in merged_provenance):
+                                    merged_provenance.append(deepcopy(provenance))
+                            if merged_provenance:
+                                replacement["merged_provenance"] = merged_provenance
+                            existing_items[existing_index] = replacement
+                        elif existing.get("provenance") is not None and existing.get("provenance") != item.get("provenance"):
+                            merged_provenance = existing.setdefault("merged_provenance", [])
+                            if not any(item.get("provenance") == prior for prior in merged_provenance):
+                                merged_provenance.append(deepcopy(item.get("provenance")))
                 continue
             existing_items.append(deepcopy(item))
             seen_ids.add(item_id)
@@ -689,10 +715,82 @@ def _endpoints_match(
     return same, reversed_match
 
 
+def _point_to_polyline_distance(point: dict[str, float], polyline: list[dict[str, float]]) -> float:
+    """Return the distance from a point to the closest polyline segment."""
+    if not polyline:
+        return float("inf")
+    if len(polyline) == 1:
+        return _distance(point, polyline[0])
+    best = float("inf")
+    px, py = float(point["x"]), float(point["y"])
+    for start, end in zip(polyline, polyline[1:]):
+        ax, ay = float(start["x"]), float(start["y"])
+        bx, by = float(end["x"]), float(end["y"])
+        dx, dy = bx - ax, by - ay
+        length_sq = dx * dx + dy * dy
+        if length_sq <= 0:
+            best = min(best, math.hypot(px - ax, py - ay))
+            continue
+        offset = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / length_sq))
+        best = min(best, math.hypot(px - (ax + offset * dx), py - (ay + offset * dy)))
+    return best
+
+
+def _routes_match(
+    a_polyline: list[dict[str, float]],
+    b_polyline: list[dict[str, float]],
+    tolerance_px: float,
+    *,
+    endpoint_tolerance_px: float | None = None,
+) -> tuple[bool, bool]:
+    """Match complete routes, returning (same orientation, reversed orientation).
+
+    Endpoint agreement alone incorrectly merges bypasses and loops. Checking
+    every observed vertex against the other route in both directions keeps
+    duplicate collapse limited to coincident physical geometry.
+    """
+    same, reversed_match = _endpoints_match(
+        a_polyline,
+        b_polyline,
+        endpoint_tolerance_px if endpoint_tolerance_px is not None else tolerance_px,
+    )
+    if not (same or reversed_match):
+        return False, False
+
+    def samples(route: list[dict[str, float]]) -> list[dict[str, float]]:
+        sampled: list[dict[str, float]] = []
+        for start, end in zip(route, route[1:]):
+            sampled.append(start)
+            sampled.append({
+                "x": (float(start["x"]) + float(end["x"])) / 2.0,
+                "y": (float(start["y"]) + float(end["y"])) / 2.0,
+            })
+        if route:
+            sampled.append(route[-1])
+        return sampled
+
+    def close(route: list[dict[str, float]], reference: list[dict[str, float]]) -> bool:
+        return bool(route) and max(_point_to_polyline_distance(point, reference) for point in samples(route)) <= tolerance_px
+
+    # A route with a materially different length is generally a bypass even
+    # when its endpoints and sparse vertices happen to be close.
+    a_length = _polyline_length(a_polyline)
+    b_length = _polyline_length(b_polyline)
+    if abs(a_length - b_length) > max(2.0 * tolerance_px, 0.05 * max(a_length, b_length)):
+        return False, False
+
+    if same and close(a_polyline, b_polyline) and close(b_polyline, a_polyline):
+        return True, False
+    if reversed_match and close(a_polyline, list(reversed(b_polyline))) and close(list(reversed(b_polyline)), a_polyline):
+        return False, True
+    return False, False
+
+
 def _collapse_duplicate_trace_edges(
     edges: list[dict[str, Any]],
     *,
     endpoint_tolerance_px: float = 8.0,
+    route_tolerance_px: float = 1.0,
 ) -> dict[str, Any]:
     collapsed: list[dict[str, Any]] = []
     events: list[dict[str, Any]] = []
@@ -704,7 +802,12 @@ def _collapse_duplicate_trace_edges(
         matched = False
         for existing in collapsed:
             existing_polyline = _dict_polyline(existing.get("polyline"))
-            same, reversed_match = _endpoints_match(existing_polyline, polyline, endpoint_tolerance_px)
+            same, reversed_match = _routes_match(
+                existing_polyline,
+                polyline,
+                route_tolerance_px,
+                endpoint_tolerance_px=endpoint_tolerance_px,
+            )
             if not (same or reversed_match):
                 continue
             existing_line_ids = set(_line_number_ids(existing))
@@ -851,6 +954,50 @@ def _split_trace_edge(
         else:
             child.pop("_terminal_node_override", None)
         children.append(child)
+
+    # Deep-copying attachments to every part makes a label or instrument look
+    # directly observed on each segment. Keep coordinate-bearing evidence on
+    # the geometrically nearest part; evidence without a location stays on the
+    # first part and can be propagated later as inferred line identity.
+    original_attachments = deepcopy(edge.get("attachments") or {})
+    for child in children:
+        child["attachments"] = {}
+    for group, items in original_attachments.items():
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            point = None
+            if isinstance(item, dict):
+                for key in ("projected_xy", "port_xy", "terminal_xy", "hit_xy"):
+                    point = _point_from_xy(item.get(key))
+                    if point is not None:
+                        break
+                if point is None:
+                    bbox = item.get("bbox")
+                    if isinstance(bbox, dict):
+                        try:
+                            point = {"x": (float(bbox["x_min"]) + float(bbox["x_max"])) / 2.0,
+                                     "y": (float(bbox["y_min"]) + float(bbox["y_max"])) / 2.0}
+                        except (KeyError, TypeError, ValueError):
+                            point = None
+            if point is None:
+                child_index = 0
+            else:
+                distances = [
+                    _point_to_polyline_distance(point, _dict_polyline(child.get("polyline")))
+                    for child in children
+                ]
+                child_index = min(range(len(children)), key=lambda index: distances[index])
+                tied = [index for index, distance in enumerate(distances) if abs(distance - distances[child_index]) <= 1e-6]
+                if len(tied) > 1:
+                    evidence = deepcopy(item)
+                    evidence["source_attachment_group"] = group
+                    evidence["ambiguity"] = "shared_split_endpoint"
+                    # Keep one explicit junction-evidence record; attaching it
+                    # to every child would duplicate the physical observation.
+                    children[tied[0]].setdefault("attachments", {}).setdefault("junction_evidence", []).append(evidence)
+                    continue
+            children[child_index].setdefault("attachments", {}).setdefault(group, []).append(deepcopy(item))
     return children
 
 
@@ -859,6 +1006,7 @@ def normalize_stage11_trace_edges(
     *,
     split_tolerance_px: float = 10.0,
     merge_tolerance_px: float = 12.0,
+    route_equivalence_tolerance_px: float = 1.0,
 ) -> dict[str, Any]:
     """Split Stage 6 traces at geometric branch/tee junctions before graph assembly."""
     _ = merge_tolerance_px
@@ -925,13 +1073,33 @@ def normalize_stage11_trace_edges(
         if len(children) > 1:
             split_edge_count += 1
         normalized_edges.extend(children)
+    split_attachment_review_items: list[dict[str, Any]] = []
+    seen_split_attachment_reviews: set[tuple[str, str]] = set()
+    for edge in normalized_edges:
+        for evidence in (edge.get("attachments") or {}).get("junction_evidence", []) or []:
+            if isinstance(evidence, dict) and evidence.get("ambiguity") == "shared_split_endpoint":
+                review_key = (str(evidence.get("source_attachment_group") or ""), str(evidence.get("id") or ""))
+                if review_key in seen_split_attachment_reviews:
+                    continue
+                seen_split_attachment_reviews.add(review_key)
+                split_attachment_review_items.append(
+                    _make_review_item(
+                        "attachment_at_split_junction",
+                        str(edge.get("trace_id") or "trace"),
+                        "review",
+                        "Attachment falls exactly at a shared split endpoint and needs junction review.",
+                        attachment_id=evidence.get("id"),
+                        source_attachment_group=evidence.get("source_attachment_group"),
+                    )
+                )
     collapse_result = _collapse_duplicate_trace_edges(
         normalized_edges,
         endpoint_tolerance_px=min(8.0, merge_tolerance_px),
+        route_tolerance_px=min(route_equivalence_tolerance_px, merge_tolerance_px),
     )
     normalized_edges = collapse_result["trace_edges"]
     duplicate_events = collapse_result["events"]
-    duplicate_review_items = collapse_result["review_items"]
+    duplicate_review_items = split_attachment_review_items + collapse_result["review_items"]
     events.extend(duplicate_events)
 
     return {
@@ -983,6 +1151,7 @@ def build_trace_graph_from_stage11(
     *,
     image_id: str | None = None,
     node_merge_tolerances: dict[str, float] | None = None,
+    route_equivalence_tolerance_px: float = 1.0,
 ) -> dict[str, Any]:
     """Build an inspectable Stage 7 graph from Stage 6 traced paths.
 
@@ -1000,7 +1169,10 @@ def build_trace_graph_from_stage11(
     trace_edge_nodes: list[dict[str, Any]] = []
     review_queue: list[dict[str, Any]] = []
     excluded_edges: list[dict[str, Any]] = []
-    normalization = normalize_stage11_trace_edges(payload.get("trace_edges", []) or [])
+    normalization = normalize_stage11_trace_edges(
+        payload.get("trace_edges", []) or [],
+        route_equivalence_tolerance_px=route_equivalence_tolerance_px,
+    )
 
     for raw_edge in normalization["trace_edges"]:
         if not isinstance(raw_edge, dict):

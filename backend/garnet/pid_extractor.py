@@ -13,8 +13,8 @@ Current executable pipeline:
   Heavy per-trace and per-branch diagnostic images are saved only when
   debug_artifacts is enabled.
 - Stage 6: associate traced paths with ports, inline objects, line numbers,
-  instruments, flow arrows, and terminals. Missing line numbers are currently
-  filled by a deterministic simulated-HITL placeholder.
+  instruments, flow arrows, and terminals. Missing line numbers remain
+  unresolved evidence for review.
 - Stage 7: assemble and normalize the geometric trace graph, label page
   connectors, run graph QA, and export the v1 graph payload.
 - Stage 8: build the graph/line-number HITL review package.
@@ -224,6 +224,7 @@ class PipelineConfig:
     detection_postprocess_match_threshold: float = 0.1
     line_number_fusion_max_distance_px: float = 80.0
     instrument_tag_fusion_max_distance_px: float = 60.0
+    graph_duplicate_route_tolerance_px: float = 1.0
     debug_artifacts: bool = False
     pipe_mask_ocr_padding: int = 1
     pipe_mask_object_inset: int = 1
@@ -361,6 +362,34 @@ class PIDPipeline(Stage5bPipelineMixin):
             "git_revision": _git_revision(),
         }
 
+    def _changed_review_input_stages(
+        self, manifest: Dict[str, Any], current_signature: Dict[str, Any]
+    ) -> set[str]:
+        current = {}
+        for name in ("stage6_line_number_review.json", "stage8_review_decisions.json"):
+            path = self.out_dir / name
+            current[name] = _sha256_file(path) if path.is_file() else None
+        entries = {
+            str(item.get("name")): item
+            for item in manifest.get("stages", [])
+            if isinstance(item, dict) and item.get("name")
+        }
+        changed: set[str] = set()
+        stage_order = {name: index for index, (_num, name, _fn) in enumerate(self._stage_definitions())}
+        stage7_fp = entries.get("stage7_geometric_graph_assembly", {}).get("input_fingerprints", {})
+        if entries.get("stage7_geometric_graph_assembly", {}).get("status") == "completed" and (
+            "stage6_line_number_review.json" not in stage7_fp
+            or stage7_fp.get("stage6_line_number_review.json") != current.get("stage6_line_number_review.json")
+        ):
+            changed.update(name for name, index in stage_order.items() if index >= stage_order["stage7_geometric_graph_assembly"])
+        stage9_fp = entries.get("stage9_apply_review_decisions", {}).get("input_fingerprints", {})
+        if entries.get("stage9_apply_review_decisions", {}).get("status") == "completed" and (
+            "stage8_review_decisions.json" not in stage9_fp
+            or stage9_fp.get("stage8_review_decisions.json") != current.get("stage8_review_decisions.json")
+        ):
+            changed.update(name for name, index in stage_order.items() if index >= stage_order["stage7b_graph_export"])
+        return changed
+
     def _validate_resume_manifest(
         self,
         manifest: Dict[str, Any],
@@ -466,6 +495,12 @@ class PIDPipeline(Stage5bPipelineMixin):
         entry["ended_at"] = time.time()
         entry["duration_sec"] = round(entry["ended_at"] - started_at, 6)
         entry["artifacts"] = list(self._current_stage_artifacts)
+        if stage_name == "stage7_geometric_graph_assembly":
+            review_path = self.out_dir / "stage6_line_number_review.json"
+            entry["input_fingerprints"] = {"stage6_line_number_review.json": _sha256_file(review_path) if review_path.is_file() else None}
+        elif stage_name == "stage9_apply_review_decisions":
+            review_path = self.out_dir / "stage8_review_decisions.json"
+            entry["input_fingerprints"] = {"stage8_review_decisions.json": _sha256_file(review_path) if review_path.is_file() else None}
         self._write_stage_manifest()
         self._notify_stage_callback({"event": "stage_completed", "stage": entry.copy(), "manifest": self.stage_manifest})
 
@@ -510,6 +545,40 @@ class PIDPipeline(Stage5bPipelineMixin):
                 raise ValueError(
                     f"Cannot resume from manifest for different output directory: {manifest_out_dir} != {self.out_dir}"
                 )
+            if manifest.get("manifest_version") == 2 and isinstance(manifest.get("run_signature"), dict):
+                compared_fields = ("input", "config", "detection_weight", "document_id")
+                signature_mismatches = _signature_mismatches(
+                    {field: manifest.get("run_signature", {}).get(field) for field in compared_fields},
+                    {field: current_signature.get(field) for field in compared_fields},
+                )
+                if signature_mismatches:
+                    raise ValueError(f"Cannot resume: run signature mismatch: {', '.join(signature_mismatches)}")
+            changed_review_stages = self._changed_review_input_stages(manifest, current_signature)
+            if changed_review_stages:
+                stale_at = time.time()
+                for entry in manifest.get("stages", []):
+                    if isinstance(entry, dict) and entry.get("name") in changed_review_stages:
+                        entry["status"] = "stale"
+                        entry["stale_reason"] = "review_input_updated"
+                        entry["stale_at"] = stale_at
+                        for artifact in entry.get("artifacts", []) or []:
+                            if isinstance(artifact, str):
+                                artifact_path = self.out_dir / artifact
+                                if Path(artifact).name == artifact and artifact not in {".", ".."} and not artifact_path.is_symlink() and artifact_path.is_file():
+                                    artifact_path.unlink()
+                self.stage_manifest = manifest
+                self._write_stage_manifest()
+            # A failed review application may leave already-written exports in
+            # the manifest. They are safe to repair on resume because Stage 9
+            # is the explicit producer of the corrected revision.
+            stage_entries = {str(item.get("name")): item for item in manifest.get("stages", []) if isinstance(item, dict)}
+            if stage_entries.get("stage9_apply_review_decisions", {}).get("status") == "failed":
+                for name in ("stage10_process_exports", "stage11_connection_overlay"):
+                    if stage_entries.get(name, {}).get("status") == "completed":
+                        stage_entries[name]["status"] = "stale"
+                        stage_entries[name]["stale_reason"] = "stage9_failed"
+                self.stage_manifest = manifest
+                self._write_stage_manifest()
             completed_stage_names = self._validate_resume_manifest(manifest, current_signature, stages)
             self.stage_manifest = manifest
             self.stage_manifest["image_path"] = self.image_path
@@ -999,7 +1068,11 @@ class PIDPipeline(Stage5bPipelineMixin):
             stage6_payload,
             self._load_json_artifact_or_default("stage6_line_number_review", {}),
         )
-        trace_graph_result = build_trace_graph_from_stage6(stage6_payload, image_id=image_id)
+        trace_graph_result = build_trace_graph_from_stage6(
+            stage6_payload,
+            image_id=image_id,
+            route_equivalence_tolerance_px=self.cfg.graph_duplicate_route_tolerance_px,
+        )
         self._save_json("stage7_graph", trace_graph_result["graph_payload"])
         self._save_json("stage7_graph_summary", trace_graph_result["summary"])
         self._save_json("stage7_trace_edge_nodes", trace_graph_result["trace_edge_nodes_payload"])
@@ -1081,6 +1154,7 @@ class PIDPipeline(Stage5bPipelineMixin):
             page_connector_labels_payload=page_connector_labels_payload,
             image_dimensions=normalization_summary.get("dimensions", {}),
         )
+        graph_v1_payload["source_graph_artifact"] = "stage7_graph.json"
         self._save_json("stage7b_graph_v1", graph_v1_payload)
 
     # ---------- Stage 8 + 9 ----------
@@ -1133,6 +1207,25 @@ class PIDPipeline(Stage5bPipelineMixin):
             decisions_payload=self._load_json_artifact_or_default_compat("stage8_review_decisions", "stage13_review_decisions", {"decisions": []}),
         )
         self._save_json("stage9_corrected_graph", result["corrected_graph_payload"])
+        # Rebuild the public graph export from the corrected graph revision so
+        # API consumers and multi-sheet merge never read the pre-review graph.
+        from garnet.graph_export_adapter import build_graph_v1_payload
+
+        corrected_graph_v1 = build_graph_v1_payload(
+            stage12_graph=result["corrected_graph_payload"],
+            objects_payload=self._load_json_artifact("stage4_objects"),
+            line_numbers_payload=self._load_json_artifact("stage4_line_numbers"),
+            instrument_tags_payload=self._load_json_artifact("stage4_instrument_tags"),
+            page_connector_labels_payload=self._load_json_artifact_or_default_compat(
+                "stage7_page_connector_labels",
+                "stage12_page_connector_labels",
+                {"connectors": []},
+            ),
+            image_dimensions=self._load_json_artifact("stage1_normalization_summary").get("dimensions", {}),
+        )
+        corrected_graph_v1["source_graph_artifact"] = "stage9_corrected_graph.json"
+        corrected_graph_v1["correction_summary"] = result["summary"]
+        self._save_json("stage7b_graph_v1", corrected_graph_v1)
         self._save_json("stage9_review_resolutions", result["review_resolution_payload"])
         self._save_json("stage9_correction_audit", result["correction_audit_payload"])
         self._save_json("stage9_correction_summary", result["summary"])
@@ -1181,11 +1274,15 @@ class PIDPipeline(Stage5bPipelineMixin):
         """Render the final current-graph overlay."""
         from garnet.trace_graph_builder import render_stage12_graph_overlay
 
+        final_graph = self._load_json_artifact_or_default(
+            "stage9_corrected_graph",
+            self._load_json_artifact("stage7_graph"),
+        )
         self._save_img(
             "stage11_connection_pipeline_overlay",
             render_stage12_graph_overlay(
                 self._ensure_image_loaded(),
-                self._load_json_artifact("stage7_graph"),
+                final_graph,
             ),
         )
 

@@ -1242,6 +1242,77 @@ class PipelineApiTests(unittest.TestCase):
             self.assertIn("stage5_pipe_mask_overlay.png", artifact_names)
             self.assertIn("stage5_pipe_mask_summary.json", artifact_names)
 
+    def test_review_decision_update_invalidates_shared_graph_and_parent_system(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            job_dir = root / "job"
+            system_dir = root / "system-test"
+            job_dir.mkdir()
+            system_dir.mkdir()
+            (job_dir / "stage_manifest.json").write_text(json.dumps({"stages": [
+                {"name": "stage7b_graph_export", "status": "completed", "artifacts": ["stage7b_graph_v1.json"]},
+                {"name": "stage8_graph_qa", "status": "completed", "artifacts": ["stage8_review_items.json"]},
+                {"name": "stage9_apply_review_decisions", "status": "completed", "artifacts": ["stage9_corrected_graph.json"]},
+            ]}))
+            (job_dir / "stage7b_graph_v1.json").write_text("{}")
+            system_id = "system-test"
+            (system_dir / "system_manifest.json").write_text(json.dumps({
+                "manifest_version": 1,
+                "system_id": system_id,
+                "status": "completed",
+                "pages": [],
+                "merge": {"status": "completed", "graph_artifact": "system_graph_v2.json"},
+            }))
+            (system_dir / "system_graph_v2.json").write_text("{}")
+            job_id = "job-review-invalidation"
+            job = {"job_id": job_id, "job_dir": str(job_dir), "system_id": system_id, "status": "completed"}
+            with patch("api.PIPELINE_SYSTEMS_DIR", str(root)), patch.dict("api.PIPELINE_JOBS", {job_id: job}, clear=False):
+                response = client.put(
+                    f"/api/pipeline/jobs/{job_id}/artifacts/stage8_review_decisions.json",
+                    json={"decisions": []},
+                )
+            self.assertEqual(response.status_code, 200, response.text)
+            manifest = json.loads((job_dir / "stage_manifest.json").read_text())
+            statuses = {item["name"]: item["status"] for item in manifest["stages"]}
+            self.assertEqual(statuses["stage7b_graph_export"], "stale")
+            self.assertFalse((job_dir / "stage7b_graph_v1.json").exists())
+            system_manifest = json.loads((system_dir / "system_manifest.json").read_text())
+            self.assertEqual(system_manifest["merge"]["status"], "stale")
+            self.assertFalse((system_dir / "system_graph_v2.json").exists())
+
+    def test_stale_stage9_withheld_graph_serialization_artifact_and_merge(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp:
+            job_dir = Path(tmp)
+            (job_dir / "stage_manifest.json").write_text(json.dumps({"stages": [
+                {"name": "stage9_apply_review_decisions", "status": "stale"},
+            ]}))
+            (job_dir / "stage7b_graph_v1.json").write_text(json.dumps({"schema_version": "graph_v1"}))
+            job_id = "job-stale-graph"
+            job = {"job_id": job_id, "job_dir": str(job_dir), "status": "completed"}
+            with patch.dict("api.PIPELINE_JOBS", {job_id: job}, clear=False):
+                serialized = client.get(f"/api/pipeline/jobs/{job_id}")
+                artifact = client.get(f"/api/pipeline/jobs/{job_id}/artifacts/stage7b_graph_v1.json")
+                merged = client.post("/api/pipeline/merge", json={"job_ids": [job_id]})
+            self.assertEqual(serialized.status_code, 200)
+            self.assertNotIn("graph_v1", serialized.json())
+            self.assertEqual(artifact.status_code, 409)
+            self.assertEqual(merged.status_code, 409)
+
+    def test_completed_or_unreviewed_graph_remains_readable(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp:
+            job_dir = Path(tmp)
+            (job_dir / "stage_manifest.json").write_text(json.dumps({"stages": []}))
+            (job_dir / "stage7b_graph_v1.json").write_text(json.dumps({"source_graph_artifact": "stage7_graph.json"}))
+            job_id = "job-draft-graph"
+            job = {"job_id": job_id, "job_dir": str(job_dir), "status": "completed"}
+            with patch.dict("api.PIPELINE_JOBS", {job_id: job}, clear=False):
+                draft = client.get(f"/api/pipeline/jobs/{job_id}")
+            self.assertEqual(draft.status_code, 200)
+            self.assertEqual(draft.json()["graph_v1"]["source_graph_artifact"], "stage7_graph.json")
+
 
 
 if __name__ == "__main__":

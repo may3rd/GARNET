@@ -775,11 +775,11 @@ def build_trace_associations(
         for branch_id, branch in branch_payload.get("branches", {}).items()
         if branch.get("status") != "traced"
     ]
-    simulated_line_number_assignments = simulate_line_number_hitl_for_missing_traces(
-        edges,
-        associations["line_numbers"]["accepted"],
-    )
-    associations["line_numbers"]["accepted"].extend(simulated_line_number_assignments)
+    # Missing line numbers are unresolved evidence.  The former deterministic
+    # HITL stand-in assigned an arbitrary accepted label to connector traces,
+    # which could silently corrupt cross-sheet line identity.  Keep the helper
+    # available for legacy experiments, but never invoke it in production.
+    simulated_line_number_assignments: list[dict[str, Any]] = []
     traces_without_line_number = [
         edge["trace_id"]
         for edge in edges

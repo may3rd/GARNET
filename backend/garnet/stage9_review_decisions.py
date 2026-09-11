@@ -59,6 +59,21 @@ def _edges_by_id(graph_payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
     }
 
 
+def _line_record_catalog(graph_payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    catalog: dict[str, dict[str, Any]] = {}
+    for edge in graph_payload.get("edges", []) or []:
+        if not isinstance(edge, dict):
+            continue
+        records = (edge.get("line_numbers") or []) + (edge.get("effective_line_numbers") or [])
+        for record in records:
+            if not isinstance(record, dict):
+                continue
+            key = str(record.get("id") or record.get("source_object_id") or "")
+            if key:
+                catalog.setdefault(key, copy.deepcopy(record))
+    return catalog
+
+
 def _apply_set_line_number(
     *,
     corrected_graph_payload: dict[str, Any],
@@ -69,6 +84,7 @@ def _apply_set_line_number(
     line_number_id = str(decision.get("line_number_id") or "")
     edge_ids = [str(edge_id) for edge_id in decision.get("edge_ids", []) or [] if str(edge_id)]
     edges = _edges_by_id(corrected_graph_payload)
+    line_catalog = _line_record_catalog(corrected_graph_payload)
     affected_edge_ids: list[str] = []
     warnings: list[dict[str, Any]] = []
 
@@ -94,13 +110,90 @@ def _apply_set_line_number(
                 }
             )
             continue
+        # Keep the effective id, direct records, and effective records in
+        # lockstep.  Stage 10 and graph-v1 consume different views of these
+        # fields, so updating only the id leaves stale display text behind.
+        attachments = edge.setdefault("attachments", {})
+        if not isinstance(attachments, dict):
+            attachments = {}
+            edge["attachments"] = attachments
+        source_records = attachments.get("line_numbers")
+        if not isinstance(source_records, list):
+            source_records = []
+        top_records = edge.get("line_numbers")
+        if not isinstance(top_records, list):
+            top_records = []
+        prior_observed = attachments.get("observed_line_numbers")
+        if isinstance(prior_observed, list):
+            observed_source = prior_observed
+        else:
+            observed_source = list(source_records) + list(top_records)
+        observed_records = []
+        observed_keys: set[str] = set()
+        for record in observed_source:
+            if not isinstance(record, dict):
+                continue
+            key = str(record.get("id") or record.get("source_object_id") or repr(record))
+            if key not in observed_keys:
+                observed_keys.add(key)
+                observed_records.append(copy.deepcopy(record))
+        records = [record for record in source_records if isinstance(record, dict)]
+        selected_record = next(
+            (
+                record
+                for record in records
+                if str(record.get("id") or record.get("source_object_id") or "") == line_number_id
+            ),
+            None,
+        )
+        if selected_record is None:
+            selected_record = line_catalog.get(line_number_id)
+        if selected_record is None:
+            selected_record = {
+                "id": line_number_id,
+                "source_object_id": None,
+                "text": str(decision.get("line_number_text") or line_number_id),
+                "normalized_text": str(decision.get("line_number_text") or line_number_id),
+            }
+            records.append(selected_record)
+        selected_record["review_state"] = "accepted"
+        selected_record["review_source"] = str(decision.get("reviewer") or "human_review")
+        # Preserve all OCR/association evidence under an explicit observed
+        # collection, while making the effective/direct view unambiguous for
+        # Stage 10's line selection logic.
+        attachments["observed_line_numbers"] = observed_records
+        attachments["line_numbers"] = [selected_record]
+        edge["line_numbers"] = [selected_record]
+        edge["line_number_ids"] = [line_number_id]
+        edge["effective_line_numbers"] = [selected_record]
         edge["effective_line_number_ids"] = [line_number_id]
+        edge["direct_line_number_ids"] = [line_number_id]
+        edge["inferred_line_number_ids"] = []
+        edge["direct_line_numbers"] = [selected_record]
+        edge["inferred_line_numbers"] = []
+        edge["line_number_assignment_state"] = "human_reviewed"
         edge["reviewed_line_number_id"] = line_number_id
         edge["line_number_review_state"] = "human_reviewed"
         affected_edge_ids.append(edge_id)
 
     if not affected_edge_ids:
         return None, warnings
+
+    line_to_edges: dict[str, list[str]] = {}
+    for edge in corrected_graph_payload.get("edges", []) or []:
+        if not isinstance(edge, dict):
+            continue
+        for value in edge.get("effective_line_number_ids") or edge.get("line_number_ids") or []:
+            key = str(value)
+            if key:
+                line_to_edges.setdefault(key, []).append(str(edge.get("id") or ""))
+    corrected_graph_payload["line_to_edges"] = {
+        key: sorted(edge_ids) for key, edge_ids in sorted(line_to_edges.items()) if edge_ids
+    }
+    corrected_graph_payload["line_groups"] = [
+        {"line_number_id": key, "edge_ids": value}
+        for key, value in corrected_graph_payload["line_to_edges"].items()
+    ]
 
     correction = {
         "id": f"correction::set_line_number::{review_item_id}",

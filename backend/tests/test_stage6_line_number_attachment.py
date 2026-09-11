@@ -64,11 +64,9 @@ class Stage6LineNumberAttachmentTests(unittest.TestCase):
         result = self._build([label])
 
         accepted = result["associations"]["line_numbers"]["accepted"]
-        # The other connection trace may receive a simulated fill number; the
-        # real attachment must land on the horizontal run.
-        real = [item for item in accepted if item.get("source") != "simulated_hitl"]
-        self.assertEqual(len(real), 1)
-        self.assertEqual(real[0]["trace_id"], "trace_h")
+        self.assertEqual(len(accepted), 1)
+        self.assertEqual(accepted[0]["trace_id"], "trace_h")
+        self.assertEqual(result["trace_association_summary"]["simulated_line_number_assignment_count"], 0)
         attached = result["trace_edges"][1]["attachments"]["line_numbers"]
         self.assertEqual([item["id"] for item in attached], ["line_000006"])
 
@@ -83,9 +81,24 @@ class Stage6LineNumberAttachmentTests(unittest.TestCase):
         result = self._build([label])
 
         accepted = result["associations"]["line_numbers"]["accepted"]
-        real = [item for item in accepted if item.get("source") != "simulated_hitl"]
-        self.assertEqual(len(real), 1)
-        self.assertEqual(real[0]["trace_id"], "trace_v")
+        self.assertEqual(len(accepted), 1)
+        self.assertEqual(accepted[0]["trace_id"], "trace_v")
+
+    def test_missing_connector_line_number_remains_unresolved(self) -> None:
+        result = self._build([
+            {
+                "id": "line_000006",
+                "normalized_text": '3"-CUL-25-003001-81A2-NI',
+                "bbox": {"x_min": 387, "y_min": 1229, "x_max": 724, "y_max": 1264},
+            }
+        ])
+
+        missing = result["trace_associations_payload"]["unresolved"]["traces_without_line_number"]
+        self.assertIn("trace_v", missing)
+        self.assertEqual(
+            [item for item in result["associations"]["line_numbers"]["accepted"] if item["trace_id"] == "trace_v"],
+            [],
+        )
 
     def test_horizontal_label_attaches_to_horizontal_run_when_no_vertical_nearby(self) -> None:
         # Sanity: a plain horizontal label over a horizontal line is unchanged.

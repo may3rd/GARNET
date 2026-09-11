@@ -25,7 +25,7 @@
 ## Cross-domain workflows
 - Frontend <-> backend: the Vite app proxies `/api` and `/runs` to `VITE_API_URL`, defaulting to `http://localhost:8090`. Keep backend route changes synchronized with frontend API usage.
 - API <-> pipeline: `backend/api.py` is the service entrypoint, but the extraction logic lives in `backend/garnet/`. Change request/response shapes in the API layer only after checking the downstream pipeline output and frontend expectations.
-- Pipeline roadmap: for P&ID digitizing features, preserve the stage model in `MASTER_PLAN.md` and the scoped rules in `backend/garnet/AGENTS.md`. The live rebuild is currently Stage 1-only.
+- Pipeline roadmap: for P&ID digitizing features, preserve the stage model in `MASTER_PLAN.md` and the scoped rules in `backend/garnet/AGENTS.md`. The live runner is the sparse sequence documented in `MASTER_PLAN.md` (`1, 2, 4, 5, 5b, 6, 7, 7c, 7b, 8, 9, 10, 11`); Stage 3 remains external HITL input.
 - Generated artifacts: keep predictions, runs, temp files, and debug outputs in backend-owned artifact folders. Do not make the frontend depend on developer-local filesystem paths.
 - Pipeline HITL review: the frontend has separate review gates for object boxes and traced paths. Keep class suggestions tied to the active review type, preserve free-text class entry for add-box workflows, and make trace/branch overlays selectable without blocking normal canvas pan/zoom.
 

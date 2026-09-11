@@ -13,7 +13,7 @@
 
 ## Pipeline architecture rules
 - Preserve the phase order from `MASTER_PLAN.md` as future work, but keep the live code honest about what exists today.
-- The current active rebuild is Stage 1-first: raw image input -> normalization artifacts -> manifest -> API/frontend review.
+- The current runner executes the sparse sequence documented in [`MASTER_PLAN.md`](/Users/maetee/Code/GARNET/MASTER_PLAN.md): Stages 1, 2, 4, 5, 5b, 6, 7, 7c, 7b, 8, 9, 10, and 11. Stage 3 is external HITL input. The Stage 1-first statement in older planning notes describes the initial rebuild slice and is historical context.
 - Favor geometry first, semantics second. Do not promote OCR text or object detections directly into graph truth without geometric/topological support.
 - Keep task-specific masks and derived views separate from the original raster. Never destroy source evidence early.
 - Later stages should be added one at a time with visible artifacts and manifest entries. Do not reintroduce a large opaque pipeline.
@@ -80,7 +80,7 @@
   - object suppression uses Stage 4 object boxes with conservative interior suppression
   - keep the output reviewable rather than aggressively repaired
   - Stage 5 artifacts are `stage5_pipe_mask.png`, `stage5_pipe_mask_overlay.png`, and `stage5_pipe_mask_summary.json`
-- Current Stage 10 edge-tracing baseline:
+- Historical Stage 10 edge-tracing baseline (these artifact names and thresholds describe an earlier numbering scheme; preserve them for compatibility when touching that implementation):
   - keep public stage numbering stable even though the roadmap conceptually separates crossing resolution from tracing
   - Stage 10 now runs explicit crossing-vs-junction resolution before final edge tracing
   - crossing classes are `confirmed_junction`, `non_connecting_crossing`, and `unresolved`
@@ -93,7 +93,7 @@
     - `center_blob_threshold = 0.5`
     - `stage4_marker_match_distance_px = 24.0`
   - Stage 10 artifacts are `stage10_crossing_resolution.json`, `stage10_crossing_resolution_summary.json`, `stage10_crossing_resolution_overlay.png`, `stage10_pipe_edges.json`, `stage10_pipe_edge_summary.json`, and `stage10_pipe_edges_overlay.png`
-- Current Stage 12 overlay baseline:
+- Historical Stage 12 overlay baseline (these artifact names describe an earlier numbering scheme; preserve them for compatibility when touching that implementation):
   - keep raw Stage 10 edge artifacts unchanged; do not silently delete structural-border candidates from `stage10_pipe_edges.json`
   - Stage 12 attachment matching and `stage12_text_attachment_overlay.png` now use a derived filtered edge set
   - current accepted structural-edge filter removes obvious right-panel/title-block border-like edges from overlay use
@@ -106,7 +106,7 @@
     - `connection`, `page connection`, and `utility connection` are valid true terminals
     - valves, reducers, and similar in-line elements are pass-through evidence, not final terminals
     - unresolved terminal edges remain provisional and must stay visually distinct in Stage 12 overlay review
-- Current Stage 13 QA baseline:
+- Historical Stage 13 QA baseline (these artifact names describe an earlier numbering scheme; preserve them for compatibility when touching that implementation):
   - unresolved crossings remain explicit QA items
   - unresolved terminal edges must also be promoted into the anomaly report and review queue instead of being silently dropped
 - If you tune OCR parameters, record the accepted values in `docs/plans/2026-03-08-slice-2-ocr-sahi-design.md` and log the reason in `SLICE_2_PROGRESS.md`.

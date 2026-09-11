@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -300,6 +301,13 @@ def _build_off_page_connector_map(
         selected = (source_edges or target_edges or [None])[0]
         if selected is None:
             continue
+        if str(selected.get("line_number_review_state") or "") == "human_reviewed":
+            corrected_records = selected.get("effective_line_numbers") or selected.get("line_numbers") or []
+            if isinstance(corrected_records, list) and len(corrected_records) == 1 and isinstance(corrected_records[0], dict):
+                corrected_key = str(
+                    corrected_records[0].get("normalized_text") or corrected_records[0].get("display_text") or corrected_records[0].get("text") or ""
+                ).strip()
+                connector_key = corrected_key
         edge_id = str(selected.get("id", ""))
         result[edge_id] = {
             "reference_type": ref_type,
@@ -376,6 +384,19 @@ def build_graph_v1_payload(
     )
     for source_edge in stage12_graph.get("edges", []):
         edge_id = str(source_edge.get("id", ""))
+        attachments = source_edge.get("attachments")
+        if not isinstance(attachments, dict):
+            attachments = {}
+        line_numbers = source_edge.get("effective_line_numbers") or source_edge.get("line_numbers")
+        if not isinstance(line_numbers, list):
+            line_numbers = attachments.get("line_numbers") if isinstance(attachments.get("line_numbers"), list) else []
+        line_number_ids = source_edge.get("effective_line_number_ids") or source_edge.get("line_number_ids")
+        if not isinstance(line_number_ids, list):
+            line_number_ids = [
+                str(record.get("id") or record.get("source_object_id"))
+                for record in line_numbers
+                if isinstance(record, dict) and str(record.get("id") or record.get("source_object_id") or "")
+            ]
         edge_node = {
             "id": edge_id,
             "src": str(source_edge.get("source", "")),
@@ -385,10 +406,28 @@ def build_graph_v1_payload(
             "directed": source_edge.get("flow_direction") is not None,
             "provenance": build_provenance(f"stage12 edge review_state={source_edge.get('review_state', '')}"),
             "geometry": {"polyline": reproject_polyline(source_edge.get("polyline", []))},
+            # Preserve semantic evidence additively.  Existing consumers only
+            # require the fields above; downstream line/package workflows need
+            # the reviewed line identity and attachment evidence as well.
+            "line_number_ids": [str(value) for value in line_number_ids if str(value)],
+            "direct_line_number_ids": [str(value) for value in source_edge.get("direct_line_number_ids", []) if str(value)],
+            "inferred_line_number_ids": [str(value) for value in source_edge.get("inferred_line_number_ids", []) if str(value)],
+            "direct_line_numbers": copy.deepcopy(source_edge.get("direct_line_numbers", [])),
+            "inferred_line_numbers": copy.deepcopy(source_edge.get("inferred_line_numbers", [])),
+            "line_number_assignment_state": source_edge.get("line_number_assignment_state"),
+            "line_numbers": copy.deepcopy(line_numbers),
+            "attachments": copy.deepcopy(attachments),
+            "review_state": source_edge.get("review_state"),
+            "line_number_review_state": source_edge.get("line_number_review_state"),
         }
         if edge_id in off_page_by_edge:
             edge_node["off_page_connector"] = off_page_by_edge[edge_id]
         edges.append(edge_node)
+
+    line_to_edges: dict[str, list[str]] = {}
+    for edge in edges:
+        for line_id in edge.get("line_number_ids", []):
+            line_to_edges.setdefault(str(line_id), []).append(edge["id"])
 
     return {
         "schema_version": "graph_v1",
@@ -406,6 +445,7 @@ def build_graph_v1_payload(
         "classes": {"node_types": NODE_TYPES, "edge_types": EDGE_TYPES},
         "nodes": nodes,
         "edges": edges,
+        "line_to_edges": {key: sorted(value) for key, value in sorted(line_to_edges.items())},
         "constraints": {
             "node_id_unique": True,
             "edge_id_unique": True,

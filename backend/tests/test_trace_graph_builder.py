@@ -6,6 +6,7 @@ from garnet.trace_graph_builder import (
     _point_near_axis_segment,
     _split_polyline_at_points,
     build_trace_graph_from_stage11,
+    normalize_stage11_trace_edges,
     render_stage12_graph_overlay,
 )
 
@@ -113,6 +114,140 @@ class TraceGraphBuilderNormalizationTests(unittest.TestCase):
         self.assertEqual(result["summary"]["normalization_duplicate_edge_count"], 1)
         self.assertIn("duplicate_trace_collapsed", result["review_queue_summary"]["issue_counts"])
 
+    def test_distinct_bypass_with_same_endpoints_is_preserved(self) -> None:
+        main = _line_edge("main", (0, 0), (100, 0), terminal_type="equipment")
+        bypass = _line_edge("bypass", (0, 0), (100, 0), terminal_type="equipment")
+        bypass["polyline"] = [{"x": 0, "y": 0}, {"x": 50, "y": 25}, {"x": 100, "y": 0}]
+        bypass["segments"] = []
+
+        result = normalize_stage11_trace_edges([main, bypass])
+
+        self.assertEqual(len(result["trace_edges"]), 2)
+        self.assertEqual(result["metadata"]["duplicate_edge_count"], 0)
+
+    def test_close_seven_pixel_bypass_with_same_endpoints_is_preserved(self) -> None:
+        main = _line_edge("main", (0, 0), (100, 0), terminal_type="equipment")
+        bypass = _line_edge("bypass", (0, 0), (100, 0), terminal_type="equipment")
+        bypass["polyline"] = [{"x": 0, "y": 0}, {"x": 50, "y": 7}, {"x": 100, "y": 0}]
+
+        result = normalize_stage11_trace_edges([main, bypass])
+
+        self.assertEqual(len(result["trace_edges"]), 2)
+        self.assertEqual(result["metadata"]["duplicate_edge_count"], 0)
+
+    def test_close_three_pixel_bypass_with_same_endpoints_is_preserved(self) -> None:
+        main = _line_edge("main", (0, 0), (100, 0), terminal_type="equipment")
+        bypass = _line_edge("bypass", (0, 0), (100, 0), terminal_type="equipment")
+        bypass["polyline"] = [{"x": 0, "y": 0}, {"x": 50, "y": 3}, {"x": 100, "y": 0}]
+
+        result = normalize_stage11_trace_edges([main, bypass])
+
+        self.assertEqual(len(result["trace_edges"]), 2)
+        self.assertEqual(result["metadata"]["duplicate_edge_count"], 0)
+
+    def test_duplicate_same_line_id_keeps_stronger_review_and_provenance(self) -> None:
+        forward = _line_edge("forward", (0, 0), (100, 0), terminal_type="equipment")
+        reverse = _line_edge("reverse", (100, 0), (0, 0), terminal_type="equipment")
+        forward["attachments"]["line_numbers"] = [{"id": "line_1", "review_state": "unresolved", "provenance": "ocr-forward"}]
+        reverse["attachments"]["line_numbers"] = [{"id": "line_1", "review_state": "accepted", "provenance": "review-reverse"}]
+
+        result = normalize_stage11_trace_edges([forward, reverse])
+        kept = result["trace_edges"][0]["attachments"]["line_numbers"][0]
+
+        self.assertEqual(kept["review_state"], "accepted")
+        self.assertEqual(kept["provenance"], "review-reverse")
+        self.assertIn("ocr-forward", kept.get("merged_provenance", []))
+
+    def test_duplicate_merge_preserves_structured_provenance(self) -> None:
+        forward = _line_edge("forward", (0, 0), (100, 0), terminal_type="equipment")
+        reverse = _line_edge("reverse", (100, 0), (0, 0), terminal_type="equipment")
+        forward["attachments"]["line_numbers"] = [{"id": "line_1", "review_state": "unresolved", "provenance": {"source": "ocr-forward"}}]
+        reverse["attachments"]["line_numbers"] = [{"id": "line_1", "review_state": "accepted", "provenance": {"source": "review-reverse"}}]
+
+        result = normalize_stage11_trace_edges([forward, reverse])
+        kept = result["trace_edges"][0]["attachments"]["line_numbers"][0]
+
+        self.assertEqual(kept["review_state"], "accepted")
+        self.assertEqual(kept["provenance"], {"source": "review-reverse"})
+        self.assertEqual(kept["merged_provenance"], [{"source": "ocr-forward"}])
+
+    def test_duplicate_rejected_evidence_is_never_promoted_to_accepted(self) -> None:
+        accepted = _line_edge("accepted", (0, 0), (100, 0), terminal_type="equipment")
+        rejected = _line_edge("rejected", (100, 0), (0, 0), terminal_type="equipment")
+        accepted["attachments"]["line_numbers"] = [{"id": "line_1", "review_state": "accepted", "provenance": "accepted-source"}]
+        rejected["attachments"]["line_numbers"] = [{"id": "line_1", "review_state": "rejected", "provenance": "rejected-source"}]
+
+        for edges in ([accepted, rejected], [rejected, accepted]):
+            with self.subTest(first=edges[0]["trace_id"]):
+                result = normalize_stage11_trace_edges(edges)
+                kept = result["trace_edges"][0]["attachments"]["line_numbers"][0]
+                self.assertEqual(kept["review_state"], "rejected")
+                self.assertTrue(
+                    kept.get("provenance") == "rejected-source"
+                    or "rejected-source" in (kept.get("merged_provenance", []) or [])
+                )
+
+    def test_attachment_at_split_junction_becomes_ambiguous_evidence(self) -> None:
+        host = _line_edge("host", (0, 0), (200, 0), terminal_type="equipment")
+        host["attachments"]["inline_objects"] = [{"id": "at_tee", "projected_xy": [100, 0]}]
+        branch = _line_edge("branch", (100, 0), (100, 100), terminal_type="equipment", trace_kind="branch")
+
+        result = build_trace_graph_from_stage11(
+            {"image_id": "synthetic.png", "trace_edges": [host, branch]}, image_id="synthetic.png"
+        )
+        edges = {edge["trace_id"]: edge for edge in result["graph_payload"]["edges"]}
+
+        self.assertEqual(edges["host::part_001"].get("attachments", {}).get("inline_objects", []), [])
+        self.assertEqual(edges["host::part_002"].get("attachments", {}).get("inline_objects", []), [])
+        evidence = [
+            item
+            for edge in edges.values()
+            for item in edge.get("attachments", {}).get("junction_evidence", [])
+            if item.get("id") == "at_tee"
+        ]
+        self.assertEqual(len(evidence), 1)
+        self.assertEqual(evidence[0]["ambiguity"], "shared_split_endpoint")
+        self.assertIn("attachment_at_split_junction", {item["issue_type"] for item in result["graph_payload"]["review_queue"]})
+
+    def test_resampled_reverse_route_still_collapses(self) -> None:
+        original = _line_edge("route_a", (0, 0), (100, 0), terminal_type="equipment")
+        duplicate = _line_edge("route_b", (100, 0), (0, 0), terminal_type="equipment")
+        duplicate["polyline"] = [
+            {"x": 100, "y": 0}, {"x": 75, "y": 0}, {"x": 50, "y": 0},
+            {"x": 25, "y": 0}, {"x": 0, "y": 0},
+        ]
+
+        result = normalize_stage11_trace_edges([original, duplicate])
+
+        self.assertEqual(len(result["trace_edges"]), 1)
+        self.assertEqual(result["metadata"]["duplicate_edge_count"], 1)
+
+    def test_split_attachments_follow_child_geometry(self) -> None:
+        main = _line_edge("main", (0, 0), (200, 0), terminal_type="equipment")
+        main["attachments"] = {
+            "line_numbers": [{"id": "line_1"}],
+            "inline_objects": [{"id": "valve_1", "projected_xy": [40, 0]}],
+            "instrument_tags": [{"id": "inst_1", "projected_xy": [160, 0]}],
+            "flow_arrows": [{"id": "arrow_1", "projected_xy": [160, 0]}],
+            "terminals": [{"id": "terminal_1", "terminal_xy": [200, 0]}],
+        }
+        branch = _line_edge("branch", (100, 0), (100, 100), terminal_type="equipment", trace_kind="branch")
+
+        result = build_trace_graph_from_stage11(
+            {"image_id": "synthetic.png", "trace_edges": [main, branch]},
+            image_id="synthetic.png",
+        )
+        edges = {edge["trace_id"]: edge for edge in result["graph_payload"]["edges"]}
+        first = edges["main::part_001"]
+        second = edges["main::part_002"]
+
+        self.assertEqual([item["id"] for item in first.get("attachments", {}).get("inline_objects", [])], ["valve_1"])
+        self.assertEqual([item["id"] for item in second.get("attachments", {}).get("instrument_tags", [])], ["inst_1"])
+        self.assertEqual([item["id"] for item in second.get("attachments", {}).get("flow_arrows", [])], ["arrow_1"])
+        self.assertEqual([item["id"] for item in second.get("attachments", {}).get("terminals", [])], ["terminal_1"])
+        self.assertEqual(first.get("attachments", {}).get("line_numbers"), [{"id": "line_1"}])
+        self.assertEqual(second.get("attachments", {}).get("line_numbers", []), [])
+
     def test_duplicate_branch_continuation_downgrades_synthetic_tee(self) -> None:
         main = _line_edge("obj_main", (0, 0), (200, 0), terminal_type="equipment")
         branch = _line_edge("branch_000001", (100, 0), (200, 0), terminal_type="equipment", trace_kind="branch")
@@ -173,7 +308,7 @@ class TraceGraphBuilderNormalizationTests(unittest.TestCase):
 
         self.assertEqual(edges["obj_main::part_001"]["line_number_assignment_state"], "direct")
         self.assertEqual(edges["obj_main::part_001"]["direct_line_number_ids"], ["line_1"])
-        self.assertEqual(edges["obj_main::part_002"]["line_number_assignment_state"], "direct")
+        self.assertEqual(edges["obj_main::part_002"]["line_number_assignment_state"], "inferred")
         self.assertEqual(edges["obj_main::part_002"]["effective_line_number_ids"], ["line_1"])
         self.assertEqual(edges["branch_000001"]["line_number_assignment_state"], "missing")
         self.assertEqual(edges["branch_000001"]["effective_line_number_ids"], [])
@@ -197,7 +332,7 @@ class TraceGraphBuilderNormalizationTests(unittest.TestCase):
 
         self.assertEqual(edges["turning_main::part_001"]["line_number_assignment_state"], "direct")
         self.assertEqual(edges["turning_main::part_001"]["effective_line_number_ids"], ["line_turn"])
-        self.assertEqual(edges["turning_main::part_002"]["line_number_assignment_state"], "direct")
+        self.assertEqual(edges["turning_main::part_002"]["line_number_assignment_state"], "inferred")
         self.assertEqual(edges["turning_main::part_002"]["effective_line_number_ids"], ["line_turn"])
         self.assertEqual(edges["straight_branch"]["line_number_assignment_state"], "direct")
         self.assertEqual(edges["straight_branch"]["effective_line_number_ids"], ["line_branch"])
@@ -229,7 +364,7 @@ class TraceGraphBuilderNormalizationTests(unittest.TestCase):
         edges = {edge["trace_id"]: edge for edge in result["graph_payload"]["edges"]}
 
         self.assertEqual(edges["obj_a::part_001"]["line_number_assignment_state"], "direct")
-        self.assertEqual(edges["obj_a::part_002"]["line_number_assignment_state"], "direct")
+        self.assertEqual(edges["obj_a::part_002"]["line_number_assignment_state"], "inferred")
         self.assertEqual(edges["branch_000001"]["line_number_assignment_state"], "direct")
         self.assertEqual(edges["branch_000001"]["effective_line_number_ids"], ["line_2"])
 
