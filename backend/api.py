@@ -400,6 +400,11 @@ ARTIFACT_INVALIDATION_START_STAGE: dict[str, str] = {
     # Stage 3 is a HITL artifact. Stage 5b is the first stage that consumes
     # reviewed equipment boxes for port detection and terminal matching.
     "stage3_equipment_bboxes.json": "stage5b_pipe_trace",
+    # Manually edited ports (Gate 2's add/remove-port editor). stage5b_pipe_trace
+    # only computes ports itself when this file is absent, so an edited copy is
+    # used as-is on the next run — this entry just keeps the manifest's staleness
+    # view honest for a save that isn't immediately followed by a retrace.
+    "stage5_connection_ports.json": "stage5b_pipe_trace",
     "stage4_objects.json": "stage4_line_number_fusion",
     "stage4_line_numbers.json": "stage6_trace_associations",
     "stage4_instrument_tags.json": "stage6_trace_associations",

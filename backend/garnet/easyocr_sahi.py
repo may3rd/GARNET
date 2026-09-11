@@ -475,7 +475,7 @@ def _read_tile_with_orientations(reader: easyocr.Reader, tile: np.ndarray, cfg: 
 
 
 class EasyOcrSahiDetectionModel(DetectionModel):
-    required_packages = ["easyocr", "numpy", "opencv-python", "sahi"]
+    required_packages = ["easyocr", "numpy", "cv2", "sahi"]
 
     def __init__(self, *, cfg: EasyOcrSahiConfig, reader: easyocr.Reader) -> None:
         self.cfg = cfg

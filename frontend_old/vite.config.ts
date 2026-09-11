@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
   // API target URL from environment variable or default
-  const apiTarget = env.VITE_API_URL || 'http://localhost:8001'
+  const apiTarget = env.VITE_API_URL || 'http://localhost:8090'
 
   return {
     plugins: [react()],

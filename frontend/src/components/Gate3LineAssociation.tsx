@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Spinner } from '@heroui/react'
 import { Check, Minus, Pencil, Plus, Play, X } from 'lucide-react'
-import { Card, SectionHeader, Tag } from '@/components/ui/primitives'
+import { Card, ResizableSidebar, SectionHeader, Tag } from '@/components/ui/primitives'
+import { useResizableSidebar } from '@/hooks/useResizableSidebar'
 import { getPipelineArtifactJson, putPipelineArtifact } from '@/lib/api'
 import { clampPan, fitScale as computeFit, wheelIntent, zoomAbout, type Bbox } from '@/lib/viewport'
 import { useRunStore, type Sheet } from '@/stores/runStore'
@@ -84,6 +85,7 @@ const rowKey = (item: LineAssoc) => `${item.id}::${item.trace_id}`
 export function Gate3LineAssociation({ sheet, onBack }: { sheet: Sheet; onBack: () => void }) {
   const resumeGate = useRunStore((s) => s.resumeGate)
   const setScreen = useRunStore((s) => s.setScreen)
+  const sidebar = useResizableSidebar(280)
 
   const [edges, setEdges] = useState<TraceEdge[] | null>(null)
   const [review, setReview] = useState<LineReviewArtifact | null>(null)
@@ -222,6 +224,34 @@ export function Gate3LineAssociation({ sheet, onBack }: { sheet: Sheet; onBack: 
     }
   }, [zoomAt, settle])
 
+  /** Pan so an item's bbox is centred in the view, without changing zoom — same behaviour as Gate 1/2's sidebar select. */
+  const focusOnItem = useCallback(
+    (item: LineAssoc) => {
+      const center = bboxCenter(item.bbox)
+      const current = scaleRef.current
+      const next = settle(
+        { x: viewport.w / 2 - center.x * current, y: viewport.h / 2 - center.y * current },
+        current
+      )
+      panRef.current = next
+      setPan(next)
+    },
+    [settle, viewport.w, viewport.h]
+  )
+
+  const selectFromSidebar = (item: LineAssoc) => {
+    if (reassigningKey && reassigningKey !== rowKey(item)) setReassigningKey(null)
+    setSelectedId(rowKey(item))
+    focusOnItem(item)
+  }
+
+  /** Selecting on the canvas should bring the matching sidebar row into view, same as the reverse (sidebar -> canvas pan). */
+  const selectFromCanvas = (item: LineAssoc) => {
+    const key = rowKey(item)
+    setSelectedId(key)
+    document.getElementById(`line-assoc-row-${key}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }
+
   const startPan = (e: React.MouseEvent) => {
     const origin = { px: pan.x, py: pan.y, mx: e.clientX, my: e.clientY }
     let dragged = false
@@ -328,8 +358,8 @@ export function Gate3LineAssociation({ sheet, onBack }: { sheet: Sheet; onBack: 
     setConfirming(true)
     try {
       if (dirty && !(await save())) return
-      await resumeGate(sheet.id, 3)
       setScreen('run')
+      await resumeGate(sheet.id, 3)
     } finally {
       setConfirming(false)
     }
@@ -394,7 +424,7 @@ export function Gate3LineAssociation({ sheet, onBack }: { sheet: Sheet; onBack: 
                   viewBox={`0 0 ${imgW} ${imgH}`}
                   style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none' }}
                 >
-                  {/* Trace edges — context only, unless reassigning a line number: then every trace becomes a clickable pick target (wide invisible stroke for hit-testing, thin one for looks). */}
+                  {/* Trace edges — full colour so the traced pipe paths read clearly against the drawing; unless reassigning a line number, then every trace becomes a clickable pick target (wide invisible stroke for hit-testing, thin one for looks). */}
                   {edges.map((edge) => {
                     const d = pathFor(edge.segments)
                     if (!d) return null
@@ -419,9 +449,8 @@ export function Gate3LineAssociation({ sheet, onBack }: { sheet: Sheet; onBack: 
                         <path
                           d={d}
                           fill="none"
-                          stroke={isHover ? 'var(--accent)' : 'var(--muted)'}
-                          strokeWidth={(isHover ? 4 : reassigningKey ? 2.4 : 1.4) / scale}
-                          opacity={reassigningKey ? 1 : 0.5}
+                          stroke={isHover ? 'var(--success)' : 'var(--accent)'}
+                          strokeWidth={(isHover ? 4 : 2) / scale}
                           pointerEvents="none"
                         />
                       </g>
@@ -433,7 +462,7 @@ export function Gate3LineAssociation({ sheet, onBack }: { sheet: Sheet; onBack: 
                     const isReassignTarget = key === reassigningKey
                     const isAccepted = accepted.has(key)
                     const color = isReassignTarget ? 'var(--accent)' : isAccepted ? 'var(--success)' : 'var(--warning)'
-                    const muted = reassigningKey !== null && !isReassignTarget
+                    const muted = reassigningKey !== null ? !isReassignTarget : selectedId !== null && !isSel
                     const center = bboxCenter(item.bbox)
                     const projection = item.projected_xy
                     return (
@@ -443,7 +472,7 @@ export function Gate3LineAssociation({ sheet, onBack }: { sheet: Sheet; onBack: 
                         style={{ pointerEvents: reassigningKey ? 'none' : 'auto', cursor: 'pointer' }}
                         onClick={(e) => {
                           e.stopPropagation()
-                          setSelectedId(key)
+                          selectFromCanvas(item)
                         }}
                       >
                         {projection && (
@@ -561,7 +590,12 @@ export function Gate3LineAssociation({ sheet, onBack }: { sheet: Sheet; onBack: 
             only for items with a proposed attachment point; traces with no proposal
             at all (the common case — see traces_without_line_number) have nothing to
             draw, so they must show up here or the reviewer never sees them. */}
-        <div className="flex min-h-0 flex-col gap-2.5 shrink-0" style={{ width: 280 }}>
+        <ResizableSidebar
+          width={sidebar.width}
+          collapsed={sidebar.collapsed}
+          onToggleCollapsed={sidebar.toggleCollapsed}
+          onStartResize={sidebar.startResize}
+        >
           <Card className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden" padding={16}>
             <SectionHeader
               title="Line association"
@@ -576,10 +610,8 @@ export function Gate3LineAssociation({ sheet, onBack }: { sheet: Sheet; onBack: 
                 return (
                   <div
                     key={rowKey(item)}
-                    onClick={() => {
-                      if (reassigningKey && reassigningKey !== rowKey(item)) setReassigningKey(null)
-                      setSelectedId(rowKey(item))
-                    }}
+                    id={`line-assoc-row-${rowKey(item)}`}
+                    onClick={() => selectFromSidebar(item)}
                     style={{
                       padding: '8px 0',
                       borderBottom: '1px solid color-mix(in oklab, var(--separator) 50%, transparent)',
@@ -692,7 +724,7 @@ export function Gate3LineAssociation({ sheet, onBack }: { sheet: Sheet; onBack: 
               ))}
             </div>
           </Card>
-        </div>
+        </ResizableSidebar>
       </div>
 
       {/* Footer */}

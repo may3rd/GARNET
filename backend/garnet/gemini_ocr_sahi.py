@@ -300,7 +300,7 @@ def _infer_with_openrouter(
 
 
 class GeminiOcrSahiDetectionModel(DetectionModel):
-    required_packages = ["openai", "numpy", "opencv-python", "sahi"]
+    required_packages = ["openai", "numpy", "cv2", "sahi"]
 
     def __init__(
         self,

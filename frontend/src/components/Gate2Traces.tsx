@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Spinner } from '@heroui/react'
-import { Minus, Plus, Play, RotateCcw, Trash2, X } from 'lucide-react'
-import { Card, SectionHeader, Tag } from '@/components/ui/primitives'
-import { classColor } from '@/lib/detectionClasses'
+import { Minus, Pencil, Plus, Play, RefreshCw, RotateCcw, Trash2, X } from 'lucide-react'
+import { Card, ResizableSidebar, SectionHeader, Tag } from '@/components/ui/primitives'
+import { useResizableSidebar } from '@/hooks/useResizableSidebar'
+import { classColor, normalizeClass } from '@/lib/detectionClasses'
 import {
+  APIError,
   getPipelineArtifactJson,
   getPipelineReviewWorkspace,
   commitPipelineReviewWorkspace,
+  putPipelineArtifact,
 } from '@/lib/api'
 import { clampPan, fitScale as computeFit, wheelIntent, zoomAbout } from '@/lib/viewport'
 import { useRunStore, type Sheet } from '@/stores/runStore'
@@ -25,7 +28,14 @@ type TraceRecord = {
 type TraceResultsArtifact = Record<string, TraceRecord>
 type BranchResultsArtifact = { branches: Record<string, TraceRecord> }
 /** stage4_objects.json row — every detected + manually-added object/equipment box, shown here as background context (frontend_old's PipelineReviewWorkspaceView shows all of these alongside the trace/port overlay). */
-type Stage4Object = { id: string; class_name?: string; bbox: { x_min: number; y_min: number; x_max: number; y_max: number } }
+type Bbox = { x_min: number; y_min: number; x_max: number; y_max: number }
+type Stage4Object = { id: string; class_name?: string; bbox: Bbox }
+/** stage3_equipment_bboxes.json — the id equipment ports are actually keyed under (see Direction below). */
+type EquipmentArtifact = { equipment?: { id: string; bbox: Bbox }[] }
+/** stage5_connection_ports.json — one port per (x, y, direction) triple, keyed by object id. */
+type Direction = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'
+type Port = [number, number, Direction]
+type PortsArtifact = Record<string, Port[]>
 
 type Kind = 'trace' | 'branch'
 type Entry = { key: string; kind: Kind; id: string; record: TraceRecord }
@@ -39,6 +49,32 @@ const pathFor = (segments: TraceSegment[] | undefined): string => {
 }
 
 /**
+ * Objects carry ports under two different keys depending on class — mirrors
+ * backend/garnet/path_tracer/stage5b_pipeline.py's _compute_connection_ports:
+ * page-connection symbols are keyed by their own stage4_objects.json id, but
+ * equipment is keyed by its id in stage3_equipment_bboxes.json (a tag number,
+ * or an "equip_NNN" fallback) — a *different* id than the same box's
+ * stage4_objects.json entry, joined here by matching bbox.
+ */
+const PAGE_CONNECTION_CLASSES = new Set(['page connection', 'connection', 'utility connection', 'page connection symbol'])
+const bboxKey = (b: Bbox) => `${b.x_min},${b.y_min},${b.x_max},${b.y_max}`
+
+/** Snap a click point onto the nearest edge of an object's bbox, in the same TOP/BOTTOM/LEFT/RIGHT -> UP/DOWN/LEFT/RIGHT convention _detect_equipment_ports_cv uses. */
+const snapToEdge = (px: number, py: number, b: Bbox): { x: number; y: number; direction: Direction } => {
+  const cx = clamp(px, b.x_min, b.x_max)
+  const cy = clamp(py, b.y_min, b.y_max)
+  const dTop = cy - b.y_min
+  const dBottom = b.y_max - cy
+  const dLeft = cx - b.x_min
+  const dRight = b.x_max - cx
+  const min = Math.min(dTop, dBottom, dLeft, dRight)
+  if (min === dTop) return { x: cx, y: b.y_min, direction: 'UP' }
+  if (min === dBottom) return { x: cx, y: b.y_max, direction: 'DOWN' }
+  if (min === dLeft) return { x: b.x_min, y: cy, direction: 'LEFT' }
+  return { x: b.x_max, y: cy, direction: 'RIGHT' }
+}
+
+/**
  * Gate 2 — traced-path review. Traces/branches are read-only polylines: the
  * only edit is reject, persisted as a `trace_overrides` entry through the
  * review-workspace commit endpoint (never a raw artifact PUT — the backend
@@ -46,7 +82,9 @@ const pathFor = (segments: TraceSegment[] | undefined): string => {
  */
 export function Gate2Traces({ sheet, onBack }: { sheet: Sheet; onBack: () => void }) {
   const resumeGate = useRunStore((s) => s.resumeGate)
+  const retraceStage5b = useRunStore((s) => s.retraceStage5b)
   const setScreen = useRunStore((s) => s.setScreen)
+  const sidebar = useResizableSidebar(240)
 
   const [entries, setEntries] = useState<Entry[] | null>(null)
   const [objects, setObjects] = useState<Stage4Object[]>([])
@@ -57,11 +95,19 @@ export function Gate2Traces({ sheet, onBack }: { sheet: Sheet; onBack: () => voi
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [retracing, setRetracing] = useState(false)
   const [dirty, setDirty] = useState(false)
 
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [showTraces, setShowTraces] = useState(true)
   const [showBranches, setShowBranches] = useState(true)
+
+  // Port editing (Gate 2's "add/remove port around equipment" tool).
+  const [ports, setPorts] = useState<PortsArtifact>({})
+  const [portKeyByBbox, setPortKeyByBbox] = useState<Map<string, string>>(new Map())
+  const [showPorts, setShowPorts] = useState(true)
+  const [editingPorts, setEditingPorts] = useState(false)
+  const [portsDirty, setPortsDirty] = useState(false)
 
   const [zoom, setZoom] = useState<number | null>(null)
   const [pan, setPan] = useState({ x: 0, y: 0 })
@@ -75,13 +121,19 @@ export function Gate2Traces({ sheet, onBack }: { sheet: Sheet; onBack: () => voi
   useEffect(() => {
     if (!jobId) return
     let cancelled = false
+    const orMissing = <T,>(fallback: T) => (err: unknown): T => {
+      if (err instanceof APIError && err.status === 404) return fallback
+      throw err
+    }
     Promise.all([
       getPipelineArtifactJson<TraceResultsArtifact>(jobId, 'stage5b_trace_results.json'),
       getPipelineArtifactJson<BranchResultsArtifact>(jobId, 'stage5b_branch_trace_results.json'),
       getPipelineReviewWorkspace(jobId),
       getPipelineArtifactJson<{ objects?: Stage4Object[] }>(jobId, 'stage4_objects.json').catch(() => ({ objects: [] })),
+      getPipelineArtifactJson<PortsArtifact>(jobId, 'stage5_connection_ports.json').catch(orMissing<PortsArtifact>({})),
+      getPipelineArtifactJson<EquipmentArtifact>(jobId, 'stage3_equipment_bboxes.json').catch(orMissing<EquipmentArtifact>({})),
     ])
-      .then(([traces, branchPayload, ws, objectsPayload]) => {
+      .then(([traces, branchPayload, ws, objectsPayload, portsPayload, equipmentPayload]) => {
         if (cancelled) return
         const list: Entry[] = [
           ...Object.entries(traces ?? {}).map(([id, record]) => ({ key: `trace:${id}`, kind: 'trace' as const, id, record })),
@@ -94,6 +146,8 @@ export function Gate2Traces({ sheet, onBack }: { sheet: Sheet; onBack: () => voi
         ]
         setEntries(list)
         setObjects(objectsPayload?.objects ?? [])
+        setPorts(portsPayload ?? {})
+        setPortKeyByBbox(new Map((equipmentPayload?.equipment ?? []).map((eq) => [bboxKey(eq.bbox), eq.id])))
         setWorkspace(ws.workspace)
         setRejected(
           new Set(
@@ -112,6 +166,12 @@ export function Gate2Traces({ sheet, onBack }: { sheet: Sheet; onBack: () => voi
   }, [jobId])
 
   const selected = entries?.find((e) => e.key === selectedKey) ?? null
+
+  /** The key an object's ports live under in `ports`, or null if this object isn't a port-bearing class (or its equipment bridge hasn't been saved from Gate 1 yet). */
+  const portKeyFor = (o: Stage4Object): string | null => {
+    if (PAGE_CONNECTION_CLASSES.has(normalizeClass(o.class_name ?? ''))) return o.id
+    return portKeyByBbox.get(bboxKey(o.bbox)) ?? null
+  }
 
   useEffect(() => {
     const el = viewportRef.current
@@ -230,6 +290,15 @@ export function Gate2Traces({ sheet, onBack }: { sheet: Sheet; onBack: () => voi
     }
   }, [zoomAt, settle])
 
+  /** Screen point -> image-space point, accounting for the current pan/scale — same formula Gate 1 uses for drawing boxes. */
+  const toImage = (e: React.MouseEvent) => {
+    const rect = viewportRef.current!.getBoundingClientRect()
+    return {
+      x: clamp((e.clientX - rect.left - pan.x) / scale, 0, imgW),
+      y: clamp((e.clientY - rect.top - pan.y) / scale, 0, imgH),
+    }
+  }
+
   const startPan = (e: React.MouseEvent) => {
     const origin = { px: pan.x, py: pan.y, mx: e.clientX, my: e.clientY }
     let dragged = false
@@ -244,6 +313,18 @@ export function Gate2Traces({ sheet, onBack }: { sheet: Sheet; onBack: () => voi
     }
     window.addEventListener('mousemove', move)
     window.addEventListener('mouseup', up)
+  }
+
+  const addPort = (portKey: string, x: number, y: number, direction: Direction) => {
+    setPorts((prev) => ({ ...prev, [portKey]: [...(prev[portKey] ?? []), [x, y, direction]] }))
+    setPortsDirty(true)
+    setDirty(true)
+  }
+
+  const removePort = (portKey: string, index: number) => {
+    setPorts((prev) => ({ ...prev, [portKey]: (prev[portKey] ?? []).filter((_, i) => i !== index) }))
+    setPortsDirty(true)
+    setDirty(true)
   }
 
   const toggleReject = (entry: Entry) => {
@@ -276,6 +357,10 @@ export function Gate2Traces({ sheet, onBack }: { sheet: Sheet; onBack: () => voi
         return { target_id, target_type, review_state: 'rejected' }
       })
       await commitPipelineReviewWorkspace(jobId, { ...workspace, trace_overrides })
+      if (portsDirty) {
+        await putPipelineArtifact(jobId, 'stage5_connection_ports.json', ports)
+        setPortsDirty(false)
+      }
       setDirty(false)
       return true
     } catch (err) {
@@ -290,10 +375,21 @@ export function Gate2Traces({ sheet, onBack }: { sheet: Sheet; onBack: () => voi
     setConfirming(true)
     try {
       if (dirty && !(await save())) return
-      await resumeGate(sheet.id, 2)
       setScreen('run')
+      await resumeGate(sheet.id, 2)
     } finally {
       setConfirming(false)
+    }
+  }
+
+  /** Persists any pending port edits, then re-runs stage5b_pipe_trace against them and comes back to rest at Gate 2 with fresh trace results. */
+  const retrace = async () => {
+    if (dirty && !(await save())) return
+    setRetracing(true)
+    try {
+      await retraceStage5b(sheet.id)
+    } finally {
+      setRetracing(false)
     }
   }
 
@@ -356,19 +452,34 @@ export function Gate2Traces({ sheet, onBack }: { sheet: Sheet; onBack: () => voi
                   viewBox={`0 0 ${imgW} ${imgH}`}
                   style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none' }}
                 >
-                  {objects.map((o) => (
-                    <rect
-                      key={o.id}
-                      x={o.bbox.x_min}
-                      y={o.bbox.y_min}
-                      width={o.bbox.x_max - o.bbox.x_min}
-                      height={o.bbox.y_max - o.bbox.y_min}
-                      fill="none"
-                      stroke={classColor(o.class_name ?? '')}
-                      strokeWidth={1.5 / scale}
-                      opacity={0.55}
-                    />
-                  ))}
+                  {objects.map((o) => {
+                    const portKey = editingPorts ? portKeyFor(o) : null
+                    return (
+                      <rect
+                        key={o.id}
+                        x={o.bbox.x_min}
+                        y={o.bbox.y_min}
+                        width={o.bbox.x_max - o.bbox.x_min}
+                        height={o.bbox.y_max - o.bbox.y_min}
+                        fill={portKey ? 'var(--accent)' : 'none'}
+                        fillOpacity={portKey ? 0.05 : undefined}
+                        stroke={classColor(o.class_name ?? '')}
+                        strokeWidth={(portKey ? 2 : 1.5) / scale}
+                        opacity={editingPorts && !portKey ? 0.25 : 0.55}
+                        style={portKey ? { pointerEvents: 'auto', cursor: 'copy' } : undefined}
+                        onClick={
+                          portKey
+                            ? (e) => {
+                                e.stopPropagation()
+                                const p = toImage(e)
+                                const snapped = snapToEdge(p.x, p.y, o.bbox)
+                                addPort(portKey, snapped.x, snapped.y, snapped.direction)
+                              }
+                            : undefined
+                        }
+                      />
+                    )
+                  })}
                 </svg>
               )}
               {imgW > 0 && (
@@ -410,6 +521,40 @@ export function Gate2Traces({ sheet, onBack }: { sheet: Sheet; onBack: () => voi
                       </g>
                     )
                   })}
+                </svg>
+              )}
+              {imgW > 0 && (showPorts || editingPorts) && (
+                <svg
+                  width={imgW}
+                  height={imgH}
+                  viewBox={`0 0 ${imgW} ${imgH}`}
+                  style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none' }}
+                >
+                  {Object.entries(ports).flatMap(([portKey, list]) =>
+                    list.map((port, index) => {
+                      const [x, y, direction] = port
+                      const [dx, dy] =
+                        direction === 'UP' ? [0, -1] : direction === 'DOWN' ? [0, 1] : direction === 'LEFT' ? [-1, 0] : [1, 0]
+                      const stub = 14 / scale
+                      return (
+                        <g
+                          key={`${portKey}:${index}`}
+                          style={editingPorts ? { pointerEvents: 'auto', cursor: 'pointer' } : undefined}
+                          onClick={
+                            editingPorts
+                              ? (e) => {
+                                  e.stopPropagation()
+                                  removePort(portKey, index)
+                                }
+                              : undefined
+                          }
+                        >
+                          <line x1={x} y1={y} x2={x + dx * stub} y2={y + dy * stub} stroke="var(--accent)" strokeWidth={2 / scale} />
+                          <circle cx={x} cy={y} r={editingPorts ? 6 / scale : 4 / scale} fill="var(--accent)" stroke="var(--overlay)" strokeWidth={1.5 / scale} />
+                        </g>
+                      )
+                    })
+                  )}
                 </svg>
               )}
             </div>
@@ -513,7 +658,71 @@ export function Gate2Traces({ sheet, onBack }: { sheet: Sheet; onBack: () => voi
               >
                 Objects
               </button>
+              <button
+                type="button"
+                onClick={() => setShowPorts((v) => !v)}
+                className="flex items-center justify-center"
+                style={{
+                  height: 26,
+                  padding: '0 10px',
+                  border: 0,
+                  background: showPorts ? 'var(--accent-soft)' : 'transparent',
+                  color: showPorts ? 'var(--accent-soft-fg)' : 'var(--muted)',
+                  borderRadius: 'var(--r-btn)',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                }}
+              >
+                Ports
+              </button>
+              <span style={{ width: 1, height: 20, background: 'var(--separator)', margin: '0 2px' }} />
+              <button
+                type="button"
+                title="Add or remove ports on equipment and page-connection boxes"
+                onClick={() => {
+                  setEditingPorts((v) => !v)
+                  setShowObjects(true)
+                  setShowPorts(true)
+                }}
+                className="flex items-center gap-1.5 justify-center"
+                style={{
+                  height: 26,
+                  padding: '0 10px',
+                  border: 0,
+                  background: editingPorts ? 'var(--accent)' : 'transparent',
+                  color: editingPorts ? 'var(--white)' : 'var(--muted)',
+                  borderRadius: 'var(--r-btn)',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                }}
+              >
+                <Pencil size={12} strokeWidth={2} />
+                Edit ports
+              </button>
             </div>
+
+            {/* Edit-ports mode banner */}
+            {editingPorts && (
+              <div
+                className="absolute flex items-center gap-2.5"
+                style={{
+                  top: 12,
+                  right: 12,
+                  padding: '8px 10px',
+                  background: 'var(--overlay)',
+                  borderRadius: 'var(--r-btn)',
+                  boxShadow: 'inset 0 0 0 1px var(--accent), 0 8px 24px rgba(0,0,0,.14)',
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <span style={{ fontSize: 12.5, color: 'var(--foreground)' }}>
+                  Click an equipment or connection box to add a port there. Click a port to remove it.
+                </span>
+                <Button variant="ghost" style={{ height: 26, padding: '0 10px', borderRadius: 'var(--r-btn)' }} onPress={() => setEditingPorts(false)}>
+                  Done
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Selected trace/branch — floating dialog */}
@@ -600,7 +809,12 @@ export function Gate2Traces({ sheet, onBack }: { sheet: Sheet; onBack: () => voi
         {/* Traces & branches list — grouped, selectable, reject inline; mirrors
             frontend_old's per-item accept/reject list rows (ObjectSidebar),
             reskinned to match Gate 1/3's list-card style. */}
-        <div className="flex min-h-0 flex-col gap-2.5 shrink-0" style={{ width: 240 }}>
+        <ResizableSidebar
+          width={sidebar.width}
+          collapsed={sidebar.collapsed}
+          onToggleCollapsed={sidebar.toggleCollapsed}
+          onStartResize={sidebar.startResize}
+        >
           <Card className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden" padding={16}>
             <SectionHeader
               title="Traces & branches"
@@ -679,7 +893,7 @@ export function Gate2Traces({ sheet, onBack }: { sheet: Sheet; onBack: () => voi
               })}
             </div>
           </Card>
-        </div>
+        </ResizableSidebar>
       </div>
 
       {/* Footer */}
@@ -693,6 +907,15 @@ export function Gate2Traces({ sheet, onBack }: { sheet: Sheet; onBack: () => voi
         <div className="flex-1" />
         <Button variant="ghost" style={{ height: 32, borderRadius: 'var(--r-btn)' }} onPress={onBack}>
           Back to queue
+        </Button>
+        <Button
+          variant="ghost"
+          isDisabled={retracing || saving || confirming}
+          style={{ height: 32, borderRadius: 'var(--r-btn)' }}
+          onPress={() => void retrace()}
+        >
+          {retracing ? <Spinner size="sm" /> : <RefreshCw size={14} strokeWidth={1.8} />}
+          Re-trace
         </Button>
         <Button variant="secondary" isDisabled={!dirty || saving} style={{ height: 32, borderRadius: 'var(--r-btn)' }} onPress={() => void save()}>
           {saving ? <Spinner size="sm" /> : 'Save'}

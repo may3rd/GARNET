@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 /**
  * Primitives transcribed from the design canvas. Values are the artboards'
@@ -295,6 +296,81 @@ export function SelectField<T extends string>({
           </svg>
         )}
       </div>
+    </div>
+  )
+}
+
+/**
+ * Right-docked sidebar with a drag handle on its left edge and a collapse
+ * toggle — pairs with `useResizableSidebar`. Collapsed state keeps a slim
+ * rail so the expand affordance stays put instead of vanishing into the
+ * canvas edge.
+ */
+export function ResizableSidebar({
+  width,
+  collapsed,
+  onToggleCollapsed,
+  onStartResize,
+  children,
+}: {
+  width: number
+  collapsed: boolean
+  onToggleCollapsed: () => void
+  onStartResize: (e: React.MouseEvent) => void
+  children: ReactNode
+}) {
+  const toggleButton = (
+    <button
+      type="button"
+      onClick={onToggleCollapsed}
+      title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      className="flex items-center justify-center"
+      style={{
+        position: 'absolute',
+        top: '50%',
+        left: collapsed ? 0 : -12,
+        transform: 'translateY(-50%)',
+        width: 20,
+        height: 40,
+        border: 0,
+        borderRadius: 'var(--r-btn)',
+        background: 'var(--overlay)',
+        boxShadow: 'inset 0 0 0 1px var(--border), 0 4px 12px rgba(0,0,0,.14)',
+        color: 'var(--muted)',
+        cursor: 'pointer',
+        zIndex: 5,
+      }}
+    >
+      {collapsed ? <ChevronLeft size={13} strokeWidth={2} /> : <ChevronRight size={13} strokeWidth={2} />}
+    </button>
+  )
+
+  if (collapsed) {
+    return (
+      <div className="relative shrink-0" style={{ width: 14 }}>
+        {toggleButton}
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative flex min-h-0 flex-col shrink-0" style={{ width }}>
+      <div
+        onMouseDown={onStartResize}
+        title="Drag to resize"
+        style={{
+          position: 'absolute',
+          top: 0,
+          bottom: 0,
+          left: -4,
+          width: 8,
+          cursor: 'col-resize',
+          zIndex: 4,
+        }}
+      />
+      {toggleButton}
+      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
     </div>
   )
 }

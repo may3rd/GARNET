@@ -378,7 +378,7 @@ cd backend
 uvicorn api:app --reload --port 8001
 ```
 
-Backend runs at `http://localhost:8001` with auto-reload enabled for development.
+Backend runs at `http://localhost:8090` with auto-reload enabled for development.
 
 **Terminal 2 - Start the React frontend:**
 
@@ -454,7 +454,7 @@ PREDICTIONS_DIR=static/images/predictions
 
 ```bash
 # API Configuration
-VITE_API_URL=http://localhost:8001
+VITE_API_URL=http://localhost:8090
 
 # Development Server
 VITE_PORT=5173
@@ -517,7 +517,7 @@ This creates an optimized build in the `frontend/dist/` directory.
     ```bash
     # Backend production start
     cd backend
-    gunicorn api:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8001
+    gunicorn api:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8090
     ```
 
 2. **Combined Serving**

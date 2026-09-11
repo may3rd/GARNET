@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button, Spinner } from '@heroui/react'
 import { Check, Minus, Pencil, Play, Plus, Trash2, X } from 'lucide-react'
-import { Card, SectionHeader, Tag } from '@/components/ui/primitives'
+import { Card, ResizableSidebar, SectionHeader, Tag } from '@/components/ui/primitives'
+import { useResizableSidebar } from '@/hooks/useResizableSidebar'
 import { classColor, normalizeClass } from '@/lib/detectionClasses'
 import { getPipelineArtifactJson, putPipelineArtifact } from '@/lib/api'
 import {
@@ -126,6 +127,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => void }) {
   const resumeGate = useRunStore((s) => s.resumeGate)
   const setScreen = useRunStore((s) => s.setScreen)
+  const sidebar = useResizableSidebar(240)
 
   const [bucket, setBucket] = useState<BucketKey>('equipment')
   const [raw, setRaw] = useState<Record<BucketKey, RawArtifact | null>>({
@@ -503,8 +505,8 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
       for (const key of BUCKET_ORDER) {
         if (dirty[key] && !(await saveBucket(key))) return
       }
-      await resumeGate(sheet.id, 1)
       setScreen('run')
+      await resumeGate(sheet.id, 1)
     } finally {
       setConfirming(false)
     }
@@ -975,7 +977,12 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-col gap-2.5 shrink-0" style={{ width: 240 }}>
+        <ResizableSidebar
+          width={sidebar.width}
+          collapsed={sidebar.collapsed}
+          onToggleCollapsed={sidebar.toggleCollapsed}
+          onStartResize={sidebar.startResize}
+        >
           <Card className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden" padding={16}>
             <SectionHeader
               title={bucketConfig.label}
@@ -1045,7 +1052,7 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
               ))}
             </div>
           </Card>
-        </div>
+        </ResizableSidebar>
       </div>
 
       {/* Footer */}

@@ -89,6 +89,8 @@ type RunState = {
   toggleTheme: () => void
   startRun: () => Promise<void>
   resumeGate: (sheetId: string, gate: GateId) => Promise<void>
+  /** Re-runs stage5b_pipe_trace in place (e.g. after editing connection ports in Gate 2) and stops again at the Gate 2 boundary — unlike resumeGate, this never advances past it. */
+  retraceStage5b: (sheetId: string) => Promise<void>
   gateFor: (sheetId: string) => GateId | null
 
   /** Detection task: POST /api/detect for one sheet, or re-run it. */
@@ -313,6 +315,22 @@ export const useRunStore = create<RunState>((set, get) => ({
       patchSheet(set, sheetId, {
         progress: null,
         error: error instanceof Error ? error.message : 'Resume failed',
+      })
+    }
+  },
+
+  retraceStage5b: async (sheetId) => {
+    const sheet = get().sheets.find((s) => s.id === sheetId)
+    if (!sheet?.jobId) return
+
+    patchSheet(set, sheetId, { error: null, progress: { step: 'Retracing pipe paths', percent: 8 } })
+    try {
+      await resumePipelineFromStage(sheet.jobId, 'stage5b_pipe_trace', { stopAfter: 5 })
+      await pollUntilRest(set, sheetId, sheet.jobId)
+    } catch (error) {
+      patchSheet(set, sheetId, {
+        progress: null,
+        error: error instanceof Error ? error.message : 'Retrace failed',
       })
     }
   },

@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 GARNET (GCME AI-Recognition Network for Engineering Technology) is an AI-powered tool for automating symbol detection, classification, and connectivity analysis in Piping and Instrumentation Diagrams (P&IDs). It combines YOLOv11 object detection with graph-based analytics to transform P&ID workflows.
 
 **Tech Stack:**
+
 - **Backend**: FastAPI + Python (YOLOv11, SAHI, EasyOCR/PaddleOCR/Gemini OCR, NetworkX, OpenCV)
 - **Frontend**: React 18 + TypeScript + Vite + Zustand (state management) + Radix UI + Tailwind CSS + Konva (canvas) + **Bun (package manager)**
 - **AI Models**: Ultralytics YOLOv11, EasyOCR, PaddleOCR (RapidOCR), Gemini via OpenRouter, DeepLSD (line detection)
@@ -126,7 +127,7 @@ The backend and garnet module live under `backend/`. Always run backend commands
 │   │   ├── lib/                    # API client, export utilities, helpers
 │   │   └── types.ts                # TypeScript type definitions
 │   ├── package.json                # Bun dependencies
-│   ├── vite.config.ts              # Vite config (proxies /api and /runs to :8001)
+│   ├── vite.config.ts              # Vite config (proxies /api and /runs to :8090)
 │   └── tailwind.config.ts
 ├── DeepLSD/                        # Line detection submodule
 ├── design/                         # Design references and assets
@@ -186,7 +187,7 @@ cd frontend
 # Install dependencies
 bun install
 
-# Start dev server on port 5173 (proxies /api and /runs to localhost:8001)
+# Start dev server on port 5173 (proxies /api and /runs to localhost:8090)
 bun run dev
 
 # Build for production
@@ -218,25 +219,25 @@ python backend/garnet/predict_images.py \
 
 Copy `.env.example` (root) to `.env` and configure:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ENV` | `development` | Environment mode |
-| `HOST` / `PORT` | `localhost` / `8001` | Server bind address |
-| `ALLOWED_ORIGINS` | `http://localhost:5173,...` | CORS origins (comma-separated) |
-| `MAX_FILE_SIZE_MB` | `50` | Upload size limit |
-| `DEFAULT_CONF_THRESHOLD` | `0.8` | Default detection confidence |
-| `DEFAULT_IMAGE_SIZE` | `640` | Default SAHI inference size |
-| `DEFAULT_OVERLAP_RATIO` | `0.2` | Default SAHI tile overlap |
-| `OPENROUTER_API_KEY` | — | Required for Gemini OCR/detection routes |
-| `OPENROUTER_MODEL` | `google/gemini-3-flash-preview` | Gemini model via OpenRouter |
-| `OCR_CACHE_ENABLED` | `true` | Enable OCR result caching |
-| `OCR_LANGUAGES` | `en` | EasyOCR languages |
-| `OCR_GPU` | `true` | Use GPU for EasyOCR |
-| `API_KEY_ENABLED` | `false` | Enable API key auth |
-| `API_KEY` | — | API key value |
-| `RATE_LIMIT_ENABLED` | `false` | Enable rate limiting |
-| `RATE_LIMIT_REQUESTS` / `RATE_LIMIT_WINDOW` | `100` / `60` | Rate limit config |
-| `LOG_LEVEL` / `LOG_FILE` / `LOG_ROTATION` | `INFO` / `garnet.log` / `10 MB` | Logging config |
+| Variable                                    | Default                         | Description                              |
+| ------------------------------------------- | ------------------------------- | ---------------------------------------- |
+| `ENV`                                       | `development`                   | Environment mode                         |
+| `HOST` / `PORT`                             | `localhost` / `8001`            | Server bind address                      |
+| `ALLOWED_ORIGINS`                           | `http://localhost:5173,...`     | CORS origins (comma-separated)           |
+| `MAX_FILE_SIZE_MB`                          | `50`                            | Upload size limit                        |
+| `DEFAULT_CONF_THRESHOLD`                    | `0.8`                           | Default detection confidence             |
+| `DEFAULT_IMAGE_SIZE`                        | `640`                           | Default SAHI inference size              |
+| `DEFAULT_OVERLAP_RATIO`                     | `0.2`                           | Default SAHI tile overlap                |
+| `OPENROUTER_API_KEY`                        | —                               | Required for Gemini OCR/detection routes |
+| `OPENROUTER_MODEL`                          | `google/gemini-3-flash-preview` | Gemini model via OpenRouter              |
+| `OCR_CACHE_ENABLED`                         | `true`                          | Enable OCR result caching                |
+| `OCR_LANGUAGES`                             | `en`                            | EasyOCR languages                        |
+| `OCR_GPU`                                   | `true`                          | Use GPU for EasyOCR                      |
+| `API_KEY_ENABLED`                           | `false`                         | Enable API key auth                      |
+| `API_KEY`                                   | —                               | API key value                            |
+| `RATE_LIMIT_ENABLED`                        | `false`                         | Enable rate limiting                     |
+| `RATE_LIMIT_REQUESTS` / `RATE_LIMIT_WINDOW` | `100` / `60`                    | Rate limit config                        |
+| `LOG_LEVEL` / `LOG_FILE` / `LOG_ROTATION`   | `INFO` / `garnet.log` / `10 MB` | Logging config                           |
 
 ## Architecture
 
@@ -275,6 +276,7 @@ Pipeline flow: upload → pipeline setup → pipeline results → HITL review
 ```
 
 **Key components beyond basic detection:**
+
 - `PipelineResultsView.tsx`: Displays pipeline job progress, artifacts, and stage outputs
 - `PipelineArtifactCanvas.tsx`: Renders pipeline artifact overlays (masks, skeletons, graphs)
 - `PipelineHitlReviewView.tsx`: Human-in-the-loop review entrypoint for object and traced-path gates
@@ -286,6 +288,7 @@ Pipeline flow: upload → pipeline setup → pipeline results → HITL review
 ### Backend API Endpoints
 
 **Detection (legacy path):**
+
 - `POST /api/detect` — Run YOLO detection with SAHI + optional OCR
 - `GET /api/results/{result_id}` — Get detection result
 - `PATCH /api/results/{result_id}/objects/{obj_id}` — Update detected object
@@ -293,6 +296,7 @@ Pipeline flow: upload → pipeline setup → pipeline results → HITL review
 - `DELETE /api/results/{result_id}/objects/{obj_id}` — Delete object
 
 **Pipeline jobs:**
+
 - `POST /api/pipeline/jobs` — Start a pipeline job (staged: normalize → OCR → detect → mask → skeleton → edges → graph → QA)
 - `GET /api/pipeline/jobs/{job_id}` — Get job status and progress
 - `POST /api/pipeline/merge` — Merge multi-sheet pipeline results
@@ -303,6 +307,7 @@ Pipeline flow: upload → pipeline setup → pipeline results → HITL review
 - `GET /api/pipeline/jobs/{job_id}/artifacts/{artifact_name}` — Download stage artifact
 
 **Model discovery:**
+
 - `GET /api/health` — Health check with model status and memory usage
 - `GET /api/model-types` — List available detection model types
 - `GET /api/models` — List available model configurations
@@ -310,6 +315,7 @@ Pipeline flow: upload → pipeline setup → pipeline results → HITL review
 - `GET /api/config-files` — Scan for YOLO config files
 
 **Export:**
+
 - `POST /api/export/excel` — Export detection results to Excel
 - `POST /api/pdf-extract` — Extract images from PDF uploads
 
@@ -317,24 +323,24 @@ Pipeline flow: upload → pipeline setup → pipeline results → HITL review
 
 The pipeline in `garnet/pid_extractor.py` orchestrates a multi-stage rebuild:
 
-| Stage | Name | What it does | Key output artifacts |
-|-------|------|-------------|---------------------|
-| 1 | Normalization | Grayscale, histogram equalization, adaptive/Otsu binary | `stage1_gray.png`, `stage1_binary_adaptive.png`, `stage1_binary_otsu.png` |
-| 2 | OCR Discovery | Tiled OCR via EasyOCR/Gemini/PaddleOCR route | `stage2_ocr_results.json`, text regions |
-| 4 | Object Detection | YOLOv11 + SAHI symbol detection | `stage4_objects.json`, `stage4_objects_overlay.png`, topology markers |
-| 5 | Pipe Mask | Provisional pipe segmentation from binary + suppression | `stage5_pipe_mask.png`, `stage5_pipe_mask_overlay.png` |
-| 5b | Geometric Lines | DeepLSD line detection or inpaint-based line extraction | Line geometry for topology |
-| 6 | Morphological Seal | Seal gaps in pipe mask | `stage6_pipe_seal.png` |
-| 7 | Skeleton | 1-pixel centerline skeleton from pipe mask | `stage7_pipe_skeleton.png` |
-| 8 | Node Detection | Endpoint/junction detection on skeleton (8-neighbor degree) | `stage8_pipe_nodes.json` |
-| 9 | Node Clustering | DBSCAN clustering of pixel-dense skeleton nodes | `stage9_node_clusters.json` |
-| 10 | Edge Tracing | Depth-first skeleton traversal, crossing resolution | `stage10_pipe_edges.json`, `stage10_crossing_resolution.json` |
-| 11 | Trace Associations | Text/equipment attachment to edges, terminal classification | `stage11_trace_associations.json` |
-| 12 | Graph Assembly | NetworkX graph construction + edge topology | `stage12_graph.graphml`, `stage12_edge_terminals.json` |
-| 13 | Graph QA | Anomaly detection, crossing verification, review package | `stage13_review_package.json` |
-| 14 | Apply Reviews | Merge review decisions into graph corrections | `stage14_reviewed_graph.graphml` |
-| 15 | Process Exports | Final export generation (GraphML, JSON, connection overlays) | Final graph exports |
-| 16 | Connection Overlay | Visual overlay of connections on original | `stage16_connection_overlay.png` |
+| Stage | Name               | What it does                                                 | Key output artifacts                                                      |
+| ----- | ------------------ | ------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| 1     | Normalization      | Grayscale, histogram equalization, adaptive/Otsu binary      | `stage1_gray.png`, `stage1_binary_adaptive.png`, `stage1_binary_otsu.png` |
+| 2     | OCR Discovery      | Tiled OCR via EasyOCR/Gemini/PaddleOCR route                 | `stage2_ocr_results.json`, text regions                                   |
+| 4     | Object Detection   | YOLOv11 + SAHI symbol detection                              | `stage4_objects.json`, `stage4_objects_overlay.png`, topology markers     |
+| 5     | Pipe Mask          | Provisional pipe segmentation from binary + suppression      | `stage5_pipe_mask.png`, `stage5_pipe_mask_overlay.png`                    |
+| 5b    | Geometric Lines    | DeepLSD line detection or inpaint-based line extraction      | Line geometry for topology                                                |
+| 6     | Morphological Seal | Seal gaps in pipe mask                                       | `stage6_pipe_seal.png`                                                    |
+| 7     | Skeleton           | 1-pixel centerline skeleton from pipe mask                   | `stage7_pipe_skeleton.png`                                                |
+| 8     | Node Detection     | Endpoint/junction detection on skeleton (8-neighbor degree)  | `stage8_pipe_nodes.json`                                                  |
+| 9     | Node Clustering    | DBSCAN clustering of pixel-dense skeleton nodes              | `stage9_node_clusters.json`                                               |
+| 10    | Edge Tracing       | Depth-first skeleton traversal, crossing resolution          | `stage10_pipe_edges.json`, `stage10_crossing_resolution.json`             |
+| 11    | Trace Associations | Text/equipment attachment to edges, terminal classification  | `stage11_trace_associations.json`                                         |
+| 12    | Graph Assembly     | NetworkX graph construction + edge topology                  | `stage12_graph.graphml`, `stage12_edge_terminals.json`                    |
+| 13    | Graph QA           | Anomaly detection, crossing verification, review package     | `stage13_review_package.json`                                             |
+| 14    | Apply Reviews      | Merge review decisions into graph corrections                | `stage14_reviewed_graph.graphml`                                          |
+| 15    | Process Exports    | Final export generation (GraphML, JSON, connection overlays) | Final graph exports                                                       |
+| 16    | Connection Overlay | Visual overlay of connections on original                    | `stage16_connection_overlay.png`                                          |
 
 **Pipeline config** is controlled via `PipelineConfig` dataclass (thresholds, device, OCR route, stage stop points).
 
@@ -391,6 +397,7 @@ python -m unittest tests.test_pipeline_api.TestPipelineAPI.test_pipeline_job_run
 ```
 
 Key test files:
+
 - `test_pipeline_api.py` — FastAPI TestClient integration tests for pipeline job endpoints (62KB, most comprehensive)
 - `test_pid_extractor_cli.py` — CLI-level pipeline integration tests (45KB)
 - `test_pipe_edge_connectivity.py` — Edge connectivity and topology tests
@@ -402,13 +409,14 @@ Frontend has no test framework configured — verify with `bun run lint` and `bu
 
 ## Debugging
 
-- FastAPI auto-docs: `http://localhost:8001/docs`
+- FastAPI auto-docs: `http://localhost:8090/docs`
 - Backend logs: `garnet.log` in the backend working directory
 - React DevTools for component tree and Zustand store inspection
 - Pipeline debug: use `run_debug.sh` for verbose stage output
 - Compile-check backend: `python -m py_compile api.py garnet/*.py garnet/utils/*.py`
 
 **Common issues:**
+
 - **Model not found**: Check `backend/yolo_weights/` for .pt/.onnx files
 - **OCR fails**: Ensure EasyOCR is installed and cached reader initializes (check `OCR_GPU` setting)
 - **Frontend proxy error**: Backend must be running on port 8001

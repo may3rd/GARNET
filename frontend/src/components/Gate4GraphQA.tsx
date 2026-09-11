@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Spinner } from '@heroui/react'
 import { Minus, Plus, Play } from 'lucide-react'
-import { Card, SectionHeader, Tag, type TagTone } from '@/components/ui/primitives'
+import { Card, ResizableSidebar, SectionHeader, Tag, type TagTone } from '@/components/ui/primitives'
+import { useResizableSidebar } from '@/hooks/useResizableSidebar'
 import { APIError, getPipelineArtifactJson, putPipelineArtifact } from '@/lib/api'
 import { clampPan, fitScale as computeFit, wheelIntent, zoomAbout } from '@/lib/viewport'
 import { useRunStore, type Sheet } from '@/stores/runStore'
@@ -63,6 +64,7 @@ const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n
 export function Gate4GraphQA({ sheet, onBack }: { sheet: Sheet; onBack: () => void }) {
   const resumeGate = useRunStore((s) => s.resumeGate)
   const setScreen = useRunStore((s) => s.setScreen)
+  const sidebar = useResizableSidebar(420, { min: 280, max: 640 })
 
   const [items, setItems] = useState<ReviewItem[] | null>(null)
   const [decisions, setDecisions] = useState<Map<string, Decision>>(new Map())
@@ -275,8 +277,8 @@ export function Gate4GraphQA({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
     setConfirming(true)
     try {
       if (dirty && !(await save())) return
-      await resumeGate(sheet.id, 4)
       setScreen('run')
+      await resumeGate(sheet.id, 4)
     } finally {
       setConfirming(false)
     }
@@ -417,7 +419,13 @@ export function Gate4GraphQA({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
         </div>
 
         {/* Punch list — most review items have no single point, so this is the primary surface. */}
-        <div className="flex min-h-0 flex-1 flex-col gap-2.5">
+        <ResizableSidebar
+          width={sidebar.width}
+          collapsed={sidebar.collapsed}
+          onToggleCollapsed={sidebar.toggleCollapsed}
+          onStartResize={sidebar.startResize}
+        >
+          <div className="flex min-h-0 flex-1 flex-col gap-2.5">
           <div className="flex shrink-0 items-center gap-1.5">
             {(['all', 'high', 'medium', 'review', 'info'] as const).map((sev) => (
               <button
@@ -499,7 +507,8 @@ export function Gate4GraphQA({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
               )}
             </div>
           </Card>
-        </div>
+          </div>
+        </ResizableSidebar>
       </div>
 
       {/* Footer */}
