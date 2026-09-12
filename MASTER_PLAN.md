@@ -24,7 +24,8 @@ implementation slice: define the contract and fixtures, preserve distinct
 routes, and make review corrections produce a consistent graph revision.
 Phase 4 adds drawing-scoped engineering identities on top of that graph without
 renumbering the executable pipeline. Phase 5 adds evidence-based flow direction
-and review without changing physical connectivity. Phase 6 is the next delivery
+and review without changing physical connectivity. Phase 6 preserves that
+contract in a deterministic multi-sheet graph. Phase 7 is the next delivery
 slice.
 
 ## Target graph contract
@@ -75,7 +76,7 @@ slice explicitly extends and versions that payload.
 8. Add process boundaries, test-package views, and LLM-oriented projections.
 9. Validate end to end on a representative benchmark and version the export.
 
-Phases 1–5 are implemented. Phase 6 is the next work slice. Phases 6–9 are
+Phases 1–6 are implemented. Phase 7 is the next work slice. Phases 7–9 are
 planned work only.
 
 ## Acceptance principle

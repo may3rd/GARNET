@@ -213,22 +213,12 @@ class ResolveMergePairsTests(unittest.TestCase):
         self.assertEqual(len(result.cross_sheet_edges), 1)
         self.assertEqual(result.cross_sheet_edges[0].reference_value, "E-1")
 
-    def test_unknown_doc_id_falls_back(self):
-        g1 = _graph("S1", [_edge("e1", "sheet", "F-1", "output")])
-        g2 = _graph("S2", [_edge("e2", "sheet", "F-1", "input", "destination")])
-        # Also test truly empty doc_ids — both normalize to UNKNOWN, treated as
-        # same-sheet, which correctly becomes an INTRA_SHEET_DUPLICATE.
+    def test_duplicate_unknown_doc_ids_are_rejected(self):
         g3 = _graph(None, [_edge("e3", "sheet", "F-2", "output")])  # type: ignore
         g4 = _graph("  ", [_edge("e4", "sheet", "F-2", "input", "destination")])  # type: ignore
 
-        result = resolve_merge_pairs([g1, g2, g3, g4])
-
-        # g1+g2 have real doc_ids → merged
-        self.assertEqual(len(result.cross_sheet_edges), 1)
-        self.assertEqual(result.cross_sheet_edges[0].reference_value, "F-1")
-        # g3+g4 both normalize to UNKNOWN doc_id → INTRA_SHEET_DUPLICATE
-        self.assertEqual(len(result.merge_issues), 1)
-        self.assertEqual(result.merge_issues[0].type, "intra_sheet_duplicate")
+        with self.assertRaisesRegex(ValueError, "duplicate document.doc_id"):
+            resolve_merge_pairs([g3, g4])
 
     def test_reference_type_pid(self):
         g1 = _graph("S1", [_edge("e1", "pid", "P-101", "output")])

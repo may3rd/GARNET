@@ -21,6 +21,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
+from urllib.parse import quote
 
 # ---------------------------------------------------------------------------
 # Public types
@@ -63,6 +64,7 @@ class CrossSheetEdge:
     match_method: str = "legacy"
 
     def to_dict(self) -> dict[str, Any]:
+        terminals = sorted(self.terminals, key=lambda item: (str(item.get("sheet", "")), str(item.get("local_edge_id", ""))))
         return {
             "id": self.id,
             "merge_key": {
@@ -72,8 +74,8 @@ class CrossSheetEdge:
             "reference_type": self.reference_type,
             "reference_value": self.reference_value,
             "sheets": self.sheets,
-            "terminals": self.terminals,
-            "direction_pair": (self.direction_a, self.direction_b),
+            "terminals": terminals,
+            "direction_pair": tuple(item.get("direction", "bidirectional") for item in terminals),
             "status": self.status,
             "connector_key": self.connector_key or self.reference_value,
             "match_method": self.match_method,
@@ -124,6 +126,7 @@ class MergeResult:
     cross_sheet_edges: list[CrossSheetEdge] = field(default_factory=list)
     merge_issues: list[MergeIssue] = field(default_factory=list)
     per_sheet_resolved: list[SheetResolved] = field(default_factory=list)
+    combined_graph: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -140,6 +143,7 @@ class MergeResult:
                 }
                 for s in self.per_sheet_resolved
             ],
+            "combined_graph": self.combined_graph,
         }
 
 
@@ -179,8 +183,10 @@ def _make_virtual_edge_id(doc_id_a: str, doc_id_b: str, ref_value: str) -> str:
     """Canonical ID for a cross-sheet virtual edge."""
     # Sort so A→B and B→A produce the same ID
     a, b = sorted([doc_id_a, doc_id_b])
-    safe_ref = re.sub(r"[^a-zA-Z0-9_\-]", "_", ref_value)
-    return f"xs::{a}::{safe_ref}::{b}"
+    encoded_a = quote(a, safe="-._~")
+    encoded_b = quote(b, safe="-._~")
+    encoded_ref = quote(ref_value, safe="-._~")
+    return f"xs::{encoded_a}::{encoded_ref}::{encoded_b}"
 
 
 # ---------------------------------------------------------------------------
@@ -325,7 +331,7 @@ def _strict_connectors(
                 or ""
             ).strip()
             connector_key = str(override.get("connector_key") or opc.get("connector_key") or "").strip()
-            state = str(override.get("review_state") or "accepted").strip().lower()
+            state = str(override.get("review_state") or opc.get("review_state") or "accepted").strip().lower()
             connectors.append(
                 {
                     "connector_id": connector_id,
@@ -519,8 +525,8 @@ def _resolve_strict_merge(
             doc_id=sheet_id,
             resolved_count=len(resolved_by_sheet.get(sheet_id, [])),
             dangling_count=len(dangling_by_sheet.get(sheet_id, [])),
-            resolved_references=resolved_by_sheet.get(sheet_id, []),
-            dangling_references=dangling_by_sheet.get(sheet_id, []),
+            resolved_references=sorted(resolved_by_sheet.get(sheet_id, [])),
+            dangling_references=sorted(dangling_by_sheet.get(sheet_id, [])),
         )
         for sheet_id in sheet_ids
     ]
@@ -532,6 +538,198 @@ def _resolve_strict_merge(
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
+
+def _typed_id(kind: str, sheet: str, local_id: Any) -> str:
+    return f"{kind}::{sheet}::{str(local_id)}"
+
+
+def _remap_refs(record: dict[str, Any], maps: dict[str, dict[str, str]]) -> dict[str, Any]:
+    result = dict(record)
+    field_kinds = {
+        "equipment_id": "equipment", "port_id": "port", "line_id": "line",
+        "instrument_id": "instrument", "edge_id": "edge", "source": "node",
+        "target": "node",
+        "inline_object_id": "inline",
+        "src": "node", "dst": "node", "canonical_src": "node", "canonical_dst": "node",
+        "source_equipment_id": "equipment", "target_equipment_id": "equipment",
+        "source_port_id": "port", "target_port_id": "port",
+        "terminal_equipment_id": "equipment", "terminal_port_id": "port",
+        "flow_src": "node", "flow_dst": "node",
+    }
+    for field, kind in field_kinds.items():
+        if field in result and str(result[field]) in maps.get(kind, {}):
+            result[field] = maps[kind][str(result[field])]
+    for field in ("edge_ids", "equipment_ids", "port_ids", "line_ids"):
+        if isinstance(result.get(field), list):
+            kind = field[:-1].removesuffix("_id")
+            result[field] = [maps.get(kind, {}).get(str(value), value) for value in result[field]]
+    for field, kind in (("inline_object_ids", "inline"), ("ordered_inline_object_ids", "inline"),
+                        ("instrument_ids", "instrument")):
+        if isinstance(result.get(field), list):
+            result[field] = [maps.get(kind, {}).get(str(value), value) for value in result[field]]
+    if isinstance(result.get("canonical_line_ids"), list):
+        result["canonical_line_ids"] = [maps.get("line", {}).get(str(value), value) for value in result["canonical_line_ids"]]
+    for field in ("occurrences", "line_occurrences", "line_edges"):
+        if isinstance(result.get(field), list):
+            result[field] = [_remap_refs(value, maps) if isinstance(value, dict) else value for value in result[field]]
+    for key, value in list(result.items()):
+        if isinstance(value, list) and key.endswith("_objects"):
+            result[key] = [_remap_refs(item, maps) if isinstance(item, dict) else item for item in value]
+        elif isinstance(value, dict) and key.endswith("occurrence"):
+            result[key] = _remap_refs(value, maps)
+    return result
+
+
+def _provenance(record: dict[str, Any], projection: dict[str, Any]) -> dict[str, Any]:
+    original = record.get("provenance")
+    merged = dict(original) if isinstance(original, dict) else ({"source_provenance": original} if original is not None else {})
+    merged["projection"] = projection
+    return merged
+
+
+def _boundary_flow(edge: dict[str, Any], exit_terminal: str) -> str:
+    state = str(edge.get("flow_direction_state") or "unknown")
+    if state not in {"forward", "reverse", "bidirectional"}:
+        return "unknown"
+    if state == "bidirectional":
+        return "bidirectional"
+    exits_source = str(exit_terminal or "source").lower() == "source"
+    outward = (state == "forward") != exits_source
+    return "outgoing" if outward else "incoming"
+
+
+def _combined_graph(graphs: list[dict[str, Any]], result: MergeResult, connector_overrides: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
+    """Project sheets into a deterministic qualified graph while retaining local data."""
+    nodes: list[dict[str, Any]] = []
+    edges: list[dict[str, Any]] = []
+    connectors: list[dict[str, Any]] = []
+    connector_overrides = connector_overrides or {}
+    catalogs: dict[str, list[dict[str, Any]]] = {name: [] for name in ("equipment", "equipment_ports", "lines", "inline_objects", "instruments")}
+    catalog_kinds = {"equipment": "equipment", "equipment_ports": "port", "lines": "line", "inline_objects": "inline", "instruments": "instrument"}
+    maps_by_sheet: dict[str, dict[str, dict[str, str]]] = {}
+    sorted_graphs = sorted(graphs, key=lambda g: _normalize_doc_id(g.get("document", {}).get("doc_id")))
+    for graph in sorted_graphs:
+        sheet = _normalize_doc_id(graph.get("document", {}).get("doc_id"))
+        entity_maps: dict[str, dict[str, str]] = {kind: {} for kind in ("node", "edge", "connector", "equipment", "port", "line", "inline", "instrument", "relationship")}
+        for node in sorted(graph.get("nodes", []) or [], key=lambda n: str(n.get("id", ""))):
+            local = str(node.get("id", ""))
+            qid = _typed_id("node", sheet, local)
+            entity_maps["node"][local] = qid
+            nodes.append({**node, "id": qid, "local_id": local, "sheet": sheet, "provenance": _provenance(node, {"sheet": sheet, "source_id": local})})
+        for edge in sorted(graph.get("edges", []) or [], key=lambda e: str(e.get("id", ""))):
+            local = str(edge.get("id", ""))
+            qid = _typed_id("edge", sheet, local)
+            entity_maps["edge"][local] = qid
+            item = {**edge, "id": qid, "local_id": local, "sheet": sheet,
+                    "src": _typed_id("node", sheet, edge.get("src", edge.get("source", ""))),
+                    "dst": _typed_id("node", sheet, edge.get("dst", edge.get("target", ""))),
+                    "source": _typed_id("node", sheet, edge.get("source", edge.get("src", ""))),
+                    "target": _typed_id("node", sheet, edge.get("target", edge.get("dst", ""))),
+                    "provenance": _provenance(edge, {"sheet": sheet, "source_id": local})}
+            item = _remap_refs(item, entity_maps)
+            edges.append(item)
+            opc = edge.get("off_page_connector")
+            if isinstance(opc, dict):
+                cid = _typed_id("connector", sheet, opc.get("local_edge_id") or local)
+                entity_maps["connector"][str(opc.get("local_edge_id") or local)] = cid
+                connector = {"id": cid, "type": "off_page_connector", "sheet": sheet,
+                             "edge_id": qid, "local_edge_id": local,
+                             "reference_type": _normalize_ref_type(opc.get("reference_type")),
+                             "reference_value": str(opc.get("reference_value") or ""),
+                             "connector_key": str(opc.get("connector_key") or opc.get("reference_value") or ""),
+                             "target_sheet_id": str(opc.get("target_sheet_reference") or ""),
+                             "exit_terminal": str(opc.get("exit_terminal") or "source"),
+                             "review_state": str(opc.get("review_state") or "unresolved"),
+                             "provenance": _provenance(opc, {"sheet": sheet, "source_edge_id": local})}
+                override = connector_overrides.get(f"{sheet}::{opc.get('local_edge_id') or local}", {})
+                if override:
+                    connector["raw_connector_key"] = connector["connector_key"]
+                    connector["raw_target_sheet_id"] = connector.get("target_sheet_id", "")
+                    connector["connector_key"] = str(override.get("connector_key") or connector["connector_key"])
+                    connector["target_sheet_id"] = str(override.get("target_sheet_id") or connector.get("target_sheet_id", ""))
+                    connector["review_state"] = "rejected" if str(override.get("review_state", "")).lower() == "rejected" else "accepted"
+                    connector["review_evidence"] = {"source": "connector_override", "override": dict(override)}
+                connectors.append(connector)
+        for name, kind in catalog_kinds.items():
+            records = graph.get(name, []) or []
+            if isinstance(records, dict):
+                records = list(records.values())
+            for record in sorted(records, key=lambda r: str(r.get("id", r.get(f"{kind}_id", "")))):
+                local = str(record.get("id", record.get(f"{kind}_id", "")))
+                if not local:
+                    continue
+                item = {**record, "id": _typed_id(kind, sheet, local), "local_id": local,
+                        "sheet": sheet, "provenance": _provenance(record, {"sheet": sheet, "source_id": local})}
+                entity_maps[kind][local] = item["id"]
+                for key in ("equipment_id", "port_id", "line_id", "instrument_id", "edge_id"):
+                    if key in item and item[key] is not None:
+                        item[key] = entity_maps.get(key.removesuffix("_id"), {}).get(str(item[key]), item[key])
+                catalogs[name].append(item)
+        maps_by_sheet[sheet] = entity_maps
+    for item in edges:
+        item.update(_remap_refs(item, maps_by_sheet.get(item["sheet"], {})))
+    for name in catalogs:
+        for index, item in enumerate(catalogs[name]):
+            catalogs[name][index] = _remap_refs(item, maps_by_sheet.get(item["sheet"], {}))
+    relationships: list[dict[str, Any]] = []
+    connector_ids = {c["id"] for c in connectors}
+    for graph in sorted_graphs:
+        sheet = _normalize_doc_id(graph.get("document", {}).get("doc_id"))
+        for rel in sorted(graph.get("relationships", []) or [], key=lambda r: str(r.get("id", ""))):
+            local = str(rel.get("id", ""))
+            if not local:
+                continue
+            item = {**rel, "id": _typed_id("relationship", sheet, local), "local_id": local,
+                    "sheet": sheet, "provenance": _provenance(rel, {"sheet": sheet, "source_id": local})}
+            entity_maps = maps_by_sheet.get(sheet, {})
+            rel_type = str(item.get("type", "")).lower()
+            for key in ("source", "target"):
+                value = item.get(key)
+                if value is not None:
+                    if rel_type == "has_port":
+                        preferred = ["equipment", "node"] if key == "source" else ["port"]
+                    elif rel_type == "has_inline_object":
+                        preferred = ["edge"] if key == "source" else ["inline"]
+                    elif any(word in rel_type for word in ("measure", "control", "actuate", "instrument")):
+                        preferred = ["instrument"] if key == "source" else ["edge"]
+                    elif rel_type == "connects_to":
+                        preferred = ["edge"] if key == "source" else ["port"]
+                    else:
+                        preferred = ["equipment", "node", "edge"]
+                    item[key] = next((entity_maps[k][str(value)] for k in preferred if str(value) in entity_maps.get(k, {})), value)
+            item = _remap_refs(item, entity_maps)
+            relationships.append(item)
+    for virtual in sorted(result.cross_sheet_edges, key=lambda e: e.id):
+        refs = []
+        for terminal in virtual.terminals:
+            cid = _typed_id("connector", str(terminal["sheet"]), terminal.get("local_edge_id", ""))
+            if cid in connector_ids:
+                refs.append(cid)
+        if len(refs) != 2:
+            continue
+        terminal_pairs = sorted(zip(virtual.terminals, refs), key=lambda pair: pair[1])
+        refs = [cid for _, cid in terminal_pairs]
+        boundary = []
+        for terminal, cid in terminal_pairs:
+            connector_record = next((c for c in connectors if c["id"] == cid), {})
+            local_edge = next((e for e in edges if e["id"] == connector_record.get("edge_id")), {})
+            boundary.append({"connector_id": cid, "flow": _boundary_flow(local_edge, terminal.get("exit_terminal"))})
+        relationships.append({"id": f"rel::{virtual.id}", "type": "cross_sheet_continues",
+                              "source": refs[0], "target": refs[1], "connector_ids": refs,
+                              "physical_continuity": True, "status": virtual.status,
+                              "semantic_state": "reviewed" if virtual.match_method == "manual" else "inferred",
+                              "review_state": "accepted" if virtual.match_method == "manual" else "unresolved",
+                              "match_evidence": {"method": virtual.match_method, "merge_key": virtual.to_dict()["merge_key"]},
+                              "boundary_flow": boundary,
+                              "provenance": {"source_virtual_edge_id": virtual.id}})
+    nodes.sort(key=lambda n: n["id"]); edges.sort(key=lambda e: e["id"]); connectors.sort(key=lambda c: c["id"]); relationships.sort(key=lambda r: r["id"])
+    for name in catalogs:
+        catalogs[name].sort(key=lambda item: item["id"])
+    return {"schema_version": "graph_v2_combined", "sheets": sorted({_normalize_doc_id(g.get("document", {}).get("doc_id")) for g in graphs}),
+            "drawings": [{"sheet": _normalize_doc_id(g.get("document", {}).get("doc_id")), "document": g.get("document", {})} for g in sorted_graphs],
+            "nodes": nodes, "edges": edges, "connectors": connectors, "relationships": relationships,
+            **catalogs,
+            "issues": [issue.to_dict() for issue in result.merge_issues]}
 
 def resolve_merge_pairs(
     graphs: list[dict[str, Any]],
@@ -570,8 +768,17 @@ def resolve_merge_pairs(
     - The merge key is ``(reference_type, reference_value)`` —
       e.g. ``("sheet", "A-3")``.
     """
+    normalized_sheets: dict[str, str] = {}
+    for graph in graphs:
+        raw_sheet = _normalize_doc_id(graph.get("document", {}).get("doc_id"))
+        normalized = _normalize_match_text(raw_sheet)
+        if normalized in normalized_sheets:
+            raise ValueError(f"duplicate document.doc_id values: {normalized_sheets[normalized]!r} and {raw_sheet!r}")
+        normalized_sheets[normalized] = raw_sheet
     if strict:
-        return _resolve_strict_merge(graphs, connector_overrides or {}, manual_pairs or [])
+        merged = _resolve_strict_merge(graphs, connector_overrides or {}, manual_pairs or [])
+        merged.combined_graph = _combined_graph(graphs, merged, connector_overrides)
+        return merged
 
     all_connectors: list[dict[str, Any]] = []
     for g in graphs:
@@ -693,15 +900,22 @@ def resolve_merge_pairs(
             doc_id=doc_id,
             resolved_count=len(stats["resolved"]),
             dangling_count=len(stats["dangling"]),
-            resolved_references=stats["resolved"],
-            dangling_references=stats["dangling"],
+            resolved_references=sorted(stats["resolved"]),
+            dangling_references=sorted(stats["dangling"]),
         )
         for doc_id, stats in sorted(sheet_stats.items())
     ]
 
-    return MergeResult(
+    cross_sheet_edges.sort(key=lambda edge: edge.id)
+    merge_issues.sort(key=lambda issue: issue.issue_id)
+    for stats in sheet_stats.values():
+        stats["resolved"].sort()
+        stats["dangling"].sort()
+    merged = MergeResult(
         schema_version="graph_v2",
         cross_sheet_edges=cross_sheet_edges,
         merge_issues=merge_issues,
         per_sheet_resolved=per_sheet_resolved,
     )
+    merged.combined_graph = _combined_graph(graphs, merged)
+    return merged

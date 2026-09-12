@@ -111,6 +111,30 @@ Phase 5 implements flow as evidence attached to the existing physical graph:
 Physical connectivity remains undirected. A trace's source-to-target walking
 order is never sufficient evidence for process flow.
 
+## Phase 6 multi-sheet projection
+
+Phase 6 preserves the reviewed graph contract when individual drawings are
+assembled into a system graph:
+
+- the legacy graph-v2 merge summaries remain available for existing consumers;
+- the additive `combined_graph` carries drawing metadata and qualified nodes,
+  pixel-route edges, equipment, ports, lines, inline objects, instruments, and
+  relationships from every input sheet;
+- projected IDs include entity type and drawing scope, preventing equal local
+  IDs on separate sheets or in separate catalogs from colliding;
+- each uniquely resolved connector pair creates one typed `cross_sheet_continues`
+  relationship between explicit connector entities, with match evidence and
+  source provenance;
+- unmatched, rejected, non-reciprocal, or ambiguous connectors remain merge
+  issues and do not create physical continuity;
+- boundary flow is recorded separately as incoming, outgoing, bidirectional,
+  or unknown based on the local edge's reviewed direction and the connector's
+  source or target terminal.
+
+The combined projection is deterministic under input sheet reordering and the
+API persists it as strict JSON. Embedded per-sheet graph-v1 payloads remain in
+the system artifact for compatibility and audit.
+
 ## Benchmark inventory and limits
 
 Candidate read-only benchmark material currently present in the repository:
@@ -130,8 +154,8 @@ and cross-sheet continuity separately.
 ## Scope status
 
 Phases 1–3 established the contract, route preservation, and authoritative
-review revision. Phase 4 implements drawing-scoped equipment, port, line,
-inline-object, and instrument identities as additive graph data. Phase 5 adds
-evidence-based flow direction and its review path. Phases 6–9 (multi-sheet
-contract migration, review gates, boundaries/package views, and end-to-end
-release validation) remain deferred.
+review revision. Phase 4 implements drawing-scoped engineering identities.
+Phase 5 adds evidence-based flow direction and its review path. Phase 6 adds a
+qualified system graph and explicit cross-sheet continuity. Phases 7–9
+(topology review gates, boundaries/package views, and end-to-end release
+validation) remain deferred.

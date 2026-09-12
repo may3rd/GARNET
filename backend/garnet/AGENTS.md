@@ -99,6 +99,14 @@
   - mixed edge-local `forward` and `reverse` states do not prove a line-level conflict because each state is relative to its edge ordering
   - Stage 8 exposes unknown/conflicting direction for review, and Stage 9 `set_flow_direction` decisions are authoritative and audited
   - graph-v1 keeps legacy endpoints and adds flow-oriented endpoints only for resolved forward/reverse states
+- Current Phase 6 multi-sheet baseline:
+  - preserve legacy `graph_v2` merge summaries while adding a deterministic `combined_graph`
+  - qualify projected entity IDs by type and drawing so local IDs cannot collide across sheets or catalogs
+  - preserve drawing metadata, nodes, pixel-route edges, equipment, ports, lines, inline objects, instruments, and typed relationships
+  - represent each resolved connector pair as one explicit `cross_sheet_continues` relationship; unresolved or ambiguous connectors remain issues and do not create continuity
+  - keep physical continuity separate from boundary flow; derive incoming/outgoing state from the reviewed edge direction and connector terminal
+  - carry automatic/manual match evidence, connector review state, and source provenance into the combined graph
+  - write system graphs as strict JSON and keep projections deterministic under input sheet reordering
 - Historical Stage 10 edge-tracing baseline (these artifact names and thresholds describe an earlier numbering scheme; preserve them for compatibility when touching that implementation):
   - keep public stage numbering stable even though the roadmap conceptually separates crossing resolution from tracing
   - Stage 10 now runs explicit crossing-vs-junction resolution before final edge tracing

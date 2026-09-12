@@ -184,6 +184,15 @@ class PipelineApiTests(unittest.TestCase):
             self.assertEqual(len(graph["sheets"]), 2)
             self.assertEqual(graph["sheets"][0]["graph_v1"]["schema_version"], "graph_v1")
             self.assertEqual(len(graph["cross_sheet_edges"]), 1)
+            combined = graph["combined_graph"]
+            self.assertEqual(len(combined["connectors"]), 2)
+            self.assertEqual(len(combined["relationships"]), 1)
+            self.assertEqual(combined["relationships"][0]["type"], "cross_sheet_continues")
+            connector_ids = {connector["id"] for connector in combined["connectors"]}
+            relationship = combined["relationships"][0]
+            self.assertTrue(set(relationship["connector_ids"]) <= connector_ids)
+            self.assertTrue(relationship["source"] in connector_ids)
+            self.assertTrue(relationship["target"] in connector_ids)
             self.assertEqual(graph["connector_review"]["revision"], 1)
             review = response.json()["connector_review"]
             self.assertEqual(review["connector_overrides"], [])
@@ -207,17 +216,17 @@ class PipelineApiTests(unittest.TestCase):
                     json.dumps({
                         "schema_version": "graph_v1",
                         "document": {"doc_id": sheet_id},
-                        "edges": [{
-                            "id": edge_id,
-                            "off_page_connector": {
-                                "reference_type": "drawing",
-                                "reference_value": target,
-                                "target_sheet_reference": target,
-                                "connector_key": "10-P-100-A",
-                                "direction": "bidirectional",
-                                "exit_terminal": "source",
-                            },
-                        }],
+                        "nodes": [{"id": f"equipment::{sheet_id}", "type": "equipment"}],
+                        "edges": [{"id": f"route-{sheet_id}", "source": f"equipment::{sheet_id}", "target": f"equipment::{sheet_id}", "flow_direction_state": "unknown",
+                                   "off_page_connector": {
+                                       "local_edge_id": edge_id,
+                                       "reference_type": "drawing",
+                                       "reference_value": target,
+                                       "target_sheet_reference": target,
+                                       "connector_key": "10-P-100-A",
+                                       "direction": "bidirectional",
+                                       "exit_terminal": "source",
+                                   }}],
                     }),
                     encoding="utf-8",
                 )
@@ -233,7 +242,43 @@ class PipelineApiTests(unittest.TestCase):
                 response = client.post("/api/pipeline/merge", json={"job_ids": job_ids})
 
             self.assertEqual(response.status_code, 200, response.text)
-            self.assertEqual(len(response.json()["cross_sheet_edges"]), 1)
+            merged = response.json()
+            self.assertEqual(len(merged["cross_sheet_edges"]), 1)
+            combined = merged["combined_graph"]
+            self.assertEqual({node["id"] for node in combined["nodes"]}, {"node::DWG-100::equipment::DWG-100", "node::DWG-200::equipment::DWG-200"})
+            self.assertEqual(len(combined["connectors"]), 2)
+            self.assertEqual(len(combined["relationships"]), 1)
+            self.assertTrue(all("::" in relation["source"] for relation in combined["relationships"]))
+
+    def test_pipeline_merge_rejects_duplicate_normalized_document_ids(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp:
+            jobs = {}
+            for index, doc_id in enumerate(("Sheet A", " sheet   a ")):
+                job_id = f"dup-{index}"
+                job_dir = Path(tmp) / job_id
+                job_dir.mkdir()
+                (job_dir / "stage7b_graph_v1.json").write_text(json.dumps({"schema_version": "graph_v1", "document": {"doc_id": doc_id}, "nodes": [], "edges": []}), encoding="utf-8")
+                jobs[job_id] = {"job_id": job_id, "status": "completed", "current_stage": "stage11_connection_overlay", "job_dir": str(job_dir), "created_at": time.time(), "stop_after": 11}
+            with patch.dict("api.PIPELINE_JOBS", jobs, clear=False):
+                response = client.post("/api/pipeline/merge", json={"job_ids": list(jobs)})
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("Duplicate normalized document.doc_id", response.json()["detail"])
+
+    def test_system_graph_writer_preserves_additive_merge_fields_and_rejects_nan(self) -> None:
+        api_module = __import__("api")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "system_graph_v2.json"
+            additive = {
+                "schema_version": "graph_v2",
+                "cross_sheet_edges": [{"id": "x", "line_number_id": "L-1", "route_direction_state": "unknown"}],
+                "canonical_lines": [{"canonical_line_id": "line::L-1", "sheet_ids": ["A", "B"]}],
+                "connector_relations": [{"type": "same_physical_connector", "source": "A::c", "target": "B::c"}],
+            }
+            api_module._write_json_atomic(str(path), additive)
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), additive)
+            with self.assertRaises(ValueError):
+                api_module._write_json_atomic(str(path), {"bad": float("nan")})
 
     def test_ambiguous_numeric_resume_stages_are_rejected(self) -> None:
         expected_names = {

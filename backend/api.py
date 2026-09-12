@@ -1486,7 +1486,7 @@ def _write_json_atomic(path: str, payload: dict[str, Any]) -> None:
     tmp_path = os.path.join(os.path.dirname(path), f".{os.path.basename(path)}.tmp")
     try:
         with open(tmp_path, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2)
+            json.dump(payload, f, indent=2, allow_nan=False)
         os.replace(tmp_path, path)
     finally:
         if os.path.exists(tmp_path):
@@ -2372,6 +2372,17 @@ async def post_pipeline_merge(request: MergeSheetsRequest):
 
     if not graphs:
         raise HTTPException(status_code=400, detail="No valid graph payloads found.")
+
+    normalized_documents: dict[str, str] = {}
+    for graph, job_id in zip(graphs, request.job_ids):
+        raw_doc_id = str((graph.get("document") or {}).get("doc_id") or "")
+        normalized = " ".join(raw_doc_id.split()).casefold()
+        if normalized in normalized_documents:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Duplicate normalized document.doc_id in merge request: {raw_doc_id!r} conflicts with {normalized_documents[normalized]!r}",
+            )
+        normalized_documents[normalized] = raw_doc_id
 
     result = resolve_merge_pairs(graphs, strict=True)
     return result.to_dict()
