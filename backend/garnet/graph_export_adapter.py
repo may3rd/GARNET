@@ -655,6 +655,7 @@ def build_graph_v1_payload(
                 for record in line_numbers
                 if isinstance(record, dict) and str(record.get("id") or record.get("source_object_id") or "")
             ]
+        legacy_flow_direction = source_edge.get("flow_direction_state") is None and source_edge.get("flow_direction") is not None
         edge_node = {
             "id": edge_id,
             "src": str(source_edge.get("legacy_source", source_edge.get("source", ""))),
@@ -663,7 +664,11 @@ def build_graph_v1_payload(
             "canonical_dst": str(source_edge.get("target", "")),
             "type": map_edge_type(source_edge),
             "confidence": compute_edge_confidence(source_edge),
-            "directed": source_edge.get("flow_direction") is not None,
+            "directed": str(source_edge.get("flow_direction_state") or source_edge.get("flow_direction") or "unknown").lower() in {"forward", "reverse", "source_to_target", "target_to_source"},
+            "flow_direction_state": {"source_to_target": "forward", "target_to_source": "reverse"}.get(str(source_edge.get("flow_direction_state") or source_edge.get("flow_direction") or "unknown").lower(), str(source_edge.get("flow_direction_state") or source_edge.get("flow_direction") or "unknown").lower()),
+            "flow_direction_confidence": source_edge.get("flow_direction_confidence"),
+            "flow_direction_evidence": _json_safe(copy.deepcopy(source_edge.get("flow_direction_evidence") or [])),
+            "flow_direction_review_state": source_edge.get("flow_direction_review_state"),
             "provenance": build_provenance(f"stage12 edge review_state={source_edge.get('review_state', '')}"),
             "geometry": {"polyline": reproject_polyline(source_edge.get("polyline", []))},
             # Preserve semantic evidence additively.  Existing consumers only
@@ -680,6 +685,12 @@ def build_graph_v1_payload(
             "review_state": source_edge.get("review_state"),
             "line_number_review_state": source_edge.get("line_number_review_state"),
         }
+        direction_state = edge_node["flow_direction_state"]
+        if direction_state in {"forward", "reverse"}:
+            edge_node["flow_src"] = edge_node["canonical_dst"] if direction_state == "reverse" else edge_node["canonical_src"]
+            edge_node["flow_dst"] = edge_node["canonical_src"] if direction_state == "reverse" else edge_node["canonical_dst"]
+        if direction_state == "reverse" and not legacy_flow_direction:
+            edge_node["directed"] = False
         inline_ids = []
         for item in attachments.get("inline_objects", []) if isinstance(attachments.get("inline_objects"), list) else []:
             if isinstance(item, dict):

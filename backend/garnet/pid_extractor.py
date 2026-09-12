@@ -278,6 +278,8 @@ class PipelineConfig:
     trace_association_text_max_distance_px: float = 100.0
     trace_association_instrument_max_distance_px: float = 90.0
     trace_association_arrow_max_distance_px: float = 45.0
+    flow_arrow_raster_confidence_threshold: float = 0.70
+    flow_arrow_raster_asymmetry_threshold: float = 0.15
 
 
 class PIDPipeline(Stage5bPipelineMixin):
@@ -1027,6 +1029,9 @@ class PIDPipeline(Stage5bPipelineMixin):
             text_max_distance_px=self.cfg.trace_association_text_max_distance_px,
             instrument_max_distance_px=self.cfg.trace_association_instrument_max_distance_px,
             arrow_max_distance_px=self.cfg.trace_association_arrow_max_distance_px,
+            image_bgr=self._ensure_image_loaded(),
+            flow_arrow_raster_confidence_threshold=self.cfg.flow_arrow_raster_confidence_threshold,
+            flow_arrow_raster_asymmetry_threshold=self.cfg.flow_arrow_raster_asymmetry_threshold,
         )
 
         self._save_json("stage6_trace_associations", result["trace_associations_payload"])

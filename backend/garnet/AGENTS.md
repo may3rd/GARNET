@@ -91,6 +91,14 @@
   - instrument identities are separate from OCR occurrences
   - emit `measures`, `controls`, or `actuates` only from explicit evidence; proximity alone remains an unresolved `instrument_association`
   - Stage 10 retains legacy line/equipment fields and adds canonical line and connectivity projections for downstream consumers
+- Current Phase 5 flow-direction baseline:
+  - flow direction is separate from physical connectivity and uses `forward`, `reverse`, `bidirectional`, `unknown`, or `conflicting`
+  - normalize explicit arrow vectors/tip-tail evidence first; use raster-crop orientation only when the configured confidence and asymmetry thresholds pass
+  - compare arrow vectors with the local route tangent; never use trace walking order without arrow or reviewed evidence
+  - after route splitting or duplicate merging, recompute non-reviewed direction from the arrow evidence localized to the retained edge
+  - mixed edge-local `forward` and `reverse` states do not prove a line-level conflict because each state is relative to its edge ordering
+  - Stage 8 exposes unknown/conflicting direction for review, and Stage 9 `set_flow_direction` decisions are authoritative and audited
+  - graph-v1 keeps legacy endpoints and adds flow-oriented endpoints only for resolved forward/reverse states
 - Historical Stage 10 edge-tracing baseline (these artifact names and thresholds describe an earlier numbering scheme; preserve them for compatibility when touching that implementation):
   - keep public stage numbering stable even though the roadmap conceptually separates crossing resolution from tracing
   - Stage 10 now runs explicit crossing-vs-junction resolution before final edge tracing

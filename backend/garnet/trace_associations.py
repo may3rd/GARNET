@@ -13,6 +13,8 @@ from typing import Any, Optional
 
 import numpy as np
 
+from .flow_direction import aggregate_edge_direction, infer_arrow_route_direction, normalize_arrow_evidence
+
 LINE_NUMBER_REVIEW_ASSUMPTION = "accepted_line_numbers_are_human_reviewed"
 
 
@@ -537,6 +539,13 @@ def _attach_bbox_items(
             "confidence": item.get("confidence", item.get("fused_confidence", item.get("detection_confidence"))),
             **nearest,
         }
+        if group == "flow_arrows":
+            # Keep detector/reviewer geometry intact for normalization; these
+            # fields are evidence and must not be reconstructed from walking
+            # order.
+            for key in ("vector", "direction", "tip", "tail", "tip_xy", "tail_xy", "review_state", "flow_direction_review_state"):
+                if key in item:
+                    association[key] = item[key]
         if nearest["distance_px"] <= max_distance_px:
             if group == "line_numbers":
                 association = _mark_line_number_review_state(association, accepted=True)
@@ -621,6 +630,9 @@ def build_trace_associations(
     text_max_distance_px: float,
     instrument_max_distance_px: float,
     arrow_max_distance_px: float,
+    image_bgr: Any = None,
+    flow_arrow_raster_confidence_threshold: float = 0.70,
+    flow_arrow_raster_asymmetry_threshold: float = 0.15,
 ) -> dict[str, Any]:
     objects_by_id = {str(obj.get("id", "")): obj for obj in objects}
     edges = load_stage5b_trace_edges(trace_payload, branch_payload, objects_by_id)
@@ -752,6 +764,33 @@ def build_trace_associations(
     )
     associations["flow_arrows"]["accepted"] = accepted
     associations["flow_arrows"]["rejected"] = rejected
+
+    # Arrow geometry is evidence only when explicitly present or confidently
+    # recovered from a crop.  Trace walking order is never treated as flow.
+    for arrow in associations["flow_arrows"]["accepted"]:
+        evidence = normalize_arrow_evidence(
+            arrow, image=image_bgr,
+            raster_confidence_threshold=flow_arrow_raster_confidence_threshold,
+            raster_asymmetry_threshold=flow_arrow_raster_asymmetry_threshold,
+        )
+        evidence["arrow_id"] = arrow.get("id")
+        evidence["segment_index"] = arrow.get("segment_index")
+        evidence["route_direction"] = infer_arrow_route_direction(evidence, edges_by_id.get(arrow.get("trace_id"), {}))
+        arrow["flow_direction_evidence"] = evidence
+        arrow["flow_direction_state"] = evidence["route_direction"]
+
+    for edge in edges:
+        edge_arrows = edge.setdefault("attachments", {}).get("flow_arrows", [])
+        evidences = [a.get("flow_direction_evidence", {}) for a in edge_arrows]
+        state, confidence = aggregate_edge_direction(evidences)
+        edge["flow_direction_state"] = state
+        edge["flow_direction_confidence"] = confidence
+        edge["flow_direction_evidence"] = evidences
+        edge["flow_direction_review_state"] = (
+            "accepted" if state == "bidirectional" and any(e.get("review_state") == "accepted" for e in evidences)
+            else "inferred" if state in {"forward", "reverse"}
+            else "unresolved"
+        )
 
     for edge in edges:
         terminal_xy = edge.get("terminal_xy") or []

@@ -1148,6 +1148,8 @@ def normalize_stage11_trace_edges(
         route_tolerance_px=min(route_equivalence_tolerance_px, merge_tolerance_px),
     )
     normalized_edges = collapse_result["trace_edges"]
+    for edge in normalized_edges:
+        edge.update(_recompute_flow_direction_from_attachments(edge))
     duplicate_events = collapse_result["events"]
     duplicate_review_items = split_attachment_review_items + collapse_result["review_items"]
     events.extend(duplicate_events)
@@ -1194,6 +1196,61 @@ def _downgrade_degree_two_synthetic_tees(
         node.setdefault("normalization_notes", []).append("downgraded_synthetic_branch_source_because_degree_below_3")
         downgraded.append(node_id)
     return downgraded
+
+
+_FLOW_STATES = {"forward", "reverse", "bidirectional", "unknown", "conflicting"}
+
+
+def _promote_flow_direction(edge: dict[str, Any]) -> dict[str, Any]:
+    """Copy explicit Stage 6 direction evidence without using endpoint order."""
+    reviewed = str(edge.get("flow_direction_review_state") or edge.get("direction_review_state") or "").lower() in {"human_reviewed", "reviewed", "accepted"}
+    raw_state = edge.get("flow_direction_state") if reviewed else None
+    if raw_state is None:
+        raw_state = edge.get("flow_direction_state") or edge.get("flow_direction")
+    state = str(raw_state or "unknown").strip().lower().replace("-", "_")
+    aliases = {"both": "bidirectional", "bi_directional": "bidirectional", "forward_only": "forward", "reverse_only": "reverse"}
+    state = aliases.get(state, state)
+    if state not in _FLOW_STATES:
+        state = "unknown"
+    result = {
+        "flow_direction_state": state,
+        "flow_direction_confidence": edge.get("flow_direction_confidence"),
+        "flow_direction_evidence": deepcopy(edge.get("flow_direction_evidence") or edge.get("direction_evidence") or []),
+        "flow_direction_review_state": edge.get("flow_direction_review_state") or edge.get("direction_review_state"),
+    }
+    return result
+
+
+def _recompute_flow_direction_from_attachments(edge: dict[str, Any]) -> dict[str, Any]:
+    """Recompute non-reviewed direction against this edge's local geometry."""
+    if str(edge.get("flow_direction_review_state") or "").lower() in {"human_reviewed", "reviewed", "accepted"}:
+        return _promote_flow_direction(edge)
+    from garnet.flow_direction import aggregate_edge_direction, infer_arrow_route_direction, normalize_arrow_evidence
+    attachments = edge.get("attachments") or {}
+    arrows = attachments.get("flow_arrows", []) if isinstance(attachments, dict) else []
+    evidence = []
+    segments = edge.get("segments") or []
+    for raw in arrows if isinstance(arrows, list) else []:
+        if not isinstance(raw, dict):
+            continue
+        item = normalize_arrow_evidence(raw)
+        projected = item.get("projected_xy") or raw.get("projected_xy")
+        if isinstance(projected, (list, tuple)) and len(projected) >= 2 and segments:
+            px, py = float(projected[0]), float(projected[1])
+            def segment_distance(index: int) -> float:
+                segment = segments[index]
+                ax, ay = float(segment.get("x1", 0)), float(segment.get("y1", 0))
+                bx, by = float(segment.get("x2", 0)), float(segment.get("y2", 0))
+                dx, dy = bx - ax, by - ay
+                length_sq = dx * dx + dy * dy
+                t = 0.0 if length_sq <= 0 else max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / length_sq))
+                return (px - (ax + t * dx)) ** 2 + (py - (ay + t * dy)) ** 2
+            best = min(range(len(segments)), key=segment_distance)
+            item["segment_index"] = best
+        item["route_direction"] = infer_arrow_route_direction(item, edge)
+        evidence.append(item)
+    state, confidence = aggregate_edge_direction(evidence)
+    return {"flow_direction_state": state, "flow_direction_confidence": confidence, "flow_direction_evidence": evidence, "flow_direction_review_state": edge.get("flow_direction_review_state")}
 
 
 def build_trace_graph_from_stage11(
@@ -1569,6 +1626,10 @@ def build_trace_graph_from_stage11(
             "line_numbers": _line_number_records(raw_edge),
             "warnings": raw_edge.get("warnings") or [],
         }
+        if str(raw_edge.get("flow_direction_review_state") or "").lower() in {"human_reviewed", "reviewed", "accepted"}:
+            edge_payload.update(_promote_flow_direction(raw_edge))
+        else:
+            edge_payload.update(_recompute_flow_direction_from_attachments(raw_edge))
         if raw_edge.get("merged_trace_ids"):
             edge_payload["merged_trace_ids"] = raw_edge.get("merged_trace_ids")
         if raw_edge.get("duplicate_trace_ids"):

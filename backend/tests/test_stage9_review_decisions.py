@@ -154,6 +154,99 @@ class Stage9ReviewDecisionTests(unittest.TestCase):
         self.assertEqual(result["correction_audit_payload"]["warnings"][0]["warning"], "missing_edge")
         self.assertEqual(result["correction_audit_payload"]["warnings"][0]["edge_id"], "missing_edge")
 
+    def test_apply_stage9_review_decisions_sets_flow_direction_and_preserves_evidence(self) -> None:
+        review_item_id = "stage8::flow_direction::e1"
+        graph_payload = {
+            "image_id": "synthetic.png",
+            "nodes": [],
+            "edges": [
+                {
+                    "id": "e1",
+                    "flow_direction_state": "conflicting",
+                    "flow_direction_confidence": 0.42,
+                    "flow_direction_evidence": [{"id": "arrow-a", "direction": "right"}],
+                    "flow_direction_provenance": [{"source": "stage6", "state": "observed"}],
+                }
+            ],
+        }
+
+        result = apply_stage9_review_decisions(
+            image_id="synthetic.png",
+            graph_payload=graph_payload,
+            review_items_payload={"review_items": [{"id": review_item_id, "category": "flow_direction_conflict"}]},
+            decisions_payload={
+                "decisions": [
+                    {
+                        "review_item_id": review_item_id,
+                        "decision": "set_flow_direction",
+                        "edge_id": "e1",
+                        "flow_direction": "reverse",
+                        "reviewer": "eng-reviewer",
+                    }
+                ]
+            },
+        )
+
+        edge = result["corrected_graph_payload"]["edges"][0]
+        self.assertEqual(edge["flow_direction_state"], "reverse")
+        self.assertEqual(edge["flow_direction_confidence"], 1.0)
+        self.assertEqual(edge["flow_direction_review_state"], "human_reviewed")
+        self.assertEqual(edge["flow_direction_evidence"], graph_payload["edges"][0]["flow_direction_evidence"])
+        self.assertEqual(edge["observed_flow_direction_evidence"], graph_payload["edges"][0]["flow_direction_evidence"])
+        self.assertEqual(edge["flow_direction_provenance"][0], graph_payload["edges"][0]["flow_direction_provenance"][0])
+        self.assertEqual(result["summary"]["correction_count"], 1)
+        self.assertEqual(result["correction_audit_payload"]["corrections"][0]["affected_edge_ids"], ["e1"])
+
+    def test_apply_stage9_review_decisions_warns_and_ignores_invalid_flow_direction(self) -> None:
+        review_item_id = "stage8::flow_direction::e1"
+        graph_payload = {"edges": [{"id": "e1", "flow_direction_state": "unknown"}]}
+        result = apply_stage9_review_decisions(
+            image_id="synthetic.png",
+            graph_payload=graph_payload,
+            review_items_payload={"review_items": [{"id": review_item_id, "category": "flow_direction_unknown"}]},
+            decisions_payload={
+                "decisions": [
+                    {
+                        "review_item_id": review_item_id,
+                        "decision": "set_flow_direction",
+                        "edge_id": "e1",
+                        "flow_direction_state": "conflicting",
+                    }
+                ]
+            },
+        )
+
+        self.assertEqual(result["corrected_graph_payload"], graph_payload)
+        self.assertEqual(result["summary"]["correction_count"], 0)
+        self.assertEqual(result["summary"]["warning_count"], 1)
+        self.assertEqual(result["correction_audit_payload"]["warnings"][0]["warning"], "invalid_flow_direction")
+
+    def test_apply_stage9_review_decisions_warns_and_ignores_missing_flow_edge(self) -> None:
+        review_item_id = "stage8::flow_direction::missing"
+        graph_payload = {"edges": [{"id": "e1", "flow_direction_state": "unknown"}]}
+        result = apply_stage9_review_decisions(
+            image_id="synthetic.png",
+            graph_payload=graph_payload,
+            review_items_payload={"review_items": [{"id": review_item_id, "category": "flow_direction_unknown"}]},
+            decisions_payload={
+                "decisions": [
+                    {
+                        "review_item_id": review_item_id,
+                        "decision": "set_flow_direction",
+                        "edge_id": "missing-edge",
+                        "flow_direction": "forward",
+                    }
+                ]
+            },
+        )
+
+        self.assertEqual(result["corrected_graph_payload"], graph_payload)
+        self.assertEqual(result["summary"]["correction_count"], 0)
+        self.assertEqual(result["summary"]["warning_count"], 1)
+        warning = result["correction_audit_payload"]["warnings"][0]
+        self.assertEqual(warning["warning"], "missing_edge")
+        self.assertEqual(warning["edge_id"], "missing-edge")
+
 
 if __name__ == "__main__":
     unittest.main()

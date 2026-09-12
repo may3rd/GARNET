@@ -65,6 +65,25 @@ def _normalize_line_record(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _aggregate_flow_direction(edges: list[dict[str, Any]]) -> dict[str, Any]:
+    states = {str(edge.get("flow_direction_state") or "unknown").lower() for edge in edges}
+    states.discard("unknown")
+    state = "unknown" if not states else next(iter(states)) if len(states) == 1 else ("conflicting" if "conflicting" in states else "unknown")
+    confidences = []
+    for edge in edges:
+        try:
+            value = float(edge.get("flow_direction_confidence"))
+            if math.isfinite(value):
+                confidences.append(value)
+        except (TypeError, ValueError):
+            continue
+    return {
+        "flow_direction_state": state,
+        "flow_direction_confidence": min(confidences, default=None),
+        "flow_direction_evidence": [item for edge in edges for item in (edge.get("flow_direction_evidence") or [])],
+    }
+
+
 def _candidate_line_records(edge: dict[str, Any]) -> list[dict[str, Any]]:
     candidates: dict[str, dict[str, Any]] = {}
     for record in _direct_line_records(edge) + _line_records(edge):
@@ -223,6 +242,7 @@ def _build_line_list(image_id: str, edges: list[dict[str, Any]]) -> dict[str, An
                 "normalized_texts": _merge_unique([_line_texts(edge, "normalized_text") for edge in line_edges]),
                 "total_length_px": round(sum(_edge_length(edge) for edge in line_edges), 3),
                 "edge_count": len(line_edges),
+                **_aggregate_flow_direction(line_edges),
             })
         group = canonical_groups.setdefault(canonical_id, {"canonical_line_id": canonical_id, "line_number_ids": [], "edge_ids": [], "display_texts": [], "normalized_texts": []})
         if line_id not in group["line_number_ids"]:
@@ -232,6 +252,7 @@ def _build_line_list(image_id: str, edges: list[dict[str, Any]]) -> dict[str, An
                 group["edge_ids"].append(str(edge.get("id") or ""))
         group["display_texts"] = _merge_unique([group["display_texts"]] + [_line_texts(edge, "display_text") for edge in line_edges])
         group["normalized_texts"] = _merge_unique([group["normalized_texts"]] + [_line_texts(edge, "normalized_text") for edge in line_edges])
+        group.update(_aggregate_flow_direction(line_edges))
     return {"image_id": image_id, "source": "stage10_process_exports", "lines": lines, "canonical_lines": sorted(canonical_groups.values(), key=lambda item: item["canonical_line_id"])}
 
 
@@ -279,6 +300,7 @@ def _build_equipment_connectivity(image_id: str, nodes_by_id: dict[str, dict[str
                     ],
                     "source": endpoints[0],
                     "target": endpoints[1],
+                    **_aggregate_flow_direction([edge]),
                 }
             )
 
@@ -307,6 +329,7 @@ def _build_equipment_connectivity(image_id: str, nodes_by_id: dict[str, dict[str
                 "equipment_node_ids": equipment_node_ids,
                 "equipment_ids": equipment_ids,
                 "port_ids": port_ids,
+                **_aggregate_flow_direction(line_edges),
             })
     canonical_connection_rows = []
     for canonical_id in sorted(canonical_connections):
@@ -318,6 +341,7 @@ def _build_equipment_connectivity(image_id: str, nodes_by_id: dict[str, dict[str
             "equipment_ids": sorted(aggregate["equipment_ids"]),
             "port_ids": sorted(aggregate["port_ids"]),
             "equipment_node_ids": sorted(aggregate["equipment_node_ids"]),
+            **_aggregate_flow_direction([edge for edge in edges if canonical_id in [_canonical_line_id(image_id, line_id, _line_records(edge)) for line_id in _line_ids(edge)]]),
         })
     return {
         "image_id": image_id,

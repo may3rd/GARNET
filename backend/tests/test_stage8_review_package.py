@@ -84,6 +84,43 @@ class Stage8ReviewPackageTests(unittest.TestCase):
         self.assertEqual(overlay.shape, image.shape)
         self.assertGreater(int(overlay.sum()), 0)
 
+    def test_build_review_package_adds_unknown_and_conflicting_flow_items(self) -> None:
+        result = build_stage8_review_package(
+            image_id="synthetic.png",
+            graph_payload={
+                "edges": [
+                    {
+                        "id": "e-unknown",
+                        "flow_direction_state": "unknown",
+                        "flow_direction_evidence": [],
+                        "polyline": [{"x": 2, "y": 3}, {"x": 12, "y": 3}],
+                    },
+                    {
+                        "id": "e-conflicting",
+                        "flow_direction_state": "conflicting",
+                        "direction_evidence": [{"id": "arrow-a", "direction": "right"}],
+                        "polyline": [{"x": 20, "y": 30}, {"x": 30, "y": 30}],
+                    },
+                    {"id": "e-forward", "flow_direction_state": "forward"},
+                ]
+            },
+            stage7_qa_payload={"issues": []},
+            stage7_review_queue_payload={"review_queue": []},
+        )
+
+        items = result["review_items_payload"]["review_items"]
+        by_category = {item["category"]: item for item in items}
+        self.assertEqual(set(by_category), {"flow_direction_unknown", "flow_direction_conflict"})
+        self.assertEqual(by_category["flow_direction_unknown"]["evidence"]["edge_id"], "e-unknown")
+        self.assertEqual(
+            by_category["flow_direction_conflict"]["evidence"]["direction_evidence"],
+            [{"id": "arrow-a", "direction": "right"}],
+        )
+        self.assertEqual(
+            by_category["flow_direction_conflict"]["geometry"]["polyline"],
+            [{"x": 20, "y": 30}, {"x": 30, "y": 30}],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

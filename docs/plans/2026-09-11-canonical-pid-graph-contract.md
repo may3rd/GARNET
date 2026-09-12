@@ -89,6 +89,28 @@ Legacy graph-v1 node, edge, attachment, and line-number fields remain in place.
 The new catalogs and relationships are projections over the same reviewed graph
 revision and therefore follow the existing Stage 9 invalidation rules.
 
+## Phase 5 flow-direction projection
+
+Phase 5 implements flow as evidence attached to the existing physical graph:
+
+- Stage 6 normalizes explicit arrow vectors, tip-tail geometry, and conservative
+  raster-crop orientation, then compares each arrow with the local route tangent;
+- each edge records `forward`, `reverse`, `bidirectional`, `unknown`, or
+  `conflicting`, plus confidence, evidence, and review state;
+- route splits localize arrow observations and recompute direction, while
+  duplicate routes merge their arrow evidence before resolving agreement or
+  conflict;
+- Stage 8 promotes unknown and conflicting direction to review items, and Stage
+  9 applies audited human `set_flow_direction` decisions;
+- graph-v1 adds flow-oriented endpoints only for resolved forward/reverse edges
+  and keeps legacy endpoint fields intact;
+- Stage 10 retains per-edge direction. Multi-edge line aggregates remain
+  conservative because `forward` and `reverse` are relative to each edge's
+  stored coordinate order.
+
+Physical connectivity remains undirected. A trace's source-to-target walking
+order is never sufficient evidence for process flow.
+
 ## Benchmark inventory and limits
 
 Candidate read-only benchmark material currently present in the repository:
@@ -109,6 +131,7 @@ and cross-sheet continuity separately.
 
 Phases 1–3 established the contract, route preservation, and authoritative
 review revision. Phase 4 implements drawing-scoped equipment, port, line,
-inline-object, and instrument identities as additive graph data. Phases 5–9
-(flow inference, multi-sheet contract migration, review gates,
-boundaries/package views, and end-to-end release validation) remain deferred.
+inline-object, and instrument identities as additive graph data. Phase 5 adds
+evidence-based flow direction and its review path. Phases 6–9 (multi-sheet
+contract migration, review gates, boundaries/package views, and end-to-end
+release validation) remain deferred.

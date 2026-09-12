@@ -96,6 +96,25 @@ class GraphExportAdapterTests(unittest.TestCase):
     def test_directed_true_when_flow_direction_set(self) -> None:
         self.assertTrue(_payload()["edges"][0]["directed"])
 
+    def test_reverse_direction_keeps_legacy_endpoints_and_exposes_flow_endpoints(self) -> None:
+        payload = build_graph_v1_payload({"nodes": [], "edges": [{"id": "e", "source": "a", "target": "b", "flow_direction_state": "reverse"}]})
+        edge = payload["edges"][0]
+        self.assertEqual((edge["src"], edge["dst"]), ("a", "b"))
+        self.assertEqual((edge["flow_src"], edge["flow_dst"]), ("b", "a"))
+        self.assertFalse(edge["directed"])
+
+    def test_canonical_unoriented_states_do_not_emit_flow_endpoints(self) -> None:
+        for state in ("unknown", "conflicting", "bidirectional"):
+            edge = build_graph_v1_payload({"nodes": [], "edges": [{"id": "e", "source": "a", "target": "b", "flow_direction_state": state}]})["edges"][0]
+            self.assertEqual(edge["flow_direction_state"], state)
+            self.assertNotIn("flow_src", edge)
+            self.assertNotIn("flow_dst", edge)
+
+    def test_legacy_reverse_direction_retains_directed_compatibility(self) -> None:
+        edge = build_graph_v1_payload({"nodes": [], "edges": [{"id": "e", "source": "a", "target": "b", "flow_direction": "target_to_source"}]})["edges"][0]
+        self.assertTrue(edge["directed"])
+        self.assertEqual((edge["flow_src"], edge["flow_dst"]), ("b", "a"))
+
     def test_confidence_bounds_0_1(self) -> None:
         payload = _payload()
         confidences = [item["confidence"] for item in payload["nodes"] + payload["edges"]]
