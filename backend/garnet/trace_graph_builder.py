@@ -53,11 +53,14 @@ def _as_float(value: Any, default: float = 0.0) -> float:
 def _point_from_xy(value: Any) -> dict[str, float] | None:
     if isinstance(value, dict):
         if "x" in value and "y" in value:
-            return {"x": _as_float(value.get("x")), "y": _as_float(value.get("y"))}
+            point = {"x": _as_float(value.get("x")), "y": _as_float(value.get("y"))}
+            return point if math.isfinite(point["x"]) and math.isfinite(point["y"]) else None
         if "col" in value and "row" in value:
-            return {"x": _as_float(value.get("col")), "y": _as_float(value.get("row"))}
+            point = {"x": _as_float(value.get("col")), "y": _as_float(value.get("row"))}
+            return point if math.isfinite(point["x"]) and math.isfinite(point["y"]) else None
     if isinstance(value, (list, tuple)) and len(value) >= 2:
-        return {"x": _as_float(value[0]), "y": _as_float(value[1])}
+        point = {"x": _as_float(value[0]), "y": _as_float(value[1])}
+        return point if math.isfinite(point["x"]) and math.isfinite(point["y"]) else None
     return None
 
 
@@ -70,6 +73,28 @@ def _dict_polyline(polyline: Any) -> list[dict[str, float]]:
         if point is not None:
             points.append(point)
     return points
+
+
+def _trace_has_invalid_geometry(edge: dict[str, Any]) -> bool:
+    """Reject a trace when any supplied route coordinate is malformed/nonfinite."""
+    polyline = edge.get("polyline")
+    if isinstance(polyline, list):
+        for point in polyline:
+            if _point_from_xy(point) is None:
+                return True
+    segments = edge.get("segments")
+    if isinstance(segments, list):
+        for segment in segments:
+            if not isinstance(segment, dict):
+                return True
+            for key in ("x1", "y1", "x2", "y2"):
+                value = segment.get(key)
+                try:
+                    if not math.isfinite(float(value)):
+                        return True
+                except (TypeError, ValueError):
+                    return True
+    return False
 
 
 def _distance(a: dict[str, float], b: dict[str, float]) -> float:
@@ -295,6 +320,31 @@ def _stable_terminal_node_id(edge: dict[str, Any], node_type: str) -> str | None
     if node_type == "tee_junction":
         return f"junction::{terminal_id}"
     return f"terminal::{node_type}::{terminal_id}"
+
+
+def _drawing_scoped_equipment_id(drawing_id: str, equipment_key: Any) -> str | None:
+    key = str(equipment_key or "").strip()
+    if not key:
+        return None
+    return f"equipment::{drawing_id}::{key}"
+
+
+def _drawing_scoped_port_id(drawing_id: str, equipment_key: Any, port_key: Any) -> str | None:
+    equipment_id = _drawing_scoped_equipment_id(drawing_id, equipment_key)
+    port = str(port_key or "").strip()
+    if equipment_id is None or not port:
+        return None
+    return f"{equipment_id}::port::{port}"
+
+
+def _equipment_port_key(point: dict[str, float] | None, explicit_index: Any = None) -> str:
+    """Return a stable local port key, preferring an explicit index."""
+    try:
+        return f"{int(explicit_index):02d}"
+    except (TypeError, ValueError):
+        if point is None:
+            return "unknown"
+        return f"xy_{round(float(point['x']))}_{round(float(point['y']))}"
 
 
 def _node_override(edge: dict[str, Any], key: str) -> dict[str, Any] | None:
@@ -1167,12 +1217,96 @@ def build_trace_graph_from_stage11(
     registry = _NodeRegistry(tolerances)
     graph_edges: list[dict[str, Any]] = []
     trace_edge_nodes: list[dict[str, Any]] = []
+    equipment_by_id: dict[str, dict[str, Any]] = {}
+    ports_by_id: dict[str, dict[str, Any]] = {}
     review_queue: list[dict[str, Any]] = []
     excluded_edges: list[dict[str, Any]] = []
+    source_trace_edges = [edge for edge in payload.get("trace_edges", []) or [] if isinstance(edge, dict)]
+    invalid_geometry_edges = [edge for edge in source_trace_edges if _trace_has_invalid_geometry(edge)]
+    valid_trace_edges = [edge for edge in source_trace_edges if not _trace_has_invalid_geometry(edge)]
     normalization = normalize_stage11_trace_edges(
-        payload.get("trace_edges", []) or [],
+        valid_trace_edges,
         route_equivalence_tolerance_px=route_equivalence_tolerance_px,
     )
+    for invalid_edge in invalid_geometry_edges:
+        invalid_trace_id = str(invalid_edge.get("trace_id") or f"trace_{len(excluded_edges):05d}")
+        excluded_edges.append({"trace_id": invalid_trace_id, "status": "malformed_trace_geometry"})
+        review_queue.append(
+            _make_review_item(
+                "malformed_trace_geometry",
+                invalid_trace_id,
+                "blocking",
+                "Trace contains malformed or non-finite route coordinates.",
+            )
+        )
+
+    # Resolve equipment port identities before constructing topology nodes so
+    # source and terminal observations converge independently of edge order.
+    canonical_port_keys: dict[tuple[str, str], str] = {}
+    indexed_ports: dict[str, list[tuple[dict[str, float], str]]] = defaultdict(list)
+    pre_edges = [
+        edge for edge in normalization["trace_edges"]
+        if isinstance(edge, dict)
+        and str(edge.get("status") or "") != "skipped_existing_trace"
+        and isinstance(edge.get("segments"), list) and bool(edge.get("segments"))
+        and len(_dict_polyline(edge.get("polyline"))) >= 2
+        and _point_from_xy(edge.get("port")) is not None
+        and _point_from_xy(edge.get("terminal_xy")) is not None
+    ]
+    for edge in pre_edges:
+        if _source_node_type(edge) != "equipment_port":
+            continue
+        point = _point_from_xy(edge.get("port"))
+        equipment_key = str(edge.get("source_obj_id") or "")
+        explicit_index = edge.get("port_index")
+        if not equipment_key:
+            continue
+        if explicit_index is not None:
+            port_key = _equipment_port_key(point, explicit_index)
+            if point is not None:
+                indexed_ports[equipment_key].append((point, port_key))
+        else:
+            port_key = ""
+            if point is not None:
+                nearby = [
+                    (distance, key)
+                    for indexed_point, key in indexed_ports[equipment_key]
+                    for distance in [_distance(point, indexed_point)]
+                    if distance <= _node_tolerance("equipment_port", tolerances)
+                ]
+                if nearby:
+                    port_key = min(nearby)[1]
+            if not port_key:
+                port_key = _equipment_port_key(point)
+        canonical_port_keys[(str(edge.get("trace_id") or ""), "source")] = port_key
+
+    for edge in pre_edges:
+        trace_id = str(edge.get("trace_id") or "")
+        if _source_node_type(edge) == "equipment_port":
+            equipment_key = str(edge.get("source_obj_id") or "")
+            point = _point_from_xy(edge.get("port"))
+            if edge.get("port_index") is None and point is not None:
+                nearby = [
+                    (distance, key)
+                    for indexed_point, key in indexed_ports[equipment_key]
+                    for distance in [_distance(point, indexed_point)]
+                    if distance <= _node_tolerance("equipment_port", tolerances)
+                ]
+                if nearby:
+                    canonical_port_keys[(trace_id, "source")] = min(nearby)[1]
+        if _terminal_node_type(edge) == "equipment":
+            equipment_key = str(edge.get("terminal_obj_id") or "")
+            point = _point_from_xy(edge.get("terminal_xy"))
+            nearby = [
+                (distance, key)
+                for indexed_point, key in indexed_ports[equipment_key]
+                for distance in [_distance(point, indexed_point)]
+                if point is not None and distance <= _node_tolerance("equipment_port", tolerances)
+            ]
+            if nearby:
+                canonical_port_keys[(trace_id, "terminal")] = min(nearby)[1]
+            else:
+                canonical_port_keys[(trace_id, "terminal")] = _equipment_port_key(point, edge.get("terminal_port_index"))
 
     for raw_edge in normalization["trace_edges"]:
         if not isinstance(raw_edge, dict):
@@ -1247,6 +1381,155 @@ def build_trace_graph_from_stage11(
                 "terminal_obj_id": raw_edge.get("terminal_obj_id"),
             },
         )
+        legacy_source_node_id = source_node_id
+        legacy_target_node_id = terminal_node_id
+
+        source_equipment_id = None
+        source_port_id = None
+        source_port_key = None
+        source_object_id = raw_edge.get("source_obj_id")
+        if source_type == "equipment_port":
+            source_port_key = _equipment_port_key(resolved_source_point, raw_edge.get("port_index"))
+            source_equipment_id = _drawing_scoped_equipment_id(resolved_image_id, source_object_id)
+            source_port_id = _drawing_scoped_port_id(resolved_image_id, source_object_id, source_port_key)
+            if source_equipment_id and source_port_id:
+                equipment = equipment_by_id.setdefault(
+                    source_equipment_id,
+                    {
+                        "id": source_equipment_id,
+                        "drawing_id": resolved_image_id,
+                        "source_object_id": str(source_object_id or ""),
+                        "ports": [],
+                    },
+                )
+                port = ports_by_id.setdefault(
+                    source_port_id,
+                    {
+                        "id": source_port_id,
+                        "equipment_id": source_equipment_id,
+                        "drawing_id": resolved_image_id,
+                        "port_key": source_port_key,
+                        "port_index": raw_edge.get("port_index"),
+                        "position": resolved_source_point,
+                        "direction": (raw_edge.get("port") or {}).get("direction") if isinstance(raw_edge.get("port"), dict) else None,
+                        "source_node_id": source_node_id,
+                    },
+                )
+                if source_port_id not in equipment["ports"]:
+                    equipment["ports"].append(source_port_id)
+                registry.by_id.get(source_node_id, {}).update(
+                    {"equipment_id": source_equipment_id, "port_id": source_port_id, "drawing_id": resolved_image_id}
+                )
+
+        terminal_equipment_id = None
+        terminal_port_id = None
+        if terminal_type == "equipment":
+            terminal_equipment_id = _drawing_scoped_equipment_id(resolved_image_id, raw_edge.get("terminal_obj_id"))
+            if terminal_equipment_id:
+                equipment = equipment_by_id.setdefault(
+                    terminal_equipment_id,
+                    {
+                        "id": terminal_equipment_id,
+                        "drawing_id": resolved_image_id,
+                        "source_object_id": str(raw_edge.get("terminal_obj_id") or ""),
+                        "ports": [],
+                    },
+                )
+                terminal_port_key = _equipment_port_key(
+                    resolved_terminal_point,
+                    raw_edge.get("terminal_port_index"),
+                )
+                terminal_port_id = _drawing_scoped_port_id(
+                    resolved_image_id,
+                    raw_edge.get("terminal_obj_id"),
+                    terminal_port_key,
+                )
+                if terminal_port_id:
+                    ports_by_id.setdefault(
+                        terminal_port_id,
+                        {
+                            "id": terminal_port_id,
+                            "equipment_id": terminal_equipment_id,
+                            "drawing_id": resolved_image_id,
+                            "port_key": terminal_port_key,
+                            "position": resolved_terminal_point,
+                            "direction": None,
+                            "source_node_id": terminal_node_id,
+                        },
+                    )
+                    if terminal_port_id not in equipment["ports"]:
+                        equipment["ports"].append(terminal_port_id)
+                    registry.by_id.get(terminal_node_id, {}).update(
+                        {"equipment_id": terminal_equipment_id, "port_id": terminal_port_id, "drawing_id": resolved_image_id}
+                    )
+
+        # Canonical port nodes are the physical topology endpoints. Preserve
+        # the legacy node as an alias for existing consumers.
+        canonical_source_key = canonical_port_keys.get((trace_id, "source"))
+        if source_equipment_id and canonical_source_key:
+            canonical_source_id = _drawing_scoped_port_id(resolved_image_id, source_object_id, canonical_source_key)
+            if canonical_source_id:
+                registry.add(
+                    node_type="equipment_port",
+                    position=resolved_source_point,
+                    stable_id=canonical_source_id,
+                    evidence={"role": "canonical_port", "legacy_node_id": source_node_id, "trace_id": trace_id},
+                )
+                if source_node_id != canonical_source_id:
+                    registry.by_id.get(source_node_id, {}).update({"alias_of": canonical_source_id})
+                source_node_id = canonical_source_id
+                previous_source_port_id = source_port_id
+                source_port_id = canonical_source_id
+                if previous_source_port_id and previous_source_port_id != source_port_id:
+                    ports_by_id.pop(previous_source_port_id, None)
+                    if source_equipment_id in equipment_by_id:
+                        ports = equipment_by_id[source_equipment_id]["ports"]
+                        equipment_by_id[source_equipment_id]["ports"] = [
+                            source_port_id if port_id == previous_source_port_id else port_id
+                            for port_id in ports
+                        ]
+                if source_port_id in ports_by_id:
+                    ports_by_id[source_port_id]["source_node_id"] = source_node_id
+
+        canonical_terminal_key = canonical_port_keys.get((trace_id, "terminal"))
+        if terminal_equipment_id and canonical_terminal_key:
+            canonical_terminal_id = _drawing_scoped_port_id(
+                resolved_image_id,
+                raw_edge.get("terminal_obj_id"),
+                canonical_terminal_key,
+            )
+            if canonical_terminal_id:
+                registry.add(
+                    node_type="equipment_port",
+                    position=resolved_terminal_point,
+                    stable_id=canonical_terminal_id,
+                    evidence={"role": "canonical_port", "legacy_node_id": terminal_node_id, "trace_id": trace_id},
+                )
+                if terminal_node_id != canonical_terminal_id:
+                    registry.by_id.get(terminal_node_id, {}).update({"alias_of": canonical_terminal_id})
+                terminal_node_id = canonical_terminal_id
+                previous_terminal_port_id = terminal_port_id
+                terminal_port_id = canonical_terminal_id
+                if previous_terminal_port_id and previous_terminal_port_id != terminal_port_id:
+                    ports_by_id.pop(previous_terminal_port_id, None)
+                    if terminal_equipment_id in equipment_by_id:
+                        ports = equipment_by_id[terminal_equipment_id]["ports"]
+                        equipment_by_id[terminal_equipment_id]["ports"] = [
+                            terminal_port_id if port_id == previous_terminal_port_id else port_id
+                            for port_id in ports
+                        ]
+                ports_by_id.setdefault(
+                    terminal_port_id,
+                    {
+                        "id": terminal_port_id,
+                        "equipment_id": terminal_equipment_id,
+                        "drawing_id": resolved_image_id,
+                        "port_key": canonical_terminal_key,
+                        "position": resolved_terminal_point,
+                        "direction": None,
+                        "source_node_id": terminal_node_id,
+                    },
+                )["source_node_id"] = terminal_node_id
 
         line_number_ids = _line_number_ids(raw_edge)
         review_state = "accepted"
@@ -1257,6 +1540,8 @@ def build_trace_graph_from_stage11(
             "id": f"trace::{trace_id}",
             "source": source_node_id,
             "target": terminal_node_id,
+            "legacy_source": legacy_source_node_id,
+            "legacy_target": legacy_target_node_id,
             "type": "pipe_trace",
             "line_style": "solid",
             "review_state": review_state,
@@ -1266,6 +1551,12 @@ def build_trace_graph_from_stage11(
             "source_obj_id": raw_edge.get("source_obj_id"),
             "source_obj_type": raw_edge.get("source_obj_type"),
             "source_port_index": raw_edge.get("port_index"),
+            "source_equipment_id": source_equipment_id,
+            "source_port_id": source_port_id,
+            "source_port_xy": resolved_source_point if source_port_id else None,
+            "terminal_equipment_id": terminal_equipment_id,
+            "terminal_port_id": terminal_port_id,
+            "terminal_port_xy": resolved_terminal_point if terminal_port_id else None,
             "terminal_type": raw_edge.get("terminal_type"),
             "terminal_obj_id": raw_edge.get("terminal_obj_id"),
             "trace_length_px": raw_edge.get("trace_length_px"),
@@ -1380,12 +1671,17 @@ def build_trace_graph_from_stage11(
         for line_id in edge.get("effective_line_number_ids") or edge.get("line_number_ids") or []:
             line_groups[str(line_id)].append(str(edge["id"]))
 
+    for equipment in equipment_by_id.values():
+        equipment["ports"] = sorted({port_id for port_id in equipment.get("ports", []) if port_id in ports_by_id})
+
     graph_payload = {
         "schema_version": "stage7_trace_graph_v1",
         "image_id": resolved_image_id,
         "trace_source": payload.get("trace_source") or "stage6_trace_associations",
         "nodes": registry.nodes,
         "edges": graph_edges,
+        "equipment": [equipment_by_id[key] for key in sorted(equipment_by_id)],
+        "ports": [ports_by_id[key] for key in sorted(ports_by_id)],
         "line_groups": [
             {"line_number_id": line_id, "edge_ids": edge_ids}
             for line_id, edge_ids in sorted(line_groups.items())

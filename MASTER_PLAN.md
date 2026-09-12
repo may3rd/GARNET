@@ -19,10 +19,11 @@ they are public artifact names and should not be renumbered casually. Older
 documents that call graph normalization or review packaging Stage 12 or 13 are
 historical design notes, not the current runner order.
 
-Stages 1–3 of the roadmap in the delivery plan are the first implementation
-slice: define the contract and fixtures, preserve distinct routes, and make
-review corrections produce a consistent graph revision. Later roadmap phases
-remain deferred until that foundation is accepted.
+Stages 1–3 of the roadmap in the delivery plan established the first
+implementation slice: define the contract and fixtures, preserve distinct
+routes, and make review corrections produce a consistent graph revision.
+Phase 4 adds drawing-scoped engineering identities on top of that graph without
+renumbering the executable pipeline. Phase 5 is the next delivery slice.
 
 ## Target graph contract
 
@@ -72,7 +73,8 @@ slice explicitly extends and versions that payload.
 8. Add process boundaries, test-package views, and LLM-oriented projections.
 9. Validate end to end on a representative benchmark and version the export.
 
-Phases 1–3 are the active work slice. Phases 4–9 are planned work only.
+Phases 1–4 are implemented. Phase 5 is the next work slice. Phases 5–9 are
+planned work only.
 
 ## Acceptance principle
 

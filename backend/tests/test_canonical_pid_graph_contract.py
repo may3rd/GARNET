@@ -13,7 +13,10 @@ class CanonicalPidGraphContractTests(unittest.TestCase):
 
     def test_fixture_bundle_has_expected_cases(self):
         self.assertEqual(self.payload["schema_version"], "canonical_pid_graph_fixture_v1")
-        self.assertEqual({item["id"] for item in self.payload["fixtures"]}, {"parallel_bypass", "crossing_and_tee", "repeated_labels_multisheet"})
+        self.assertEqual(
+            {item["id"] for item in self.payload["fixtures"]},
+            {"parallel_bypass", "crossing_and_tee", "repeated_labels_multisheet", "phase4_engineering_identities"},
+        )
 
     def test_parallel_routes_with_same_endpoints_are_preserved(self):
         item = next(item for item in self.payload["fixtures"] if item["id"] == "parallel_bypass")
@@ -54,6 +57,29 @@ class CanonicalPidGraphContractTests(unittest.TestCase):
                 self.assertTrue(all({"x", "y"} <= set(point) for point in segment["polyline"]))
                 if "drawing" in item:
                     self.assertEqual(item["drawing"]["coordinate_system"], "image_pixel_origin_top_left")
+
+    def test_phase4_identities_are_drawing_scoped_and_route_ordered(self):
+        item = next(item for item in self.payload["fixtures"] if item["id"] == "phase4_engineering_identities")
+        drawing_id = item["drawing"]["drawing_id"]
+        self.assertTrue(all(drawing_id in equipment["id"] for equipment in item["equipment"]))
+        equipment_ids = {equipment["id"] for equipment in item["equipment"]}
+        self.assertTrue(all(port["equipment_id"] in equipment_ids for port in item["ports"]))
+        route_positions = [inline["route_position_px"] for inline in item["inline_objects"]]
+        self.assertEqual(route_positions, sorted(route_positions))
+
+    def test_phase4_line_identity_is_distinct_from_ocr_occurrences(self):
+        item = next(item for item in self.payload["fixtures"] if item["id"] == "phase4_engineering_identities")
+        line = item["lines"][0]
+        self.assertEqual(len(line["occurrences"]), 2)
+        self.assertTrue(all(occurrence != line["id"] for occurrence in line["occurrences"]))
+
+    def test_phase4_instrument_semantics_require_explicit_evidence(self):
+        item = next(item for item in self.payload["fixtures"] if item["id"] == "phase4_engineering_identities")
+        relationships = {relationship["id"]: relationship for relationship in item["relationships"]}
+        self.assertEqual(relationships["rel:pt-401"]["type"], "measures")
+        self.assertEqual(relationships["rel:pt-401"]["state"], "observed")
+        self.assertEqual(relationships["rel:pi-401"]["type"], "instrument_association")
+        self.assertEqual(relationships["rel:pi-401"]["state"], "unresolved")
 
 
 if __name__ == "__main__":

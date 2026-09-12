@@ -21,6 +21,9 @@
 
 ## Phase-to-file map
 - Stage 1 normalization, Stage 2 OCR routing, Stage 4 object detection, and Stage 5 pipe mask orchestration: `pid_extractor.py`
+- Stage 7 route normalization plus drawing-scoped equipment/port identities: `trace_graph_builder.py`
+- Graph-v1 compatibility export and canonical semantic projection: `graph_export_adapter.py`
+- Stage 10 line, equipment-connectivity, inline-MTO, and instrument projections: `stage10_process_exports.py`
 - Stage 2 EasyOCR route: `easyocr_sahi.py`
 - Stage 2 Gemini/OpenRouter route: `gemini_ocr_sahi.py`
 - Stage 2 PaddleOCR route: `paddle_ocr_sahi.py`
@@ -80,6 +83,14 @@
   - object suppression uses Stage 4 object boxes with conservative interior suppression
   - keep the output reviewable rather than aggressively repaired
   - Stage 5 artifacts are `stage5_pipe_mask.png`, `stage5_pipe_mask_overlay.png`, and `stage5_pipe_mask_summary.json`
+- Current Phase 4 engineering-identity baseline:
+  - preserve legacy graph-v1 nodes, edges, line-number IDs, and attachment fields
+  - equipment and ports use drawing-scoped identities; ports retain pixel positions and edge endpoint references
+  - canonical process-line identities are separate from OCR occurrence IDs and group by reviewed canonical ID or normalized line text
+  - inline objects retain drawing-scoped identity and ordered distance along each pixel route
+  - instrument identities are separate from OCR occurrences
+  - emit `measures`, `controls`, or `actuates` only from explicit evidence; proximity alone remains an unresolved `instrument_association`
+  - Stage 10 retains legacy line/equipment fields and adds canonical line and connectivity projections for downstream consumers
 - Historical Stage 10 edge-tracing baseline (these artifact names and thresholds describe an earlier numbering scheme; preserve them for compatibility when touching that implementation):
   - keep public stage numbering stable even though the roadmap conceptually separates crossing resolution from tracing
   - Stage 10 now runs explicit crossing-vs-junction resolution before final edge tracing

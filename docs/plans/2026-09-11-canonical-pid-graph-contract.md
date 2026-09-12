@@ -1,4 +1,4 @@
-# Canonical P&ID graph contract and Phase 1 acceptance plan
+# Canonical P&ID graph contract and acceptance plan
 
 This plan defines the information the P&ID extractor must eventually preserve
 for line lists, test-package candidates, process descriptions, and HAZOP input.
@@ -66,6 +66,29 @@ cover these invariants:
 The test checks structure and invariants only. It does not assert that current
 detectors can produce the fixture automatically.
 
+## Phase 4 identity projection
+
+Phase 4 implements the identity portion of this contract as additive fields in
+the existing Stage 7 graph, graph-v1 export, and Stage 10 process exports:
+
+- equipment and ports receive drawing-scoped IDs, with each port retaining its
+  traced pixel position and the graph node that supplied it;
+- edge endpoints reference equipment and port IDs without changing the traced
+  polyline;
+- canonical process lines are separate from OCR occurrences, so two reviewed
+  labels with the same normalized number can support one drawing-scoped line;
+- physical inline objects receive drawing-scoped identities and ordered route
+  occurrences with pixel distance along the edge;
+- instruments are canonicalized separately from their OCR occurrences;
+- `connects_to`, `has_port`, `has_inline_object`, `measures`, `controls`, and
+  `actuates` relationships are emitted only when their supporting evidence is
+  present. A spatial instrument attachment without functional evidence remains
+  an unresolved `instrument_association`.
+
+Legacy graph-v1 node, edge, attachment, and line-number fields remain in place.
+The new catalogs and relationships are projections over the same reviewed graph
+revision and therefore follow the existing Stage 9 invalidation rules.
+
 ## Benchmark inventory and limits
 
 Candidate read-only benchmark material currently present in the repository:
@@ -84,9 +107,8 @@ and cross-sheet continuity separately.
 
 ## Scope status
 
-Phase 1 defines this contract, fixtures, and benchmark inventory. Phase 2 will
-fix route deduplication and unsupported line assignment. Phase 3 will make
-review corrections and downstream artifacts share one graph revision. Phases
-4–9 (identity strengthening, flow inference, multi-sheet contract migration,
-review gates, boundaries/package views, and end-to-end release validation) are
-deferred and are not claimed by this document.
+Phases 1–3 established the contract, route preservation, and authoritative
+review revision. Phase 4 implements drawing-scoped equipment, port, line,
+inline-object, and instrument identities as additive graph data. Phases 5–9
+(flow inference, multi-sheet contract migration, review gates,
+boundaries/package views, and end-to-end release validation) remain deferred.

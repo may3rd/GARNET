@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from collections import Counter, defaultdict
 from typing import Any
 
@@ -110,6 +111,52 @@ def _physical_inline_id(obj: dict[str, Any]) -> str:
     return str(obj.get("source_object_id") or obj.get("id") or "")
 
 
+def _canonical_id(kind: str, image_id: str, value: Any) -> str:
+    return f"{kind}::{image_id}::{str(value or '').strip()}"
+
+
+def _canonical_line_id(image_id: str, line_id: str, records: list[dict[str, Any]]) -> str:
+    matching = [record for record in records if _line_record_id(record) == line_id]
+    candidates = matching if matching else records if len(records) == 1 else []
+    record = candidates[0] if len(candidates) == 1 else {}
+    value = record.get("canonical_line_id") or record.get("normalized_text") or ""
+    return _canonical_id("line", image_id, str(value).strip() or line_id)
+
+
+def _route_position_px(obj: dict[str, Any]) -> float | None:
+    for key in ("trace_distance_px", "route_position_px", "along_trace_px"):
+        try:
+            if obj.get(key) is not None:
+                value = float(obj[key])
+                return round(value, 3) if math.isfinite(value) else None
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _explicit_instrument_relationships(inst: dict[str, Any], edge: dict[str, Any]) -> list[dict[str, Any]]:
+    relationships: list[dict[str, Any]] = []
+    target = inst.get("target") or edge.get("terminal_equipment_id") or edge.get("target")
+    value = inst.get("relationship") or inst.get("relationship_type") or inst.get("relation")
+    if isinstance(value, str) and value.casefold() in {"measures", "controls", "actuates"}:
+        relationships.append({"type": value.casefold(), "target": target, "evidence": "instrument_attachment"})
+    for relation in ("measures", "controls", "actuates"):
+        if inst.get(relation) is True:
+            relationships.append({"type": relation, "target": target, "evidence": "instrument_attachment"})
+    return relationships
+
+
+def _instrument_group_key(inst: dict[str, Any]) -> str:
+    return str(
+        inst.get("canonical_instrument_id")
+        or inst.get("normalized_text")
+        or inst.get("text")
+        or inst.get("source_object_id")
+        or inst.get("id")
+        or "unknown"
+    ).strip()
+
+
 def _pending_property_basis(line_number_ids: list[str], property_name: str) -> dict[str, Any]:
     return {
         "status": "pending_line_property_data",
@@ -153,6 +200,7 @@ def _build_line_list(image_id: str, edges: list[dict[str, Any]]) -> dict[str, An
             grouped[line_id].append(edge)
 
     lines = []
+    canonical_groups: dict[str, dict[str, Any]] = {}
     for line_id in sorted(grouped):
         line_edges = sorted(grouped[line_id], key=lambda edge: str(edge.get("id") or ""))
         node_ids = sorted(
@@ -163,9 +211,11 @@ def _build_line_list(image_id: str, edges: list[dict[str, Any]]) -> dict[str, An
                 if str(value or "")
             }
         )
-        lines.append(
-            {
+        records = [record for edge in line_edges for record in _line_records(edge)]
+        canonical_id = _canonical_line_id(image_id, line_id, records)
+        lines.append({
                 "line_number_id": line_id,
+                "canonical_line_id": canonical_id,
                 "assignment_state": "missing" if line_id == "unassigned" else "assigned",
                 "edge_ids": [str(edge.get("id")) for edge in line_edges],
                 "node_ids": node_ids,
@@ -173,27 +223,60 @@ def _build_line_list(image_id: str, edges: list[dict[str, Any]]) -> dict[str, An
                 "normalized_texts": _merge_unique([_line_texts(edge, "normalized_text") for edge in line_edges]),
                 "total_length_px": round(sum(_edge_length(edge) for edge in line_edges), 3),
                 "edge_count": len(line_edges),
-            }
-        )
-    return {"image_id": image_id, "source": "stage10_process_exports", "lines": lines}
+            })
+        group = canonical_groups.setdefault(canonical_id, {"canonical_line_id": canonical_id, "line_number_ids": [], "edge_ids": [], "display_texts": [], "normalized_texts": []})
+        if line_id not in group["line_number_ids"]:
+            group["line_number_ids"].append(line_id)
+        for edge in line_edges:
+            if str(edge.get("id") or "") not in group["edge_ids"]:
+                group["edge_ids"].append(str(edge.get("id") or ""))
+        group["display_texts"] = _merge_unique([group["display_texts"]] + [_line_texts(edge, "display_text") for edge in line_edges])
+        group["normalized_texts"] = _merge_unique([group["normalized_texts"]] + [_line_texts(edge, "normalized_text") for edge in line_edges])
+    return {"image_id": image_id, "source": "stage10_process_exports", "lines": lines, "canonical_lines": sorted(canonical_groups.values(), key=lambda item: item["canonical_line_id"])}
 
 
 def _build_equipment_connectivity(image_id: str, nodes_by_id: dict[str, dict[str, Any]], edges: list[dict[str, Any]]) -> dict[str, Any]:
     by_line: dict[str, set[str]] = defaultdict(set)
+    canonical_by_line: dict[str, set[str]] = defaultdict(set)
+    canonical_connections: dict[str, dict[str, set[str]]] = {}
     direct_connections = []
     for edge in edges:
         endpoints = [str(edge.get("source") or ""), str(edge.get("target") or "")]
         equipment_nodes = [node_id for node_id in endpoints if str(nodes_by_id.get(node_id, {}).get("type") or "") in _EQUIPMENT_NODE_TYPES]
+        equipment_ids = [
+            str(edge.get(key)) for key in ("source_equipment_id", "terminal_equipment_id") if str(edge.get(key) or "")
+        ]
+        port_ids = [
+            str(edge.get(key)) for key in ("source_port_id", "terminal_port_id") if str(edge.get(key) or "")
+        ]
         for line_id in _line_ids(edge):
             by_line[line_id].update(equipment_nodes)
-        if equipment_nodes:
+            canonical_by_line[line_id].update(equipment_ids)
+            canonical_id = _canonical_line_id(image_id, line_id, _line_records(edge))
+            aggregate = canonical_connections.setdefault(
+                canonical_id,
+                {"line_number_ids": set(), "edge_ids": set(), "equipment_ids": set(), "port_ids": set(), "equipment_node_ids": set()},
+            )
+            aggregate["line_number_ids"].add(line_id)
+            aggregate["edge_ids"].add(str(edge.get("id") or ""))
+            aggregate["equipment_ids"].update(equipment_ids)
+            aggregate["port_ids"].update(port_ids)
+            aggregate["equipment_node_ids"].update(equipment_nodes)
+        if equipment_nodes or equipment_ids or port_ids:
             direct_connections.append(
                 {
                     "edge_id": str(edge.get("id") or ""),
                     "line_number_ids": _line_ids(edge),
+                    "canonical_line_ids": [_canonical_line_id(image_id, line_id, _line_records(edge)) for line_id in _line_ids(edge)],
                     "line_number_texts": _line_texts(edge, "display_text"),
                     "normalized_line_number_texts": _line_texts(edge, "normalized_text"),
                     "equipment_node_ids": equipment_nodes,
+                    "equipment_ids": equipment_ids,
+                    "port_ids": port_ids,
+                    "endpoint_port_refs": [
+                        {"endpoint": "source", "equipment_id": edge.get("source_equipment_id"), "port_id": edge.get("source_port_id")},
+                        {"endpoint": "target", "equipment_id": edge.get("terminal_equipment_id"), "port_id": edge.get("terminal_port_id")},
+                    ],
                     "source": endpoints[0],
                     "target": endpoints[1],
                 }
@@ -202,12 +285,45 @@ def _build_equipment_connectivity(image_id: str, nodes_by_id: dict[str, dict[str
     line_connections = []
     for line_id in sorted(by_line):
         equipment_node_ids = sorted(by_line[line_id])
-        if equipment_node_ids:
-            line_connections.append({"line_number_id": line_id, "equipment_node_ids": equipment_node_ids})
+        equipment_ids = sorted(canonical_by_line[line_id])
+        line_edges = [edge for edge in edges if line_id in _line_ids(edge)]
+        port_ids = sorted({
+            str(edge.get(key))
+            for edge in line_edges
+            for key in ("source_port_id", "terminal_port_id")
+            if str(edge.get(key) or "")
+        })
+        if equipment_node_ids or equipment_ids or port_ids:
+            if not equipment_ids:
+                equipment_ids = sorted({
+                    str(edge.get(key))
+                    for edge in line_edges
+                    for key in ("source_equipment_id", "terminal_equipment_id")
+                    if str(edge.get(key) or "")
+                })
+            line_connections.append({
+                "line_number_id": line_id,
+                "canonical_line_ids": sorted({_canonical_line_id(image_id, line_id, _line_records(edge)) for edge in line_edges}),
+                "equipment_node_ids": equipment_node_ids,
+                "equipment_ids": equipment_ids,
+                "port_ids": port_ids,
+            })
+    canonical_connection_rows = []
+    for canonical_id in sorted(canonical_connections):
+        aggregate = canonical_connections[canonical_id]
+        canonical_connection_rows.append({
+            "canonical_line_id": canonical_id,
+            "line_number_ids": sorted(aggregate["line_number_ids"]),
+            "edge_ids": sorted(aggregate["edge_ids"]),
+            "equipment_ids": sorted(aggregate["equipment_ids"]),
+            "port_ids": sorted(aggregate["port_ids"]),
+            "equipment_node_ids": sorted(aggregate["equipment_node_ids"]),
+        })
     return {
         "image_id": image_id,
         "source": "stage10_process_exports",
         "connections": line_connections,
+        "canonical_connections": canonical_connection_rows,
         "direct_edge_connections": direct_connections,
     }
 
@@ -228,6 +344,7 @@ def _build_inline_mto(image_id: str, edges: list[dict[str, Any]]) -> dict[str, A
             if item is None:
                 item = {
                     "id": item_id,
+                    "canonical_id": _canonical_id("inline", image_id, item_id),
                     "source_object_id": obj.get("source_object_id", item_id),
                     "class_name": str(obj.get("class_name") or "inline_object"),
                     "edge_ids": [],
@@ -235,10 +352,14 @@ def _build_inline_mto(image_id: str, edges: list[dict[str, Any]]) -> dict[str, A
                     "_selected_line_record": None,
                     "bbox": obj.get("bbox"),
                     "confidence": obj.get("confidence"),
+                    "route_occurrences": [],
                 }
                 items_by_id[item_id] = item
             if edge_id and edge_id not in item["edge_ids"]:
                 item["edge_ids"].append(edge_id)
+            occurrence = {"edge_id": edge_id, "route_position_px": _route_position_px(obj)}
+            if occurrence not in item["route_occurrences"]:
+                item["route_occurrences"].append(occurrence)
             selected, candidates = _choose_line_for_inline_occurrence(edge)
             for candidate in candidates:
                 item["_candidate_line_records"].setdefault(candidate["id"], candidate)
@@ -246,6 +367,7 @@ def _build_inline_mto(image_id: str, edges: list[dict[str, Any]]) -> dict[str, A
                 item["_selected_line_record"] = selected
     items = list(items_by_id.values())
     for item in items:
+        item["route_occurrences"] = sorted(item["route_occurrences"], key=lambda occurrence: (occurrence["edge_id"], occurrence["route_position_px"] is None, occurrence["route_position_px"] or 0.0))
         _select_mto_line(item)
         item["material_basis"] = _pending_property_basis(item["line_number_ids"], "material")
         item["design_condition_basis"] = _pending_property_basis(item["line_number_ids"], "design_conditions")
@@ -270,6 +392,7 @@ def _build_inline_observations(image_id: str, edges: list[dict[str, Any]]) -> di
                 {
                     "id": str(obj.get("id") or obj.get("source_object_id") or f"{edge_id}::inline"),
                     "source_object_id": obj.get("source_object_id"),
+                    "canonical_id": _canonical_id("inline", image_id, obj.get("source_object_id") or obj.get("id")),
                     "class_name": str(obj.get("class_name") or "inline_object"),
                     "edge_id": edge_id,
                     "line_number_ids": _line_ids(edge),
@@ -280,6 +403,7 @@ def _build_inline_observations(image_id: str, edges: list[dict[str, Any]]) -> di
                     "bbox": obj.get("bbox"),
                     "hit_xy": obj.get("hit_xy"),
                     "projected_xy": obj.get("projected_xy"),
+                    "route_position_px": _route_position_px(obj),
                 }
             )
     return {
@@ -292,17 +416,26 @@ def _build_inline_observations(image_id: str, edges: list[dict[str, Any]]) -> di
 
 def _build_instrument_index(image_id: str, edges: list[dict[str, Any]]) -> dict[str, Any]:
     items_by_id: dict[str, dict[str, Any]] = {}
-    for edge in edges:
+    for edge in sorted(edges, key=lambda value: str(value.get("id") or "")):
         edge_id = str(edge.get("id") or "")
-        for inst in (edge.get("attachments") or {}).get("instrument_tags", []) or []:
+        instruments = sorted(
+            (edge.get("attachments") or {}).get("instrument_tags", []) or [],
+            key=lambda value: str(value.get("id") or value.get("source_object_id") or "") if isinstance(value, dict) else "",
+        )
+        for inst in instruments:
             if not isinstance(inst, dict):
                 continue
-            instrument_id = str(inst.get("id") or inst.get("source_object_id") or f"{edge_id}::instrument")
-            item = items_by_id.get(instrument_id)
+            occurrence_id = str(inst.get("id") or inst.get("source_object_id") or f"{edge_id}::instrument")
+            group_key = _instrument_group_key(inst)
+            relationships = _explicit_instrument_relationships(inst, edge)
+            item = items_by_id.get(group_key)
             if item is None:
                 item = {
-                    "instrument_id": instrument_id,
+                    "instrument_id": occurrence_id,
+                    "canonical_id": _canonical_id("instrument", image_id, group_key),
+                    "canonical_instrument_id": group_key,
                     "source_object_id": inst.get("source_object_id"),
+                    "occurrences": [],
                     "edge_ids": [],
                     "line_number_ids": [],
                     "line_number_texts": [],
@@ -310,10 +443,29 @@ def _build_instrument_index(image_id: str, edges: list[dict[str, Any]]) -> dict[
                     "bbox": inst.get("bbox"),
                     "text": inst.get("text"),
                     "normalized_text": inst.get("normalized_text"),
+                    "route_occurrences": [],
+                    "relationships": [],
+                    "relationship_state": "unresolved",
                 }
-                items_by_id[instrument_id] = item
+                items_by_id[group_key] = item
+            occurrence = {
+                "id": occurrence_id,
+                "source_object_id": inst.get("source_object_id"),
+                "edge_id": edge_id,
+                "route_position_px": _route_position_px(inst),
+            }
+            if occurrence not in item["occurrences"]:
+                item["occurrences"].append(occurrence)
             if edge_id and edge_id not in item["edge_ids"]:
                 item["edge_ids"].append(edge_id)
+            occurrence = {"edge_id": edge_id, "route_position_px": _route_position_px(inst)}
+            if occurrence not in item["route_occurrences"]:
+                item["route_occurrences"].append(occurrence)
+            for relationship in relationships:
+                if relationship not in item["relationships"]:
+                    item["relationships"].append(relationship)
+            if item["relationships"]:
+                item["relationship_state"] = "observed"
             for line_id in _line_ids(edge):
                 if line_id not in item["line_number_ids"]:
                     item["line_number_ids"].append(line_id)
@@ -324,6 +476,9 @@ def _build_instrument_index(image_id: str, edges: list[dict[str, Any]]) -> dict[
                 if text not in item["normalized_line_number_texts"]:
                     item["normalized_line_number_texts"].append(text)
     items = list(items_by_id.values())
+    for item in items:
+        item["occurrences"] = sorted(item["occurrences"], key=lambda occurrence: (occurrence["edge_id"], occurrence["id"]))
+        item["route_occurrences"] = sorted(item["route_occurrences"], key=lambda occurrence: (occurrence["edge_id"], occurrence["route_position_px"] is None, occurrence["route_position_px"] or 0.0))
     return {"image_id": image_id, "source": "stage10_process_exports", "items": sorted(items, key=lambda item: item["instrument_id"])}
 
 

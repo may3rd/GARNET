@@ -30,6 +30,37 @@
       "lines": [{"id": "line:P-101:10-P-100-A", "number": "10-P-100-A", "occurrences": ["ocr:p101:1", "ocr:p101:2"]}, {"id": "line:P-102:10-P-100-A", "number": "10-P-100-A", "occurrences": ["ocr:p102:1"]}],
       "connector": {"state": "unresolved", "left": "connector:P-101:1", "right": "connector:P-102:1", "match_candidates": ["10-P-100-A"]},
       "direction": {"state": "unknown", "evidence": []}
+    },
+    {
+      "id": "phase4_engineering_identities",
+      "drawing": {"drawing_id": "P-104", "revision": "A", "content_sha256": "sha256:p104-a", "pixel_dimensions": {"width": 1200, "height": 800}, "coordinate_system": "image_pixel_origin_top_left"},
+      "equipment": [
+        {"id": "equipment:P-104:pump-1", "source_object_id": "pump-1", "ports": ["port:P-104:pump-1:01"]},
+        {"id": "equipment:P-104:vessel-1", "source_object_id": "vessel-1", "ports": ["port:P-104:vessel-1:xy-900-300"]}
+      ],
+      "ports": [
+        {"id": "port:P-104:pump-1:01", "equipment_id": "equipment:P-104:pump-1", "position": {"x": 200, "y": 300}, "state": "observed"},
+        {"id": "port:P-104:vessel-1:xy-900-300", "equipment_id": "equipment:P-104:vessel-1", "position": {"x": 900, "y": 300}, "state": "observed"}
+      ],
+      "segments": [
+        {"id": "seg-process", "source": "port:P-104:pump-1:01", "target": "port:P-104:vessel-1:xy-900-300", "polyline": [{"x": 200, "y": 300}, {"x": 900, "y": 300}], "state": "observed"}
+      ],
+      "lines": [
+        {"id": "line:P-104:6-P-401-A", "number": "6-P-401-A", "occurrences": ["ocr:P-104:line-1", "ocr:P-104:line-2"]}
+      ],
+      "inline_objects": [
+        {"id": "inline:P-104:valve-1", "route_id": "seg-process", "route_position_px": 220, "class_name": "gate_valve"},
+        {"id": "inline:P-104:reducer-1", "route_id": "seg-process", "route_position_px": 510, "class_name": "reducer"}
+      ],
+      "instruments": [
+        {"id": "instrument:P-104:PT-401", "tag": "PT-401", "state": "observed"},
+        {"id": "instrument:P-104:PI-401", "tag": "PI-401", "state": "observed"}
+      ],
+      "relationships": [
+        {"id": "rel:valve-1", "type": "has_inline_object", "source": "seg-process", "target": "inline:P-104:valve-1", "state": "observed"},
+        {"id": "rel:pt-401", "type": "measures", "source": "instrument:P-104:PT-401", "target": "seg-process", "state": "observed"},
+        {"id": "rel:pi-401", "type": "instrument_association", "source": "instrument:P-104:PI-401", "target": "seg-process", "state": "unresolved"}
+      ]
     }
   ]
 }

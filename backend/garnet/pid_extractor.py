@@ -627,7 +627,7 @@ class PIDPipeline(Stage5bPipelineMixin):
         tmp_path = path.with_name(f".{path.name}.tmp")
         try:
             with open(tmp_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
+                json.dump(data, f, indent=2, allow_nan=False)
             tmp_path.replace(path)
         finally:
             if tmp_path.exists():
