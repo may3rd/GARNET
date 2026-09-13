@@ -193,7 +193,11 @@ class PipelineApiTests(unittest.TestCase):
             self.assertTrue(set(relationship["connector_ids"]) <= connector_ids)
             self.assertTrue(relationship["source"] in connector_ids)
             self.assertTrue(relationship["target"] in connector_ids)
+            self.assertEqual(relationship["review_state"], "accepted")
+            self.assertEqual(relationship["semantic_state"], "reviewed")
+            self.assertEqual(relationship["provenance"]["review"]["revision"], 1)
             self.assertEqual(graph["connector_review"]["revision"], 1)
+            self.assertTrue(graph["release_gate"]["release_ready"])
             review = response.json()["connector_review"]
             self.assertEqual(review["connector_overrides"], [])
             self.assertEqual(review["raw_connectors"][0]["connector_key"], "10-P-100-A")
@@ -280,6 +284,45 @@ class PipelineApiTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 api_module._write_json_atomic(str(path), {"bad": float("nan")})
 
+    def test_release_gate_controls_public_graph_with_legacy_compatibility(self) -> None:
+        api_module = __import__("api")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest = {"stages": [{"name": "stage9_apply_review_decisions", "status": "completed"}]}
+            (root / "stage_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            self.assertTrue(api_module._pipeline_graph_is_fresh(str(root)))
+            manifest["stages"][0]["artifacts"] = ["stage9_corrected_graph.json", "stage9_release_gate.json"]
+            (root / "stage_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            (root / "stage9_release_gate.json").write_text(json.dumps({"release_ready": False}), encoding="utf-8")
+            self.assertFalse(api_module._pipeline_graph_is_fresh(str(root)))
+            (root / "stage9_release_gate.json").write_text(json.dumps({"release_ready": True}), encoding="utf-8")
+            self.assertTrue(api_module._pipeline_graph_is_fresh(str(root)))
+            (root / "stage9_release_gate.json").write_text("{corrupt", encoding="utf-8")
+            self.assertFalse(api_module._pipeline_graph_is_fresh(str(root)))
+
+    def test_current_completed_stage9_with_deleted_gate_is_stale(self) -> None:
+        api_module = __import__("api")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "stage_manifest.json").write_text(json.dumps({"stages": [{
+                "name": "stage9_apply_review_decisions",
+                "status": "completed",
+                "artifacts": ["stage9_corrected_graph.json", "stage9_release_gate.json"],
+            }]}), encoding="utf-8")
+            self.assertFalse(api_module._pipeline_graph_is_fresh(str(root)))
+
+    def test_system_graph_release_gate_blocks_pending_and_issue_states(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp, patch("api.PIPELINE_SYSTEMS_DIR", tmp):
+            system_id = "gate-system"
+            system_dir = Path(tmp) / system_id
+            system_dir.mkdir()
+            (system_dir / "system_graph_v2.json").write_text(json.dumps({"schema_version": "graph_v2"}), encoding="utf-8")
+            base = {"manifest_version": 1, "system_id": system_id, "pages": [], "merge": {"graph_artifact": "system_graph_v2.json"}}
+            for merge, expected in (({"status": "awaiting_connector_review"}, 409), ({"status": "completed", "release_ready": False}, 409), ({"status": "completed", "release_ready": True}, 200)):
+                (system_dir / "system_manifest.json").write_text(json.dumps({**base, "merge": {**base["merge"], **merge}}), encoding="utf-8")
+                response = client.get(f"/api/pipeline/systems/{system_id}/graph")
+                self.assertEqual(response.status_code, expected)
     def test_ambiguous_numeric_resume_stages_are_rejected(self) -> None:
         expected_names = {
             "4": "stage4_object_detection",
@@ -1334,15 +1377,24 @@ class PipelineApiTests(unittest.TestCase):
                 {"name": "stage9_apply_review_decisions", "status": "stale"},
             ]}))
             (job_dir / "stage7b_graph_v1.json").write_text(json.dumps({"schema_version": "graph_v1"}))
+            (job_dir / "stage10_line_list.json").write_text(json.dumps({"lines": []}))
+            (job_dir / "stage9_release_gate.json").write_text(json.dumps({"release_ready": False}))
+            (job_dir / "stage9_correction_audit.json").write_text(json.dumps({"warnings": []}))
             job_id = "job-stale-graph"
             job = {"job_id": job_id, "job_dir": str(job_dir), "status": "completed"}
             with patch.dict("api.PIPELINE_JOBS", {job_id: job}, clear=False):
                 serialized = client.get(f"/api/pipeline/jobs/{job_id}")
                 artifact = client.get(f"/api/pipeline/jobs/{job_id}/artifacts/stage7b_graph_v1.json")
+                process_artifact = client.get(f"/api/pipeline/jobs/{job_id}/artifacts/stage10_line_list.json")
+                gate_artifact = client.get(f"/api/pipeline/jobs/{job_id}/artifacts/stage9_release_gate.json")
+                audit_artifact = client.get(f"/api/pipeline/jobs/{job_id}/artifacts/stage9_correction_audit.json")
                 merged = client.post("/api/pipeline/merge", json={"job_ids": [job_id]})
             self.assertEqual(serialized.status_code, 200)
             self.assertNotIn("graph_v1", serialized.json())
             self.assertEqual(artifact.status_code, 409)
+            self.assertEqual(process_artifact.status_code, 409)
+            self.assertEqual(gate_artifact.status_code, 200)
+            self.assertEqual(audit_artifact.status_code, 200)
             self.assertEqual(merged.status_code, 409)
 
     def test_completed_or_unreviewed_graph_remains_readable(self) -> None:

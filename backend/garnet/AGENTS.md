@@ -107,6 +107,13 @@
   - keep physical continuity separate from boundary flow; derive incoming/outgoing state from the reviewed edge direction and connector terminal
   - carry automatic/manual match evidence, connector review state, and source provenance into the combined graph
   - write system graphs as strict JSON and keep projections deterministic under input sheet reordering
+- Current Phase 7 review and release baseline:
+  - Stage 8 marks every review item as release-blocking or informational and exposes existing node, edge, trace, endpoint, and route evidence for decision clients
+  - Stage 9 supports atomic `merge_nodes`, `reconnect_edge`, `split_edge`, `delete_edge`, and `set_node_type` topology decisions in addition to reviewed line number and flow direction overrides
+  - missing, deferred, invalid, duplicate, orphaned, and unsupported decisions remain unresolved; never accept a required review by assumption
+  - retain deterministic before/after correction audit records and rebuild derived line indexes after topology edits
+  - save `stage9_release_gate.json`; public graph and process artifacts remain withheld until every release-blocking single-sheet item is explicitly resolved
+  - system graph release also requires an explicit connector-review revision with no remaining merge issues, and released cross-sheet relationships carry reviewed provenance
 - Historical Stage 10 edge-tracing baseline (these artifact names and thresholds describe an earlier numbering scheme; preserve them for compatibility when touching that implementation):
   - keep public stage numbering stable even though the roadmap conceptually separates crossing resolution from tracing
   - Stage 10 now runs explicit crossing-vs-junction resolution before final edge tracing

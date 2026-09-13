@@ -572,6 +572,7 @@ STALE_ARTIFACTS_BY_SOURCE: dict[str, tuple[str, ...]] = {
         "stage9_review_resolutions.json",
         "stage9_correction_audit.json",
         "stage9_correction_summary.json",
+        "stage9_release_gate.json",
         "stage7b_graph_v1.json",
         "stage10_line_list.json",
         "stage10_equipment_connectivity.json",
@@ -1104,7 +1105,25 @@ def _pipeline_graph_is_fresh(job_dir: str) -> bool:
     manifest = _pipeline_job_manifest(job_dir) or {}
     entries = [entry for entry in manifest.get("stages", []) if isinstance(entry, dict)]
     stage9 = next((entry for entry in reversed(entries) if entry.get("name") == "stage9_apply_review_decisions"), None)
-    return stage9 is None or stage9.get("status") == "completed"
+    if stage9 is None or stage9.get("status") != "completed":
+        return stage9 is None
+    # The artifact list is the compatibility boundary.  Older completed
+    # Stage 9 manifests never registered the release gate and remain readable;
+    # current manifests explicitly register it and therefore require a valid
+    # gate artifact to release graph-derived outputs.
+    registered_artifacts = stage9.get("artifacts")
+    gate_registered = isinstance(registered_artifacts, list) and "stage9_release_gate.json" in registered_artifacts
+    if not gate_registered:
+        return True
+    gate_path = os.path.join(job_dir, "stage9_release_gate.json")
+    if not os.path.exists(gate_path):
+        return False
+    try:
+        with open(gate_path, "r", encoding="utf-8") as handle:
+            gate = json.load(handle)
+        return bool(isinstance(gate, dict) and gate.get("release_ready") is True)
+    except (OSError, ValueError, TypeError):
+        return False
 
 
 def _write_pipeline_job_manifest(job_dir: str, manifest: dict[str, Any]) -> None:
@@ -1666,20 +1685,37 @@ def _regenerate_pipeline_system_graph(system_id: str) -> dict[str, Any]:
             "connector_review": review,
             "connector_review_audit": manifest.get("connector_review_audit", []),
         }
-        graph_path = os.path.join(_pipeline_system_dir(system_id), "system_graph_v2.json")
-        _write_json_atomic(graph_path, graph_payload)
-        updated_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        if int(review.get("revision", 0)) > 0 and not merge_result.get("merge_issues"):
+            for relationship in graph_payload.get("combined_graph", {}).get("relationships", []):
+                if relationship.get("type") == "cross_sheet_continues":
+                    relationship["review_state"] = "accepted"
+                    relationship["semantic_state"] = "reviewed"
+                    relationship.setdefault("provenance", {})["review"] = {
+                        "source": "connector_review",
+                        "revision": int(review.get("revision", 0)),
+                        "reviewer": review.get("reviewer"),
+                    }
         merge_status = (
             "awaiting_connector_review"
             if int(review.get("revision", 0)) == 0 or merge_result["merge_issues"]
             else "completed"
         )
+        graph_payload["release_gate"] = {
+            "release_ready": merge_status == "completed",
+            "status": merge_status,
+            "connector_review_revision": int(review.get("revision", 0)),
+            "merge_issue_count": len(merge_result["merge_issues"]),
+        }
+        graph_path = os.path.join(_pipeline_system_dir(system_id), "system_graph_v2.json")
+        _write_json_atomic(graph_path, graph_payload)
+        updated_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
         manifest["merge"] = {
             "status": merge_status,
             "updated_at": updated_at,
             "graph_artifact": "system_graph_v2.json",
             "resolved_count": len(merge_result["cross_sheet_edges"]),
             "issue_count": len(merge_result["merge_issues"]),
+            "release_ready": merge_status == "completed",
         }
         manifest["status"] = merge_status
         manifest.setdefault("audit_history", []).append(
@@ -2121,6 +2157,9 @@ async def get_pipeline_system_graph(system_id: str):
     graph_artifact = str((manifest.get("merge") or {}).get("graph_artifact") or "")
     if graph_artifact != "system_graph_v2.json":
         raise HTTPException(status_code=409, detail="Pipeline system graph is not ready")
+    merge_state = manifest.get("merge") or {}
+    if merge_state.get("release_ready") is False or merge_state.get("status") in {"awaiting_connector_review", "stale", "processing"}:
+        raise HTTPException(status_code=409, detail="Pipeline system graph is awaiting connector review release")
     graph_path = os.path.join(_pipeline_system_dir(system_id), graph_artifact)
     if not os.path.isfile(graph_path):
         raise HTTPException(status_code=409, detail="Pipeline system graph is not ready")
@@ -2605,8 +2644,14 @@ async def put_pipeline_artifact(job_id: str, artifact_name: str, payload: dict[s
 async def get_pipeline_artifact(job_id: str, artifact_name: str):
     payload = _serialize_pipeline_job(job_id)
     job_dir = payload["job_dir"]
-    if artifact_name == "stage7b_graph_v1.json" and not _pipeline_graph_is_fresh(job_dir):
-        raise HTTPException(status_code=409, detail="Graph-v1 is stale until Stage 9 review completes")
+    released_artifacts = {
+        "stage7b_graph_v1.json", "stage10_line_list.json", "stage10_equipment_connectivity.json",
+        "stage10_inline_mto.json", "stage10_inline_observations.json", "stage10_instrument_index.json",
+        "stage10_process_export_summary.json", "stage10_inline_mto_overlay.png",
+        "stage10_line_number_overlay.png", "stage11_connection_pipeline_overlay.png",
+    }
+    if artifact_name in released_artifacts and not _pipeline_graph_is_fresh(job_dir):
+        raise HTTPException(status_code=409, detail="Released process artifacts are stale until the Stage 9 release gate is ready")
     artifact_path = _safe_pipeline_artifact_path(job_dir, artifact_name)
     if not os.path.exists(artifact_path):
         raise HTTPException(status_code=404, detail="Artifact not found")

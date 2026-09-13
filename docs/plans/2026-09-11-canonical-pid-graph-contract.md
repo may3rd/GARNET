@@ -135,6 +135,31 @@ The combined projection is deterministic under input sheet reordering and the
 API persists it as strict JSON. Embedded per-sheet graph-v1 payloads remain in
 the system artifact for compatibility and audit.
 
+## Phase 7 reviewed topology and release
+
+Phase 7 makes review completion an explicit condition of process-data release:
+
+- Stage 8 classifies review items as release-blocking or informational and
+  promotes existing node, edge, trace, endpoint, and pixel-route evidence into
+  decision-friendly targets;
+- Stage 9 applies validated topology decisions for node merging, endpoint
+  reconnection, route splitting, edge deletion, and node reclassification;
+- topology mutations are atomic, route splits preserve ordered pixel geometry,
+  and physical attachment observations remain on one resulting segment;
+- every applied mutation records deterministic before/after evidence, affected
+  IDs, the source review item, the decision, and reviewer-supplied context;
+- missing, deferred, invalid, duplicate, orphaned, and unsupported decisions
+  remain unresolved rather than being accepted by assumption;
+- `stage9_release_gate.json` controls access to the reviewed graph and its
+  process-facing derivatives while leaving review items, resolutions, and audit
+  artifacts available;
+- multi-sheet release additionally requires an explicit connector-review
+  revision and no remaining merge issues. Released cross-sheet relationships
+  carry the connector review revision and reviewer provenance.
+
+The Stage 7 source graph remains immutable. Stage 9 writes a corrected graph
+revision and regenerates graph-v1 and later projections from that revision.
+
 ## Benchmark inventory and limits
 
 Candidate read-only benchmark material currently present in the repository:
@@ -156,6 +181,6 @@ and cross-sheet continuity separately.
 Phases 1–3 established the contract, route preservation, and authoritative
 review revision. Phase 4 implements drawing-scoped engineering identities.
 Phase 5 adds evidence-based flow direction and its review path. Phase 6 adds a
-qualified system graph and explicit cross-sheet continuity. Phases 7–9
-(topology review gates, boundaries/package views, and end-to-end release
-validation) remain deferred.
+qualified system graph and explicit cross-sheet continuity. Phase 7 implements
+reviewed topology changes, audit history, and release gates. Phases 8–9
+(boundaries/package views and end-to-end release validation) remain deferred.

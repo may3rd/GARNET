@@ -20,7 +20,53 @@ CATEGORY_TYPE = {
     "flow_direction_conflict": "flow_direction",
     "unknown_flow_direction": "flow_direction",
     "conflicting_flow_direction": "flow_direction",
+    "missing_line_number": "line_number",
+    "unattached_line_number": "line_number",
+    "ambiguous_terminal": "trace_terminal",
+    "unresolved_terminal_edge": "trace_terminal",
+    "malformed_trace_geometry": "trace_terminal",
+    "duplicate_node_id": "topology",
+    "duplicate_edge_id": "topology",
+    "self_loop_or_bad_endpoint": "topology",
+    "dangling_equipment_port": "topology",
+    "articulation_point": "topology",
+    "isolated_node": "topology",
+    "isolated_component": "topology",
+    "unresolved_crossing": "topology",
+    "missing_line_number_component": "line_number",
+    "line_number_split_components": "line_number",
 }
+
+_RELEASE_BLOCKING_TYPES = {"topology", "line_number", "flow_direction", "trace_terminal"}
+
+# These are identifiers already emitted by the graph and QA stages.  They are
+# promoted to the review item when present so a client can construct a Stage 9
+# decision without having to re-read the source artifact.  Geometry is kept in
+# the evidence payload and is never synthesized here.
+_IDENTIFIER_KEYS = (
+    "node_id",
+    "node_ids",
+    "edge_id",
+    "edge_ids",
+    "component_id",
+    "component_edge_ids",
+    "component_trace_ids",
+    "trace_id",
+    "trace_ids",
+    "source_trace_id",
+    "target_trace_id",
+    "source",
+    "target",
+    "source_node_id",
+    "target_node_id",
+    "destination_node_id",
+    "other_edge_id",
+    "candidate_node_id",
+    "candidate_edge_id",
+    "junction_id",
+    "branch_id",
+    "terminal_node_id",
+)
 
 CATEGORY_PRIORITY = {
     "tee_degree_mismatch": 10,
@@ -93,6 +139,51 @@ def _type_for(category: str) -> str:
     return CATEGORY_TYPE.get(category, "review")
 
 
+def _release_blocking_for(review_item_type: str, category: str, severity: str) -> bool:
+    """Return the deterministic release-gate classification for an item."""
+    del category
+    # Severity ``info`` and the explicit info review type are advisory even if
+    # a future producer gives them a category that otherwise requires review.
+    if review_item_type == "info" or severity.strip().lower() == "info":
+        return False
+    # Unknown non-info review types are conservatively blocking.  A newly
+    # introduced QA category must not silently pass the release gate until it
+    # has an explicit informational classification.
+    return review_item_type in _RELEASE_BLOCKING_TYPES or review_item_type != "info"
+
+
+def _identifier_values(value: Any) -> list[str]:
+    values = value if isinstance(value, (list, tuple, set)) else [value]
+    return list(dict.fromkeys(str(item) for item in values if item is not None and str(item)))
+
+
+def _target_ids_for(identifier_values: dict[str, Any]) -> dict[str, list[str]]:
+    """Group existing identifiers into decision-friendly target lists."""
+    node_keys = {
+        "node_id",
+        "node_ids",
+        "source_node_id",
+        "target_node_id",
+        "destination_node_id",
+        "candidate_node_id",
+        "junction_id",
+        "terminal_node_id",
+        "source",
+        "target",
+    }
+    edge_keys = {"edge_id", "edge_ids", "component_edge_ids", "candidate_edge_id", "other_edge_id"}
+    trace_keys = {"trace_id", "trace_ids", "component_trace_ids", "source_trace_id", "target_trace_id"}
+    targets: dict[str, list[str]] = {}
+    for output_key, keys in (("node_ids", node_keys), ("edge_ids", edge_keys), ("trace_ids", trace_keys)):
+        values: list[str] = []
+        for key in _IDENTIFIER_KEYS:
+            if key in keys:
+                values.extend(_identifier_values(identifier_values.get(key)))
+        if values:
+            targets[output_key] = list(dict.fromkeys(values))
+    return targets
+
+
 def _priority_for(category: str, severity: str) -> int:
     return CATEGORY_PRIORITY.get(category, SEVERITY_PRIORITY.get(severity, 4))
 
@@ -118,6 +209,20 @@ def _evidence_from_item(item: dict[str, Any]) -> dict[str, Any]:
         if key in item:
             evidence[key] = item[key]
     return evidence
+
+
+def _promoted_identifiers(item: dict[str, Any], evidence: dict[str, Any]) -> dict[str, Any]:
+    """Copy identifier evidence to stable top-level fields without fabrication."""
+    identifiers: dict[str, Any] = {}
+    for key in _IDENTIFIER_KEYS:
+        if key in item:
+            identifiers[key] = deepcopy(item[key])
+        elif key in evidence:
+            identifiers[key] = deepcopy(evidence[key])
+    targets = _target_ids_for(identifiers)
+    if targets:
+        identifiers["target_ids"] = targets
+    return identifiers
 
 
 def _flow_state_for_edge(edge: dict[str, Any]) -> str:
@@ -196,12 +301,21 @@ def _flow_review_item_from_edge(*, image_id: str, edge: dict[str, Any]) -> dict[
             "edge_geometry": deepcopy(geometry),
         },
     }
+    item["release_blocking"] = True
+    item["release_relevance"] = "blocking"
+    item["target_ids"] = {"edge_ids": [edge_id]}
     if geometry:
         item["geometry"] = geometry
     return item
 
 
-def _review_item_from_source(*, image_id: str, source_stage: str, item: dict[str, Any]) -> dict[str, Any]:
+def _review_item_from_source(
+    *,
+    image_id: str,
+    source_stage: str,
+    item: dict[str, Any],
+    graph_payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     category = _category_for(item)
     severity = str(item.get("severity") or "review")
     source_item_id = str(item.get("id") or f"{source_stage}::{category}")
@@ -218,6 +332,39 @@ def _review_item_from_source(*, image_id: str, source_stage: str, item: dict[str
         "message": str(item.get("message") or category.replace("_", " ")),
         "evidence": _evidence_from_item(item),
     }
+    identifiers = _promoted_identifiers(item, review_item["evidence"])
+    review_item.update(identifiers)
+
+    # QA often identifies an edge but stores only its endpoint types in the
+    # issue evidence.  Copy the existing endpoint IDs and route polyline from
+    # the graph so topology decisions have concrete targets.  Do not derive a
+    # replacement point or otherwise manufacture geometry.
+    edge_id = str(review_item.get("edge_id") or "")
+    if graph_payload is not None and edge_id:
+        graph_edge = next(
+            (
+                candidate
+                for candidate in graph_payload.get("edges", []) or []
+                if isinstance(candidate, dict) and str(candidate.get("id") or "") == edge_id
+            ),
+            None,
+        )
+        if graph_edge is not None:
+            for key in ("source", "target"):
+                value = graph_edge.get(key)
+                if value is None:
+                    continue
+                review_item.setdefault(key, deepcopy(value))
+                review_item["evidence"].setdefault(key, deepcopy(value))
+            polyline = graph_edge.get("polyline")
+            if isinstance(polyline, list) and polyline:
+                review_item.setdefault("edge_geometry", deepcopy(polyline))
+                review_item["evidence"].setdefault("edge_geometry", deepcopy(polyline))
+            identifiers = _promoted_identifiers(review_item, review_item["evidence"])
+            review_item.update(identifiers)
+    blocking = _release_blocking_for(review_item["review_item_type"], category, severity)
+    review_item["release_blocking"] = blocking
+    review_item["release_relevance"] = "blocking" if blocking else "informational"
     geometry = _geometry_from_item(item)
     if geometry is not None:
         review_item["geometry"] = geometry
@@ -232,6 +379,22 @@ def _merge_review_items(existing: dict[str, Any], incoming: dict[str, Any]) -> d
     source_stages = sorted(set(_as_list(existing.get("source_stage")) + _as_list(incoming.get("source_stage"))))
     merged["source_stage"] = source_stages if len(source_stages) > 1 else source_stages[0]
     merged["evidence"] = merged_evidence
+    for key in _IDENTIFIER_KEYS + ("target_ids",):
+        if key not in merged and key in secondary:
+            merged[key] = deepcopy(secondary[key])
+    if "target_ids" in existing or "target_ids" in incoming:
+        target_ids: dict[str, list[str]] = {}
+        for source in (existing.get("target_ids") or {}, incoming.get("target_ids") or {}):
+            if not isinstance(source, dict):
+                continue
+            for key, values in source.items():
+                target_ids[key] = list(dict.fromkeys(target_ids.get(key, []) + _identifier_values(values)))
+        if target_ids:
+            merged["target_ids"] = target_ids
+    # A lower-priority duplicate source must never turn a blocking item into
+    # an informational one.  Recompute the derived fields after the merge.
+    merged["release_blocking"] = bool(existing.get("release_blocking")) or bool(incoming.get("release_blocking"))
+    merged["release_relevance"] = "blocking" if merged["release_blocking"] else "informational"
     if "geometry" not in merged and "geometry" in secondary:
         merged["geometry"] = secondary["geometry"]
     return merged
@@ -263,14 +426,24 @@ def build_stage8_review_package(
     for issue in stage7_qa_payload.get("issues", []) or []:
         if not isinstance(issue, dict):
             continue
-        item = _review_item_from_source(image_id=image_id, source_stage="stage7_graph_qa", item=issue)
+        item = _review_item_from_source(
+            image_id=image_id,
+            source_stage="stage7_graph_qa",
+            item=issue,
+            graph_payload=graph_payload,
+        )
         key = item["source_item_id"]
         by_source_id[key] = _merge_review_items(by_source_id[key], item) if key in by_source_id else item
 
     for review in stage7_review_queue_payload.get("review_queue", []) or []:
         if not isinstance(review, dict):
             continue
-        item = _review_item_from_source(image_id=image_id, source_stage="stage7_review_queue", item=review)
+        item = _review_item_from_source(
+            image_id=image_id,
+            source_stage="stage7_review_queue",
+            item=review,
+            graph_payload=graph_payload,
+        )
         key = item["source_item_id"]
         by_source_id[key] = _merge_review_items(by_source_id[key], item) if key in by_source_id else item
 
@@ -283,6 +456,7 @@ def build_stage8_review_package(
     severity_counts = Counter(str(item.get("severity") or "unknown") for item in review_items)
     priority_counts = Counter(str(item.get("priority") or 0) for item in review_items)
     type_counts = Counter(str(item.get("review_item_type") or "review") for item in review_items)
+    blocking_count = sum(1 for item in review_items if bool(item.get("release_blocking")))
 
     return {
         "review_items_payload": {
@@ -297,6 +471,9 @@ def build_stage8_review_package(
             "severity_counts": dict(severity_counts),
             "priority_counts": dict(priority_counts),
             "review_item_type_counts": dict(type_counts),
+            "blocking_review_item_count": blocking_count,
+            "release_blocking_review_item_count": blocking_count,
+            "informational_review_item_count": len(review_items) - blocking_count,
             "source_artifacts": [
                 "stage7_graph.json",
                 "stage7_graph_qa.json",

@@ -2,7 +2,11 @@ import unittest
 
 import numpy as np
 
-from garnet.stage8_review_package import build_stage8_review_package, render_stage8_review_overlay
+from garnet.stage8_review_package import (
+    _merge_review_items,
+    build_stage8_review_package,
+    render_stage8_review_overlay,
+)
 
 
 class Stage8ReviewPackageTests(unittest.TestCase):
@@ -120,6 +124,171 @@ class Stage8ReviewPackageTests(unittest.TestCase):
             by_category["flow_direction_conflict"]["geometry"]["polyline"],
             [{"x": 20, "y": 30}, {"x": 30, "y": 30}],
         )
+
+    def test_topology_items_promote_existing_targets_and_route_geometry(self) -> None:
+        result = build_stage8_review_package(
+            image_id="synthetic.png",
+            graph_payload={
+                "nodes": [
+                    {"id": "n-source", "type": "junction", "position": {"x": 0, "y": 0}},
+                    {"id": "n-target", "type": "junction", "position": {"x": 20, "y": 0}},
+                ],
+                "edges": [
+                    {
+                        "id": "edge-a",
+                        "source": "n-source",
+                        "target": "n-target",
+                        "polyline": [{"x": 0, "y": 0}, {"x": 20, "y": 0}],
+                    }
+                ],
+            },
+            stage7_qa_payload={
+                "issues": [
+                    {
+                        "id": "qa::duplicate_physical_path::edge-a",
+                        "category": "duplicate_physical_path",
+                        "severity": "high",
+                        "edge_id": "edge-a",
+                        "evidence": {"other_edge_id": "edge-b"},
+                    }
+                ]
+            },
+            stage7_review_queue_payload={"review_queue": []},
+        )
+
+        item = result["review_items_payload"]["review_items"][0]
+        self.assertTrue(item["release_blocking"])
+        self.assertEqual(item["release_relevance"], "blocking")
+        self.assertEqual(item["source"], "n-source")
+        self.assertEqual(item["target"], "n-target")
+        self.assertEqual(item["other_edge_id"], "edge-b")
+        self.assertEqual(item["target_ids"], {"node_ids": ["n-source", "n-target"], "edge_ids": ["edge-a", "edge-b"]})
+        self.assertEqual(item["edge_geometry"], [{"x": 0, "y": 0}, {"x": 20, "y": 0}])
+
+    def test_release_blocking_metadata_is_explicit_and_deterministic(self) -> None:
+        result = build_stage8_review_package(
+            image_id="synthetic.png",
+            graph_payload={
+                "edges": [
+                    {"id": "flow-edge", "flow_direction_state": "unknown"},
+                    {"id": "flow-info", "flow_direction_state": "forward"},
+                ]
+            },
+            stage7_qa_payload={
+                "issues": [
+                    {"id": "qa::short", "category": "short_trace_edge", "severity": "info"},
+                    {"id": "qa::terminal", "category": "unresolved_terminal_edge", "severity": "review", "edge_id": "edge-terminal"},
+                ]
+            },
+            stage7_review_queue_payload={
+                "review_queue": [
+                    {"id": "review::missing", "issue_type": "missing_line_number", "severity": "review"}
+                ]
+            },
+        )
+
+        items = result["review_items_payload"]["review_items"]
+        by_category = {item["category"]: item for item in items}
+        self.assertFalse(by_category["short_trace_edge"]["release_blocking"])
+        self.assertEqual(by_category["short_trace_edge"]["release_relevance"], "informational")
+        for category in ("flow_direction_unknown", "unresolved_terminal_edge", "missing_line_number"):
+            self.assertTrue(by_category[category]["release_blocking"])
+            self.assertEqual(by_category[category]["release_relevance"], "blocking")
+        self.assertEqual(result["summary"]["blocking_review_item_count"], 3)
+        self.assertEqual(result["summary"]["release_blocking_review_item_count"], 3)
+        self.assertEqual(result["summary"]["informational_review_item_count"], 1)
+
+    def test_topology_item_does_not_invent_route_geometry(self) -> None:
+        result = build_stage8_review_package(
+            image_id="synthetic.png",
+            graph_payload={"edges": [{"id": "edge-no-geometry", "source": "n1", "target": "n2"}]},
+            stage7_qa_payload={
+                "issues": [
+                    {
+                        "id": "qa::dead_end_not_expected::edge-no-geometry",
+                        "category": "dead_end_not_expected",
+                        "severity": "medium",
+                        "edge_id": "edge-no-geometry",
+                    }
+                ]
+            },
+            stage7_review_queue_payload={"review_queue": []},
+        )
+
+        item = result["review_items_payload"]["review_items"][0]
+        self.assertEqual(item["source"], "n1")
+        self.assertEqual(item["target"], "n2")
+        self.assertNotIn("edge_geometry", item)
+        self.assertNotIn("geometry", item)
+
+    def test_structural_qa_categories_and_unknown_review_items_block_release(self) -> None:
+        categories = [
+            "duplicate_node_id",
+            "duplicate_edge_id",
+            "self_loop_or_bad_endpoint",
+            "dangling_equipment_port",
+            "isolated_component",
+            "unresolved_crossing",
+            "line_number_split_components",
+        ]
+        result = build_stage8_review_package(
+            image_id="synthetic.png",
+            graph_payload={"nodes": [], "edges": []},
+            stage7_qa_payload={
+                "issues": [
+                    {
+                        "id": f"qa::{category}",
+                        "category": category,
+                        "severity": "high",
+                    }
+                    for category in categories
+                ]
+                + [
+                    {
+                        "id": "qa::new_future_issue",
+                        "category": "new_future_issue",
+                        "severity": "medium",
+                    },
+                    {
+                        "id": "qa::missing_line_number_component",
+                        "category": "missing_line_number_component",
+                        "severity": "info",
+                    },
+                ]
+            },
+            stage7_review_queue_payload={"review_queue": []},
+        )
+
+        items = {item["category"]: item for item in result["review_items_payload"]["review_items"]}
+        for category in categories + ["new_future_issue"]:
+            self.assertTrue(items[category]["release_blocking"], category)
+        self.assertEqual(items["duplicate_node_id"]["review_item_type"], "topology")
+        self.assertEqual(items["line_number_split_components"]["review_item_type"], "line_number")
+        self.assertEqual(items["missing_line_number_component"]["review_item_type"], "line_number")
+        self.assertFalse(items["missing_line_number_component"]["release_blocking"])
+
+    def test_merging_duplicate_sources_preserves_blocking_classification(self) -> None:
+        merged = _merge_review_items(
+            {
+                "id": "stage8::same-source",
+                "priority": 1,
+                "release_blocking": True,
+                "release_relevance": "blocking",
+                "source_stage": "stage7_graph_qa",
+                "evidence": {},
+            },
+            {
+                "id": "stage8::same-source",
+                "priority": 99,
+                "release_blocking": False,
+                "release_relevance": "informational",
+                "source_stage": "stage7_review_queue",
+                "evidence": {},
+            },
+        )
+
+        self.assertTrue(merged["release_blocking"])
+        self.assertEqual(merged["release_relevance"], "blocking")
 
 
 if __name__ == "__main__":

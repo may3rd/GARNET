@@ -1234,6 +1234,8 @@ class PIDPipeline(Stage5bPipelineMixin):
         self._save_json("stage9_review_resolutions", result["review_resolution_payload"])
         self._save_json("stage9_correction_audit", result["correction_audit_payload"])
         self._save_json("stage9_correction_summary", result["summary"])
+        if result.get("release_gate_payload") is not None:
+            self._save_json("stage9_release_gate", result["release_gate_payload"])
 
     # ---------- Stage 10 ----------
 
