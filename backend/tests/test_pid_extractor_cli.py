@@ -112,6 +112,72 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             ],
         )
 
+    def test_stage10_writes_phase8_views_and_registers_the_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out_dir = Path(tmp)
+            image_path = out_dir / "sheet.png"
+            image_path.write_bytes(b"placeholder")
+            (out_dir / "stage9_corrected_graph.json").write_text(
+                json.dumps({
+                    "schema_version": "graph_v1",
+                    "graph_revision": "stage9-r1",
+                    "document": {"doc_id": "sheet"},
+                    "nodes": [
+                        {"id": "n1", "type": "equipment", "position": {"x": 0, "y": 0}},
+                        {"id": "n2", "type": "terminal", "position": {"x": 10, "y": 0}},
+                    ],
+                    "edges": [{
+                        "id": "edge-1",
+                        "source": "n1",
+                        "target": "n2",
+                        "polyline": [[0, 0], [10, 0]],
+                        "effective_line_number_ids": ["line-1"],
+                        "flow_direction_state": "forward",
+                    }],
+                    "relationships": [],
+                }),
+                encoding="utf-8",
+            )
+            (out_dir / "stage9_release_gate.json").write_text(
+                json.dumps({"release_ready": True, "status": "ready"}),
+                encoding="utf-8",
+            )
+            pipeline = pid_extractor.PIDPipeline(str(image_path), output_dir=out_dir)
+            pipeline.image_bgr = np.zeros((4, 12, 3), dtype=np.uint8)
+            pipeline._current_stage_artifacts = []
+            with patch(
+                "garnet.stage10_process_exports.render_stage10_inline_mto_overlay",
+                return_value=pipeline.image_bgr,
+            ), patch(
+                "garnet.stage10_process_exports.render_stage10_line_number_overlay",
+                return_value=pipeline.image_bgr,
+            ):
+                pipeline.stage10_process_exports()
+
+            expected = {
+                "stage10_process_boundaries.json",
+                "stage10_test_package_candidates.json",
+                "stage10_engineering_view_summary.json",
+                "stage10_llm_projections.json",
+            }
+            self.assertTrue(all((out_dir / name).is_file() for name in expected))
+            self.assertTrue(expected.issubset(set(pipeline._current_stage_artifacts)))
+            summary = json.loads((out_dir / "stage10_engineering_view_summary.json").read_text())
+            self.assertEqual(summary["graph_revision"], "stage9-r1")
+            self.assertRegex(summary["graph_content_sha256"], r"^[0-9a-f]{64}$")
+            self.assertEqual(summary["source_graph_content_sha256"], summary["graph_content_sha256"])
+            self.assertEqual(summary["graph_counts"], {"node_count": 2, "edge_count": 1, "relationship_count": 0})
+            boundary = json.loads((out_dir / "stage10_process_boundaries.json").read_text())
+            packages = json.loads((out_dir / "stage10_test_package_candidates.json").read_text())
+            self.assertEqual(boundary["source_graph_content_sha256"], summary["graph_content_sha256"])
+            self.assertEqual(packages["source_graph_content_sha256"], summary["graph_content_sha256"])
+            process_summary = json.loads((out_dir / "stage10_process_export_summary.json").read_text())
+            self.assertEqual(process_summary["graph_summary"]["graph_revision"], "stage9-r1")
+            llm = json.loads((out_dir / "stage10_llm_projections.json").read_text())
+            self.assertEqual(llm["graph_summary"]["edge_count"], 1)
+            self.assertEqual(llm["graph_summary"]["graph_content_sha256"], summary["graph_content_sha256"])
+            self.assertEqual(llm["source_graph_content_sha256"], summary["graph_content_sha256"])
+
     def test_run_stops_after_requested_stage_and_writes_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             pipe = FakePipeline(tmp)
@@ -240,6 +306,51 @@ class PIDPipelineRunnerTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "stage1_artifact.json"):
                 FakePipeline(tmp).run(stop_after=1, resume=True)
+
+    def test_resume_rejects_missing_phase8_stage10_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            FakePipeline(tmp).run(stop_after=11)
+            manifest_path = Path(tmp) / "stage_manifest.json"
+            manifest = json.loads(manifest_path.read_text())
+            stage10 = next(item for item in manifest["stages"] if item["name"] == "stage10_process_exports")
+            phase8_names = [
+                "stage10_process_boundaries.json",
+                "stage10_test_package_candidates.json",
+                "stage10_engineering_view_summary.json",
+                "stage10_llm_projections.json",
+            ]
+            for name in phase8_names:
+                (Path(tmp) / name).write_text("{}", encoding="utf-8")
+            stage10["artifacts"].extend(phase8_names)
+            manifest_path.write_text(json.dumps(manifest))
+            (Path(tmp) / phase8_names[-1]).unlink()
+
+            with self.assertRaisesRegex(ValueError, "stage10_llm_projections.json"):
+                FakePipeline(tmp).run(stop_after=11, resume=True)
+
+    def test_stage10_writes_phase8_artifacts_from_released_graph(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pipe = pid_extractor.PIDPipeline(str(Path(tmp) / "image.png"), output_dir=tmp)
+            (Path(tmp) / "image.png").write_bytes(b"placeholder")
+            (Path(tmp) / "stage9_corrected_graph.json").write_text(
+                json.dumps({"schema_version": "graph_v1", "document": {"doc_id": "P-101"}, "nodes": [], "edges": []}),
+                encoding="utf-8",
+            )
+            (Path(tmp) / "stage9_release_gate.json").write_text(
+                json.dumps({"release_ready": True, "status": "ready"}), encoding="utf-8"
+            )
+            with patch.object(pipe, "_ensure_image_loaded", return_value=np.zeros((4, 4, 3), dtype=np.uint8)):
+                pipe.stage10_process_exports()
+
+            for name in (
+                "stage10_process_boundaries.json",
+                "stage10_test_package_candidates.json",
+                "stage10_engineering_view_summary.json",
+                "stage10_llm_projections.json",
+            ):
+                self.assertTrue((Path(tmp) / name).is_file(), name)
+            summary = json.loads((Path(tmp) / "stage10_process_export_summary.json").read_text())
+            self.assertEqual(summary["phase8"]["source_release_gate_artifact"], "stage9_release_gate.json")
 
     def test_resume_rejects_non_contiguous_completed_stages(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

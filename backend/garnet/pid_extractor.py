@@ -304,6 +304,43 @@ class PIDPipeline(Stage5bPipelineMixin):
     def _image_id(self) -> str:
         return self.document_id or Path(self.image_path).name
 
+    @staticmethod
+    def _stage10_graph_summary(graph_payload: dict[str, Any]) -> dict[str, Any]:
+        """Return stable graph identity and cardinalities for derived views."""
+        graph = graph_payload if isinstance(graph_payload, dict) else {}
+        revision = graph.get("graph_revision")
+        if revision is None:
+            revision = graph.get("revision")
+        if revision is None:
+            revision = graph.get("correction_revision")
+        graph_content_sha256 = hashlib.sha256(
+            json.dumps(
+                graph,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
+        ).hexdigest()
+        if revision is None:
+            revision = graph_content_sha256
+
+        def count_records(value: Any) -> int:
+            if isinstance(value, dict):
+                return sum(1 for item in value.values() if isinstance(item, dict))
+            if isinstance(value, list):
+                return sum(1 for item in value if isinstance(item, dict))
+            return 0
+
+        return {
+            "graph_schema_version": graph.get("schema_version"),
+            "graph_revision": revision,
+            "graph_content_sha256": graph_content_sha256,
+            "node_count": count_records(graph.get("nodes")),
+            "edge_count": count_records(graph.get("edges")),
+            "relationship_count": count_records(graph.get("relationships")),
+        }
+
     # ---------- Stage runner ----------
     def _stage_definitions(self) -> List[Tuple[int, str, Callable[[], None]]]:
         """Return the ordered stage list executed by the pipeline."""
@@ -1244,25 +1281,81 @@ class PIDPipeline(Stage5bPipelineMixin):
 
         Outputs include line list, equipment connectivity, unique physical
         inline-object MTO, inline observations, instrument index, and review
-        overlays for inline objects and associated line numbers.
+        overlays for inline objects and associated line numbers. Phase 8 adds
+        release-gated boundary, test-package, and structured LLM projections
+        from the same corrected graph snapshot.
         """
         from garnet.stage10_process_exports import (
             build_stage10_process_exports,
             render_stage10_inline_mto_overlay,
             render_stage10_line_number_overlay,
         )
+        from garnet.stage10_engineering_views import build_phase8_engineering_views
+        from garnet.stage10_llm_projections import build_llm_projections
 
         image_id = self._image_id()
+        corrected_graph = self._load_json_artifact("stage9_corrected_graph")
+        release_gate = self._load_json_artifact("stage9_release_gate")
         result = build_stage10_process_exports(
             image_id=image_id,
-            corrected_graph_payload=self._load_json_artifact("stage9_corrected_graph"),
+            corrected_graph_payload=corrected_graph,
         )
+        graph_summary = self._stage10_graph_summary(corrected_graph)
+        engineering_views = build_phase8_engineering_views(
+            corrected_graph,
+            release_gate_payload=release_gate,
+        )
+        # The engineering-view builders intentionally wrap their collections
+        # under ``candidates``.  The LLM adapter accepts named collections, so
+        # pass the actual candidate lists explicitly instead of silently
+        # producing empty process/package contexts.
+        boundary_payload = {
+            "boundaries": engineering_views["process_boundaries"].get("candidates", []),
+        }
+        test_package_payload = {
+            "test_packages": engineering_views["test_packages"].get("candidates", []),
+        }
+        llm_projections = build_llm_projections(
+            graph_payload={**corrected_graph, "release_gate": release_gate},
+            boundary_payload=boundary_payload,
+            test_package_payload=test_package_payload,
+        )
+        source_graph_content_sha256 = graph_summary["graph_content_sha256"]
+        for phase8_payload in (
+            engineering_views["process_boundaries"],
+            engineering_views["test_packages"],
+            llm_projections,
+        ):
+            phase8_payload["source_graph_content_sha256"] = source_graph_content_sha256
+        phase8_summary = {
+            "source_graph_artifact": "stage9_corrected_graph.json",
+            "source_release_gate_artifact": "stage9_release_gate.json",
+            "graph_schema_version": graph_summary["graph_schema_version"],
+            "graph_revision": graph_summary["graph_revision"],
+            "graph_content_sha256": graph_summary["graph_content_sha256"],
+            "source_graph_content_sha256": source_graph_content_sha256,
+            "graph_counts": {
+                key: graph_summary[key]
+                for key in ("node_count", "edge_count", "relationship_count")
+            },
+            "release_ready": bool(engineering_views.get("release_ready")),
+            "process_boundary_candidate_count": len(boundary_payload["boundaries"]),
+            "test_package_candidate_count": len(test_package_payload["test_packages"]),
+            "llm_projection_schema_version": llm_projections.get("schema_version"),
+        }
+        result["summary"] = {**result["summary"], "phase8": phase8_summary}
+        result["summary"]["graph_summary"] = graph_summary
+        llm_projections["graph_summary"] = graph_summary
         self._save_json("stage10_line_list", result["line_list_payload"])
         self._save_json("stage10_equipment_connectivity", result["equipment_connectivity_payload"])
         self._save_json("stage10_inline_mto", result["inline_mto_payload"])
         self._save_json("stage10_inline_observations", result["inline_observations_payload"])
         self._save_json("stage10_instrument_index", result["instrument_index_payload"])
         self._save_json("stage10_process_export_summary", result["summary"])
+        self._save_json("stage10_process_boundaries", engineering_views["process_boundaries"])
+        self._save_json("stage10_test_package_candidates", engineering_views["test_packages"])
+        self._save_json("stage10_engineering_view_summary", phase8_summary)
+        self._save_json("stage10_llm_projections", llm_projections)
         self._save_img(
             "stage10_inline_mto_overlay",
             render_stage10_inline_mto_overlay(self._ensure_image_loaded(), result["inline_mto_payload"]),

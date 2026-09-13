@@ -114,6 +114,14 @@
   - retain deterministic before/after correction audit records and rebuild derived line indexes after topology edits
   - save `stage9_release_gate.json`; public graph and process artifacts remain withheld until every release-blocking single-sheet item is explicitly resolved
   - system graph release also requires an explicit connector-review revision with no remaining merge issues, and released cross-sheet relationships carry reviewed provenance
+- Current Phase 8 engineering-view baseline:
+  - extend Stage 10 without renumbering the public runner stages;
+  - derive process boundaries, test-package candidates, and LLM process/HAZOP projections only from `stage9_corrected_graph.json` plus a released `stage9_release_gate.json`;
+  - preserve ordered pixel routes, line-number relationships, cut points, exclusions, isolation evidence, provenance, confidence, and unresolved states;
+  - Stage 10 artifacts are `stage10_process_boundaries.json`, `stage10_test_package_candidates.json`, `stage10_engineering_view_summary.json`, and `stage10_llm_projections.json`;
+  - expose these artifacts through the same Stage 9 release gate and invalidate them whenever an upstream reviewed graph input changes;
+  - every Phase 8 artifact carries the canonical corrected-graph content hash, and system loading verifies all four values before aggregation;
+  - system views qualify page-local IDs, including nested LLM route/flow/relationship references, and retain explicit uncertainty for ambiguous relationship endpoints; test-package candidates stay page-local; cross-sheet continuity remains represented by reviewed connector relationships;
 - Historical Stage 10 edge-tracing baseline (these artifact names and thresholds describe an earlier numbering scheme; preserve them for compatibility when touching that implementation):
   - keep public stage numbering stable even though the roadmap conceptually separates crossing resolution from tracing
   - Stage 10 now runs explicit crossing-vs-junction resolution before final edge tracing

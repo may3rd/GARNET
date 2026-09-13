@@ -26,8 +26,9 @@ Phase 4 adds drawing-scoped engineering identities on top of that graph without
 renumbering the executable pipeline. Phase 5 adds evidence-based flow direction
 and review without changing physical connectivity. Phase 6 preserves that
 contract in a deterministic multi-sheet graph. Phase 7 adds reviewed topology
-mutations, deterministic audit records, and release gates. Phase 8 is the next
-delivery slice.
+mutations, deterministic audit records, and release gates. Phase 8 adds
+release-gated engineering views and structured LLM projections without changing
+the public stage numbering.
 
 ## Target graph contract
 
@@ -49,9 +50,8 @@ multigraph: two routes with the same endpoints may be separate bypasses.
 - Physical connectivity and process-flow direction are separate facts. Flow is
   `forward`, `reverse`, `bidirectional`, `unknown`, or `conflicting`, with
   evidence and review state. Walking order never establishes process flow.
-- Boundaries and test packages are graph-linked entities with members, cut
-  points, isolation elements, exclusions, and review state. They are deferred
-  until the graph foundation is stable.
+- Boundaries and test packages are graph-linked candidate entities with members,
+  cut points, isolation elements, exclusions, and review state.
 - Every promoted fact carries provenance and state such as `observed`,
   `inferred`, `reviewed`, `unresolved`, or `rejected`. Unsupported guesses must
   remain candidates or unresolved evidence.
@@ -77,8 +77,7 @@ slice explicitly extends and versions that payload.
 8. Add process boundaries, test-package views, and LLM-oriented projections.
 9. Validate end to end on a representative benchmark and version the export.
 
-Phases 1–7 are implemented. Phase 8 is the next work slice. Phases 8–9 are
-planned work only.
+Phases 1–8 are implemented. Phase 9 remains planned work only.
 
 ## Acceptance principle
 

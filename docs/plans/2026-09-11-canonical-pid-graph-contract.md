@@ -160,6 +160,42 @@ Phase 7 makes review completion an explicit condition of process-data release:
 The Stage 7 source graph remains immutable. Stage 9 writes a corrected graph
 revision and regenerates graph-v1 and later projections from that revision.
 
+## Phase 8 engineering views and LLM projections
+
+Phase 8 extends Stage 10 with four additive, release-gated artifacts:
+
+- `stage10_process_boundaries.json` contains connected process/system boundary
+  candidates with member nodes, edges, lines, route polylines, cut points,
+  isolation elements, exclusions, uncertainty, and provenance.
+- `stage10_test_package_candidates.json` groups candidate packages by canonical
+  line or an explicit edge fallback while preserving parallel and branch routes.
+  A package remains a candidate when line identity, flow direction, or terminal
+  evidence is unresolved.
+- `stage10_engineering_view_summary.json` records the source graph and release
+  gate artifacts, graph revision/counts, a canonical source graph SHA-256, and
+  deterministic candidate counts. System loading verifies that hash against
+  the page's `stage9_corrected_graph.json` before accepting the bundle.
+- `stage10_llm_projections.json` contains structured process-description and
+  HAZOP scaffolds. It does not generate chemistry, causes, consequences,
+  safeguards, or design conditions. Those remain downstream tasks.
+
+All four artifacts are derived only from the Stage 9 corrected graph and its
+release gate. Each artifact carries the top-level
+`source_graph_content_sha256`; system loading requires all four values to
+match the engineering summary and current corrected graph. They retain
+pixel-coordinate route evidence and use the same single-sheet release gate as
+graph-v1 and the existing Stage 10 exports. For a
+multi-sheet system, page-local boundary and test-package IDs are qualified by
+sheet. Packages are never merged across sheets; reviewed connector continuity
+remains a separate relationship in the combined graph. The system Phase 8
+summary retains the page-level graph revisions and content hashes.
+
+The existing `stage10_process_export_summary.json` carries the same graph
+revision/count summary so line-list, equipment, and Phase 8 consumers can
+correlate outputs to one corrected graph snapshot. The public artifact PUT
+endpoint accepts only registered review/input artifacts; derived Phase 8 JSON
+is written by Stage 10 and cannot be replaced through that endpoint.
+
 ## Benchmark inventory and limits
 
 Candidate read-only benchmark material currently present in the repository:
