@@ -19,6 +19,7 @@
 | POST   | `/api/pipeline/jobs`                        | Start a new pipeline job                        |
 | GET    | `/api/pipeline/jobs/{job_id}`               | Get pipeline job status and details             |
 | GET    | `/api/pipeline/jobs/{job_id}/stage-status`  | Get status of all pipeline stages               |
+| GET    | `/api/pipeline/jobs/{job_id}/export`        | Get the validated, release-gated versioned Stage 10 export |
 | POST   | `/api/pipeline/jobs/{job_id}/resume-from/{stage}` | Resume pipeline from a specific stage       |
 | GET    | `/api/pipeline/jobs/{job_id}/review-state`  | Get pipeline review state                       |
 | PUT    | `/api/pipeline/jobs/{job_id}/review-state`  | Update pipeline review state                    |
@@ -28,5 +29,6 @@
 | POST   | `/api/pipeline/jobs/{job_id}/review-workspace/commit` | Commit pipeline review workspace          |
 | GET    | `/api/pipeline/jobs/{job_id}/reviewed-graph`| Get reviewed graph from pipeline                |
 | GET    | `/api/pipeline/jobs/{job_id}/reviewed-qa`   | Get reviewed QA report from pipeline            |
+| GET    | `/api/pipeline/systems/{system_id}/export`  | Get the validated system export after connector review |
 | PUT    | `/api/pipeline/jobs/{job_id}/artifacts/{artifact_name}` | Update pipeline artifact              |
 | GET    | `/api/pipeline/jobs/{job_id}/artifacts/{artifact_name}` | Get pipeline artifact                 |

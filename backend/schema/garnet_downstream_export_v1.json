@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://garnet.local/schema/garnet_downstream_export_v1.json",
+  "title": "GARNET versioned downstream P&ID export",
+  "type": "object",
+  "required": ["schema_version", "export_kind", "source", "drawings", "graph", "engineering_views", "uncertainty", "review", "release_ready"],
+  "allOf": [
+    {
+      "if": {"properties": {"release_ready": {"const": true}}},
+      "then": {
+        "properties": {
+          "source": {
+            "required": ["release_gate_sha256"],
+            "properties": {"release_gate_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+          },
+          "review": {
+            "required": ["release_gate", "release_gate_sha256"],
+            "properties": {
+              "release_gate": {"type": "object", "required": ["release_ready"], "properties": {"release_ready": {"const": true}}},
+              "release_gate_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"release_ready": {"const": false}}},
+      "then": {
+        "properties": {
+          "graph": {
+            "required": ["redacted"],
+            "properties": {
+              "redacted": {"const": true},
+              "nodes": {"maxItems": 0},
+              "routes": {"maxItems": 0},
+              "lines": {"maxItems": 0},
+              "line_number_occurrences": {"maxItems": 0},
+              "equipment": {"maxItems": 0},
+              "ports": {"maxItems": 0},
+              "instruments": {"maxItems": 0},
+              "inline_objects": {"maxItems": 0},
+              "connectors": {"maxItems": 0},
+              "relationships": {"maxItems": 0}
+            }
+          },
+          "engineering_views": {"properties": {"boundaries": {"maxItems": 0}, "test_packages": {"maxItems": 0}}},
+          "uncertainty": {"maxItems": 0}
+        }
+      }
+    }
+  ],
+  "properties": {
+    "schema_version": {"const": "garnet_downstream_export_v1"},
+    "export_kind": {"const": "pid_downstream_graph"},
+    "graph_content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "release_ready": {"type": "boolean"},
+    "source": {
+      "type": "object",
+      "required": ["graph_content_sha256"],
+      "properties": {
+        "graph_content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "release_gate_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "release_gate_content_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "scope": {"enum": ["page", "system"]}
+      }
+    },
+    "drawings": {"type": "array", "items": {"type": "object", "required": ["drawing_id"]}},
+    "graph": {
+      "type": "object",
+      "required": ["physical_multigraph", "flow_direction_separate", "nodes", "routes", "lines", "line_number_occurrences", "equipment", "ports", "instruments", "inline_objects", "connectors", "relationships"],
+      "properties": {
+        "redacted": {"type": "boolean"},
+        "directed_multigraph": {"const": false},
+        "physical_multigraph": {"const": true},
+        "flow_direction_separate": {"const": true},
+        "nodes": {"type": "array"},
+        "routes": {"type": "array"},
+        "lines": {"type": "array"},
+        "line_number_occurrences": {"type": "array"},
+        "equipment": {"type": "array"},
+        "ports": {"type": "array"},
+        "instruments": {"type": "array"},
+        "inline_objects": {"type": "array"},
+        "connectors": {"type": "array"},
+        "relationships": {"type": "array"}
+      }
+    },
+    "engineering_views": {
+      "type": "object",
+      "required": ["boundaries", "test_packages"],
+      "properties": {"boundaries": {"type": "array"}, "test_packages": {"type": "array"}}
+    },
+    "uncertainty": {"type": "array"},
+    "review": {"type": "object"},
+    "blocked_reasons": {"type": "array", "items": {"type": "string"}}
+  }
+}

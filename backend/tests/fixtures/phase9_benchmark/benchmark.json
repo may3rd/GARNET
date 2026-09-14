@@ -1,0 +1,171 @@
+{
+  "schema_version": "phase9_representative_fixtures_v1",
+  "description": "Small synthetic exports exercising Phase 9 contract invariants. These are structural fixtures, not detector gold truth.",
+  "cases": [
+    {
+      "id": "topology_and_instrument_semantics",
+      "expectations": {
+        "crossing_without_junction": [{"route_a": "route:crossing:a", "route_b": "route:crossing:b", "junction_id": "junction:tee:1"}],
+        "tee_junctions": [{"junction_id": "junction:tee:1", "minimum_degree": 3}],
+        "required_instrument_semantics": ["measures"]
+      },
+      "payload": {
+        "schema_version": "graph_v1",
+        "drawing": {"drawing_id": "P-204", "pixel_dimensions": {"width": 1000, "height": 800}, "coordinate_system": "image_pixel_origin_top_left"},
+        "document": {"doc_id": "P-204"},
+        "nodes": [
+          {"id": "node:crossing:a1", "type": "endpoint"}, {"id": "node:crossing:a2", "type": "endpoint"},
+          {"id": "node:crossing:b1", "type": "endpoint"}, {"id": "node:crossing:b2", "type": "endpoint"},
+          {"id": "junction:tee:1", "type": "junction"}, {"id": "node:tee:1", "type": "endpoint"}, {"id": "node:tee:2", "type": "endpoint"}, {"id": "node:tee:3", "type": "endpoint"}
+        ],
+        "edges": [
+          {"id": "route:crossing:a", "src": "node:crossing:a1", "dst": "node:crossing:a2", "polyline": [{"x": 100, "y": 100}, {"x": 900, "y": 700}], "line_id": "line:P-204:CROSS-A"},
+          {"id": "route:crossing:b", "src": "node:crossing:b1", "dst": "node:crossing:b2", "polyline": [{"x": 100, "y": 700}, {"x": 900, "y": 100}], "line_id": "line:P-204:CROSS-B"},
+          {"id": "route:tee:1", "src": "junction:tee:1", "dst": "node:tee:1", "polyline": [{"x": 500, "y": 400}, {"x": 700, "y": 400}], "line_id": "line:P-204:TEE"},
+          {"id": "route:tee:2", "src": "junction:tee:1", "dst": "node:tee:2", "polyline": [{"x": 500, "y": 400}, {"x": 500, "y": 200}], "line_id": "line:P-204:TEE"},
+          {"id": "route:tee:3", "src": "junction:tee:1", "dst": "node:tee:3", "polyline": [{"x": 500, "y": 400}, {"x": 500, "y": 600}], "line_id": "line:P-204:TEE"}
+        ],
+        "lines": [
+          {"id": "line:P-204:CROSS-A", "occurrences": [{"id": "ocr:P-204:CROSS-A", "text": "CROSS-A"}]},
+          {"id": "line:P-204:CROSS-B", "occurrences": [{"id": "ocr:P-204:CROSS-B", "text": "CROSS-B"}]},
+          {"id": "line:P-204:TEE", "occurrences": [{"id": "ocr:P-204:TEE", "text": "TEE"}]}
+        ],
+        "instruments": [{"id": "instrument:P-204:PT-1", "tag": "PT-1"}],
+        "relationships": [{"id": "rel:P-204:measure", "type": "measures", "source": "instrument:P-204:PT-1", "target": "route:tee:1", "state": "observed"}]
+      }
+    },
+    {
+      "id": "repeated_labels_unresolved_connectors",
+      "expectations": {"repeated_sheet_scoped_occurrences": {"minimum_distinct": 2}, "unresolved_connector_no_continuity": {}},
+      "payload": {
+        "schema_version": "graph_v2",
+        "sheets": [
+          {"graph_v1": {"schema_version": "graph_v1", "drawing": {"drawing_id": "P-205", "pixel_dimensions": {"width": 400, "height": 300}, "coordinate_system": "image_pixel_origin_top_left"}, "document": {"doc_id": "P-205"}, "nodes": [{"id": "node:P-205:a"}, {"id": "node:P-205:b"}], "edges": [{"id": "edge:P-205:1", "src": "node:P-205:a", "dst": "node:P-205:b", "polyline": [{"x": 1, "y": 1}, {"x": 399, "y": 1}], "line_id": "line:P-205:shared"}], "lines": [{"id": "line:P-205:shared", "occurrences": [{"id": "ocr:P-205:shared", "text": "10-P-205"}]}]}},
+          {"graph_v1": {"schema_version": "graph_v1", "drawing": {"drawing_id": "P-206", "pixel_dimensions": {"width": 400, "height": 300}, "coordinate_system": "image_pixel_origin_top_left"}, "document": {"doc_id": "P-206"}, "nodes": [{"id": "node:P-206:a"}, {"id": "node:P-206:b"}], "edges": [{"id": "edge:P-206:1", "src": "node:P-206:a", "dst": "node:P-206:b", "polyline": [{"x": 1, "y": 2}, {"x": 399, "y": 2}], "line_id": "line:P-206:shared"}], "lines": [{"id": "line:P-206:shared", "occurrences": [{"id": "ocr:P-206:shared", "text": "10-P-205"}]}]}}
+        ],
+        "combined_graph": {"schema_version": "graph_v2_combined", "drawings": [{"sheet": "P-205"}, {"sheet": "P-206"}], "nodes": [{"id": "node::P-205::a", "local_id": "node:P-205:a", "sheet": "P-205"}, {"id": "node::P-205::b", "local_id": "node:P-205:b", "sheet": "P-205"}, {"id": "node::P-206::a", "local_id": "node:P-206:a", "sheet": "P-206"}, {"id": "node::P-206::b", "local_id": "node:P-206:b", "sheet": "P-206"}], "edges": [{"id": "edge::P-205::1", "local_id": "edge:P-205:1", "sheet": "P-205", "polyline": [{"x": 1, "y": 1}, {"x": 399, "y": 1}]}, {"id": "edge::P-206::1", "local_id": "edge:P-206:1", "sheet": "P-206", "polyline": [{"x": 1, "y": 2}, {"x": 399, "y": 2}]}], "lines": [{"id": "line::P-205::shared", "local_id": "line:P-205:shared", "sheet": "P-205"}, {"id": "line::P-206::shared", "local_id": "line:P-206:shared", "sheet": "P-206"}], "connectors": [{"id": "connector::P-205::unresolved", "sheet": "P-205", "state": "unresolved"}, {"id": "connector::P-206::unresolved", "sheet": "P-206", "state": "unresolved"}], "relationships": []}
+      }
+    },
+    {
+      "id": "representative_single_sheet",
+      "expectations": {
+        "parallel_routes": [
+          {"source": "port:P-201:pump-1:out", "target": "port:P-201:vessel-1:in", "count": 2}
+        ],
+        "crossings": [
+          {"id": "crossing:P-201:unmarked-1", "classification": "non_connecting_crossing"}
+        ],
+        "marked_tees": [
+          {"id": "tee:P-201:marked-1", "incident_count": 3}
+        ],
+        "flow_states": [
+          {"route_id": "route:P-201:unknown", "state": "unknown"},
+          {"route_id": "route:P-201:conflicting", "state": "conflicting"}
+        ],
+        "unresolved_instrument_associations": ["rel:P-201:pi"],
+        "required_relationship_types": ["has_inline_object", "measures", "instrument_association"],
+        "minimum_unresolved": {"relationship": 1, "engineering_candidate": 1}
+      },
+      "payload": {
+        "schema_version": "graph_v1",
+        "drawing": {
+          "drawing_id": "P-201",
+          "revision": "C",
+          "pixel_dimensions": {"width": 1600, "height": 1000},
+          "coordinate_system": "image_pixel_origin_top_left"
+        },
+        "document": {"doc_id": "P-201"},
+        "nodes": [
+          {"id": "equipment:P-201:pump-1", "type": "pump", "position": {"x": 100, "y": 400}},
+          {"id": "equipment:P-201:vessel-1", "type": "vessel", "position": {"x": 1400, "y": 400}},
+          {"id": "junction:P-201:tee-1", "type": "junction", "position": {"x": 800, "y": 300}}
+        ],
+        "topology_events": [
+          {"id": "crossing:P-201:unmarked-1", "classification": "non_connecting_crossing", "junction_marker": false, "provenance": {"source": "synthetic_review"}},
+          {"id": "tee:P-201:marked-1", "classification": "confirmed_junction", "junction_marker": true, "incident_route_ids": ["route:P-201:main", "route:P-201:bypass", "route:P-201:unknown"], "provenance": {"source": "synthetic_review"}}
+        ],
+        "equipment": [
+          {"id": "equipment:P-201:pump-1", "ports": ["port:P-201:pump-1:out"]},
+          {"id": "equipment:P-201:vessel-1", "ports": ["port:P-201:vessel-1:in"]}
+        ],
+        "ports": [
+          {"id": "port:P-201:pump-1:out", "equipment_id": "equipment:P-201:pump-1", "position": {"x": 140, "y": 400}},
+          {"id": "port:P-201:vessel-1:in", "equipment_id": "equipment:P-201:vessel-1", "position": {"x": 1360, "y": 400}}
+        ],
+        "edges": [
+          {"id": "route:P-201:main", "src": "port:P-201:pump-1:out", "dst": "port:P-201:vessel-1:in", "polyline": [{"x": 140, "y": 400}, {"x": 1360, "y": 400}], "line_id": "line:P-201:10-P-201-A", "state": "observed"},
+          {"id": "route:P-201:bypass", "src": "port:P-201:pump-1:out", "dst": "port:P-201:vessel-1:in", "polyline": [{"x": 140, "y": 400}, {"x": 500, "y": 300}, {"x": 1000, "y": 300}, {"x": 1360, "y": 400}], "line_id": "line:P-201:10-P-201-A", "state": "observed"}
+          ,{"id": "route:P-201:unknown", "src": "port:P-201:pump-1:out", "dst": "port:P-201:vessel-1:in", "polyline": [{"x": 140, "y": 400}, {"x": 700, "y": 450}, {"x": 1360, "y": 400}], "line_id": "line:P-201:10-P-201-A", "flow_direction_state": "unknown", "state": "observed"}
+          ,{"id": "route:P-201:conflicting", "src": "port:P-201:pump-1:out", "dst": "port:P-201:vessel-1:in", "polyline": [{"x": 140, "y": 400}, {"x": 700, "y": 350}, {"x": 1360, "y": 400}], "line_id": "line:P-201:10-P-201-A", "flow_direction_state": "conflicting", "state": "observed"}
+        ],
+        "lines": [
+          {"id": "line:P-201:10-P-201-A", "number": "10-P-201-A", "edge_ids": ["route:P-201:main", "route:P-201:bypass"], "occurrences": ["ocr:P-201:line-1", "ocr:P-201:line-2"]}
+        ],
+        "inline_objects": [
+          {"id": "inline:P-201:valve-1", "route_id": "route:P-201:main", "route_position_px": 410, "class_name": "gate_valve"}
+        ],
+        "instruments": [
+          {"id": "instrument:P-201:PT-201", "tag": "PT-201", "state": "observed"},
+          {"id": "instrument:P-201:PI-201", "tag": "PI-201", "state": "unresolved"}
+        ],
+        "relationships": [
+          {"id": "rel:P-201:valve", "type": "has_inline_object", "source": "route:P-201:main", "target": "inline:P-201:valve-1", "state": "observed"},
+          {"id": "rel:P-201:pt", "type": "measures", "source": "instrument:P-201:PT-201", "target": "route:P-201:main", "state": "observed"},
+          {"id": "rel:P-201:pi", "type": "instrument_association", "source": "instrument:P-201:PI-201", "target": "route:P-201:main", "state": "unresolved", "association_method": "proximity_only", "provenance": {"source": "nearest_route_only"}}
+        ],
+        "process_boundaries": [
+          {"id": "boundary:P-201:unit-1", "members": ["route:P-201:main", "route:P-201:bypass"], "state": "candidate", "uncertainty": [{"type": "candidate_boundary"}]}
+        ],
+        "test_packages": [
+          {"id": "test_package:P-201:10-P-201-A", "line_ids": ["line:P-201:10-P-201-A"], "boundary_id": "boundary:P-201:unit-1", "state": "unresolved"}
+        ]
+      }
+    },
+    {
+      "id": "representative_multi_sheet",
+      "expectations": {
+        "required_cross_sheet_relationships": 1,
+        "required_resolved_cross_sheet_relationships": 1,
+        "require_combined_completeness": true,
+        "exact_cross_sheet_continuations": 1,
+        "reviewed_cross_sheet_continuations": 1,
+        "repeated_line_labels": [{"normalized_text": "SAME-LINE-1", "sheets": ["P-202", "P-203"]}],
+        "unresolved_connector_ids": ["connector::P-202::dangling"]
+      },
+      "payload": {
+        "schema_version": "graph_v2",
+        "sheets": [
+          {"graph_v1": {"schema_version": "graph_v1", "drawing": {"drawing_id": "P-202", "pixel_dimensions": {"width": 800, "height": 600}, "coordinate_system": "image_pixel_origin_top_left"}, "document": {"doc_id": "P-202"}, "nodes": [{"id": "node:P-202:unit", "type": "equipment"}, {"id": "node:P-202:out", "type": "connection"}], "edges": [{"id": "edge:P-202:out", "src": "node:P-202:unit", "dst": "node:P-202:out", "polyline": [{"x": 600, "y": 300}, {"x": 799, "y": 300}], "state": "unresolved", "off_page_connector": {"reference_type": "sheet", "reference_value": "A-3", "direction": "output", "exit_terminal": "target"}}], "lines": [{"id": "line:P-202:A-3", "edge_ids": ["edge:P-202:out"], "occurrences": [{"id": "ocr:P-202:A-3", "normalized_text": "SAME-LINE-1", "text": "SAME-LINE-1"}]}]}},
+          {"graph_v1": {"schema_version": "graph_v1", "drawing": {"drawing_id": "P-203", "pixel_dimensions": {"width": 800, "height": 600}, "coordinate_system": "image_pixel_origin_top_left"}, "document": {"doc_id": "P-203"}, "nodes": [{"id": "node:P-203:in", "type": "connection"}, {"id": "node:P-203:unit", "type": "equipment"}], "edges": [{"id": "edge:P-203:in", "src": "node:P-203:in", "dst": "node:P-203:unit", "polyline": [{"x": 1, "y": 300}, {"x": 200, "y": 300}], "state": "unresolved", "off_page_connector": {"reference_type": "sheet", "reference_value": "A-3", "direction": "input", "exit_terminal": "source"}}], "lines": [{"id": "line:P-203:A-3", "edge_ids": ["edge:P-203:in"], "occurrences": [{"id": "ocr:P-203:A-3", "normalized_text": "SAME-LINE-1", "text": "SAME-LINE-1"}]}]}}
+        ],
+        "combined_graph": {
+          "schema_version": "graph_v2_combined",
+          "sheets": ["P-202", "P-203"],
+          "drawings": [{"sheet": "P-202", "provenance": {"source": "sheet:P-202"}}, {"sheet": "P-203", "provenance": {"source": "sheet:P-203"}}],
+          "nodes": [
+            {"id": "node::P-202::node:P-202:unit", "local_id": "node:P-202:unit", "sheet": "P-202", "provenance": {"source_id": "node:P-202:unit"}},
+            {"id": "node::P-202::node:P-202:out", "local_id": "node:P-202:out", "sheet": "P-202", "provenance": {"source_id": "node:P-202:out"}},
+            {"id": "node::P-203::node:P-203:in", "local_id": "node:P-203:in", "sheet": "P-203", "provenance": {"source_id": "node:P-203:in"}},
+            {"id": "node::P-203::node:P-203:unit", "local_id": "node:P-203:unit", "sheet": "P-203", "provenance": {"source_id": "node:P-203:unit"}}
+          ],
+          "edges": [
+            {"id": "edge::P-202::edge:P-202:out", "local_id": "edge:P-202:out", "sheet": "P-202", "provenance": {"source_id": "edge:P-202:out"}},
+            {"id": "edge::P-203::edge:P-203:in", "local_id": "edge:P-203:in", "sheet": "P-203", "provenance": {"source_id": "edge:P-203:in"}}
+          ],
+          "lines": [
+            {"id": "line::P-202::line:P-202:A-3", "local_id": "line:P-202:A-3", "sheet": "P-202", "provenance": {"source_id": "line:P-202:A-3"}},
+            {"id": "line::P-203::line:P-203:A-3", "local_id": "line:P-203:A-3", "sheet": "P-203", "provenance": {"source_id": "line:P-203:A-3"}}
+          ],
+          "connectors": [
+            {"id": "connector::P-202::edge:P-202:out", "sheet": "P-202", "state": "reviewed"},
+            {"id": "connector::P-203::edge:P-203:in", "sheet": "P-203", "state": "reviewed"},
+            {"id": "connector::P-202::dangling", "sheet": "P-202", "state": "unresolved", "provenance": {"source": "unmatched_connector"}}
+          ],
+          "relationships": [
+            {"id": "cross_sheet::P-202::A-3::P-203", "type": "cross_sheet_continues", "source": "connector::P-202::edge:P-202:out", "target": "connector::P-203::edge:P-203:in", "state": "reviewed"}
+          ]
+        }
+      }
+    }
+  ]
+}

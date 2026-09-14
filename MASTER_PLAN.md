@@ -77,7 +77,10 @@ slice explicitly extends and versions that payload.
 8. Add process boundaries, test-package views, and LLM-oriented projections.
 9. Validate end to end on a representative benchmark and version the export.
 
-Phases 1–8 are implemented. Phase 9 remains planned work only.
+Phases 1–9 are implemented for the export contract and offline representative
+benchmark. Detector accuracy remains outside the Phase 9 acceptance claim;
+structural invariants, source provenance, and release gating are the measured
+criteria.
 
 ## Acceptance principle
 

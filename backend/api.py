@@ -56,6 +56,7 @@ from garnet.review_workspace import (
 )
 from garnet.reviewed_outputs import generate_reviewed_outputs
 from garnet.pipe_sheet_merge import resolve_merge_pairs
+from garnet.versioned_export import graph_content_sha256, release_gate_sha256, validate_downstream_export
 from garnet.utils import rotate_image
 
 # =============================================================================
@@ -425,6 +426,29 @@ PHASE8_ARTIFACT_NAMES: tuple[str, ...] = (
     "stage10_test_package_candidates.json",
     "stage10_engineering_view_summary.json",
     "stage10_llm_projections.json",
+)
+
+# Graph-bearing artifacts are withheld while the Stage 9 release gate is
+# blocked.  Review evidence stays readable so a client can inspect and resolve
+# the items that are preventing release; these names are graph outputs or
+# graph-derived visualizations and must follow the same release boundary as
+# the public graph-v1 export.
+PIPELINE_GRAPH_ARTIFACT_NAMES = frozenset(
+    {
+        "stage7_graph.json",
+        "stage7_graph_summary.json",
+        "stage7_trace_edge_nodes.json",
+        "stage7_graph_normalization.json",
+        "stage7_graph_normalization_summary.json",
+        "stage7_graph_overlay.png",
+        "stage7b_graph_v1.json",
+        # Older runners used Stage 12 names for the same graph outputs.
+        "stage12_graph.json",
+        "stage12_graph_reviewed.json",
+        "stage12_graph_summary.json",
+        "stage12_graph_reviewed_summary.json",
+        "stage9_corrected_graph.json",
+    }
 )
 
 ARTIFACT_INVALIDATION_START_STAGE: dict[str, str] = {
@@ -1179,6 +1203,40 @@ def _pipeline_graph_is_fresh(job_dir: str) -> bool:
         return False
 
 
+def _pipeline_final_export_is_fresh(job_dir: str) -> bool:
+    """Check the versioned Stage 10 envelope against live graph and gate data."""
+    if not _pipeline_graph_is_fresh(job_dir):
+        return False
+    manifest = _pipeline_job_manifest(job_dir) or {}
+    stage10 = next(
+        (entry for entry in manifest.get("stages", []) if isinstance(entry, dict) and entry.get("name") == "stage10_process_exports"),
+        None,
+    )
+    if stage10 is not None and stage10.get("status") != "completed":
+        return False
+    export_path = os.path.join(job_dir, "stage10_final_export.json")
+    graph_path = os.path.join(job_dir, "stage9_corrected_graph.json")
+    gate_path = os.path.join(job_dir, "stage9_release_gate.json")
+    try:
+        with open(export_path, "r", encoding="utf-8") as handle:
+            export = json.load(handle)
+        with open(graph_path, "r", encoding="utf-8") as handle:
+            graph = json.load(handle)
+        with open(gate_path, "r", encoding="utf-8") as handle:
+            gate = json.load(handle)
+        result = validate_downstream_export(export, source_graph=graph)
+        source = export.get("source") if isinstance(export, dict) else {}
+        return bool(
+            result["valid"]
+            and isinstance(export, dict)
+            and export.get("release_ready") is True
+            and source.get("graph_content_sha256") == graph_content_sha256(graph)
+            and source.get("release_gate_sha256") == release_gate_sha256(gate)
+        )
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return False
+
+
 def _write_pipeline_job_manifest(job_dir: str, manifest: dict[str, Any]) -> None:
     manifest_path = os.path.join(job_dir, "stage_manifest.json")
     tmp_path = os.path.join(job_dir, f".{os.path.basename(manifest_path)}.tmp")
@@ -1289,6 +1347,17 @@ def _mark_pipeline_stale_from(
                 os.remove(artifact_path)
             except OSError as exc:
                 logger.warning("Failed to remove stale artifact %s: %s", artifact_path, exc)
+    # The final export is a derived release artifact for source updates and
+    # resumes through Stage 10.  A Stage 11-only resume must preserve the
+    # completed Stage 10 entry and its export so resume validation still sees a
+    # coherent completed prefix and the already released export remains usable.
+    if from_index <= PIPELINE_STAGE_INDEX["stage10_process_exports"]:
+        final_export_path = os.path.join(job_dir, "stage10_final_export.json")
+        if os.path.isfile(final_export_path):
+            try:
+                os.remove(final_export_path)
+            except OSError as exc:
+                logger.warning("Failed to remove stale artifact %s: %s", final_export_path, exc)
 
 
 def _safe_pipeline_artifact_path(job_dir: str, artifact_name: str) -> str:
@@ -2199,11 +2268,57 @@ def _regenerate_pipeline_system_graph(system_id: str) -> dict[str, Any]:
         }
         graph_path = os.path.join(_pipeline_system_dir(system_id), "system_graph_v2.json")
         _write_json_atomic(graph_path, graph_payload)
+        final_export_path = os.path.join(_pipeline_system_dir(system_id), "system_final_export.json")
+        if phase8_views is not None and merge_status == "completed":
+            from garnet.versioned_export import build_downstream_export, validate_downstream_export
+
+            system_phase8 = graph_payload.get("phase8_views") or {}
+            try:
+                final_export = build_downstream_export(
+                    graph_payload,
+                    engineering_views={
+                        "boundaries": system_phase8.get("process_boundaries", []),
+                        "test_packages": system_phase8.get("test_package_candidates", []),
+                    },
+                    phase8_views={
+                        "pages": phase8_views,
+                        "system": system_phase8,
+                        "page_provenance": [
+                            {
+                                "sheet_id": page["sheet_id"],
+                                "job_id": page["job_id"],
+                                "source_filename": page["source_filename"],
+                                "source_graph_artifact": "stage9_corrected_graph.json",
+                            }
+                            for page, _graph in page_graphs
+                        ],
+                    },
+                    release_gate=graph_payload["release_gate"],
+                    source_graph_artifact="system_graph_v2.json",
+                    source_release_gate_artifact="system_manifest.json",
+                    source_release_gate_sha256=release_gate_sha256(graph_payload["release_gate"]),
+                    source_graph_payload=graph_payload,
+                    scope="system",
+                )
+                validation = validate_downstream_export(final_export, source_graph=graph_payload)
+                if not validation["valid"]:
+                    raise ValueError("schema validation failed")
+            except (TypeError, ValueError) as exc:
+                # Keep the legacy system graph available for review while
+                # withholding a final export whose route geometry or typed
+                # references are incomplete.
+                logger.warning("System final export withheld for %s: %s", system_id, exc)
+                final_export = None
+            if final_export is not None:
+                _write_json_atomic(final_export_path, final_export)
+        elif os.path.isfile(final_export_path):
+            os.unlink(final_export_path)
         updated_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
         manifest["merge"] = {
             "status": merge_status,
             "updated_at": updated_at,
             "graph_artifact": "system_graph_v2.json",
+            "final_export_artifact": "system_final_export.json" if os.path.isfile(final_export_path) else None,
             "resolved_count": len(merge_result["cross_sheet_edges"]),
             "issue_count": len(merge_result["merge_issues"]),
             "release_ready": merge_status == "completed",
@@ -2245,6 +2360,9 @@ def _invalidate_pipeline_system(system_id: str) -> None:
         graph_path = os.path.join(_pipeline_system_dir(system_id), "system_graph_v2.json")
         if os.path.isfile(graph_path):
             os.unlink(graph_path)
+        final_export_path = os.path.join(_pipeline_system_dir(system_id), "system_final_export.json")
+        if os.path.isfile(final_export_path):
+            os.unlink(final_export_path)
         _write_pipeline_system_manifest(system_id, manifest)
 
 
@@ -2310,6 +2428,7 @@ def _serialize_pipeline_system(system_id: str) -> dict[str, Any]:
         "connector_review": manifest.get("connector_review"),
         "merge": merge,
         "graph_url": f"/api/pipeline/systems/{system_id}/graph" if merge.get("graph_artifact") else None,
+        "export_url": f"/api/pipeline/systems/{system_id}/export" if merge.get("final_export_artifact") else None,
     }
 
 
@@ -2657,6 +2776,33 @@ async def get_pipeline_system_graph(system_id: str):
     return FileResponse(graph_path, media_type="application/json", filename=f"{system_id}-graph-v2.json")
 
 
+@app.get("/api/pipeline/systems/{system_id}/export")
+async def get_pipeline_system_export(system_id: str):
+    """Serve the complete qualified system export after connector review."""
+    manifest = _read_pipeline_system_manifest(system_id)
+    merge = manifest.get("merge") or {}
+    if merge.get("status") != "completed" or merge.get("release_ready") is not True:
+        raise HTTPException(status_code=409, detail="Pipeline system export is awaiting connector-review release")
+    export_path = os.path.join(_pipeline_system_dir(system_id), "system_final_export.json")
+    graph_path = os.path.join(_pipeline_system_dir(system_id), "system_graph_v2.json")
+    if not os.path.isfile(export_path) or not os.path.isfile(graph_path):
+        raise HTTPException(status_code=409, detail="Pipeline system export is not ready")
+    try:
+        with open(export_path, "r", encoding="utf-8") as handle:
+            export = json.load(handle)
+        with open(graph_path, "r", encoding="utf-8") as handle:
+            graph = json.load(handle)
+        validation = validate_downstream_export(export, source_graph=graph)
+    except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=409, detail="Pipeline system export is invalid") from exc
+    live_gate = graph.get("release_gate") if isinstance(graph, dict) else None
+    source = export.get("source") if isinstance(export, dict) else {}
+    gate_matches = isinstance(live_gate, dict) and source.get("release_gate_sha256") == release_gate_sha256(live_gate)
+    if not validation["valid"] or export.get("release_ready") is not True or not gate_matches:
+        raise HTTPException(status_code=409, detail="Pipeline system export is invalid or stale")
+    return FileResponse(export_path, media_type="application/json", filename=f"{system_id}-final-export.json")
+
+
 @app.put("/api/pipeline/systems/{system_id}/connector-review")
 async def put_pipeline_system_connector_review(system_id: str, request: ConnectorReviewRequest):
     with PIPELINE_SYSTEMS_LOCK:
@@ -2817,6 +2963,16 @@ async def get_pipeline_stage_status(job_id: str):
         "job_id": job_id,
         "stages": _pipeline_stage_status(payload["job_dir"]),
     }
+
+
+@app.get("/api/pipeline/jobs/{job_id}/export")
+async def get_pipeline_job_export(job_id: str):
+    """Serve the validated, release-gated versioned Stage 10 export."""
+    payload = _serialize_pipeline_job(job_id)
+    if not _pipeline_final_export_is_fresh(payload["job_dir"]):
+        raise HTTPException(status_code=409, detail="Pipeline final export is stale or awaiting the Stage 9 release gate")
+    path = os.path.join(payload["job_dir"], "stage10_final_export.json")
+    return FileResponse(path, media_type="application/json", filename=f"{job_id}-final-export.json")
 
 
 @app.post("/api/pipeline/jobs/{job_id}/resume-from/{stage}")
@@ -3153,8 +3309,13 @@ async def get_pipeline_artifact(job_id: str, artifact_name: str):
         "stage10_line_number_overlay.png", "stage11_connection_pipeline_overlay.png",
         "stage10_process_boundaries.json", "stage10_test_package_candidates.json",
         "stage10_engineering_view_summary.json", "stage10_llm_projections.json",
+        "stage10_final_export.json",
     }
-    if artifact_name in released_artifacts and not _pipeline_graph_is_fresh(job_dir):
+    if artifact_name in PIPELINE_GRAPH_ARTIFACT_NAMES and not _pipeline_graph_is_fresh(job_dir):
+        raise HTTPException(status_code=409, detail="Graph artifacts are withheld until the Stage 9 release gate is ready")
+    if artifact_name == "stage10_final_export.json" and not _pipeline_final_export_is_fresh(job_dir):
+        raise HTTPException(status_code=409, detail="Pipeline final export is stale or awaiting the Stage 9 release gate")
+    if artifact_name in released_artifacts and artifact_name != "stage10_final_export.json" and not _pipeline_graph_is_fresh(job_dir):
         raise HTTPException(status_code=409, detail="Released process artifacts are stale until the Stage 9 release gate is ready")
     artifact_path = _safe_pipeline_artifact_path(job_dir, artifact_name)
     if not os.path.exists(artifact_path):

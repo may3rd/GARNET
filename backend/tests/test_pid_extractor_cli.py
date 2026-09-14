@@ -159,6 +159,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                 "stage10_test_package_candidates.json",
                 "stage10_engineering_view_summary.json",
                 "stage10_llm_projections.json",
+                "stage10_final_export.json",
             }
             self.assertTrue(all((out_dir / name).is_file() for name in expected))
             self.assertTrue(expected.issubset(set(pipeline._current_stage_artifacts)))
@@ -177,6 +178,10 @@ class PIDPipelineRunnerTests(unittest.TestCase):
             self.assertEqual(llm["graph_summary"]["edge_count"], 1)
             self.assertEqual(llm["graph_summary"]["graph_content_sha256"], summary["graph_content_sha256"])
             self.assertEqual(llm["source_graph_content_sha256"], summary["graph_content_sha256"])
+            final_export = json.loads((out_dir / "stage10_final_export.json").read_text())
+            self.assertEqual(final_export["schema_version"], "garnet_downstream_export_v1")
+            self.assertTrue(final_export["release_ready"])
+            self.assertEqual(final_export["source"]["source_graph_artifact"], "stage9_corrected_graph.json")
 
     def test_run_stops_after_requested_stage_and_writes_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -347,6 +352,7 @@ class PIDPipelineRunnerTests(unittest.TestCase):
                 "stage10_test_package_candidates.json",
                 "stage10_engineering_view_summary.json",
                 "stage10_llm_projections.json",
+                "stage10_final_export.json",
             ):
                 self.assertTrue((Path(tmp) / name).is_file(), name)
             summary = json.loads((Path(tmp) / "stage10_process_export_summary.json").read_text())

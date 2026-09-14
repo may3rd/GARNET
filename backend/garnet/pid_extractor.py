@@ -1283,7 +1283,8 @@ class PIDPipeline(Stage5bPipelineMixin):
         inline-object MTO, inline observations, instrument index, and review
         overlays for inline objects and associated line numbers. Phase 8 adds
         release-gated boundary, test-package, and structured LLM projections
-        from the same corrected graph snapshot.
+        from the same corrected graph snapshot. Phase 9 adds the
+        release-gated, versioned final export without changing these artifacts.
         """
         from garnet.stage10_process_exports import (
             build_stage10_process_exports,
@@ -1292,6 +1293,12 @@ class PIDPipeline(Stage5bPipelineMixin):
         )
         from garnet.stage10_engineering_views import build_phase8_engineering_views
         from garnet.stage10_llm_projections import build_llm_projections
+        from garnet.versioned_export import (
+            build_blocked_export,
+            build_downstream_export,
+            release_gate_sha256,
+            validate_downstream_export,
+        )
 
         image_id = self._image_id()
         corrected_graph = self._load_json_artifact("stage9_corrected_graph")
@@ -1356,6 +1363,52 @@ class PIDPipeline(Stage5bPipelineMixin):
         self._save_json("stage10_test_package_candidates", engineering_views["test_packages"])
         self._save_json("stage10_engineering_view_summary", phase8_summary)
         self._save_json("stage10_llm_projections", llm_projections)
+
+        # Phase 9 is additive to Stage 10.  Keep every legacy process export
+        # above addressable while writing one versioned envelope that binds
+        # the complete corrected graph and the release decision that produced
+        # it.  A blocked gate gets a redacted envelope so an API consumer
+        # cannot accidentally treat unresolved graph data as released.
+        gate_hash = release_gate_sha256(release_gate)
+        phase8_views = {
+            "process_boundaries": engineering_views["process_boundaries"],
+            "test_packages": engineering_views["test_packages"],
+            "engineering_view_summary": phase8_summary,
+            "llm_projections": llm_projections,
+        }
+        process_exports = {
+            "line_list": result["line_list_payload"],
+            "equipment_connectivity": result["equipment_connectivity_payload"],
+            "inline_mto": result["inline_mto_payload"],
+            "inline_observations": result["inline_observations_payload"],
+            "instrument_index": result["instrument_index_payload"],
+            "summary": result["summary"],
+        }
+        export_kwargs = {
+            "process_exports": process_exports,
+            "phase8_views": phase8_views,
+            "release_gate": release_gate,
+            "source_graph_artifact": "stage9_corrected_graph.json",
+            "source_release_gate_artifact": "stage9_release_gate.json",
+            "source_release_gate_sha256": gate_hash,
+            "source_graph_payload": corrected_graph,
+            "scope": "page",
+        }
+        if release_gate.get("release_ready") is True:
+            final_export = build_downstream_export(corrected_graph, **export_kwargs)
+        else:
+            final_export = build_blocked_export(
+                corrected_graph,
+                blocked_reasons=["stage9_release_gate_not_ready"],
+                **{key: value for key, value in export_kwargs.items() if key not in {"process_exports", "phase8_views", "release_gate"}},
+            )
+        validation = validate_downstream_export(final_export, source_graph=corrected_graph)
+        if not validation["valid"]:
+            raise ValueError(
+                "stage10_final_export failed validation: "
+                + "; ".join(item["message"] for item in validation["issues"])
+            )
+        self._save_json("stage10_final_export", final_export)
         self._save_img(
             "stage10_inline_mto_overlay",
             render_stage10_inline_mto_overlay(self._ensure_image_loaded(), result["inline_mto_payload"]),

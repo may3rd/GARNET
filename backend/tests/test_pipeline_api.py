@@ -1691,6 +1691,8 @@ class PipelineApiTests(unittest.TestCase):
                 "merge": {"status": "completed", "graph_artifact": "system_graph_v2.json"},
             }))
             (system_dir / "system_graph_v2.json").write_text("{}")
+            (system_dir / "system_final_export.json").write_text("{}")
+            (job_dir / "stage10_final_export.json").write_text("{}")
             job_id = "job-review-invalidation"
             job = {"job_id": job_id, "job_dir": str(job_dir), "system_id": system_id, "status": "completed"}
             with patch("api.PIPELINE_SYSTEMS_DIR", str(root)), patch.dict("api.PIPELINE_JOBS", {job_id: job}, clear=False):
@@ -1703,41 +1705,128 @@ class PipelineApiTests(unittest.TestCase):
             statuses = {item["name"]: item["status"] for item in manifest["stages"]}
             self.assertEqual(statuses["stage7b_graph_export"], "stale")
             self.assertFalse((job_dir / "stage7b_graph_v1.json").exists())
+            self.assertFalse((job_dir / "stage10_final_export.json").exists())
             self.assertTrue(all(not (job_dir / name).exists() for name in phase8_artifacts))
             system_manifest = json.loads((system_dir / "system_manifest.json").read_text())
             self.assertEqual(system_manifest["merge"]["status"], "stale")
             self.assertFalse((system_dir / "system_graph_v2.json").exists())
+            self.assertFalse((system_dir / "system_final_export.json").exists())
 
-    def test_stale_stage9_withheld_graph_serialization_artifact_and_merge(self) -> None:
+    def test_blocked_stage9_withholds_graph_serialization_artifact_and_merge(self) -> None:
         client = TestClient(app)
         with tempfile.TemporaryDirectory() as tmp:
             job_dir = Path(tmp)
             (job_dir / "stage_manifest.json").write_text(json.dumps({"stages": [
-                {"name": "stage9_apply_review_decisions", "status": "stale"},
+                {
+                    "name": "stage9_apply_review_decisions",
+                    "status": "completed",
+                    "artifacts": ["stage9_corrected_graph.json", "stage9_release_gate.json"],
+                },
             ]}))
             (job_dir / "stage7b_graph_v1.json").write_text(json.dumps({"schema_version": "graph_v1"}))
+            (job_dir / "stage7_graph.json").write_text(json.dumps({"nodes": [], "edges": []}))
+            (job_dir / "stage9_corrected_graph.json").write_text(json.dumps({"nodes": [], "edges": []}))
             (job_dir / "stage10_line_list.json").write_text(json.dumps({"lines": []}))
             (job_dir / "stage10_process_boundaries.json").write_text(json.dumps({"release_ready": True}))
             (job_dir / "stage9_release_gate.json").write_text(json.dumps({"release_ready": False}))
             (job_dir / "stage9_correction_audit.json").write_text(json.dumps({"warnings": []}))
+            (job_dir / "stage8_review_items.json").write_text(json.dumps({"items": []}))
             job_id = "job-stale-graph"
             job = {"job_id": job_id, "job_dir": str(job_dir), "status": "completed"}
             with patch.dict("api.PIPELINE_JOBS", {job_id: job}, clear=False):
                 serialized = client.get(f"/api/pipeline/jobs/{job_id}")
                 artifact = client.get(f"/api/pipeline/jobs/{job_id}/artifacts/stage7b_graph_v1.json")
+                raw_graph_artifact = client.get(f"/api/pipeline/jobs/{job_id}/artifacts/stage7_graph.json")
+                corrected_graph_artifact = client.get(f"/api/pipeline/jobs/{job_id}/artifacts/stage9_corrected_graph.json")
                 process_artifact = client.get(f"/api/pipeline/jobs/{job_id}/artifacts/stage10_line_list.json")
                 phase8_artifact = client.get(f"/api/pipeline/jobs/{job_id}/artifacts/stage10_process_boundaries.json")
                 gate_artifact = client.get(f"/api/pipeline/jobs/{job_id}/artifacts/stage9_release_gate.json")
                 audit_artifact = client.get(f"/api/pipeline/jobs/{job_id}/artifacts/stage9_correction_audit.json")
+                review_artifact = client.get(f"/api/pipeline/jobs/{job_id}/artifacts/stage8_review_items.json")
                 merged = client.post("/api/pipeline/merge", json={"job_ids": [job_id]})
             self.assertEqual(serialized.status_code, 200)
             self.assertNotIn("graph_v1", serialized.json())
             self.assertEqual(artifact.status_code, 409)
+            self.assertEqual(raw_graph_artifact.status_code, 409)
+            self.assertEqual(corrected_graph_artifact.status_code, 409)
             self.assertEqual(process_artifact.status_code, 409)
             self.assertEqual(phase8_artifact.status_code, 409)
             self.assertEqual(gate_artifact.status_code, 200)
             self.assertEqual(audit_artifact.status_code, 200)
+            self.assertEqual(review_artifact.status_code, 200)
             self.assertEqual(merged.status_code, 409)
+
+    def test_resume_from_stage11_preserves_stage10_final_export_and_completed_prefix(self) -> None:
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            image_path = root / "input.png"
+            image_path.write_bytes(b"placeholder")
+            final_export = root / "stage10_final_export.json"
+            final_export.write_text(json.dumps({"schema_version": "garnet_downstream_export_v1"}), encoding="utf-8")
+            manifest = {
+                "manifest_version": 2,
+                "run_signature": {
+                    "input": "input",
+                    "config": "config",
+                    "detection_weight": "weight",
+                    "document_id": "document",
+                },
+                "image_path": str(image_path),
+                "out_dir": str(root),
+                "stages": [
+                    {
+                        "num": 10,
+                        "name": "stage10_process_exports",
+                        "status": "completed",
+                        "artifacts": ["stage10_final_export.json"],
+                    },
+                    {
+                        "num": 11,
+                        "name": "stage11_connection_overlay",
+                        "status": "completed",
+                        "artifacts": ["stage11_connection_pipeline_overlay.png"],
+                    },
+                ],
+            }
+            (root / "stage_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            (root / "stage11_connection_pipeline_overlay.png").write_bytes(b"overlay")
+            job_id = "resume-stage11-final-export"
+            job = {
+                "job_id": job_id,
+                "status": "completed",
+                "current_stage": "stage11_connection_overlay",
+                "error": None,
+                "job_dir": str(root),
+                "created_at": time.time(),
+                "stop_after": 11,
+                "ocr_route": "ocrmac",
+                "weight_file": "weights.pt",
+            }
+
+            run_calls: list[tuple[int, bool]] = []
+
+            class FakeResumePipeline:
+                def __init__(self, image_path: str, output_dir: str, stage_callback=None, cfg=None) -> None:
+                    self.stage_manifest = {"stages": []}
+
+                def run(self, stop_after: int, resume: bool = False) -> None:
+                    run_calls.append((stop_after, resume))
+
+            with patch.dict("api.PIPELINE_JOBS", {job_id: job}, clear=False), patch("api.PIDPipeline", FakeResumePipeline):
+                response = client.post(f"/api/pipeline/jobs/{job_id}/resume-from/stage11_connection_overlay")
+                self.assertEqual(response.status_code, 200, response.text)
+                deadline = time.time() + 5
+                while time.time() < deadline and not run_calls:
+                    time.sleep(0.05)
+
+            self.assertEqual(run_calls, [(PIPELINE_LAST_STAGE, True)])
+            self.assertTrue(final_export.exists())
+            resumed_manifest = json.loads((root / "stage_manifest.json").read_text(encoding="utf-8"))
+            entries = {entry["name"]: entry for entry in resumed_manifest["stages"]}
+            self.assertEqual(entries["stage10_process_exports"]["status"], "completed")
+            self.assertEqual(entries["stage11_connection_overlay"]["status"], "stale")
+            self.assertIn("stage10_final_export.json", entries["stage10_process_exports"]["artifacts"])
 
     def test_completed_or_unreviewed_graph_remains_readable(self) -> None:
         client = TestClient(app)

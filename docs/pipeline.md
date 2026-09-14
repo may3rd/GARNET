@@ -76,12 +76,21 @@ python garnet/pid_extractor.py \
 11. **Stage 10: Process Exports**
     - Generate line lists, equipment connectivity, inline MTO
     - Create inline observations and instrument index
-    - Output: Process exports in JSON/CSV formats
+    - Output: Legacy process exports plus the validated `stage10_final_export.json`
+      (`garnet_downstream_export_v1`). The final envelope records corrected-graph
+      and release-gate hashes and is redacted when Stage 9 has not released the graph.
 
 12. **Stage 11: Connection Overlay**
     - Render connection-pipeline overlay for visual review
     - Create visual representation of connections on original image
     - Output: Connection pipeline overlay image
+
+System merges write `system_final_export.json` only after every page has a
+complete Phase 8 bundle and connector review releases the qualified combined
+graph. `graph_v1`, the legacy Stage 10 artifacts, and `system_graph_v2.json`
+remain available for compatibility. The offline Phase 9 fixture benchmark is
+run with `python -m garnet.phase9_benchmark`; its report is separate from job
+artifacts and scores structural invariants rather than detector accuracy.
 
 ## Configurable Parameters (PipelineConfig)
 
