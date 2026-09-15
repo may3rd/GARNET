@@ -151,6 +151,8 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [drawing, setDrawing] = useState(false)
   const [drawRect, setDrawRect] = useState<Box | null>(null)
+  /** Crosshair guide while placing a new box — screen-space so it doesn't scale with zoom; image-space kept alongside for the coordinate readout. */
+  const [cursorGuide, setCursorGuide] = useState<{ imageX: number; imageY: number; screenX: number; screenY: number } | null>(null)
 
   const [zoom, setZoom] = useState<number | null>(null)
   const [pan, setPan] = useState({ x: 0, y: 0 })
@@ -463,6 +465,25 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
     return () => window.removeEventListener('keydown', onKey)
   }, [drawing])
 
+  useEffect(() => {
+    if (!drawing) setCursorGuide(null)
+  }, [drawing])
+
+  /** Tracks the cursor while placing a box so the crosshair guide can follow it — no-op outside drawing mode. */
+  const trackCursorGuide = (e: React.MouseEvent) => {
+    if (!drawing) return
+    const el = viewportRef.current
+    if (!el || !imgW || !imgH) return
+    const rect = el.getBoundingClientRect()
+    const imageX = (e.clientX - rect.left - pan.x) / scale
+    const imageY = (e.clientY - rect.top - pan.y) / scale
+    if (imageX < 0 || imageY < 0 || imageX > imgW || imageY > imgH) {
+      setCursorGuide(null)
+      return
+    }
+    setCursorGuide({ imageX, imageY, screenX: e.clientX - rect.left, screenY: e.clientY - rect.top })
+  }
+
   const applyEdit = () => {
     if (!draft) return
     setItems((prev) => prev.map((o) => (o.id === draft.id ? draft : o)))
@@ -598,6 +619,8 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
               WebkitUserSelect: 'none',
             }}
             onMouseDown={drawing ? startDrawBox : startPan}
+            onMouseMove={trackCursorGuide}
+            onMouseLeave={() => setCursorGuide(null)}
           >
             <div
               style={{
@@ -706,6 +729,49 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
                 </svg>
               )}
             </div>
+
+            {/* Crosshair guide while placing a box — screen-space siblings of the scaled/panned layer above, so the lines stay 1px regardless of zoom. */}
+            {drawing && cursorGuide && (
+              <div className="pointer-events-none absolute inset-0" style={{ zIndex: 4 }}>
+                <div
+                  className="absolute top-0 h-full"
+                  style={{
+                    left: cursorGuide.screenX,
+                    width: 1,
+                    background: 'var(--accent)',
+                    opacity: 0.7,
+                    boxShadow: '0 0 0 1px rgba(255,255,255,.35)',
+                  }}
+                />
+                <div
+                  className="absolute left-0 w-full"
+                  style={{
+                    top: cursorGuide.screenY,
+                    height: 1,
+                    background: 'var(--accent)',
+                    opacity: 0.7,
+                    boxShadow: '0 0 0 1px rgba(255,255,255,.35)',
+                  }}
+                />
+                <div
+                  className="mono"
+                  style={{
+                    position: 'absolute',
+                    left: Math.min(cursorGuide.screenX + 8, Math.max(0, viewport.w - 92)),
+                    top: Math.min(cursorGuide.screenY + 8, Math.max(0, viewport.h - 22)),
+                    padding: '2px 6px',
+                    borderRadius: 'var(--r-chip)',
+                    background: 'var(--overlay)',
+                    color: 'var(--foreground)',
+                    fontSize: 10.5,
+                    fontWeight: 600,
+                    boxShadow: 'inset 0 0 0 1px var(--border), 0 2px 8px rgba(0,0,0,.2)',
+                  }}
+                >
+                  {Math.round(cursorGuide.imageX)}, {Math.round(cursorGuide.imageY)}
+                </div>
+              </div>
+            )}
 
             <div
               className="absolute flex items-center gap-1"
