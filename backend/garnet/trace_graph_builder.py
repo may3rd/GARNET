@@ -53,11 +53,14 @@ def _as_float(value: Any, default: float = 0.0) -> float:
 def _point_from_xy(value: Any) -> dict[str, float] | None:
     if isinstance(value, dict):
         if "x" in value and "y" in value:
-            return {"x": _as_float(value.get("x")), "y": _as_float(value.get("y"))}
+            point = {"x": _as_float(value.get("x")), "y": _as_float(value.get("y"))}
+            return point if math.isfinite(point["x"]) and math.isfinite(point["y"]) else None
         if "col" in value and "row" in value:
-            return {"x": _as_float(value.get("col")), "y": _as_float(value.get("row"))}
+            point = {"x": _as_float(value.get("col")), "y": _as_float(value.get("row"))}
+            return point if math.isfinite(point["x"]) and math.isfinite(point["y"]) else None
     if isinstance(value, (list, tuple)) and len(value) >= 2:
-        return {"x": _as_float(value[0]), "y": _as_float(value[1])}
+        point = {"x": _as_float(value[0]), "y": _as_float(value[1])}
+        return point if math.isfinite(point["x"]) and math.isfinite(point["y"]) else None
     return None
 
 
@@ -70,6 +73,28 @@ def _dict_polyline(polyline: Any) -> list[dict[str, float]]:
         if point is not None:
             points.append(point)
     return points
+
+
+def _trace_has_invalid_geometry(edge: dict[str, Any]) -> bool:
+    """Reject a trace when any supplied route coordinate is malformed/nonfinite."""
+    polyline = edge.get("polyline")
+    if isinstance(polyline, list):
+        for point in polyline:
+            if _point_from_xy(point) is None:
+                return True
+    segments = edge.get("segments")
+    if isinstance(segments, list):
+        for segment in segments:
+            if not isinstance(segment, dict):
+                return True
+            for key in ("x1", "y1", "x2", "y2"):
+                value = segment.get(key)
+                try:
+                    if not math.isfinite(float(value)):
+                        return True
+                except (TypeError, ValueError):
+                    return True
+    return False
 
 
 def _distance(a: dict[str, float], b: dict[str, float]) -> float:
@@ -295,6 +320,31 @@ def _stable_terminal_node_id(edge: dict[str, Any], node_type: str) -> str | None
     if node_type == "tee_junction":
         return f"junction::{terminal_id}"
     return f"terminal::{node_type}::{terminal_id}"
+
+
+def _drawing_scoped_equipment_id(drawing_id: str, equipment_key: Any) -> str | None:
+    key = str(equipment_key or "").strip()
+    if not key:
+        return None
+    return f"equipment::{drawing_id}::{key}"
+
+
+def _drawing_scoped_port_id(drawing_id: str, equipment_key: Any, port_key: Any) -> str | None:
+    equipment_id = _drawing_scoped_equipment_id(drawing_id, equipment_key)
+    port = str(port_key or "").strip()
+    if equipment_id is None or not port:
+        return None
+    return f"{equipment_id}::port::{port}"
+
+
+def _equipment_port_key(point: dict[str, float] | None, explicit_index: Any = None) -> str:
+    """Return a stable local port key, preferring an explicit index."""
+    try:
+        return f"{int(explicit_index):02d}"
+    except (TypeError, ValueError):
+        if point is None:
+            return "unknown"
+        return f"xy_{round(float(point['x']))}_{round(float(point['y']))}"
 
 
 def _node_override(edge: dict[str, Any], key: str) -> dict[str, Any] | None:
@@ -659,6 +709,32 @@ def _merge_attachments(primary: dict[str, Any], duplicate: dict[str, Any]) -> di
         for item in items:
             item_id = str(item.get("id") or item.get("source_object_id") or item) if isinstance(item, dict) else str(item)
             if item_id in seen_ids:
+                if isinstance(item, dict):
+                    existing_index = next(
+                        (index for index, existing in enumerate(existing_items)
+                         if isinstance(existing, dict)
+                         and str(existing.get("id") or existing.get("source_object_id") or existing) == item_id),
+                        None,
+                    )
+                    if existing_index is not None:
+                        existing = existing_items[existing_index]
+                        rank = {"rejected": 5, "accepted": 4, "human_reviewed": 4, "reviewed": 3, "inferred": 2, "unresolved": 1, "provisional": 1}
+                        if rank.get(str(item.get("review_state") or ""), 0) > rank.get(str(existing.get("review_state") or ""), 0):
+                            replacement = deepcopy(item)
+                            provenance = existing.get("provenance")
+                            if provenance is not None and provenance != replacement.get("provenance"):
+                                replacement["merged_provenance"] = [provenance]
+                            merged_provenance = []
+                            for provenance in [existing.get("provenance"), *(existing.get("merged_provenance") or [])]:
+                                if provenance is not None and not any(provenance == prior for prior in merged_provenance):
+                                    merged_provenance.append(deepcopy(provenance))
+                            if merged_provenance:
+                                replacement["merged_provenance"] = merged_provenance
+                            existing_items[existing_index] = replacement
+                        elif existing.get("provenance") is not None and existing.get("provenance") != item.get("provenance"):
+                            merged_provenance = existing.setdefault("merged_provenance", [])
+                            if not any(item.get("provenance") == prior for prior in merged_provenance):
+                                merged_provenance.append(deepcopy(item.get("provenance")))
                 continue
             existing_items.append(deepcopy(item))
             seen_ids.add(item_id)
@@ -689,10 +765,82 @@ def _endpoints_match(
     return same, reversed_match
 
 
+def _point_to_polyline_distance(point: dict[str, float], polyline: list[dict[str, float]]) -> float:
+    """Return the distance from a point to the closest polyline segment."""
+    if not polyline:
+        return float("inf")
+    if len(polyline) == 1:
+        return _distance(point, polyline[0])
+    best = float("inf")
+    px, py = float(point["x"]), float(point["y"])
+    for start, end in zip(polyline, polyline[1:]):
+        ax, ay = float(start["x"]), float(start["y"])
+        bx, by = float(end["x"]), float(end["y"])
+        dx, dy = bx - ax, by - ay
+        length_sq = dx * dx + dy * dy
+        if length_sq <= 0:
+            best = min(best, math.hypot(px - ax, py - ay))
+            continue
+        offset = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / length_sq))
+        best = min(best, math.hypot(px - (ax + offset * dx), py - (ay + offset * dy)))
+    return best
+
+
+def _routes_match(
+    a_polyline: list[dict[str, float]],
+    b_polyline: list[dict[str, float]],
+    tolerance_px: float,
+    *,
+    endpoint_tolerance_px: float | None = None,
+) -> tuple[bool, bool]:
+    """Match complete routes, returning (same orientation, reversed orientation).
+
+    Endpoint agreement alone incorrectly merges bypasses and loops. Checking
+    every observed vertex against the other route in both directions keeps
+    duplicate collapse limited to coincident physical geometry.
+    """
+    same, reversed_match = _endpoints_match(
+        a_polyline,
+        b_polyline,
+        endpoint_tolerance_px if endpoint_tolerance_px is not None else tolerance_px,
+    )
+    if not (same or reversed_match):
+        return False, False
+
+    def samples(route: list[dict[str, float]]) -> list[dict[str, float]]:
+        sampled: list[dict[str, float]] = []
+        for start, end in zip(route, route[1:]):
+            sampled.append(start)
+            sampled.append({
+                "x": (float(start["x"]) + float(end["x"])) / 2.0,
+                "y": (float(start["y"]) + float(end["y"])) / 2.0,
+            })
+        if route:
+            sampled.append(route[-1])
+        return sampled
+
+    def close(route: list[dict[str, float]], reference: list[dict[str, float]]) -> bool:
+        return bool(route) and max(_point_to_polyline_distance(point, reference) for point in samples(route)) <= tolerance_px
+
+    # A route with a materially different length is generally a bypass even
+    # when its endpoints and sparse vertices happen to be close.
+    a_length = _polyline_length(a_polyline)
+    b_length = _polyline_length(b_polyline)
+    if abs(a_length - b_length) > max(2.0 * tolerance_px, 0.05 * max(a_length, b_length)):
+        return False, False
+
+    if same and close(a_polyline, b_polyline) and close(b_polyline, a_polyline):
+        return True, False
+    if reversed_match and close(a_polyline, list(reversed(b_polyline))) and close(list(reversed(b_polyline)), a_polyline):
+        return False, True
+    return False, False
+
+
 def _collapse_duplicate_trace_edges(
     edges: list[dict[str, Any]],
     *,
     endpoint_tolerance_px: float = 8.0,
+    route_tolerance_px: float = 1.0,
 ) -> dict[str, Any]:
     collapsed: list[dict[str, Any]] = []
     events: list[dict[str, Any]] = []
@@ -704,7 +852,12 @@ def _collapse_duplicate_trace_edges(
         matched = False
         for existing in collapsed:
             existing_polyline = _dict_polyline(existing.get("polyline"))
-            same, reversed_match = _endpoints_match(existing_polyline, polyline, endpoint_tolerance_px)
+            same, reversed_match = _routes_match(
+                existing_polyline,
+                polyline,
+                route_tolerance_px,
+                endpoint_tolerance_px=endpoint_tolerance_px,
+            )
             if not (same or reversed_match):
                 continue
             existing_line_ids = set(_line_number_ids(existing))
@@ -851,6 +1004,50 @@ def _split_trace_edge(
         else:
             child.pop("_terminal_node_override", None)
         children.append(child)
+
+    # Deep-copying attachments to every part makes a label or instrument look
+    # directly observed on each segment. Keep coordinate-bearing evidence on
+    # the geometrically nearest part; evidence without a location stays on the
+    # first part and can be propagated later as inferred line identity.
+    original_attachments = deepcopy(edge.get("attachments") or {})
+    for child in children:
+        child["attachments"] = {}
+    for group, items in original_attachments.items():
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            point = None
+            if isinstance(item, dict):
+                for key in ("projected_xy", "port_xy", "terminal_xy", "hit_xy"):
+                    point = _point_from_xy(item.get(key))
+                    if point is not None:
+                        break
+                if point is None:
+                    bbox = item.get("bbox")
+                    if isinstance(bbox, dict):
+                        try:
+                            point = {"x": (float(bbox["x_min"]) + float(bbox["x_max"])) / 2.0,
+                                     "y": (float(bbox["y_min"]) + float(bbox["y_max"])) / 2.0}
+                        except (KeyError, TypeError, ValueError):
+                            point = None
+            if point is None:
+                child_index = 0
+            else:
+                distances = [
+                    _point_to_polyline_distance(point, _dict_polyline(child.get("polyline")))
+                    for child in children
+                ]
+                child_index = min(range(len(children)), key=lambda index: distances[index])
+                tied = [index for index, distance in enumerate(distances) if abs(distance - distances[child_index]) <= 1e-6]
+                if len(tied) > 1:
+                    evidence = deepcopy(item)
+                    evidence["source_attachment_group"] = group
+                    evidence["ambiguity"] = "shared_split_endpoint"
+                    # Keep one explicit junction-evidence record; attaching it
+                    # to every child would duplicate the physical observation.
+                    children[tied[0]].setdefault("attachments", {}).setdefault("junction_evidence", []).append(evidence)
+                    continue
+            children[child_index].setdefault("attachments", {}).setdefault(group, []).append(deepcopy(item))
     return children
 
 
@@ -859,6 +1056,7 @@ def normalize_stage11_trace_edges(
     *,
     split_tolerance_px: float = 10.0,
     merge_tolerance_px: float = 12.0,
+    route_equivalence_tolerance_px: float = 1.0,
 ) -> dict[str, Any]:
     """Split Stage 6 traces at geometric branch/tee junctions before graph assembly."""
     _ = merge_tolerance_px
@@ -925,13 +1123,35 @@ def normalize_stage11_trace_edges(
         if len(children) > 1:
             split_edge_count += 1
         normalized_edges.extend(children)
+    split_attachment_review_items: list[dict[str, Any]] = []
+    seen_split_attachment_reviews: set[tuple[str, str]] = set()
+    for edge in normalized_edges:
+        for evidence in (edge.get("attachments") or {}).get("junction_evidence", []) or []:
+            if isinstance(evidence, dict) and evidence.get("ambiguity") == "shared_split_endpoint":
+                review_key = (str(evidence.get("source_attachment_group") or ""), str(evidence.get("id") or ""))
+                if review_key in seen_split_attachment_reviews:
+                    continue
+                seen_split_attachment_reviews.add(review_key)
+                split_attachment_review_items.append(
+                    _make_review_item(
+                        "attachment_at_split_junction",
+                        str(edge.get("trace_id") or "trace"),
+                        "review",
+                        "Attachment falls exactly at a shared split endpoint and needs junction review.",
+                        attachment_id=evidence.get("id"),
+                        source_attachment_group=evidence.get("source_attachment_group"),
+                    )
+                )
     collapse_result = _collapse_duplicate_trace_edges(
         normalized_edges,
         endpoint_tolerance_px=min(8.0, merge_tolerance_px),
+        route_tolerance_px=min(route_equivalence_tolerance_px, merge_tolerance_px),
     )
     normalized_edges = collapse_result["trace_edges"]
+    for edge in normalized_edges:
+        edge.update(_recompute_flow_direction_from_attachments(edge))
     duplicate_events = collapse_result["events"]
-    duplicate_review_items = collapse_result["review_items"]
+    duplicate_review_items = split_attachment_review_items + collapse_result["review_items"]
     events.extend(duplicate_events)
 
     return {
@@ -978,11 +1198,67 @@ def _downgrade_degree_two_synthetic_tees(
     return downgraded
 
 
+_FLOW_STATES = {"forward", "reverse", "bidirectional", "unknown", "conflicting"}
+
+
+def _promote_flow_direction(edge: dict[str, Any]) -> dict[str, Any]:
+    """Copy explicit Stage 6 direction evidence without using endpoint order."""
+    reviewed = str(edge.get("flow_direction_review_state") or edge.get("direction_review_state") or "").lower() in {"human_reviewed", "reviewed", "accepted"}
+    raw_state = edge.get("flow_direction_state") if reviewed else None
+    if raw_state is None:
+        raw_state = edge.get("flow_direction_state") or edge.get("flow_direction")
+    state = str(raw_state or "unknown").strip().lower().replace("-", "_")
+    aliases = {"both": "bidirectional", "bi_directional": "bidirectional", "forward_only": "forward", "reverse_only": "reverse"}
+    state = aliases.get(state, state)
+    if state not in _FLOW_STATES:
+        state = "unknown"
+    result = {
+        "flow_direction_state": state,
+        "flow_direction_confidence": edge.get("flow_direction_confidence"),
+        "flow_direction_evidence": deepcopy(edge.get("flow_direction_evidence") or edge.get("direction_evidence") or []),
+        "flow_direction_review_state": edge.get("flow_direction_review_state") or edge.get("direction_review_state"),
+    }
+    return result
+
+
+def _recompute_flow_direction_from_attachments(edge: dict[str, Any]) -> dict[str, Any]:
+    """Recompute non-reviewed direction against this edge's local geometry."""
+    if str(edge.get("flow_direction_review_state") or "").lower() in {"human_reviewed", "reviewed", "accepted"}:
+        return _promote_flow_direction(edge)
+    from garnet.flow_direction import aggregate_edge_direction, infer_arrow_route_direction, normalize_arrow_evidence
+    attachments = edge.get("attachments") or {}
+    arrows = attachments.get("flow_arrows", []) if isinstance(attachments, dict) else []
+    evidence = []
+    segments = edge.get("segments") or []
+    for raw in arrows if isinstance(arrows, list) else []:
+        if not isinstance(raw, dict):
+            continue
+        item = normalize_arrow_evidence(raw)
+        projected = item.get("projected_xy") or raw.get("projected_xy")
+        if isinstance(projected, (list, tuple)) and len(projected) >= 2 and segments:
+            px, py = float(projected[0]), float(projected[1])
+            def segment_distance(index: int) -> float:
+                segment = segments[index]
+                ax, ay = float(segment.get("x1", 0)), float(segment.get("y1", 0))
+                bx, by = float(segment.get("x2", 0)), float(segment.get("y2", 0))
+                dx, dy = bx - ax, by - ay
+                length_sq = dx * dx + dy * dy
+                t = 0.0 if length_sq <= 0 else max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / length_sq))
+                return (px - (ax + t * dx)) ** 2 + (py - (ay + t * dy)) ** 2
+            best = min(range(len(segments)), key=segment_distance)
+            item["segment_index"] = best
+        item["route_direction"] = infer_arrow_route_direction(item, edge)
+        evidence.append(item)
+    state, confidence = aggregate_edge_direction(evidence)
+    return {"flow_direction_state": state, "flow_direction_confidence": confidence, "flow_direction_evidence": evidence, "flow_direction_review_state": edge.get("flow_direction_review_state")}
+
+
 def build_trace_graph_from_stage11(
     payload: dict[str, Any],
     *,
     image_id: str | None = None,
     node_merge_tolerances: dict[str, float] | None = None,
+    route_equivalence_tolerance_px: float = 1.0,
 ) -> dict[str, Any]:
     """Build an inspectable Stage 7 graph from Stage 6 traced paths.
 
@@ -998,9 +1274,96 @@ def build_trace_graph_from_stage11(
     registry = _NodeRegistry(tolerances)
     graph_edges: list[dict[str, Any]] = []
     trace_edge_nodes: list[dict[str, Any]] = []
+    equipment_by_id: dict[str, dict[str, Any]] = {}
+    ports_by_id: dict[str, dict[str, Any]] = {}
     review_queue: list[dict[str, Any]] = []
     excluded_edges: list[dict[str, Any]] = []
-    normalization = normalize_stage11_trace_edges(payload.get("trace_edges", []) or [])
+    source_trace_edges = [edge for edge in payload.get("trace_edges", []) or [] if isinstance(edge, dict)]
+    invalid_geometry_edges = [edge for edge in source_trace_edges if _trace_has_invalid_geometry(edge)]
+    valid_trace_edges = [edge for edge in source_trace_edges if not _trace_has_invalid_geometry(edge)]
+    normalization = normalize_stage11_trace_edges(
+        valid_trace_edges,
+        route_equivalence_tolerance_px=route_equivalence_tolerance_px,
+    )
+    for invalid_edge in invalid_geometry_edges:
+        invalid_trace_id = str(invalid_edge.get("trace_id") or f"trace_{len(excluded_edges):05d}")
+        excluded_edges.append({"trace_id": invalid_trace_id, "status": "malformed_trace_geometry"})
+        review_queue.append(
+            _make_review_item(
+                "malformed_trace_geometry",
+                invalid_trace_id,
+                "blocking",
+                "Trace contains malformed or non-finite route coordinates.",
+            )
+        )
+
+    # Resolve equipment port identities before constructing topology nodes so
+    # source and terminal observations converge independently of edge order.
+    canonical_port_keys: dict[tuple[str, str], str] = {}
+    indexed_ports: dict[str, list[tuple[dict[str, float], str]]] = defaultdict(list)
+    pre_edges = [
+        edge for edge in normalization["trace_edges"]
+        if isinstance(edge, dict)
+        and str(edge.get("status") or "") != "skipped_existing_trace"
+        and isinstance(edge.get("segments"), list) and bool(edge.get("segments"))
+        and len(_dict_polyline(edge.get("polyline"))) >= 2
+        and _point_from_xy(edge.get("port")) is not None
+        and _point_from_xy(edge.get("terminal_xy")) is not None
+    ]
+    for edge in pre_edges:
+        if _source_node_type(edge) != "equipment_port":
+            continue
+        point = _point_from_xy(edge.get("port"))
+        equipment_key = str(edge.get("source_obj_id") or "")
+        explicit_index = edge.get("port_index")
+        if not equipment_key:
+            continue
+        if explicit_index is not None:
+            port_key = _equipment_port_key(point, explicit_index)
+            if point is not None:
+                indexed_ports[equipment_key].append((point, port_key))
+        else:
+            port_key = ""
+            if point is not None:
+                nearby = [
+                    (distance, key)
+                    for indexed_point, key in indexed_ports[equipment_key]
+                    for distance in [_distance(point, indexed_point)]
+                    if distance <= _node_tolerance("equipment_port", tolerances)
+                ]
+                if nearby:
+                    port_key = min(nearby)[1]
+            if not port_key:
+                port_key = _equipment_port_key(point)
+        canonical_port_keys[(str(edge.get("trace_id") or ""), "source")] = port_key
+
+    for edge in pre_edges:
+        trace_id = str(edge.get("trace_id") or "")
+        if _source_node_type(edge) == "equipment_port":
+            equipment_key = str(edge.get("source_obj_id") or "")
+            point = _point_from_xy(edge.get("port"))
+            if edge.get("port_index") is None and point is not None:
+                nearby = [
+                    (distance, key)
+                    for indexed_point, key in indexed_ports[equipment_key]
+                    for distance in [_distance(point, indexed_point)]
+                    if distance <= _node_tolerance("equipment_port", tolerances)
+                ]
+                if nearby:
+                    canonical_port_keys[(trace_id, "source")] = min(nearby)[1]
+        if _terminal_node_type(edge) == "equipment":
+            equipment_key = str(edge.get("terminal_obj_id") or "")
+            point = _point_from_xy(edge.get("terminal_xy"))
+            nearby = [
+                (distance, key)
+                for indexed_point, key in indexed_ports[equipment_key]
+                for distance in [_distance(point, indexed_point)]
+                if point is not None and distance <= _node_tolerance("equipment_port", tolerances)
+            ]
+            if nearby:
+                canonical_port_keys[(trace_id, "terminal")] = min(nearby)[1]
+            else:
+                canonical_port_keys[(trace_id, "terminal")] = _equipment_port_key(point, edge.get("terminal_port_index"))
 
     for raw_edge in normalization["trace_edges"]:
         if not isinstance(raw_edge, dict):
@@ -1075,6 +1438,155 @@ def build_trace_graph_from_stage11(
                 "terminal_obj_id": raw_edge.get("terminal_obj_id"),
             },
         )
+        legacy_source_node_id = source_node_id
+        legacy_target_node_id = terminal_node_id
+
+        source_equipment_id = None
+        source_port_id = None
+        source_port_key = None
+        source_object_id = raw_edge.get("source_obj_id")
+        if source_type == "equipment_port":
+            source_port_key = _equipment_port_key(resolved_source_point, raw_edge.get("port_index"))
+            source_equipment_id = _drawing_scoped_equipment_id(resolved_image_id, source_object_id)
+            source_port_id = _drawing_scoped_port_id(resolved_image_id, source_object_id, source_port_key)
+            if source_equipment_id and source_port_id:
+                equipment = equipment_by_id.setdefault(
+                    source_equipment_id,
+                    {
+                        "id": source_equipment_id,
+                        "drawing_id": resolved_image_id,
+                        "source_object_id": str(source_object_id or ""),
+                        "ports": [],
+                    },
+                )
+                port = ports_by_id.setdefault(
+                    source_port_id,
+                    {
+                        "id": source_port_id,
+                        "equipment_id": source_equipment_id,
+                        "drawing_id": resolved_image_id,
+                        "port_key": source_port_key,
+                        "port_index": raw_edge.get("port_index"),
+                        "position": resolved_source_point,
+                        "direction": (raw_edge.get("port") or {}).get("direction") if isinstance(raw_edge.get("port"), dict) else None,
+                        "source_node_id": source_node_id,
+                    },
+                )
+                if source_port_id not in equipment["ports"]:
+                    equipment["ports"].append(source_port_id)
+                registry.by_id.get(source_node_id, {}).update(
+                    {"equipment_id": source_equipment_id, "port_id": source_port_id, "drawing_id": resolved_image_id}
+                )
+
+        terminal_equipment_id = None
+        terminal_port_id = None
+        if terminal_type == "equipment":
+            terminal_equipment_id = _drawing_scoped_equipment_id(resolved_image_id, raw_edge.get("terminal_obj_id"))
+            if terminal_equipment_id:
+                equipment = equipment_by_id.setdefault(
+                    terminal_equipment_id,
+                    {
+                        "id": terminal_equipment_id,
+                        "drawing_id": resolved_image_id,
+                        "source_object_id": str(raw_edge.get("terminal_obj_id") or ""),
+                        "ports": [],
+                    },
+                )
+                terminal_port_key = _equipment_port_key(
+                    resolved_terminal_point,
+                    raw_edge.get("terminal_port_index"),
+                )
+                terminal_port_id = _drawing_scoped_port_id(
+                    resolved_image_id,
+                    raw_edge.get("terminal_obj_id"),
+                    terminal_port_key,
+                )
+                if terminal_port_id:
+                    ports_by_id.setdefault(
+                        terminal_port_id,
+                        {
+                            "id": terminal_port_id,
+                            "equipment_id": terminal_equipment_id,
+                            "drawing_id": resolved_image_id,
+                            "port_key": terminal_port_key,
+                            "position": resolved_terminal_point,
+                            "direction": None,
+                            "source_node_id": terminal_node_id,
+                        },
+                    )
+                    if terminal_port_id not in equipment["ports"]:
+                        equipment["ports"].append(terminal_port_id)
+                    registry.by_id.get(terminal_node_id, {}).update(
+                        {"equipment_id": terminal_equipment_id, "port_id": terminal_port_id, "drawing_id": resolved_image_id}
+                    )
+
+        # Canonical port nodes are the physical topology endpoints. Preserve
+        # the legacy node as an alias for existing consumers.
+        canonical_source_key = canonical_port_keys.get((trace_id, "source"))
+        if source_equipment_id and canonical_source_key:
+            canonical_source_id = _drawing_scoped_port_id(resolved_image_id, source_object_id, canonical_source_key)
+            if canonical_source_id:
+                registry.add(
+                    node_type="equipment_port",
+                    position=resolved_source_point,
+                    stable_id=canonical_source_id,
+                    evidence={"role": "canonical_port", "legacy_node_id": source_node_id, "trace_id": trace_id},
+                )
+                if source_node_id != canonical_source_id:
+                    registry.by_id.get(source_node_id, {}).update({"alias_of": canonical_source_id})
+                source_node_id = canonical_source_id
+                previous_source_port_id = source_port_id
+                source_port_id = canonical_source_id
+                if previous_source_port_id and previous_source_port_id != source_port_id:
+                    ports_by_id.pop(previous_source_port_id, None)
+                    if source_equipment_id in equipment_by_id:
+                        ports = equipment_by_id[source_equipment_id]["ports"]
+                        equipment_by_id[source_equipment_id]["ports"] = [
+                            source_port_id if port_id == previous_source_port_id else port_id
+                            for port_id in ports
+                        ]
+                if source_port_id in ports_by_id:
+                    ports_by_id[source_port_id]["source_node_id"] = source_node_id
+
+        canonical_terminal_key = canonical_port_keys.get((trace_id, "terminal"))
+        if terminal_equipment_id and canonical_terminal_key:
+            canonical_terminal_id = _drawing_scoped_port_id(
+                resolved_image_id,
+                raw_edge.get("terminal_obj_id"),
+                canonical_terminal_key,
+            )
+            if canonical_terminal_id:
+                registry.add(
+                    node_type="equipment_port",
+                    position=resolved_terminal_point,
+                    stable_id=canonical_terminal_id,
+                    evidence={"role": "canonical_port", "legacy_node_id": terminal_node_id, "trace_id": trace_id},
+                )
+                if terminal_node_id != canonical_terminal_id:
+                    registry.by_id.get(terminal_node_id, {}).update({"alias_of": canonical_terminal_id})
+                terminal_node_id = canonical_terminal_id
+                previous_terminal_port_id = terminal_port_id
+                terminal_port_id = canonical_terminal_id
+                if previous_terminal_port_id and previous_terminal_port_id != terminal_port_id:
+                    ports_by_id.pop(previous_terminal_port_id, None)
+                    if terminal_equipment_id in equipment_by_id:
+                        ports = equipment_by_id[terminal_equipment_id]["ports"]
+                        equipment_by_id[terminal_equipment_id]["ports"] = [
+                            terminal_port_id if port_id == previous_terminal_port_id else port_id
+                            for port_id in ports
+                        ]
+                ports_by_id.setdefault(
+                    terminal_port_id,
+                    {
+                        "id": terminal_port_id,
+                        "equipment_id": terminal_equipment_id,
+                        "drawing_id": resolved_image_id,
+                        "port_key": canonical_terminal_key,
+                        "position": resolved_terminal_point,
+                        "direction": None,
+                        "source_node_id": terminal_node_id,
+                    },
+                )["source_node_id"] = terminal_node_id
 
         line_number_ids = _line_number_ids(raw_edge)
         review_state = "accepted"
@@ -1085,6 +1597,8 @@ def build_trace_graph_from_stage11(
             "id": f"trace::{trace_id}",
             "source": source_node_id,
             "target": terminal_node_id,
+            "legacy_source": legacy_source_node_id,
+            "legacy_target": legacy_target_node_id,
             "type": "pipe_trace",
             "line_style": "solid",
             "review_state": review_state,
@@ -1094,6 +1608,12 @@ def build_trace_graph_from_stage11(
             "source_obj_id": raw_edge.get("source_obj_id"),
             "source_obj_type": raw_edge.get("source_obj_type"),
             "source_port_index": raw_edge.get("port_index"),
+            "source_equipment_id": source_equipment_id,
+            "source_port_id": source_port_id,
+            "source_port_xy": resolved_source_point if source_port_id else None,
+            "terminal_equipment_id": terminal_equipment_id,
+            "terminal_port_id": terminal_port_id,
+            "terminal_port_xy": resolved_terminal_point if terminal_port_id else None,
             "terminal_type": raw_edge.get("terminal_type"),
             "terminal_obj_id": raw_edge.get("terminal_obj_id"),
             "trace_length_px": raw_edge.get("trace_length_px"),
@@ -1106,6 +1626,10 @@ def build_trace_graph_from_stage11(
             "line_numbers": _line_number_records(raw_edge),
             "warnings": raw_edge.get("warnings") or [],
         }
+        if str(raw_edge.get("flow_direction_review_state") or "").lower() in {"human_reviewed", "reviewed", "accepted"}:
+            edge_payload.update(_promote_flow_direction(raw_edge))
+        else:
+            edge_payload.update(_recompute_flow_direction_from_attachments(raw_edge))
         if raw_edge.get("merged_trace_ids"):
             edge_payload["merged_trace_ids"] = raw_edge.get("merged_trace_ids")
         if raw_edge.get("duplicate_trace_ids"):
@@ -1208,12 +1732,17 @@ def build_trace_graph_from_stage11(
         for line_id in edge.get("effective_line_number_ids") or edge.get("line_number_ids") or []:
             line_groups[str(line_id)].append(str(edge["id"]))
 
+    for equipment in equipment_by_id.values():
+        equipment["ports"] = sorted({port_id for port_id in equipment.get("ports", []) if port_id in ports_by_id})
+
     graph_payload = {
         "schema_version": "stage7_trace_graph_v1",
         "image_id": resolved_image_id,
         "trace_source": payload.get("trace_source") or "stage6_trace_associations",
         "nodes": registry.nodes,
         "edges": graph_edges,
+        "equipment": [equipment_by_id[key] for key in sorted(equipment_by_id)],
+        "ports": [ports_by_id[key] for key in sorted(ports_by_id)],
         "line_groups": [
             {"line_number_id": line_id, "edge_ids": edge_ids}
             for line_id, edge_ids in sorted(line_groups.items())

@@ -54,6 +54,7 @@ export type CanvasViewHandle = {
   resetZoom: () => void
   fitToScreen: () => void
   centerOnObject: (obj: DetectedObject) => void
+  centerOnImagePoint: (x: number, y: number) => void
 }
 
 const MIN_ZOOM = 0.2
@@ -494,7 +495,7 @@ export const CanvasView = forwardRef(function CanvasView(
     }
     const scaleX = clientWidth / resolvedSize.width
     const scaleY = clientHeight / resolvedSize.height
-    const nextScale = Math.min(scaleX, scaleY, 1)
+    const nextScale = clampScale(Math.max(scaleX, scaleY))
     setScale(nextScale)
     const nextOffset = {
       x: (clientWidth - resolvedSize.width * nextScale) / 2,
@@ -516,7 +517,20 @@ export const CanvasView = forwardRef(function CanvasView(
     setOffset(clampOffset(nextOffset, nextScale))
   }
 
-  const clampScale = (value: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value))
+  // Smallest scale at which the image still covers the whole viewport, so
+  // panning can never reveal empty space on any side.
+  const coverMinScale = () => {
+    const container = containerRef.current
+    if (!container) return MIN_ZOOM
+    const size = imageSizeRef.current
+    if (!size.width || !size.height) return MIN_ZOOM
+    return Math.max(
+      container.clientWidth / size.width,
+      container.clientHeight / size.height
+    )
+  }
+
+  const clampScale = (value: number) => Math.min(MAX_ZOOM, Math.max(Math.max(MIN_ZOOM, coverMinScale()), value))
 
   const clampOffset = (nextOffset: { x: number; y: number }, nextScale = scale) => {
     const container = containerRef.current
@@ -736,6 +750,7 @@ export const CanvasView = forwardRef(function CanvasView(
       fitToScreen(imageSize)
     },
     centerOnObject,
+    centerOnImagePoint: (x: number, y: number) => centerToImagePoint(x, y),
   }), [scale, imageSize, resetZoom, fitToScreen])
 
   const handleMinimapClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1178,10 +1193,11 @@ export const CanvasView = forwardRef(function CanvasView(
                   onClick={() => {
                     onSetReviewStatus(objectKey(selectedObject), 'accepted')
                   }}
+                  disabled={reviewStatus[objectKey(selectedObject)] === 'accepted'}
                   className={cn(
-                    'w-full px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all',
+                    'w-full px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50',
                     reviewStatus[objectKey(selectedObject)] === 'accepted'
-                      ? 'bg-[var(--success)] text-white hover:brightness-95'
+                      ? 'bg-[var(--success)] text-white'
                       : 'bg-[var(--bg-primary)] border border-[var(--border-muted)] text-[var(--text-secondary)] hover:border-[var(--success)] hover:text-[var(--success)] hover:bg-[var(--success)]/5'
                   )}
                 >

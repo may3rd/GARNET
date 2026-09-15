@@ -1,4 +1,4 @@
-export type AppView = 'empty' | 'preview' | 'processing' | 'results' | 'batch'
+export type AppView = 'empty' | 'preview' | 'processing' | 'results' | 'batch' | 'system'
 export type ProcessingMode = 'detection' | 'pipeline'
 export type OcrRoute = 'easyocr' | 'gemini' | 'paddleocr' | 'ocrmac'
 
@@ -79,6 +79,57 @@ export type PipelineJob = {
   gemini_postprocess_match_threshold?: number
   manifest: PipelineManifest | null
   artifacts: PipelineArtifact[]
+}
+
+export type PipelineSystemPageStatus =
+  | 'processing'
+  | 'awaiting_object_review'
+  | 'awaiting_trace_review'
+  | 'awaiting_graph_review'
+  | 'completed'
+  | 'failed'
+
+export type PipelineSystemPage = {
+  sheet_id: string
+  source_filename: string
+  job_id: string
+  status: PipelineSystemPageStatus
+  job: PipelineJob
+}
+
+export type ConnectorOverride = {
+  connector_id: string
+  target_sheet_id?: string | null
+  connector_key?: string | null
+  review_state: 'accepted' | 'rejected'
+}
+
+export type ManualConnectorPair = {
+  left_connector_id: string
+  right_connector_id: string
+}
+
+export type PipelineConnectorReview = {
+  revision: number
+  connector_overrides: ConnectorOverride[]
+  manual_pairs: ManualConnectorPair[]
+  reviewer?: string | null
+  updated_at?: string
+}
+
+export type PipelineSystem = {
+  system_id: string
+  status: 'processing' | 'awaiting_object_review' | 'awaiting_trace_review' | 'awaiting_graph_review' | 'awaiting_connector_review' | 'completed' | 'failed'
+  created_at: string
+  pages: PipelineSystemPage[]
+  connector_review: PipelineConnectorReview
+  merge: {
+    status: string
+    resolved_count?: number
+    issue_count?: number
+    graph_artifact?: string
+  }
+  graph_url: string | null
 }
 
 export type PipelineReviewDecision = 'accepted' | 'rejected' | 'deferred'

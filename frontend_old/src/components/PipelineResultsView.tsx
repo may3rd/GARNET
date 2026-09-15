@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Maximize2, X } from 'lucide-react'
-import type { DetectedObject, PipelineJob, PipelineReviewBucket, PipelineReviewDecision, PipelineReviewItem, PipelineStageManifest } from '@/types'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { CheckCircle2, ChevronDown, Clock, Loader2, Maximize2, PanelLeftClose, PanelLeftOpen, RotateCcw, X } from 'lucide-react'
+import type { DetectedObject, PipelineArtifact, PipelineJob, PipelineReviewBucket, PipelineReviewDecision, PipelineReviewItem, PipelineStageManifest } from '@/types'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { PipelineArtifactCanvas } from '@/components/PipelineArtifactCanvas'
 import { PipelineHitlReviewView } from '@/components/PipelineHitlReviewView'
 import { PipelineReviewWorkspaceView } from '@/components/PipelineReviewWorkspaceView'
-import { ProcessingView } from '@/components/ProcessingView'
 import { GraphQaReviewView } from '@/components/GraphQaReviewView'
 import { Stage6LineAssociationReview } from '@/components/Stage6LineAssociationReview'
 import { getPipelineJob, getPipelineReviewedGraph, getPipelineReviewedQa, getPipelineStageStatus, putPipelineArtifact, resumePipelineFromStage } from '@/lib/api'
@@ -18,6 +18,50 @@ type ReviewDecision = PipelineReviewDecision
 const REVIEW_STORAGE_PREFIX = 'garnet-pipeline-review'
 const EQUIPMENT_CLASSES = new Set(['pump', 'heat exchanger', 'tank', 'vessel', 'column', 'compressor', 'blower', 'fan'])
 const PRE_STAGE5_REVIEW_BUCKETS: ReviewBucket[] = ['stage3_equipment', 'stage4_object', 'stage4_line_number']
+
+type HitlGateId = 'object' | 'trace' | 'stage6' | 'qa'
+
+const HITL_GATES: Array<{ id: HitlGateId; after: string; name: string }> = [
+  { id: 'object', after: 'stage4_instrument_tag_fusion', name: 'Equipment & object review' },
+  { id: 'trace', after: 'stage5b_pipe_trace', name: 'Trace review' },
+  { id: 'stage6', after: 'stage6_trace_associations', name: 'Stage 6 line review' },
+  { id: 'qa', after: 'stage8_graph_qa', name: 'Graph QA review' },
+]
+
+type ReviewRow =
+  | { kind: 'stage'; stage: PipelineStageManifest }
+  | { kind: 'gate'; gateId: HitlGateId }
+
+// Canonical pipeline stage order. Re-runs (rework/resume) can leave duplicate
+// entries in a job's manifest, so stages are deduplicated by name and sorted by
+// this order before rendering.
+const PIPELINE_STAGE_ORDER = [
+  'stage1_input_normalization',
+  'stage2_ocr_discovery',
+  'stage4_object_detection',
+  'stage4_line_number_fusion',
+  'stage4_instrument_tag_fusion',
+  'stage5_pipe_mask',
+  'stage5b_pipe_trace',
+  'stage6_trace_associations',
+  'stage7_geometric_graph_assembly',
+  'stage7c_page_connector_labeling',
+  'stage7b_graph_export',
+  'stage8_graph_qa',
+  'stage9_apply_review_decisions',
+  'stage10_process_exports',
+  'stage11_connection_overlay',
+]
+
+function dedupeStages(stages: PipelineStageManifest[]): PipelineStageManifest[] {
+  const byName = new Map<string, PipelineStageManifest>()
+  for (const stage of stages) {
+    if (stage && typeof stage.name === 'string') byName.set(stage.name, stage)
+  }
+  return Array.from(byName.values()).sort(
+    (a, b) => PIPELINE_STAGE_ORDER.indexOf(a.name) - PIPELINE_STAGE_ORDER.indexOf(b.name)
+  )
+}
 
 function normalizedClassName(value: string | undefined): string {
   return (value ?? '').toLowerCase().replace(/[_-]+/g, ' ').trim()
@@ -280,6 +324,16 @@ function stageStatusClass(status: PipelineStageManifest['status']) {
   return 'border-[var(--border-muted)] bg-[var(--bg-primary)] text-[var(--text-secondary)]'
 }
 
+// Stop point used when reworking from an earlier stage: the run pauses at the
+// next HITL gate after the reworked stage (object review, trace review, graph QA).
+function reworkStopAfter(stageName: string): number | undefined {
+  if (/^stage(1|2|4)_/.test(stageName)) return 4
+  if (stageName === 'stage5_pipe_mask' || stageName === 'stage5b_pipe_trace') return 5
+  if (stageName === 'stage6_trace_associations') return 6
+  if (/^stage(7|8)_/.test(stageName)) return 8
+  return undefined
+}
+
 function SummaryCard({ title, entries }: { title: string; entries: Array<[string, JsonValue | undefined]> }) {
   const visibleEntries = entries.filter(([, value]) => value !== undefined)
   if (!visibleEntries.length) return null
@@ -319,7 +373,7 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   const [graphMode, setGraphMode] = useState<'raw' | 'reviewed'>('raw')
   const [reviewedGraphSummary, setReviewedGraphSummary] = useState<JsonObject | null>(null)
   const [reviewedQaSummary, setReviewedQaSummary] = useState<JsonObject | null>(null)
-  const stages = stageStatuses.length ? stageStatuses : activeJob.manifest?.stages ?? []
+  const stages = dedupeStages(stageStatuses.length ? stageStatuses : activeJob.manifest?.stages ?? [])
   const imageArtifacts = useMemo(
     () => activeJob.artifacts.filter((artifact) => /\.(png|jpg|jpeg|webp)$/i.test(artifact.name)),
     [activeJob.artifacts]
@@ -482,6 +536,8 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
     setStageStatuses(job.manifest?.stages ?? [])
     setPreStage5ReviewActive(false)
     setPreStage5ReviewDismissed(false)
+    setSelectedStageName(null)
+    setCanvasOverrideName(null)
   }, [job])
 
   useEffect(() => {
@@ -544,8 +600,6 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
     return counts
   }, [reviewDecisions, reviewItems])
 
-  const staleFromStage5b = stages.some((stage) => stage.name === 'stage5b_pipe_trace' && stage.status === 'stale')
-    || stages.some((stage) => stage.status === 'stale' && (stage.num ?? 0) >= 5)
   const staleFromStage7 = stages.some((stage) => stage.name === 'stage7_geometric_graph_assembly' && stage.status === 'stale')
     || stages.some((stage) => stage.status === 'stale' && (stage.num ?? 0) >= 7)
   const stage5Started = stages.some((stage) => (stage.num ?? 0) >= 5 && stage.status !== 'pending')
@@ -559,12 +613,136 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   const stage9Complete = stages.some((stage) => stage.name === 'stage9_apply_review_decisions' && stage.status === 'completed')
   const requiresGraphQaReview = activeJob.status === 'completed' && stage8Complete && !stage9Complete && (activeJob.stop_after ?? 8) <= 8
 
+  const gateStatus = (gateId: HitlGateId): 'completed' | 'awaiting' | 'pending' => {
+    if (gateId === 'object') return stage5Started ? 'completed' : requiresPreStage5Review ? 'awaiting' : 'pending'
+    if (gateId === 'trace') return stage6Complete ? 'completed' : requiresTraceReview ? 'awaiting' : 'pending'
+    if (gateId === 'stage6') return stage7Complete ? 'completed' : requiresStage6Review ? 'awaiting' : 'pending'
+    return stage9Complete ? 'completed' : requiresGraphQaReview ? 'awaiting' : 'pending'
+  }
+  const enterGate = (gateId: HitlGateId) => {
+    if (gateStatus(gateId) !== 'awaiting') return
+    setStageOutputActive(false)
+    if (gateId !== 'object') return
+    setPreStage5ReviewActive(true)
+    setPreStage5ReviewDismissed(false)
+    setActiveReviewBucket('stage3_equipment')
+    setWorkspaceOpen(true)
+  }
+  const gateStatusClass = (status: 'completed' | 'awaiting' | 'pending') => {
+    if (status === 'awaiting') return 'border-amber-500/40 bg-amber-500/10 text-amber-700'
+    if (status === 'completed') return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700'
+    return 'border-[var(--border-muted)] bg-[var(--bg-primary)] text-[var(--text-secondary)]'
+  }
+  const reviewRows: ReviewRow[] = useMemo(() => {
+    const rows: ReviewRow[] = []
+    for (const stage of stages) {
+      rows.push({ kind: 'stage', stage })
+      const gate = HITL_GATES.find((gate) => gate.after === stage.name)
+      if (gate) rows.push({ kind: 'gate', gateId: gate.id })
+    }
+    return rows
+  }, [stages])
+
+  const [selectedStageName, setSelectedStageName] = useState<string | null>(null)
+  const [canvasOverrideName, setCanvasOverrideName] = useState<string | null>(null)
+  const selectedStage = useMemo(() => {
+    if (selectedStageName) {
+      const match = stages.find((stage) => stage.name === selectedStageName)
+      if (match) return match
+    }
+    const current = stages.find((stage) => ['started', 'running', 'stale', 'failed'].includes(stage.status))
+    if (current) return current
+    const completed = stages.filter((stage) => stage.status === 'completed')
+    return completed[completed.length - 1] ?? stages[0] ?? null
+  }, [selectedStageName, stages])
+  const stageArtifactsByStage = useMemo(() => {
+    const byName = new Map(activeJob.artifacts.map((artifact) => [artifact.name, artifact]))
+    const map = new Map<string, { images: PipelineArtifact[]; jsons: PipelineArtifact[] }>()
+    stages.forEach((stage) => {
+      const images: PipelineArtifact[] = []
+      const jsons: PipelineArtifact[] = []
+      for (const name of stage.artifacts ?? []) {
+        const artifact = byName.get(name)
+        if (!artifact) continue
+        if (/\.(png|jpe?g|webp)$/i.test(name)) images.push(artifact)
+        else if (name.endsWith('.json')) jsons.push(artifact)
+      }
+      map.set(stage.name, { images, jsons })
+    })
+    return map
+  }, [activeJob.artifacts, stages])
+  const selectedStageArtifacts = selectedStage
+    ? stageArtifactsByStage.get(selectedStage.name) ?? { images: [], jsons: [] }
+    : { images: [], jsons: [] }
+  const canvasArtifact = useMemo(() => {
+    const images = selectedStageArtifacts.images
+    const fallback = images.find((artifact) => artifact.name.includes('overlay')) ?? images[0] ?? null
+    if (!canvasOverrideName) return fallback
+    return images.find((artifact) => artifact.name === canvasOverrideName) ?? fallback
+  }, [canvasOverrideName, selectedStageArtifacts])
+  const isStageReworkable = (stage: PipelineStageManifest | null) =>
+    !!stage && ['completed', 'stale', 'failed'].includes(stage.status)
+
+  const reworkStage = (stage: PipelineStageManifest) => {
+    if (stage.name.startsWith('stage4_')) {
+      setPreStage5ReviewActive(true)
+      setPreStage5ReviewDismissed(false)
+      setActiveReviewBucket('stage3_equipment')
+      setStageOutputActive(false)
+      setWorkspaceOpen(true)
+      return
+    }
+    const confirmed = window.confirm(
+      `Rework from ${stage.name}? All later stages will be marked stale and re-run from here.`
+    )
+    if (!confirmed) return
+    void resumeFromStageName(
+      stage.name,
+      reworkStopAfter(stage.name),
+      stage.name === 'stage5_pipe_mask' ? { continueStage5bForTraceReview: true } : {}
+    )
+  }
+
+  // Gate workspaces render inside the Review shell so the stage rail stays
+  // visible; stageOutputActive lets the user peek at a stage's artifacts.
+  const [stageOutputActive, setStageOutputActive] = useState(false)
+  const [stagesRailOpen, setStagesRailOpen] = useState(true)
+  const activeGate: 'hitl' | 'trace' | 'stage6' | 'qa' | null = (() => {
+    if (showArtifactDetails) return null
+    if (workspaceOpen) return 'hitl'
+    if (requiresTraceReview) return 'trace'
+    if (requiresStage6Review) return 'stage6'
+    if (requiresGraphQaReview) return 'qa'
+    return null
+  })()
+  const gateWorkspaceActive = activeGate !== null && !stageOutputActive
+  const gateLabels: Record<'hitl' | 'trace' | 'stage6' | 'qa', string> = {
+    hitl: 'HITL review',
+    trace: 'trace review',
+    stage6: 'Stage 6 line review',
+    qa: 'graph QA review',
+  }
+
   useEffect(() => {
     if (!requiresPreStage5Review || preStage5ReviewDismissed || workspaceOpen || isResuming) return
     setPreStage5ReviewActive(true)
     setActiveReviewBucket('stage3_equipment')
+    setStageOutputActive(false)
     setWorkspaceOpen(true)
   }, [isResuming, preStage5ReviewDismissed, requiresPreStage5Review, workspaceOpen])
+
+  // When a resume completes, reveal the awaiting HITL gate (trace / stage 6 /
+  // graph QA) instead of leaving the stage-output view active. The resume loop
+  // sets stageOutputActive(true) to show the canvas while it runs.
+  const prevIsResumingRef = useRef(isResuming)
+  useEffect(() => {
+    const wasResuming = prevIsResumingRef.current
+    prevIsResumingRef.current = isResuming
+    if (!wasResuming || isResuming) return
+    if (requiresTraceReview || requiresStage6Review || requiresGraphQaReview) {
+      setStageOutputActive(false)
+    }
+  }, [isResuming, requiresTraceReview, requiresStage6Review, requiresGraphQaReview])
 
   const saveStage3Equipment = async (objects: DetectedObject[]) => {
     setPipelineActionError(null)
@@ -587,10 +765,6 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
     setLiveJob(refreshedJob)
   }
 
-  const resumeFromStage5b = async () => {
-    await resumeFromStageName('stage5b_pipe_trace')
-  }
-
   const resumeFromStage7 = async () => {
     await resumeFromStageName('stage7_geometric_graph_assembly', 8)
   }
@@ -601,6 +775,7 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
     options: { continueStage5bForTraceReview?: boolean } = {}
   ) => {
     setIsResuming(true)
+    setShowArtifactDetails(false)
     setWorkspaceOpen(false)
     setPreStage5ReviewActive(false)
     setPreStage5ReviewDismissed(true)
@@ -632,11 +807,22 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
             percent,
           },
         })
+        let latestStages: PipelineStageManifest[] = []
         try {
           const statusPayload = await getPipelineStageStatus(activeJob.job_id)
           setStageStatuses(statusPayload.stages)
+          latestStages = statusPayload.stages
         } catch {
-          setStageStatuses(nextJob.manifest?.stages ?? [])
+          latestStages = nextJob.manifest?.stages ?? []
+          setStageStatuses(latestStages)
+        }
+        // Follow the most recently completed stage so the canvas shows its
+        // artifact as the pipeline advances.
+        const lastCompleted = latestStages.filter((stage) => stage.status === 'completed').pop()
+        if (lastCompleted) {
+          setSelectedStageName(lastCompleted.name)
+          setCanvasOverrideName(null)
+          setStageOutputActive(true)
         }
         if (
           nextJob.status === 'completed'
@@ -716,7 +902,7 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   }
 
   const resumeFromStage9 = async () => {
-    await resumeFromStageName('stage9_apply_review_decisions', 11)
+    await resumeFromStageName('stage9_apply_review_decisions')
   }
 
   const handleReviewBucketSaved = (bucket: ReviewBucket) => {
@@ -751,78 +937,6 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
     setWorkspaceOpen(false)
   }
 
-  if (isResuming) {
-    return <ProcessingView />
-  }
-
-  if (workspaceOpen) {
-    return (
-      <PipelineHitlReviewView
-        jobId={activeJob.job_id}
-        activeBucket={activeReviewBucket}
-        itemsByBucket={reviewItems}
-        imageArtifacts={imageArtifacts}
-        initialReviewDecisions={reviewDecisions}
-        onApply={(decisions) => setReviewDecisions(decisions)}
-        onSaveStage3Equipment={saveStage3Equipment}
-        onSaveStage4Objects={saveStage4Objects}
-        onAfterBucketSave={handleReviewBucketSaved}
-        visibleBuckets={preStage5ReviewActive ? PRE_STAGE5_REVIEW_BUCKETS : undefined}
-        onClose={closeReviewWorkspace}
-      />
-    )
-  }
-
-  if (!showArtifactDetails && requiresTraceReview) {
-    return (
-      <PipelineReviewWorkspaceView
-        job={activeJob}
-        imageArtifacts={imageArtifacts}
-        onOpenDetails={() => setShowArtifactDetails(true)}
-        onCommitComplete={() => {
-          setShowArtifactDetails(false)
-          void resumeFromStageName('stage6_trace_associations', 6)
-        }}
-      />
-    )
-  }
-
-  if (!showArtifactDetails && requiresStage6Review) {
-    return (
-      <Stage6LineAssociationReview
-        tracePayload={jsonDetails['stage6_trace_associations.json']}
-        reviewPayload={jsonDetails['stage6_line_number_review.json']}
-        baseImageUrl={pickBaseImageUrl(imageArtifacts)}
-        overlayUrl={imageArtifacts.find((artifact) => artifact.name === 'stage6_trace_association_overlay.png')?.url}
-        stage7Stale={staleFromStage7 || requiresStage6Review}
-        isSaving={isSavingStage6}
-        isResuming={isResuming}
-        layout="workspace"
-        onCancel={() => setShowArtifactDetails(true)}
-        onSave={saveStage6LineReview}
-        onResumeStage7={resumeFromStage7}
-      />
-    )
-  }
-
-  if (!showArtifactDetails && requiresGraphQaReview) {
-    return (
-      <GraphQaReviewView
-        reviewItemsPayload={jsonDetails['stage8_review_items.json']}
-        reviewDecisionsPayload={jsonDetails['stage8_review_decisions.json']}
-        baseImageUrl={pickBaseImageUrl(imageArtifacts)}
-        overlayUrl={imageArtifacts.find((artifact) => artifact.name === 'stage8_review_overlay.png')?.url}
-        stage9Stale={requiresGraphQaReview}
-        isSaving={isSavingStage8}
-        isResuming={isResuming}
-        layout="workspace"
-        onCancel={() => setShowArtifactDetails(true)}
-        onSave={saveGraphQaDecisions}
-        onResumeStage9={resumeFromStage9}
-      />
-    )
-  }
-
   if (expandedArtifact) {
     return (
       <div className="h-full overflow-hidden bg-[var(--bg-canvas)]">
@@ -850,16 +964,37 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
   }
 
   return (
-    <div className="h-full overflow-auto bg-[var(--bg-canvas)]">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-6">
-        <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="text-lg font-semibold">Pipeline Artifacts / QA</div>
-              <div className="mt-1 text-sm text-[var(--text-secondary)]">
-                Staged pipeline review. The default workflow pauses after Stage 4 object detection for equipment, object, and line-number review before Stage 5 pipe tracing starts.
-              </div>
+    <div className="flex h-full min-h-0 flex-col bg-[var(--bg-canvas)]">
+      <div className="shrink-0 border-b border-[var(--border-muted)] bg-[var(--bg-secondary)] px-6 py-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            {!showArtifactDetails ? (
+              <button
+                type="button"
+                onClick={() => setStagesRailOpen((open) => !open)}
+                title={stagesRailOpen ? 'Hide stages' : 'Show stages'}
+                aria-label={stagesRailOpen ? 'Hide stages panel' : 'Show stages panel'}
+                aria-pressed={stagesRailOpen}
+                className="mt-0.5 rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] p-2 text-[var(--text-secondary)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+              >
+                {stagesRailOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+              </button>
+            ) : null}
+            <div className="min-w-0">
+              <div className="text-lg font-semibold">Pipeline Review</div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
+              <span className="font-mono">{activeJob.job_id}</span>
+              <span>·</span>
+              <span className="capitalize">{activeJob.status}</span>
+              <span>·</span>
+              <span>{activeJob.current_stage ?? 'Queued'}</span>
+              <span>·</span>
+              <span className="uppercase">OCR {route}</span>
             </div>
+            {pipelineActionError ? <div className="mt-1 text-xs text-red-600">{pipelineActionError}</div> : null}
+          </div>
+          </div>
+          <div className="flex items-center gap-2">
             {requiresPreStage5Review || requiresTraceReview ? (
               <button
                 type="button"
@@ -872,14 +1007,52 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
                     setActiveReviewBucket('stage3_equipment')
                     setWorkspaceOpen(true)
                   }
+                  setStageOutputActive(false)
                 }}
                 className="rounded-lg border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-2 text-sm font-semibold text-[var(--accent)]"
               >
                 {requiresTraceReview ? 'Back to Trace Review' : 'Continue Pre-Stage-5 Review'}
               </button>
             ) : null}
+            <div className="flex rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] p-1 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setShowArtifactDetails(false)}
+                className={`rounded-md px-3 py-1.5 transition ${
+                  !showArtifactDetails
+                    ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                Review
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowArtifactDetails(true)}
+                className={`rounded-md px-3 py-1.5 transition ${
+                  showArtifactDetails
+                    ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                Summary
+              </button>
+            </div>
           </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
+        </div>
+      </div>
+
+      {showArtifactDetails ? (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-6">
+            <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-5">
+              <div>
+                <div className="text-lg font-semibold">Pipeline Artifacts / QA</div>
+                <div className="mt-1 text-sm text-[var(--text-secondary)]">
+                  Staged pipeline review. The default workflow pauses after Stage 4 object detection for equipment, object, and line-number review before Stage 5 pipe tracing starts.
+                </div>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
             <div className="rounded-xl border border-[var(--border-muted)] bg-[var(--bg-primary)] p-3">
               <div className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">Job</div>
               <div className="mt-1 font-mono text-xs">{activeJob.job_id}</div>
@@ -997,35 +1170,6 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
           ]}
         />
 
-        <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-5">
-            <div className="text-sm font-semibold">Stages</div>
-            <div className="mt-4 space-y-3">
-              {stages.map((stage) => (
-                <div key={stage.name} className={`rounded-xl border p-3 ${stageStatusClass(stage.status)}`}>
-                  <div className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">Stage {stage.num}</div>
-                  <div className="mt-1 text-sm font-semibold">{stage.name}</div>
-                  <div className="mt-1 text-xs text-[var(--text-secondary)]">
-                    {stage.status} {stage.duration_sec !== undefined ? `• ${stage.duration_sec.toFixed(3)}s` : ''}
-                    {stage.stale_source_artifact ? ` • from ${stage.stale_source_artifact}` : ''}
-                  </div>
-                </div>
-              ))}
-            </div>
-            {staleFromStage5b ? (
-              <button
-                type="button"
-                onClick={resumeFromStage5b}
-                disabled={isResuming}
-                className="mt-4 w-full rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-700 disabled:opacity-40"
-              >
-                {isResuming ? 'Resuming...' : 'Resume from Stage 5b'}
-              </button>
-            ) : null}
-            {pipelineActionError ? <div className="mt-3 text-xs text-red-600">{pipelineActionError}</div> : null}
-          </div>
-
-          <div className="space-y-6">
             <div className="rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-5">
               <div className="text-sm font-semibold">Review Flow</div>
               {requiresPreStage5Review ? (
@@ -1163,7 +1307,288 @@ export function PipelineResultsView({ job }: { job: PipelineJob }) {
             </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex min-h-0 flex-1">
+          {stagesRailOpen ? (
+          <aside className="flex w-[320px] shrink-0 flex-col border-r border-[var(--border-muted)] bg-[var(--bg-secondary)]">
+            <div className="shrink-0 border-b border-[var(--border-muted)] px-4 py-3 text-sm font-semibold">Stages</div>
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+              {stages.some((stage) => stage.status === 'stale') ? (
+                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+                  Stale stages reset the workflow: everything after the rework point re-runs.
+                </div>
+              ) : null}
+              {reviewRows.map((row) => {
+                if (row.kind === 'gate') {
+                  const gate = HITL_GATES.find((item) => item.id === row.gateId)!
+                  const status = gateStatus(row.gateId)
+                  return (
+                    <div
+                      key={`gate-${row.gateId}`}
+                      onClick={() => enterGate(row.gateId)}
+                      className={`rounded-xl border border-dashed p-3 transition ${gateStatusClass(status)} ${
+                        status === 'awaiting' ? 'cursor-pointer hover:brightness-95' : ''
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-[10px] uppercase tracking-wide opacity-80">HITL gate</div>
+                          <div className="truncate text-sm font-semibold">{gate.name}</div>
+                        </div>
+                        {status === 'completed' ? (
+                          <CheckCircle2 size={15} className="shrink-0 opacity-80" />
+                        ) : status === 'awaiting' ? (
+                          <Clock size={15} className="shrink-0 opacity-80" />
+                        ) : null}
+                      </div>
+                      <div className="mt-1 text-xs opacity-80">
+                        {status === 'awaiting'
+                          ? 'Awaiting review — click to open'
+                          : status === 'completed'
+                            ? 'Cleared'
+                            : 'Pending'}
+                      </div>
+                    </div>
+                  )
+                }
+                const stage = row.stage
+                const isSelected = selectedStage?.name === stage.name
+                const reworkable = isStageReworkable(stage)
+                return (
+                  <div
+                    key={stage.name}
+                    onClick={() => {
+                      setSelectedStageName(stage.name)
+                      setCanvasOverrideName(null)
+                      setStageOutputActive(true)
+                    }}
+                    className={`cursor-pointer rounded-xl border p-3 transition ${stageStatusClass(stage.status)} ${
+                      isSelected ? 'ring-2 ring-[var(--accent)]/40' : ''
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-xs uppercase tracking-wide opacity-80">Stage {stage.num}</div>
+                        <div className="truncate text-sm font-semibold">{stage.name}</div>
+                      </div>
+                      {reworkable ? (
+                        <button
+                          type="button"
+                          title={`Rework from ${stage.name}; later stages will be re-run`}
+                          aria-label={`Rework from ${stage.name}`}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            reworkStage(stage)
+                          }}
+                          className="shrink-0 rounded-md border border-[var(--border-muted)] bg-[var(--bg-secondary)] p-1.5 text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                        >
+                          <RotateCcw size={13} />
+                        </button>
+                      ) : null}
+                    </div>
+                    <div className="mt-1 text-xs opacity-80">
+                      {stage.status}
+                      {stage.duration_sec !== undefined ? ` • ${stage.duration_sec.toFixed(3)}s` : ''}
+                      {stage.stale_source_artifact ? ` • from ${stage.stale_source_artifact}` : ''}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </aside>
+          ) : null}
+
+          <main className="flex min-h-0 flex-1 flex-col">
+            {gateWorkspaceActive ? (
+              <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-[var(--border-muted)] bg-[var(--bg-primary)]">
+                {activeGate === 'hitl' ? (
+                  <PipelineHitlReviewView
+                    jobId={activeJob.job_id}
+                    activeBucket={activeReviewBucket}
+                    itemsByBucket={reviewItems}
+                    imageArtifacts={imageArtifacts}
+                    initialReviewDecisions={reviewDecisions}
+                    onApply={(decisions) => setReviewDecisions(decisions)}
+                    onSaveStage3Equipment={saveStage3Equipment}
+                    onSaveStage4Objects={saveStage4Objects}
+                    onAfterBucketSave={handleReviewBucketSaved}
+                    visibleBuckets={preStage5ReviewActive ? PRE_STAGE5_REVIEW_BUCKETS : undefined}
+                    onClose={closeReviewWorkspace}
+                  />
+                ) : activeGate === 'trace' ? (
+                  <PipelineReviewWorkspaceView
+                    job={activeJob}
+                    imageArtifacts={imageArtifacts}
+                    onOpenDetails={() => setShowArtifactDetails(true)}
+                    onCommitComplete={() => {
+                      setShowArtifactDetails(false)
+                      void resumeFromStageName('stage6_trace_associations', 6)
+                    }}
+                  />
+                ) : activeGate === 'stage6' ? (
+                  <Stage6LineAssociationReview
+                    tracePayload={jsonDetails['stage6_trace_associations.json']}
+                    reviewPayload={jsonDetails['stage6_line_number_review.json']}
+                    baseImageUrl={pickBaseImageUrl(imageArtifacts)}
+                    overlayUrl={imageArtifacts.find((artifact) => artifact.name === 'stage6_trace_association_overlay.png')?.url}
+                    stage7Stale={staleFromStage7 || requiresStage6Review}
+                    isSaving={isSavingStage6}
+                    isResuming={isResuming}
+                    layout="workspace"
+                    onCancel={() => setShowArtifactDetails(true)}
+                    onSave={saveStage6LineReview}
+                    onResumeStage7={resumeFromStage7}
+                  />
+                ) : (
+                  <GraphQaReviewView
+                    reviewItemsPayload={jsonDetails['stage8_review_items.json']}
+                    reviewDecisionsPayload={jsonDetails['stage8_review_decisions.json']}
+                    baseImageUrl={pickBaseImageUrl(imageArtifacts)}
+                    overlayUrl={imageArtifacts.find((artifact) => artifact.name === 'stage8_review_overlay.png')?.url}
+                    stage9Stale={requiresGraphQaReview}
+                    isSaving={isSavingStage8}
+                    isResuming={isResuming}
+                    layout="workspace"
+                    onCancel={() => setShowArtifactDetails(true)}
+                    onSave={saveGraphQaDecisions}
+                    onResumeStage9={resumeFromStage9}
+                  />
+                )}
+              </div>
+            ) : (
+              <>
+            <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3">
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold">{selectedStage?.name ?? 'No stage selected'}</div>
+                <div className="text-xs text-[var(--text-secondary)]">
+                  {selectedStage
+                    ? `${selectedStage.status}${selectedStage.duration_sec !== undefined ? ` • ${selectedStage.duration_sec.toFixed(3)}s` : ''}`
+                    : 'Pick a stage from the list'}
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {activeGate && stageOutputActive ? (
+                  <button
+                    type="button"
+                    onClick={() => setStageOutputActive(false)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--accent)] bg-[var(--accent)]/10 px-3 py-2 text-xs font-semibold text-[var(--accent)]"
+                  >
+                    Back to {gateLabels[activeGate]}
+                  </button>
+                ) : null}
+                {isStageReworkable(selectedStage) && selectedStage ? (
+                  <button
+                    type="button"
+                    onClick={() => reworkStage(selectedStage)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-700"
+                  >
+                    <RotateCcw size={14} />
+                    Rework from here
+                  </button>
+                ) : null}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)]"
+                    >
+                      Open <ChevronDown size={14} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="max-h-96 w-72 overflow-y-auto">
+                    <DropdownMenuItem onSelect={() => setShowArtifactDetails(true)}>
+                      Open Summary page
+                    </DropdownMenuItem>
+                    {selectedStageArtifacts.images.length ? (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel>Stage images</DropdownMenuLabel>
+                        {selectedStageArtifacts.images.map((artifact) => (
+                          <DropdownMenuItem key={artifact.name} onSelect={() => setCanvasOverrideName(artifact.name)}>
+                            {artifact.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </>
+                    ) : null}
+                    {selectedStageArtifacts.jsons.length ? (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel>Stage JSON</DropdownMenuLabel>
+                        {selectedStageArtifacts.jsons.map((artifact) => (
+                          <DropdownMenuItem key={artifact.name} asChild>
+                            <a href={artifact.url} target="_blank" rel="noreferrer">
+                              {artifact.name}
+                            </a>
+                          </DropdownMenuItem>
+                        ))}
+                      </>
+                    ) : null}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+
+            <div className="relative min-h-0 flex-1 overflow-hidden">
+              {canvasArtifact ? (
+                <PipelineArtifactCanvas imageUrl={canvasArtifact.url} title={canvasArtifact.name} />
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+                  <div className="text-xs text-[var(--text-secondary)]">
+                    {selectedStage
+                      ? `${selectedStage.name} has no image artifacts.`
+                      : 'Select a stage to view its output.'}
+                  </div>
+                  {selectedStageArtifacts.jsons.length ? (
+                    <div className="w-full max-w-sm space-y-1">
+                      {selectedStageArtifacts.jsons.map((artifact) => (
+                        <a
+                          key={artifact.name}
+                          href={artifact.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block truncate rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)] px-3 py-1.5 text-xs text-[var(--accent)]"
+                        >
+                          {artifact.name}
+                        </a>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+              {isResuming ? (
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-[var(--bg-canvas)]/70 backdrop-blur-sm">
+                  <Loader2 className="h-10 w-10 animate-spin text-[var(--accent)]" />
+                  <div className="text-sm font-semibold">Resuming pipeline…</div>
+                  <div className="text-xs text-[var(--text-secondary)]">
+                    {(activeJob.current_stage ?? 'Preparing').replaceAll('_', ' ')}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            {selectedStageArtifacts.images.length > 1 ? (
+              <div className="flex flex-wrap gap-2 px-4">
+                {selectedStageArtifacts.images.map((artifact) => (
+                  <button
+                    key={artifact.name}
+                    type="button"
+                    onClick={() => setCanvasOverrideName(artifact.name)}
+                    className={`max-w-full truncate rounded-full border px-3 py-1 text-xs font-semibold ${
+                      canvasArtifact?.name === artifact.name
+                        ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                        : 'border-[var(--border-muted)] bg-[var(--bg-primary)] text-[var(--text-secondary)]'
+                    }`}
+                  >
+                    {artifact.name}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+              </>
+            )}
+          </main>
+        </div>
+      )}
     </div>
   )
 }

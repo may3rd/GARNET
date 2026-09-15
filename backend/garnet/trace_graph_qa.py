@@ -313,6 +313,18 @@ def run_stage12_trace_graph_qa(
                     evidence={"source_type": source_type, "target_type": target_type},
                 )
             )
+        if terminal_type == "max_steps":
+            issues.append(
+                _issue(
+                    category="abandoned_trace",
+                    severity="high",
+                    message="Trace was abandoned after hitting the tracer step limit; path is incomplete.",
+                    edge_id=edge_id,
+                    component_id=component_id,
+                    geometry=midpoint,
+                    evidence={"length_px": round(edge_length, 3)},
+                )
+            )
         if 0 < edge_length < short_trace_length_px:
             issues.append(
                 _issue(

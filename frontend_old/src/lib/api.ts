@@ -3,6 +3,9 @@ import type {
   DetectedObject,
   OcrRoute,
   PipelineJob,
+  PipelineSystem,
+  ConnectorOverride,
+  ManualConnectorPair,
   PipelineReviewCommitResponse,
   PipelineReviewRecomputeResponse,
   PipelineReviewState,
@@ -174,6 +177,74 @@ export async function startPipelineJob(
   } finally {
     requestSignal.cleanup()
   }
+}
+
+export async function startPipelineSystem(
+  pages: Array<{ file: File; sheetId: string }>,
+  options: Partial<PipelineOptions> = {},
+  signal?: AbortSignal,
+  timeoutMs = DEFAULT_TIMEOUT
+): Promise<{ system_id: string; status: string; pages: Array<{ sheet_id: string; source_filename: string; job_id: string }> }> {
+  const payload = {
+    ocrRoute: 'ocrmac' as OcrRoute,
+    geminiPostprocessMatchThreshold: 0.1,
+    weightFile: '',
+    debugArtifacts: false,
+    ...options,
+  }
+  const formData = new FormData()
+  pages.forEach(({ file, sheetId }) => {
+    formData.append('files', file)
+    formData.append('sheet_ids', sheetId)
+  })
+  formData.append('ocr_route', payload.ocrRoute)
+  formData.append('gemini_postprocess_match_threshold', String(payload.geminiPostprocessMatchThreshold))
+  formData.append('weight_file', payload.weightFile)
+  formData.append('debug_artifacts', String(payload.debugArtifacts))
+  const requestSignal = createRequestSignal(signal, timeoutMs)
+  try {
+    const response = await fetch('/api/pipeline/systems', {
+      method: 'POST',
+      body: formData,
+      signal: requestSignal.signal,
+    })
+    if (!response.ok) throw new APIError((await response.text()) || 'Pipeline system start failed', response.status)
+    return response.json()
+  } catch (error) {
+    if (error instanceof APIError) throw error
+    if (error instanceof Error && error.name === 'AbortError') {
+      if (requestSignal.isCanceled()) throw new APIError('Pipeline system canceled', undefined, false, true)
+      throw new APIError(`Pipeline system start timed out after ${timeoutMs / 1000} seconds`, undefined, true)
+    }
+    throw new APIError(error instanceof Error ? error.message : 'An unknown error occurred')
+  } finally {
+    requestSignal.cleanup()
+  }
+}
+
+export async function getPipelineSystem(systemId: string, signal?: AbortSignal): Promise<PipelineSystem> {
+  return requestJson<PipelineSystem>(`/api/pipeline/systems/${systemId}`, { signal }, PIPELINE_POLL_TIMEOUT)
+}
+
+export async function getPipelineSystemGraph(systemId: string, signal?: AbortSignal): Promise<Record<string, unknown>> {
+  return requestJson<Record<string, unknown>>(`/api/pipeline/systems/${systemId}/graph`, { signal }, PIPELINE_POLL_TIMEOUT)
+}
+
+export async function putPipelineSystemConnectorReview(
+  systemId: string,
+  payload: { connector_overrides: ConnectorOverride[]; manual_pairs: ManualConnectorPair[]; reviewer?: string },
+  signal?: AbortSignal
+): Promise<PipelineSystem> {
+  return requestJson<PipelineSystem>(
+    `/api/pipeline/systems/${systemId}/connector-review`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal,
+    },
+    DEFAULT_REQUEST_TIMEOUT
+  )
 }
 
 export async function getPipelineJob(jobId: string, signal?: AbortSignal): Promise<PipelineJob> {

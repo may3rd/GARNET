@@ -9,6 +9,7 @@ from garnet.pipe_sheet_merge import (
     MergeResult,
     CrossSheetEdge,
     MergeIssue,
+    _normalize_connector_key,
 )
 
 
@@ -31,7 +32,96 @@ def _edge(edge_id: str, ref_type: str, ref_value: str, direction: str, exit_term
     }
 
 
+def _system_edge(edge_id: str, target_sheet: str, connector_key: str | None) -> dict:
+    edge = _edge(edge_id, "drawing", target_sheet, "bidirectional")
+    edge["off_page_connector"]["target_sheet_reference"] = target_sheet
+    if connector_key is not None:
+        edge["off_page_connector"]["connector_key"] = connector_key
+    return edge
+
+
 class ResolveMergePairsTests(unittest.TestCase):
+    def test_strict_merge_requires_unique_reciprocal_sheet_references_and_line_key(self):
+        g1 = _graph("DWG-100", [_system_edge("e1", "DWG-200", "10-P-100-A")])
+        g2 = _graph("DWG-200", [_system_edge("e2", "DWG-100", " 10-p-100-a ")])
+
+        result = resolve_merge_pairs([g1, g2], strict=True)
+
+        self.assertEqual(len(result.cross_sheet_edges), 1)
+        edge = result.cross_sheet_edges[0].to_dict()
+        self.assertEqual(edge["connector_key"], "10-P-100-A")
+        self.assertEqual(edge["match_method"], "automatic")
+        self.assertEqual(edge["sheets"], ["DWG-100", "DWG-200"])
+        self.assertEqual(result.merge_issues, [])
+
+    def test_strict_merge_reports_missing_connector_key(self):
+        g1 = _graph("DWG-100", [_system_edge("e1", "DWG-200", None)])
+        g2 = _graph("DWG-200", [_system_edge("e2", "DWG-100", "10-P-100-A")])
+
+        result = resolve_merge_pairs([g1, g2], strict=True)
+
+        self.assertEqual(result.cross_sheet_edges, [])
+        self.assertIn("missing_connector_key", {issue.type for issue in result.merge_issues})
+
+    def test_strict_merge_reports_non_reciprocal_reference(self):
+        g1 = _graph("DWG-100", [_system_edge("e1", "DWG-200", "10-P-100-A")])
+        g2 = _graph("DWG-200", [_system_edge("e2", "DWG-300", "10-P-100-A")])
+        g3 = _graph("DWG-300", [])
+
+        result = resolve_merge_pairs([g1, g2, g3], strict=True)
+
+        self.assertEqual(result.cross_sheet_edges, [])
+        self.assertIn("non_reciprocal_reference", {issue.type for issue in result.merge_issues})
+
+    def test_strict_merge_applies_override_then_manual_pair(self):
+        g1 = _graph("DWG-100", [_system_edge("e1", "bad OCR", "10-P-100-A")])
+        g2 = _graph("DWG-200", [_system_edge("e2", "also bad", "wrong")])
+
+        result = resolve_merge_pairs(
+            [g1, g2],
+            strict=True,
+            connector_overrides={
+                "DWG-100::e1": {"target_sheet_id": "DWG-200", "connector_key": "10-P-100-A"},
+                "DWG-200::e2": {"target_sheet_id": "DWG-100", "connector_key": "10-P-100-A"},
+            },
+            manual_pairs=[{"left_connector_id": "DWG-100::e1", "right_connector_id": "DWG-200::e2"}],
+        )
+
+        self.assertEqual(len(result.cross_sheet_edges), 1)
+        self.assertEqual(result.cross_sheet_edges[0].to_dict()["match_method"], "manual")
+        self.assertEqual(result.merge_issues, [])
+
+    def test_strict_merge_does_not_guess_when_duplicate_line_tags_are_ambiguous(self):
+        g1 = _graph("DWG-100", [_system_edge("e1", "DWG-200", "10-P-100-A")])
+        g2 = _graph("DWG-200", [
+            _system_edge("e2", "DWG-100", "10-P-100-A"),
+            _system_edge("e3", "DWG-100", "10-P-100-A"),
+        ])
+
+        result = resolve_merge_pairs([g1, g2], strict=True)
+
+        self.assertEqual(result.cross_sheet_edges, [])
+        self.assertIn("ambiguous_match", {issue.type for issue in result.merge_issues})
+
+    def test_strict_merge_output_is_deterministic_for_reversed_graph_order(self):
+        g1 = _graph("DWG-100", [_system_edge("edge-z", "DWG-200", "10-P-100-A")])
+        g2 = _graph("DWG-200", [_system_edge("edge-a", "DWG-100", "10-P-100-A")])
+
+        forward = resolve_merge_pairs([g1, g2], strict=True).to_dict()
+        reverse = resolve_merge_pairs([g2, g1], strict=True).to_dict()
+
+        self.assertEqual(forward, reverse)
+
+    def test_strict_merge_keeps_connector_direction_bidirectional(self):
+        g1 = _graph("DWG-100", [_system_edge("e1", "DWG-200", "10-P-100-A")])
+        g2 = _graph("DWG-200", [_system_edge("e2", "DWG-100", "10-P-100-A")])
+        g1["edges"][0]["off_page_connector"]["direction"] = "output"
+        g2["edges"][0]["off_page_connector"]["direction"] = "input"
+
+        edge = resolve_merge_pairs([g1, g2], strict=True).cross_sheet_edges[0].to_dict()
+
+        self.assertEqual(edge["direction_pair"], ("bidirectional", "bidirectional"))
+
     def test_two_sheets_one_pair_merged(self):
         g1 = _graph("SHEET-1", [_edge("e1", "sheet", "A-3", "output")])
         g2 = _graph("SHEET-A3", [_edge("e2", "sheet", "A-3", "input", "destination")])
@@ -123,22 +213,12 @@ class ResolveMergePairsTests(unittest.TestCase):
         self.assertEqual(len(result.cross_sheet_edges), 1)
         self.assertEqual(result.cross_sheet_edges[0].reference_value, "E-1")
 
-    def test_unknown_doc_id_falls_back(self):
-        g1 = _graph("S1", [_edge("e1", "sheet", "F-1", "output")])
-        g2 = _graph("S2", [_edge("e2", "sheet", "F-1", "input", "destination")])
-        # Also test truly empty doc_ids — both normalize to UNKNOWN, treated as
-        # same-sheet, which correctly becomes an INTRA_SHEET_DUPLICATE.
+    def test_duplicate_unknown_doc_ids_are_rejected(self):
         g3 = _graph(None, [_edge("e3", "sheet", "F-2", "output")])  # type: ignore
         g4 = _graph("  ", [_edge("e4", "sheet", "F-2", "input", "destination")])  # type: ignore
 
-        result = resolve_merge_pairs([g1, g2, g3, g4])
-
-        # g1+g2 have real doc_ids → merged
-        self.assertEqual(len(result.cross_sheet_edges), 1)
-        self.assertEqual(result.cross_sheet_edges[0].reference_value, "F-1")
-        # g3+g4 both normalize to UNKNOWN doc_id → INTRA_SHEET_DUPLICATE
-        self.assertEqual(len(result.merge_issues), 1)
-        self.assertEqual(result.merge_issues[0].type, "intra_sheet_duplicate")
+        with self.assertRaisesRegex(ValueError, "duplicate document.doc_id"):
+            resolve_merge_pairs([g3, g4])
 
     def test_reference_type_pid(self):
         g1 = _graph("S1", [_edge("e1", "pid", "P-101", "output")])
@@ -182,6 +262,52 @@ class ResolveMergePairsTests(unittest.TestCase):
         issue = d["merge_issues"][0]
         self.assertEqual(issue["type"], "dangling_connector")
         self.assertIn("H-1", issue["issue_id"])
+
+    def test_normalize_connector_key_extracts_line_number(self):
+        """OCR-noisy renderings of the same line number canonicalize to one key."""
+        self.assertEqual(_normalize_connector_key("2NAS-25-003004-B2A2-NI"), "25-003004")
+        self.assertEqual(_normalize_connector_key('1I,"-NAS-25-003004-82A2-NI'), "25-003004")
+        self.assertEqual(_normalize_connector_key("3\"-PL-26-003008-N2A1-NI"), "26-003008")
+
+    def test_normalize_connector_key_falls_back_to_cleaned_text(self):
+        """Keys without a line-number pattern keep their cleaned text."""
+        self.assertEqual(_normalize_connector_key("10-P-100-A"), "10-p-100-a")
+        self.assertEqual(_normalize_connector_key(""), "")
+
+    def test_merge_resolves_reciprocal_connectors_with_ocr_noisy_keys(self):
+        """Two sheets whose connectors reference each other and share a line
+        number (rendered with OCR noise) resolve to a cross-sheet edge."""
+        g1 = _graph(
+            "25-0002",
+            [
+                {
+                    "id": "e1",
+                    "off_page_connector": {
+                        "connector_key": "2NAS-25-003004-B2A2-NI",
+                        "target_sheet_reference": "25-0003",
+                        "reference_type": "sheet",
+                    },
+                }
+            ],
+        )
+        g2 = _graph(
+            "25-0003",
+            [
+                {
+                    "id": "e2",
+                    "off_page_connector": {
+                        "connector_key": '1I,"-NAS-25-003004-82A2-NI',
+                        "target_sheet_reference": "25-0002",
+                        "reference_type": "sheet",
+                    },
+                }
+            ],
+        )
+
+        d = resolve_merge_pairs([g1, g2], strict=True).to_dict()
+
+        self.assertEqual(len(d["cross_sheet_edges"]), 1)
+        self.assertEqual(len(d["merge_issues"]), 0)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,11 @@
 # Agent instructions (scope: this directory and subdirectories)
 
+# Lessons
+
+- From `backend/`, use the root virtualenv as `../.venv/bin/python` or its absolute path, never `.venv/bin/python`.
+- Inspect the on-disk target before choosing an exact patch marker; injected instructions may include content absent from the file.
+- Run non-package tests with unittest discovery or file patterns; do not address `tests.*` modules when `tests/` has no `__init__.py`.
+
 ## Scope and layout
 
 - This AGENTS.md applies to the repository root and everything below it.
@@ -10,7 +16,7 @@
 
 | Module          | Type             | Path                       | What it owns                                                                    | How to run                                              | Tests / checks                                              | Docs                | AGENTS                              |
 | --------------- | ---------------- | -------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------- | ------------------- | ----------------------------------- |
-| Backend API     | fastapi          | `backend/`                 | HTTP API, file upload flow, result serving, runtime config                      | From `backend/`: `uvicorn api:app --reload --port 8001` | `python -m py_compile api.py garnet/*.py garnet/utils/*.py` | `README.md`         | `backend/garnet/AGENTS.md`          |
+| Backend API     | fastapi          | `backend/`                 | HTTP API, file upload flow, result serving, runtime config                      | From `backend/`: `uvicorn api:app --reload --port 8090` | `python -m py_compile api.py garnet/*.py garnet/utils/*.py` | `README.md`         | `backend/garnet/AGENTS.md`          |
 | P&ID pipeline   | python package   | `backend/garnet/`          | Stage-by-stage P&ID rebuild, shared OCR/image utilities, pipeline orchestration | From `backend/`: `python -m garnet.pid_extractor`       | See module AGENTS                                           | `MASTER_PLAN.md`    | `backend/garnet/AGENTS.md`          |
 | Gemini detector | python adapter   | `backend/gemini_detector/` | Gemini/OpenRouter SAHI detector for text-like classes                           | Called from backend code                                | `python -m py_compile gemini_detector/*.py`                 | module file         | `backend/gemini_detector/AGENTS.md` |
 | Frontend        | react + vite     | `frontend/`                | Review UI, canvas editing, exports, backend API client                          | From `frontend/`: `bun run dev`                         | `bun run build`, `bun run lint`                             | `README.md`         | none                                |
@@ -21,7 +27,7 @@
 
 - Frontend <-> backend: the Vite app proxies `/api` and `/runs` to `VITE_API_URL`, defaulting to `http://localhost:8090`. Keep backend route changes synchronized with frontend API usage.
 - API <-> pipeline: `backend/api.py` is the service entrypoint, but the extraction logic lives in `backend/garnet/`. Change request/response shapes in the API layer only after checking the downstream pipeline output and frontend expectations.
-- Pipeline roadmap: for P&ID digitizing features, preserve the stage model in `MASTER_PLAN.md` and the scoped rules in `backend/garnet/AGENTS.md`. The live rebuild is currently Stage 1-only.
+- Pipeline roadmap: for P&ID digitizing features, preserve the stage model in `MASTER_PLAN.md` and the scoped rules in `backend/garnet/AGENTS.md`. The live runner is the sparse sequence documented in `MASTER_PLAN.md` (`1, 2, 4, 5, 5b, 6, 7, 7c, 7b, 8, 9, 10, 11`); Stage 3 remains external HITL input.
 - Generated artifacts: keep predictions, runs, temp files, and debug outputs in backend-owned artifact folders. Do not make the frontend depend on developer-local filesystem paths.
 - Pipeline HITL review: the frontend has separate review gates for object boxes and traced paths. Keep class suggestions tied to the active review type, preserve free-text class entry for add-box workflows, and make trace/branch overlays selectable without blocking normal canvas pan/zoom.
 

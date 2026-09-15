@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import type { AppView, BatchItem, DetectedObject, DetectionResult, OcrRoute, PipelineJob, ProcessingMode } from '@/types'
-import { APIError, getPipelineJob, runDetection, startPipelineJob, type DetectionOptions } from '@/lib/api'
+import type { AppView, BatchItem, DetectedObject, DetectionResult, OcrRoute, PipelineJob, PipelineSystem, ProcessingMode } from '@/types'
+import { APIError, getPipelineJob, getPipelineSystem, runDetection, startPipelineJob, startPipelineSystem, type DetectionOptions } from '@/lib/api'
 import { useHistoryStore } from '@/stores/historyStore'
 import { objectKey } from '@/lib/objectKey'
 
@@ -16,6 +16,8 @@ export type AppState = {
   pipelineDebugArtifacts: boolean
   result: DetectionResult | null
   pipelineJob: PipelineJob | null
+  pipelineSystem: PipelineSystem | null
+  pipelineSheetIds: Record<string, string>
   resultRunId: number
   reviewStatus: Record<string, 'accepted' | 'rejected'>
   selectedObjectKey: string | null
@@ -47,9 +49,14 @@ export type AppActions = {
   setPipelineOcrRoute: (route: OcrRoute) => void
   setPipelineGeminiPostprocessMatchThreshold: (value: number) => void
   setPipelineDebugArtifacts: (enabled: boolean) => void
+  setPipelineSheetId: (itemId: string, sheetId: string) => void
   setView: (view: AppView) => void
   runDetection: () => Promise<void>
   runPipeline: () => Promise<void>
+  runPipelineSystem: () => Promise<void>
+  refreshPipelineSystem: () => Promise<void>
+  restorePipelineSystem: () => Promise<void>
+  openPipelineSystemPage: (jobId: string) => void
   runBatchDetection: () => Promise<void>
   cancelDetection: () => void
   cancelBatch: () => void
@@ -85,6 +92,9 @@ const defaultOptions: DetectionOptions = {
 }
 
 const THEME_KEY = 'garnet-theme'
+const PIPELINE_SYSTEM_KEY = 'garnet-active-pipeline-system'
+
+const defaultSheetId = (fileName: string) => fileName.replace(/\.[^.]+$/, '').trim()
 
 const initialDarkMode = (() => {
   if (typeof window === 'undefined') return false
@@ -140,6 +150,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   pipelineDebugArtifacts: false,
   result: null,
   pipelineJob: null,
+  pipelineSystem: null,
+  pipelineSheetIds: {},
   resultRunId: 0,
   reviewStatus: {},
   selectedObjectKey: null,
@@ -159,6 +171,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     error: null,
   }),
   setPipelineDebugArtifacts: (enabled) => set({ pipelineDebugArtifacts: enabled, error: null }),
+  setPipelineSheetId: (itemId, sheetId) => set((state) => ({
+    pipelineSheetIds: { ...state.pipelineSheetIds, [itemId]: sheetId },
+    error: null,
+  })),
 
   setImageFile: (file) => {
     const previous = get().imageUrl
@@ -173,6 +189,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         imageMeta: null,
         result: null,
         pipelineJob: null,
+        pipelineSystem: null,
+        pipelineSheetIds: {},
         currentView: 'empty',
         batch: emptyBatchState,
       })
@@ -184,6 +202,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       imageFile: file,
       imageUrl: url,
       pipelineJob: null,
+      pipelineSystem: null,
+      pipelineSheetIds: {},
       result: null,
       currentView: 'preview',
       batch: emptyBatchState,
@@ -207,6 +227,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       imageMeta: null,
       result: null,
       pipelineJob: null,
+      pipelineSystem: null,
+      pipelineSheetIds: Object.fromEntries(items.map((item) => [item.id, defaultSheetId(item.fileName)])),
       reviewStatus: {},
       selectedObjectKey: null,
       currentView: 'batch',
@@ -227,26 +249,27 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     if (batchAbortController) {
       batchAbortController.abort()
     }
-    set({ batch: emptyBatchState })
+    set({ batch: emptyBatchState, pipelineSheetIds: {} })
   },
 
   addBatchFiles: (files) => {
     if (!files.length) return
-    set((state) => ({
-      currentView: 'batch',
-      batch: {
-        ...state.batch,
-        items: [
-          ...state.batch.items,
-          ...files.map((file) => ({
-            id: createBatchItemId(),
-            file,
-            fileName: file.name,
-            status: 'queued',
-          })),
-        ],
-      },
-    }))
+    set((state) => {
+      const newItems = files.map((file) => ({
+        id: createBatchItemId(),
+        file,
+        fileName: file.name,
+        status: 'queued' as const,
+      }))
+      return {
+        currentView: 'batch',
+        pipelineSheetIds: {
+          ...state.pipelineSheetIds,
+          ...Object.fromEntries(newItems.map((item) => [item.id, defaultSheetId(item.fileName)])),
+        },
+        batch: { ...state.batch, items: [...state.batch.items, ...newItems] },
+      }
+    })
   },
 
   removeBatchItem: (id) => {
@@ -255,6 +278,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       const wasActive = state.batch.activeItemId === id
       const nextActive = wasActive ? null : state.batch.activeItemId
       return {
+        pipelineSheetIds: Object.fromEntries(Object.entries(state.pipelineSheetIds).filter(([itemId]) => itemId !== id)),
         batch: {
           ...state.batch,
           items,
@@ -296,7 +320,12 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   setView: (view) => set({ currentView: view }),
 
   goBack: () => {
-    const { currentView, batch } = get()
+    const { currentView, batch, pipelineSystem } = get()
+    if (currentView === 'results' && pipelineSystem) {
+      void get().refreshPipelineSystem()
+      set({ currentView: 'system', pipelineJob: null })
+      return
+    }
     if (currentView === 'results' && batch.items.length > 0) {
       set({ currentView: 'batch' })
       return
@@ -309,10 +338,17 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
         imageMeta: null,
         result: null,
         pipelineJob: null,
+        pipelineSystem: null,
+        pipelineSheetIds: {},
         reviewStatus: {},
         selectedObjectKey: null,
         currentView: 'empty',
       })
+      return
+    }
+    if (currentView === 'system') {
+      window.localStorage.removeItem(PIPELINE_SYSTEM_KEY)
+      set({ pipelineSystem: null, pipelineJob: null, batch: emptyBatchState, pipelineSheetIds: {}, currentView: 'empty' })
       return
     }
     get().setImageFile(null)
@@ -398,7 +434,11 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   },
 
   runPipeline: async () => {
-    const { imageFile, pipelineOcrRoute, pipelineGeminiPostprocessMatchThreshold, pipelineDebugArtifacts, options } = get()
+    const { imageFile, batch, pipelineOcrRoute, pipelineGeminiPostprocessMatchThreshold, pipelineDebugArtifacts, options } = get()
+    if (batch.items.length > 0) {
+      await get().runPipelineSystem()
+      return
+    }
     if (!imageFile) return
 
     if (progressTimer) {
@@ -491,6 +531,81 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     } finally {
       activeAbortController = null
     }
+  },
+
+  runPipelineSystem: async () => {
+    const { batch, pipelineSheetIds, pipelineOcrRoute, pipelineGeminiPostprocessMatchThreshold, pipelineDebugArtifacts, options } = get()
+    if (batch.items.length < 2 || batch.items.length > 50) {
+      set({ error: 'Pipeline systems require 2 to 50 pages.' })
+      return
+    }
+    const pages = batch.items.map((item) => ({ file: item.file, sheetId: pipelineSheetIds[item.id] || '' }))
+    const normalized = pages.map((page) => page.sheetId.trim().toLocaleLowerCase().replace(/\s+/g, ' '))
+    if (normalized.some((sheetId) => !sheetId) || new Set(normalized).size !== normalized.length) {
+      set({ error: 'Every page needs a unique drawing/sheet ID.' })
+      return
+    }
+    if (activeAbortController) activeAbortController.abort()
+    activeAbortController = new AbortController()
+    set({ isProcessing: true, error: null, progress: { step: 'Creating pipeline system...', percent: 5 } })
+    try {
+      const created = await startPipelineSystem(
+        pages,
+        {
+          ocrRoute: pipelineOcrRoute,
+          geminiPostprocessMatchThreshold: pipelineGeminiPostprocessMatchThreshold,
+          weightFile: options.weightFile,
+          debugArtifacts: pipelineDebugArtifacts,
+        },
+        activeAbortController.signal
+      )
+      window.localStorage.setItem(PIPELINE_SYSTEM_KEY, created.system_id)
+      const system = await getPipelineSystem(created.system_id, activeAbortController.signal)
+      set({
+        pipelineSystem: system,
+        pipelineJob: null,
+        processingMode: 'pipeline',
+        isProcessing: false,
+        currentView: 'system',
+        progress: null,
+      })
+    } catch (error) {
+      set({
+        isProcessing: false,
+        error: error instanceof Error ? error.message : 'Pipeline system failed',
+        progress: null,
+      })
+    } finally {
+      activeAbortController = null
+    }
+  },
+
+  refreshPipelineSystem: async () => {
+    const systemId = get().pipelineSystem?.system_id || window.localStorage.getItem(PIPELINE_SYSTEM_KEY)
+    if (!systemId) return
+    try {
+      const pipelineSystem = await getPipelineSystem(systemId)
+      set({ pipelineSystem, error: null })
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to refresh pipeline system' })
+    }
+  },
+
+  restorePipelineSystem: async () => {
+    const systemId = window.localStorage.getItem(PIPELINE_SYSTEM_KEY)
+    if (!systemId || get().pipelineSystem) return
+    try {
+      const pipelineSystem = await getPipelineSystem(systemId)
+      set({ pipelineSystem, processingMode: 'pipeline', currentView: 'system' })
+    } catch {
+      window.localStorage.removeItem(PIPELINE_SYSTEM_KEY)
+    }
+  },
+
+  openPipelineSystemPage: (jobId) => {
+    const page = get().pipelineSystem?.pages.find((item) => item.job_id === jobId)
+    if (!page) return
+    set({ pipelineJob: page.job, currentView: 'results', processingMode: 'pipeline' })
   },
 
   runBatchDetection: async () => {

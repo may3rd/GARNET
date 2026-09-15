@@ -1,11 +1,15 @@
 import importlib.util
+import os
 from pathlib import Path
 import unittest
 
+EVALUATOR_PATH = (
+    Path(__file__).resolve().parents[2] / "autoresearch" / "graph_loop" / "evaluate_graph.py"
+)
+
 
 def _load_evaluator_module():
-    path = Path(__file__).resolve().parents[2] / "autoresearch" / "graph_loop" / "evaluate_graph.py"
-    spec = importlib.util.spec_from_file_location("graph_loop_evaluator", path)
+    spec = importlib.util.spec_from_file_location("graph_loop_evaluator", EVALUATOR_PATH)
     if spec is None or spec.loader is None:
         raise RuntimeError("unable to load graph loop evaluator")
     module = importlib.util.module_from_spec(spec)
@@ -13,6 +17,7 @@ def _load_evaluator_module():
     return module
 
 
+@unittest.skipUnless(EVALUATOR_PATH.is_file(), "autoresearch graph loop evaluator not present (experiment branch only)")
 class GraphLoopEvaluatorTests(unittest.TestCase):
     def test_graph_loop_score_rewards_junction_correctness_counters(self) -> None:
         evaluator = _load_evaluator_module()

@@ -125,8 +125,8 @@ backend/garnet/
 
 | Command | What runs |
 |---|---|
-| `uvicorn api:app --reload --port 8001` | FastAPI service (canonical) |
-| `uvicorn main:app --port 8001` | Same service via compatibility shim |
+| `uvicorn api:app --reload --port 8090` | FastAPI service (canonical) |
+| `uvicorn main:app --port 8090` | Same service via compatibility shim |
 | `python garnet/pid_extractor.py --image <png> --out <dir>` | CLI pipeline runner |
 | `bash run_stage5b_only.sh` | Stage 5b-only smoke test |
 | `bash run_debug.sh` | Debug-mode pipeline runner |

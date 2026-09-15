@@ -13,6 +13,8 @@ from typing import Any, Optional
 
 import numpy as np
 
+from .flow_direction import aggregate_edge_direction, infer_arrow_route_direction, normalize_arrow_evidence
+
 LINE_NUMBER_REVIEW_ASSUMPTION = "accepted_line_numbers_are_human_reviewed"
 
 
@@ -135,6 +137,57 @@ def _stable_choice_index(key: str, count: int) -> int:
     return sum((index + 1) * ord(char) for index, char in enumerate(key)) % count
 
 
+def _bbox_point_distance(bbox: dict[str, Any] | None, point: tuple[float, float] | None) -> float:
+    """Distance from a point to a bbox (0.0 when inside); inf when either is missing."""
+    if not bbox or point is None:
+        return float("inf")
+    try:
+        x_min = float(bbox["x_min"])
+        y_min = float(bbox["y_min"])
+        x_max = float(bbox["x_max"])
+        y_max = float(bbox["y_max"])
+    except (KeyError, TypeError, ValueError):
+        return float("inf")
+    px, py = point
+    dx = max(x_min - px, 0.0, px - x_max)
+    dy = max(y_min - py, 0.0, py - y_max)
+    return float(math.hypot(dx, dy))
+
+
+def _trace_reference_points(edge: dict[str, Any]) -> list[tuple[float, float]]:
+    """Endpoints that anchor a trace geometrically: polyline ends and terminal."""
+    points: list[tuple[float, float]] = []
+    polyline = edge.get("polyline") or []
+    if polyline:
+        for index in (0, -1):
+            point = polyline[index]
+            if isinstance(point, (list, tuple)) and len(point) >= 2:
+                points.append((float(point[0]), float(point[1])))
+    terminal = edge.get("terminal_xy")
+    if isinstance(terminal, (list, tuple)) and len(terminal) >= 2:
+        points.append((float(terminal[0]), float(terminal[1])))
+    return points
+
+
+def _nearest_template_index(edge: dict[str, Any], reviewed_pool: list[dict[str, Any]], trace_id: str) -> int:
+    """Index of the pool line number geometrically nearest this trace.
+
+    Prefers the accepted line number closest to the trace's endpoints (ports
+    and terminal); falls back to the stable hash pick when either side lacks
+    usable geometry so the assignment stays deterministic.
+    """
+    fallback = _stable_choice_index(trace_id, len(reviewed_pool))
+    points = _trace_reference_points(edge)
+    if not points:
+        return fallback
+    best_index, best_distance = fallback, float("inf")
+    for index, template in enumerate(reviewed_pool):
+        distance = min(_bbox_point_distance(template.get("bbox"), point) for point in points)
+        if distance < best_distance:
+            best_index, best_distance = index, distance
+    return best_index
+
+
 def simulate_line_number_hitl_for_missing_traces(
     edges: list[dict[str, Any]],
     reviewed_line_numbers: list[dict[str, Any]],
@@ -154,8 +207,16 @@ def simulate_line_number_hitl_for_missing_traces(
         line_numbers = attachments.setdefault("line_numbers", [])
         if line_numbers:
             continue
+        # Only sheet-boundary connectors need a line number (they feed the
+        # off-page connector key used by strict multi-sheet merge). Equipment
+        # ports and branch stubs without a nearby label stay empty and are
+        # reported in traces_without_line_number instead of getting a
+        # fabricated number drawn onto the wrong pipe.
+        source_type = str(edge.get("source_obj_type") or "").casefold()
+        if "connection" not in source_type:
+            continue
         trace_id = str(edge.get("trace_id") or "")
-        template = reviewed_pool[_stable_choice_index(trace_id, len(reviewed_pool))]
+        template = reviewed_pool[_nearest_template_index(edge, reviewed_pool, trace_id)]
         line_id = str(template.get("id") or template.get("source_object_id") or "")
         assignment = {
             "id": line_id,
@@ -352,6 +413,77 @@ def _nearest_bbox(bbox: dict[str, Any], edges: list[dict[str, Any]]) -> Optional
     return best
 
 
+_LABEL_ORIENTATION_MIN_RATIO = 1.5
+
+
+def _label_orientation(bbox: dict[str, Any]) -> Optional[str]:
+    """Aspect orientation of a text label: 'horizontal', 'vertical', or None.
+
+    Near-square labels are orientation-ambiguous and get no preference.
+    """
+    try:
+        width = float(bbox["x_max"]) - float(bbox["x_min"])
+        height = float(bbox["y_max"]) - float(bbox["y_min"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if width <= 0 or height <= 0:
+        return None
+    if width >= height * _LABEL_ORIENTATION_MIN_RATIO:
+        return "horizontal"
+    if height >= width * _LABEL_ORIENTATION_MIN_RATIO:
+        return "vertical"
+    return None
+
+
+def _segment_orientation(segment: dict[str, Any]) -> str:
+    dx = abs(float(segment["x2"]) - float(segment["x1"]))
+    dy = abs(float(segment["y2"]) - float(segment["y1"]))
+    return "horizontal" if dx > dy else "vertical"
+
+
+def _nearest_bbox_oriented(
+    bbox: dict[str, Any],
+    edges: list[dict[str, Any]],
+    orientation: str,
+    max_distance_px: float,
+) -> Optional[dict[str, Any]]:
+    """Nearest segment whose direction matches the label orientation.
+
+    Mirrors the corner-sampling metric of `_nearest_bbox`, but only considers
+    candidates within `max_distance_px`; returns None when no orientation-
+    matching candidate qualifies so the caller can fall back to the pure
+    nearest segment.
+    """
+    best: Optional[dict[str, Any]] = None
+    for edge in edges:
+        cumulative = 0.0
+        for index, segment in enumerate(edge.get("segments", [])):
+            if _segment_orientation(segment) != orientation:
+                cumulative += max(abs(float(segment["x2"]) - float(segment["x1"])), abs(float(segment["y2"]) - float(segment["y1"])))
+                continue
+            ax = float(segment["x1"])
+            ay = float(segment["y1"])
+            bx = float(segment["x2"])
+            by = float(segment["y2"])
+            seg_len = max(abs(bx - ax), abs(by - ay))
+            for point in _bbox_points(bbox):
+                qx, qy, t, distance = _point_to_segment(point[0], point[1], ax, ay, bx, by)
+                if best is None or distance < best["distance_px"]:
+                    best = {
+                        "trace_id": edge["trace_id"],
+                        "trace_kind": edge["trace_kind"],
+                        "segment_index": index,
+                        "projected_xy": [round(qx, 2), round(qy, 2)],
+                        "distance_px": round(distance, 2),
+                        "t": round(t, 4),
+                        "trace_distance_px": round(cumulative + t * seg_len, 2),
+                    }
+            cumulative += seg_len
+    if best is not None and best["distance_px"] <= max_distance_px:
+        return best
+    return None
+
+
 def _add_attachment(
     edges_by_id: dict[str, dict[str, Any]],
     trace_id: str,
@@ -373,6 +505,7 @@ def _attach_bbox_items(
     max_distance_px: float,
     id_key: str = "id",
     class_key: str = "class_name",
+    prefer_orientation_match: bool = False,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     accepted: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
@@ -383,6 +516,16 @@ def _attach_bbox_items(
             rejected.append({"id": item_id, "reason": "missing_bbox", "source": item})
             continue
         nearest = _nearest_bbox(bbox, edges)
+        if prefer_orientation_match and nearest is not None:
+            # A text label annotates the line it is written along: when the
+            # globally nearest segment runs perpendicular to the label's long
+            # axis (e.g. a crossing pipe clipping the label corner), prefer a
+            # direction-matching segment within threshold.
+            orientation = _label_orientation(bbox)
+            if orientation is not None:
+                aligned = _nearest_bbox_oriented(bbox, edges, orientation, max_distance_px)
+                if aligned is not None:
+                    nearest = aligned
         if nearest is None:
             rejected.append({"id": item_id, "reason": "no_trace_edges", "source": item})
             continue
@@ -396,6 +539,13 @@ def _attach_bbox_items(
             "confidence": item.get("confidence", item.get("fused_confidence", item.get("detection_confidence"))),
             **nearest,
         }
+        if group == "flow_arrows":
+            # Keep detector/reviewer geometry intact for normalization; these
+            # fields are evidence and must not be reconstructed from walking
+            # order.
+            for key in ("vector", "direction", "tip", "tail", "tip_xy", "tail_xy", "review_state", "flow_direction_review_state"):
+                if key in item:
+                    association[key] = item[key]
         if nearest["distance_px"] <= max_distance_px:
             if group == "line_numbers":
                 association = _mark_line_number_review_state(association, accepted=True)
@@ -480,6 +630,9 @@ def build_trace_associations(
     text_max_distance_px: float,
     instrument_max_distance_px: float,
     arrow_max_distance_px: float,
+    image_bgr: Any = None,
+    flow_arrow_raster_confidence_threshold: float = 0.70,
+    flow_arrow_raster_asymmetry_threshold: float = 0.15,
 ) -> dict[str, Any]:
     objects_by_id = {str(obj.get("id", "")): obj for obj in objects}
     edges = load_stage5b_trace_edges(trace_payload, branch_payload, objects_by_id)
@@ -586,6 +739,7 @@ def build_trace_associations(
         group="line_numbers",
         items=line_numbers,
         max_distance_px=text_max_distance_px,
+        prefer_orientation_match=True,
     )
     associations["line_numbers"]["accepted"] = accepted
     associations["line_numbers"]["rejected"] = rejected
@@ -611,6 +765,33 @@ def build_trace_associations(
     associations["flow_arrows"]["accepted"] = accepted
     associations["flow_arrows"]["rejected"] = rejected
 
+    # Arrow geometry is evidence only when explicitly present or confidently
+    # recovered from a crop.  Trace walking order is never treated as flow.
+    for arrow in associations["flow_arrows"]["accepted"]:
+        evidence = normalize_arrow_evidence(
+            arrow, image=image_bgr,
+            raster_confidence_threshold=flow_arrow_raster_confidence_threshold,
+            raster_asymmetry_threshold=flow_arrow_raster_asymmetry_threshold,
+        )
+        evidence["arrow_id"] = arrow.get("id")
+        evidence["segment_index"] = arrow.get("segment_index")
+        evidence["route_direction"] = infer_arrow_route_direction(evidence, edges_by_id.get(arrow.get("trace_id"), {}))
+        arrow["flow_direction_evidence"] = evidence
+        arrow["flow_direction_state"] = evidence["route_direction"]
+
+    for edge in edges:
+        edge_arrows = edge.setdefault("attachments", {}).get("flow_arrows", [])
+        evidences = [a.get("flow_direction_evidence", {}) for a in edge_arrows]
+        state, confidence = aggregate_edge_direction(evidences)
+        edge["flow_direction_state"] = state
+        edge["flow_direction_confidence"] = confidence
+        edge["flow_direction_evidence"] = evidences
+        edge["flow_direction_review_state"] = (
+            "accepted" if state == "bidirectional" and any(e.get("review_state") == "accepted" for e in evidences)
+            else "inferred" if state in {"forward", "reverse"}
+            else "unresolved"
+        )
+
     for edge in edges:
         terminal_xy = edge.get("terminal_xy") or []
         if len(terminal_xy) != 2 or terminal_xy[0] is None or terminal_xy[1] is None:
@@ -633,11 +814,11 @@ def build_trace_associations(
         for branch_id, branch in branch_payload.get("branches", {}).items()
         if branch.get("status") != "traced"
     ]
-    simulated_line_number_assignments = simulate_line_number_hitl_for_missing_traces(
-        edges,
-        associations["line_numbers"]["accepted"],
-    )
-    associations["line_numbers"]["accepted"].extend(simulated_line_number_assignments)
+    # Missing line numbers are unresolved evidence.  The former deterministic
+    # HITL stand-in assigned an arbitrary accepted label to connector traces,
+    # which could silently corrupt cross-sheet line identity.  Keep the helper
+    # available for legacy experiments, but never invoke it in production.
+    simulated_line_number_assignments: list[dict[str, Any]] = []
     traces_without_line_number = [
         edge["trace_id"]
         for edge in edges

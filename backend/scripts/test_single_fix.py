@@ -10,9 +10,7 @@ image_path = Path("/Volumes/Ginnungagap/maetee/Code/GARNET/backend/test/ppcl/Tes
 out_dir = OUTPUT_ROOT / label / "default"
 out_dir.mkdir(parents=True, exist_ok=True)
 
-os.chdir(str(out_dir))
-
 cfg = PipelineConfig(ocr_route="ocrmac")
-pipe = PIDPipeline(str(image_path), out_dir="output", cfg=cfg)
+pipe = PIDPipeline(str(image_path), output_dir=out_dir, cfg=cfg)
 pipe.run()
 print("Done")

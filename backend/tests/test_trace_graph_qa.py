@@ -118,6 +118,49 @@ class TraceGraphQATests(unittest.TestCase):
         self.assertNotEqual(color_b, (255, 255, 255))
         self.assertNotEqual(color_a, color_b)
 
+    def test_max_steps_terminal_flags_abandoned_trace(self) -> None:
+        graph_payload = {
+            "image_id": "synthetic.png",
+            "nodes": [
+                {"id": "equipment::a", "type": "equipment", "position": {"x": 0, "y": 0}},
+                {"id": "equipment::b", "type": "equipment", "position": {"x": 100, "y": 0}},
+                {"id": "equipment::c", "type": "equipment", "position": {"x": 0, "y": 100}},
+                {"id": "equipment::d", "type": "equipment", "position": {"x": 100, "y": 100}},
+            ],
+            "edges": [
+                {
+                    "id": "trace::abandoned",
+                    "source": "equipment::a",
+                    "target": "equipment::b",
+                    "terminal_type": "max_steps",
+                    "trace_length_px": 100,
+                    "polyline": [{"x": 0, "y": 0}, {"x": 100, "y": 0}],
+                },
+                {
+                    "id": "trace::normal",
+                    "source": "equipment::c",
+                    "target": "equipment::d",
+                    "terminal_type": "equipment",
+                    "trace_length_px": 100,
+                    "polyline": [{"x": 0, "y": 100}, {"x": 100, "y": 100}],
+                },
+            ],
+        }
+
+        result = run_stage12_trace_graph_qa(
+            image_id="synthetic.png",
+            graph_payload=graph_payload,
+            image_bgr=np.zeros((160, 160, 3), dtype=np.uint8),
+        )
+
+        abandoned_issues = [
+            issue for issue in result["qa_payload"]["issues"]
+            if issue["category"] == "abandoned_trace"
+        ]
+        self.assertEqual(len(abandoned_issues), 1)
+        self.assertEqual(abandoned_issues[0]["severity"], "high")
+        self.assertEqual(abandoned_issues[0]["edge_id"], "trace::abandoned")
+
 
 if __name__ == "__main__":
     unittest.main()

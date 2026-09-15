@@ -53,7 +53,9 @@ export function DetectionSetup() {
   const isGeminiModel = options.selectedModel === 'gemini'
   const hasRunnableBatchItems = batch.items.some((item) => item.status === 'queued' || item.status === 'failed')
   const runAction = isPipelineMode ? runPipeline : isBatchMode ? runBatchDetection : runDetection
-  const runLabel = isPipelineMode ? `Run Pipeline (${pipelineOcrRoute})` : isBatchMode ? `Run Batch (${batch.items.length})` : 'Run Detection'
+  const runLabel = isPipelineMode
+    ? isBatchMode ? `Run Pipeline System (${batch.items.length})` : `Run Pipeline (${pipelineOcrRoute})`
+    : isBatchMode ? `Run Batch (${batch.items.length})` : 'Run Detection'
 
   const handleModelChange = (value: string) => {
     if (value === 'gemini') {
@@ -86,7 +88,7 @@ export function DetectionSetup() {
           variant={processingMode === 'pipeline' ? 'cta' : 'ghost'}
           className="w-full"
           onClick={() => setProcessingMode('pipeline')}
-          disabled={isLocked || isBatchMode}
+          disabled={isLocked}
         >
           Pipeline
         </Button>
@@ -95,7 +97,7 @@ export function DetectionSetup() {
       {isBatchMode && (
         <div className="text-xs text-[var(--text-secondary)] bg-[var(--bg-primary)] border border-[var(--border-muted)] p-3 rounded-lg">
           {isPipelineMode
-            ? 'Pipeline mode is limited to a single image in Slice 2.'
+            ? 'Pipeline system mode keeps each drawing reviewable and links accepted off-page connectors after all pages finish.'
             : 'Batch mode is active. The selected model and settings apply to all images in the batch.'}
         </div>
       )}
@@ -351,7 +353,7 @@ export function DetectionSetup() {
           onClick={runAction}
           variant="cta"
           className="mt-auto"
-          disabled={isLoading || isLocked || (isBatchMode && !hasRunnableBatchItems) || (isBatchMode && isPipelineMode)}
+          disabled={isLoading || isLocked || (isBatchMode && !isPipelineMode && !hasRunnableBatchItems)}
         >
           <Play className="h-4 w-4" />
           {runLabel}

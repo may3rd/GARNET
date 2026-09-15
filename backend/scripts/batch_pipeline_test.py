@@ -42,13 +42,7 @@ def run_one(label: str, image_path: Path) -> dict:
 
     cfg = PipelineConfig(ocr_route="easyocr")
 
-    # Change to out_dir so PIDPipeline's relative "output" path resolves correctly.
-    # Without this, the pipeline writes to backend/output/ (relative to CWD) instead
-    # of the intended OUTPUT_ROOT subdirectory.
-    import os as _os
-    _os.chdir(str(out_dir))
-
-    pipe = PIDPipeline(str(image_path), out_dir="output", cfg=cfg)
+    pipe = PIDPipeline(str(image_path), output_dir=out_dir, cfg=cfg)
 
     t0 = time.time()
     pipe.run()  # Full pipeline through all stages

@@ -149,8 +149,8 @@ All backend commands must be run from the `backend/` directory.
 ```bash
 cd backend
 
-# Start FastAPI server on port 8001
-uvicorn api:app --reload --port 8001
+# Start FastAPI server on port 8090
+uvicorn api:app --reload --port 8090
 
 # Install Python dependencies
 pip install -r requirements.txt
@@ -222,7 +222,7 @@ Copy `.env.example` (root) to `.env` and configure:
 | Variable                                    | Default                         | Description                              |
 | ------------------------------------------- | ------------------------------- | ---------------------------------------- |
 | `ENV`                                       | `development`                   | Environment mode                         |
-| `HOST` / `PORT`                             | `localhost` / `8001`            | Server bind address                      |
+| `HOST` / `PORT`                             | `localhost` / `8090`            | Server bind address                      |
 | `ALLOWED_ORIGINS`                           | `http://localhost:5173,...`     | CORS origins (comma-separated)           |
 | `MAX_FILE_SIZE_MB`                          | `50`                            | Upload size limit                        |
 | `DEFAULT_CONF_THRESHOLD`                    | `0.8`                           | Default detection confidence             |
@@ -246,7 +246,7 @@ Copy `.env.example` (root) to `.env` and configure:
 ```
 ┌──────────────────┐         ┌───────────────────┐         ┌──────────────────┐
 │  React Frontend  │ ──HTTP─→│  FastAPI Backend  │ ──→───  │  garnet/ Module  │
-│  (Port 5173)     │ ←──JSON─│  (Port 8001)      │ ←───   │  (Pipeline Core) │
+│  (Port 5173)     │ ←──JSON─│  (Port 8090)      │ ←───   │  (Pipeline Core) │
 └──────────────────┘         └───────────────────┘         └──────────────────┘
         │                             │                              │
         │ Zustand State               │ Model Cache                  │ 60+ Python files
@@ -419,7 +419,7 @@ Frontend has no test framework configured — verify with `bun run lint` and `bu
 
 - **Model not found**: Check `backend/yolo_weights/` for .pt/.onnx files
 - **OCR fails**: Ensure EasyOCR is installed and cached reader initializes (check `OCR_GPU` setting)
-- **Frontend proxy error**: Backend must be running on port 8001
+- **Frontend proxy error**: Backend must be running on port 8090
 - **CUDA OOM**: Reduce `image_size` or set `device="cpu"`
 - **Import errors**: Always run from `backend/` directory
 - **Gemini OCR fails**: Verify `OPENROUTER_API_KEY` is set in `.env`

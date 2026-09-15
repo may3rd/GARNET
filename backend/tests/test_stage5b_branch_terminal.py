@@ -301,3 +301,93 @@ class Stage5bTurnMetadataTests(unittest.TestCase):
         turns = self.pipeline._rebuild_stage5b_turns_from_segments(segments)
 
         self.assertEqual(turns, [{"x": 1070, "y": 792, "new_dir": "UP"}])
+
+
+class Stage5bTeeTerminalAnchorTests(unittest.TestCase):
+    """Lock in the honest-geometry contract for tee-junction terminal alignment.
+
+    The terminal anchor (terminal_x/y) is placed at the tee-node bbox center,
+    but the pipe polyline (built from segments) is left at the traced extent.
+    It must NOT be extended to the node center, which would draw the pipe
+    beyond the traced mask by the dot radius (~17-18px measured off-mask).
+    """
+
+    def setUp(self) -> None:
+        self.pipeline = PIDPipeline.__new__(PIDPipeline)
+
+    def test_branch_node_terminals_anchor_but_do_not_extend_segment(self) -> None:
+        node_symbols = [
+            {
+                "id": "obj_000063",
+                "bbox": {"x_min": 490, "x_max": 510, "y_min": 2680, "y_max": 2692},
+            }
+        ]
+        branch_results = {
+            "obj_000190": {
+                "status": "traced",
+                "terminal_type": "tee_junction",
+                "terminal_obj_id": "obj_000063",
+                "terminal_x": 480,
+                "terminal_y": 2686,
+                "trace_length_px": 320,
+                "segments": [
+                    {"x1": 160, "y1": 2686, "x2": 482, "y2": 2686, "direction": "RIGHT", "length_px": 322}
+                ],
+            }
+        }
+
+        self.pipeline._align_stage5b_branch_node_terminals(branch_results, node_symbols)
+
+        result = branch_results["obj_000190"]
+        # Anchor lands at the node bbox center.
+        self.assertEqual((result["terminal_x"], result["terminal_y"]), (500, 2686))
+        # Pipe polyline stays at the traced extent; last segment is NOT extended.
+        self.assertEqual((result["segments"][-1]["x2"], result["segments"][-1]["y2"]), (482, 2686))
+        self.assertEqual(result["segments"][-1]["length_px"], 322)
+        self.assertEqual(result["trace_length_px"], 320)
+
+    def test_near_node_aligns_anchor_but_does_not_extend_segment(self) -> None:
+        node_symbols = [
+            {
+                "id": "node_7",
+                "bbox": {"x_min": 976, "x_max": 988, "y_min": 1778, "y_max": 1790},
+            }
+        ]
+        result = {
+            "terminal_type": "tee_junction",
+            "terminal_x": 980,
+            "terminal_y": 1786,
+            "trace_length_px": 800,
+            "segments": [
+                {"x1": 100, "y1": 1784, "x2": 981, "y2": 1784, "direction": "RIGHT", "length_px": 881}
+            ],
+        }
+
+        self.pipeline._align_stage5b_result_to_near_node(result, node_symbols)
+
+        # Anchor moves to the nearest node bbox center and object id is set.
+        self.assertEqual(result["terminal_obj_id"], "node_7")
+        self.assertEqual((result["terminal_x"], result["terminal_y"]), (982, 1784))
+        # Terminal polyline stays at the traced extent; NOT extended to the center.
+        self.assertEqual((result["segments"][-1]["x2"], result["segments"][-1]["y2"]), (981, 1784))
+        self.assertEqual(result["segments"][-1]["length_px"], 881)
+        self.assertEqual(result["trace_length_px"], 800)
+
+    def test_near_node_does_not_rewrite_non_tee_results(self) -> None:
+        node_symbols = [
+            {
+                "id": "node_7",
+                "bbox": {"x_min": 976, "x_max": 988, "y_min": 1778, "y_max": 1790},
+            }
+        ]
+        result = {
+            "terminal_type": "equipment",
+            "terminal_x": 10,
+            "terminal_y": 20,
+            "segments": [{"x1": 0, "y1": 20, "x2": 10, "y2": 20, "direction": "RIGHT", "length_px": 10}],
+        }
+
+        self.pipeline._align_stage5b_result_to_near_node(result, node_symbols)
+
+        self.assertEqual(result.get("terminal_obj_id"), None)
+        self.assertEqual((result["terminal_x"], result["terminal_y"]), (10, 20))

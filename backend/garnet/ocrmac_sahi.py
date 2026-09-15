@@ -16,7 +16,10 @@ logger = logging.getLogger("pid")
 
 @dataclass(frozen=True)
 class OcrMacSahiConfig:
-    recognition_level: str = "accurate"
+    # macOS Vision's "accurate" recognizer returns zero detections in this
+    # environment even for large, clear text; "fast" detects text reliably and
+    # is required for line numbers / connector keys / page references to populate.
+    recognition_level: str = "fast"
     framework: str = "vision"
     language_preference: tuple[str, ...] = ("en-US",)
     confidence_threshold: float = 0.0

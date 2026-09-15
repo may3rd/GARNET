@@ -64,7 +64,7 @@ class ObjectDetectionSahiTests(unittest.TestCase):
         mock_get_sliced_prediction.return_value = MagicMock(object_prediction_list=[])
 
         cfg = DetectionSahiConfig()
-        result = run_object_detection_sahi("dummy.png", cfg=cfg)
+        result = run_object_detection_sahi("dummy.png", image_id="dummy.png", cfg=cfg)
 
         mock_build_detection_model.assert_called_once_with(cfg)
         kwargs = mock_get_sliced_prediction.call_args.kwargs

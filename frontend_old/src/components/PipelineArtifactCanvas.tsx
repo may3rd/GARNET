@@ -89,7 +89,7 @@ export function PipelineArtifactCanvas({ imageUrl, title, highlightBox = null }:
   }
 
   return (
-    <div className="relative h-[68vh] min-h-[420px] overflow-hidden rounded-xl border border-[var(--border-muted)] bg-[var(--bg-primary)]">
+    <div className="relative h-full min-h-0 overflow-hidden">
       <div className="absolute left-4 top-4 z-10 rounded-lg border border-[var(--border-muted)] bg-[var(--bg-primary)]/95 px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] backdrop-blur">
         {title}
       </div>

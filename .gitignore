@@ -178,6 +178,7 @@ backend/temp/
 backend/test/
 backend/predictions/
 backend/runs/
+backend/run/
 backend/yolo_weights/
 backend/sahi_slice/data/
 backend/sahi_slice/sliced/

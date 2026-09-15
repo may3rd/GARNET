@@ -13,7 +13,7 @@
 
 ## Pipeline architecture rules
 - Preserve the phase order from `MASTER_PLAN.md` as future work, but keep the live code honest about what exists today.
-- The current active rebuild is Stage 1-first: raw image input -> normalization artifacts -> manifest -> API/frontend review.
+- The current runner executes the sparse sequence documented in [`MASTER_PLAN.md`](/Users/maetee/Code/GARNET/MASTER_PLAN.md): Stages 1, 2, 4, 5, 5b, 6, 7, 7c, 7b, 8, 9, 10, and 11. Stage 3 is external HITL input. The Stage 1-first statement in older planning notes describes the initial rebuild slice and is historical context.
 - Favor geometry first, semantics second. Do not promote OCR text or object detections directly into graph truth without geometric/topological support.
 - Keep task-specific masks and derived views separate from the original raster. Never destroy source evidence early.
 - Later stages should be added one at a time with visible artifacts and manifest entries. Do not reintroduce a large opaque pipeline.
@@ -21,6 +21,9 @@
 
 ## Phase-to-file map
 - Stage 1 normalization, Stage 2 OCR routing, Stage 4 object detection, and Stage 5 pipe mask orchestration: `pid_extractor.py`
+- Stage 7 route normalization plus drawing-scoped equipment/port identities: `trace_graph_builder.py`
+- Graph-v1 compatibility export and canonical semantic projection: `graph_export_adapter.py`
+- Stage 10 line, equipment-connectivity, inline-MTO, and instrument projections: `stage10_process_exports.py`
 - Stage 2 EasyOCR route: `easyocr_sahi.py`
 - Stage 2 Gemini/OpenRouter route: `gemini_ocr_sahi.py`
 - Stage 2 PaddleOCR route: `paddle_ocr_sahi.py`
@@ -80,7 +83,46 @@
   - object suppression uses Stage 4 object boxes with conservative interior suppression
   - keep the output reviewable rather than aggressively repaired
   - Stage 5 artifacts are `stage5_pipe_mask.png`, `stage5_pipe_mask_overlay.png`, and `stage5_pipe_mask_summary.json`
-- Current Stage 10 edge-tracing baseline:
+- Current Phase 4 engineering-identity baseline:
+  - preserve legacy graph-v1 nodes, edges, line-number IDs, and attachment fields
+  - equipment and ports use drawing-scoped identities; ports retain pixel positions and edge endpoint references
+  - canonical process-line identities are separate from OCR occurrence IDs and group by reviewed canonical ID or normalized line text
+  - inline objects retain drawing-scoped identity and ordered distance along each pixel route
+  - instrument identities are separate from OCR occurrences
+  - emit `measures`, `controls`, or `actuates` only from explicit evidence; proximity alone remains an unresolved `instrument_association`
+  - Stage 10 retains legacy line/equipment fields and adds canonical line and connectivity projections for downstream consumers
+- Current Phase 5 flow-direction baseline:
+  - flow direction is separate from physical connectivity and uses `forward`, `reverse`, `bidirectional`, `unknown`, or `conflicting`
+  - normalize explicit arrow vectors/tip-tail evidence first; use raster-crop orientation only when the configured confidence and asymmetry thresholds pass
+  - compare arrow vectors with the local route tangent; never use trace walking order without arrow or reviewed evidence
+  - after route splitting or duplicate merging, recompute non-reviewed direction from the arrow evidence localized to the retained edge
+  - mixed edge-local `forward` and `reverse` states do not prove a line-level conflict because each state is relative to its edge ordering
+  - Stage 8 exposes unknown/conflicting direction for review, and Stage 9 `set_flow_direction` decisions are authoritative and audited
+  - graph-v1 keeps legacy endpoints and adds flow-oriented endpoints only for resolved forward/reverse states
+- Current Phase 6 multi-sheet baseline:
+  - preserve legacy `graph_v2` merge summaries while adding a deterministic `combined_graph`
+  - qualify projected entity IDs by type and drawing so local IDs cannot collide across sheets or catalogs
+  - preserve drawing metadata, nodes, pixel-route edges, equipment, ports, lines, inline objects, instruments, and typed relationships
+  - represent each resolved connector pair as one explicit `cross_sheet_continues` relationship; unresolved or ambiguous connectors remain issues and do not create continuity
+  - keep physical continuity separate from boundary flow; derive incoming/outgoing state from the reviewed edge direction and connector terminal
+  - carry automatic/manual match evidence, connector review state, and source provenance into the combined graph
+  - write system graphs as strict JSON and keep projections deterministic under input sheet reordering
+- Current Phase 7 review and release baseline:
+  - Stage 8 marks every review item as release-blocking or informational and exposes existing node, edge, trace, endpoint, and route evidence for decision clients
+  - Stage 9 supports atomic `merge_nodes`, `reconnect_edge`, `split_edge`, `delete_edge`, and `set_node_type` topology decisions in addition to reviewed line number and flow direction overrides
+  - missing, deferred, invalid, duplicate, orphaned, and unsupported decisions remain unresolved; never accept a required review by assumption
+  - retain deterministic before/after correction audit records and rebuild derived line indexes after topology edits
+  - save `stage9_release_gate.json`; public graph and process artifacts remain withheld until every release-blocking single-sheet item is explicitly resolved
+  - system graph release also requires an explicit connector-review revision with no remaining merge issues, and released cross-sheet relationships carry reviewed provenance
+- Current Phase 8 engineering-view baseline:
+  - extend Stage 10 without renumbering the public runner stages;
+  - derive process boundaries, test-package candidates, and LLM process/HAZOP projections only from `stage9_corrected_graph.json` plus a released `stage9_release_gate.json`;
+  - preserve ordered pixel routes, line-number relationships, cut points, exclusions, isolation evidence, provenance, confidence, and unresolved states;
+  - Stage 10 artifacts are `stage10_process_boundaries.json`, `stage10_test_package_candidates.json`, `stage10_engineering_view_summary.json`, and `stage10_llm_projections.json`;
+  - expose these artifacts through the same Stage 9 release gate and invalidate them whenever an upstream reviewed graph input changes;
+  - every Phase 8 artifact carries the canonical corrected-graph content hash, and system loading verifies all four values before aggregation;
+  - system views qualify page-local IDs, including nested LLM route/flow/relationship references, and retain explicit uncertainty for ambiguous relationship endpoints; test-package candidates stay page-local; cross-sheet continuity remains represented by reviewed connector relationships;
+- Historical Stage 10 edge-tracing baseline (these artifact names and thresholds describe an earlier numbering scheme; preserve them for compatibility when touching that implementation):
   - keep public stage numbering stable even though the roadmap conceptually separates crossing resolution from tracing
   - Stage 10 now runs explicit crossing-vs-junction resolution before final edge tracing
   - crossing classes are `confirmed_junction`, `non_connecting_crossing`, and `unresolved`
@@ -93,7 +135,7 @@
     - `center_blob_threshold = 0.5`
     - `stage4_marker_match_distance_px = 24.0`
   - Stage 10 artifacts are `stage10_crossing_resolution.json`, `stage10_crossing_resolution_summary.json`, `stage10_crossing_resolution_overlay.png`, `stage10_pipe_edges.json`, `stage10_pipe_edge_summary.json`, and `stage10_pipe_edges_overlay.png`
-- Current Stage 12 overlay baseline:
+- Historical Stage 12 overlay baseline (these artifact names describe an earlier numbering scheme; preserve them for compatibility when touching that implementation):
   - keep raw Stage 10 edge artifacts unchanged; do not silently delete structural-border candidates from `stage10_pipe_edges.json`
   - Stage 12 attachment matching and `stage12_text_attachment_overlay.png` now use a derived filtered edge set
   - current accepted structural-edge filter removes obvious right-panel/title-block border-like edges from overlay use
@@ -106,7 +148,7 @@
     - `connection`, `page connection`, and `utility connection` are valid true terminals
     - valves, reducers, and similar in-line elements are pass-through evidence, not final terminals
     - unresolved terminal edges remain provisional and must stay visually distinct in Stage 12 overlay review
-- Current Stage 13 QA baseline:
+- Historical Stage 13 QA baseline (these artifact names describe an earlier numbering scheme; preserve them for compatibility when touching that implementation):
   - unresolved crossings remain explicit QA items
   - unresolved terminal edges must also be promoted into the anomaly report and review queue instead of being silently dropped
 - If you tune OCR parameters, record the accepted values in `docs/plans/2026-03-08-slice-2-ocr-sahi-design.md` and log the reason in `SLICE_2_PROGRESS.md`.
@@ -115,7 +157,7 @@
 ## Runtime and verification
 - Run backend commands from `/Users/maetee/Code/GARNET/backend` so relative paths for weights, outputs, and datasets resolve consistently.
 - Install dependencies with `pip install -r requirements.txt` inside the backend environment.
-- Start the API with `uvicorn api:app --reload --port 8001`.
+- Start the API with `uvicorn api:app --reload --port 8090`.
 - Run the pipeline entrypoint with `python -m garnet.pid_extractor`.
 - Use `python -m py_compile garnet/*.py garnet/utils/*.py api.py` as the minimum non-destructive verification after edits.
 - Prefer `python -m unittest discover -s tests -p 'test*.py' -v` for backend regression checks.

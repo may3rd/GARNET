@@ -138,6 +138,62 @@ class Stage5bPipelineMixin:
                 )
         return snapped
 
+    def _cfg_attr(self, name: str, default: Any) -> Any:
+        """Read a PipelineConfig value, defaulting when cfg is absent.
+
+        Production always sets ``self.cfg`` in ``PIDPipeline.__init__``, but
+        focused unit tests build the mixin via ``__new__`` without invoking the
+        constructor. Falling back to the baseline value keeps those green.
+        """
+        cfg = getattr(self, "cfg", None)
+        if cfg is None:
+            return default
+        return getattr(cfg, name, default)
+
+    def _trace_cv_params(self) -> dict[str, Any]:
+        """CVPipeTracer tuning knobs drawn from PipelineConfig.
+
+        Kept as a separate dict so every CVPipeTracer construction site can
+        apply the same configured values without duplicating them. When ``cfg``
+        is unavailable, returns ``{}`` so the tracer falls back to its built-in
+        defaults (which match the PipelineConfig baseline).
+        """
+        cfg = getattr(self, "cfg", None)
+        if cfg is None:
+            return {}
+        return {
+            "max_steps": cfg.trace_max_steps,
+            "min_step": cfg.trace_min_step,
+            "straight_min_step": cfg.trace_straight_min_step,
+            "turn_min_step": cfg.trace_turn_min_step,
+            "lookahead": cfg.trace_lookahead_px,
+            "raycast_max_snap_shift_px": cfg.trace_raycast_max_snap_shift_px,
+            "centerline_radius_px": cfg.trace_centerline_radius_px,
+            "side_path_inline_probe_px": cfg.trace_side_path_inline_probe_px,
+            "raycast_start_px": cfg.trace_raycast_start_px,
+            "raycast_max_px": cfg.trace_raycast_max_px,
+            "raycast_step_px": cfg.trace_raycast_step_px,
+            "anchor_turn_max_gap_px": cfg.trace_anchor_turn_max_gap_px,
+            "turn_terminal_scan_px": cfg.trace_turn_terminal_scan_px,
+            "turn_terminal_scan_far_px": cfg.trace_turn_terminal_scan_far_px,
+            "axis_rewind_px": cfg.trace_axis_rewind_px,
+            "sheet_edge_margin_px": cfg.trace_sheet_edge_margin_px,
+            "warmup_steps": cfg.trace_warmup_steps,
+            "turn_gap_max_px": cfg.trace_turn_gap_max_px,
+            "branch_side_turn_probe_px": cfg.trace_branch_side_turn_probe_px,
+            "branch_side_turn_terminal_px": cfg.trace_branch_side_turn_terminal_px,
+            "turn_probe_px": cfg.trace_turn_probe_px,
+            "tee_search_px": cfg.trace_tee_search_px,
+            "terminal_current_margin_px": cfg.trace_terminal_current_margin_px,
+            "terminal_current_tag_margin_px": cfg.trace_terminal_current_tag_margin_px,
+            "terminal_current_dcs_margin_px": cfg.trace_terminal_current_dcs_margin_px,
+            "terminal_current_equipment_margin_px": cfg.trace_terminal_current_equipment_margin_px,
+            "terminal_ahead_margin_px": cfg.trace_terminal_ahead_margin_px,
+            "terminal_ahead_equipment_margin_px": cfg.trace_terminal_ahead_equipment_margin_px,
+            "inline_hit_margin_px": cfg.trace_inline_hit_margin_px,
+            "inline_exit_margin_px": cfg.trace_inline_exit_margin_px,
+        }
+
     def _point_near_segment(
         self,
         x: int,
@@ -479,13 +535,15 @@ class Stage5bPipelineMixin:
 
                         status = "queued"
                         reason = "untraced_branch"
+                        point_tol = self._cfg_attr("trace_branch_point_tolerance_px", 10)
+                        turn_tol = self._cfg_attr("trace_branch_turn_tolerance_px", 8)
                         if self._point_inside_any_bbox(x, y, equipment_objects or [], margin=2):
                             status = "rejected_inside_equipment"
                             reason = "candidate_inside_equipment_bbox"
-                        elif any(abs(x - tx) <= 10 and abs(y - ty) <= 10 for tx, ty in tee_points):
+                        elif any(abs(x - tx) <= point_tol and abs(y - ty) <= point_tol for tx, ty in tee_points):
                             status = "done_existing_tee"
                             reason = "near_existing_tee_terminal"
-                        elif any(abs(x - tx) <= 8 and abs(y - ty) <= 8 for tx, ty in turn_points):
+                        elif any(abs(x - tx) <= turn_tol and abs(y - ty) <= turn_tol for tx, ty in turn_points):
                             status = "done_existing_turn"
                             reason = "near_existing_turn"
                         elif self._branch_already_traced(
@@ -511,7 +569,8 @@ class Stage5bPipelineMixin:
                 continue
             x = int(round((bbox["x_min"] + bbox["x_max"]) / 2))
             y = int(round((bbox["y_min"] + bbox["y_max"]) / 2))
-            if any(abs(x - px) <= 10 and abs(y - py) <= 10 for px, py in existing_points):
+            point_tol = self._cfg_attr("trace_branch_point_tolerance_px", 10)
+            if any(abs(x - px) <= point_tol and abs(y - py) <= point_tol for px, py in existing_points):
                 continue
             if self._point_inside_any_bbox(x, y, equipment_objects or [], margin=2):
                 continue
@@ -563,7 +622,10 @@ class Stage5bPipelineMixin:
                     "node_obj_id": node.get("id", ""),
                 })
 
-        candidates = self._cluster_branch_candidates(raw_candidates)
+        candidates = self._cluster_branch_candidates(
+            raw_candidates,
+            radius=self._cfg_attr("trace_branch_cluster_radius_px", 8),
+        )
         for candidate in candidates:
             result = all_results.get(str(candidate.get("source_trace_id", "")), {})
             segments = result.get("segments", [])
@@ -1213,6 +1275,7 @@ class Stage5bPipelineMixin:
                 equipment_objects=equipment,
                 junction_markers=junction_markers,
                 visited_mask=visited,
+                **self._trace_cv_params(),
             )
             tracer.set_inline_symbols(inline_symbols)
             result = tracer.trace(
@@ -1288,6 +1351,7 @@ class Stage5bPipelineMixin:
                             equipment_objects=equipment,
                             junction_markers=junction_markers,
                             visited_mask=visited,
+                            **self._trace_cv_params(),
                         )
                         recovery_tracer.set_inline_symbols(inline_symbols)
                         extra_result = recovery_tracer.trace(
@@ -1437,7 +1501,6 @@ class Stage5bPipelineMixin:
                 "hits": hits,
                 "trace_length_px": trace_length,
             }
-            self._extend_stage5b_result_to_terminal(branch_results[branch_id])
             branch_results[branch_id]["turns"] = self._rebuild_stage5b_turns_from_segments(
                 branch_results[branch_id].get("segments") or []
             )
@@ -1517,6 +1580,8 @@ class Stage5bPipelineMixin:
                 inline_symbols=inline_symbols,
                 node_symbols=node_symbols,
                 equipment_objects=equipment,
+                sample_step=self._cfg_attr("trace_branch_candidate_sample_step_px", 5),
+                min_branch_run=self._cfg_attr("trace_branch_min_run_px", 25),
             )
             new_candidates: list[dict[str, Any]] = []
             for detected in detected_candidates:
@@ -1644,10 +1709,13 @@ class Stage5bPipelineMixin:
         branch_results: dict[str, dict],
         node_symbols: list[dict[str, Any]],
     ) -> None:
-        """Move saved tee endpoints to the node bbox center after discovery.
+        """Anchor saved tee terminals at the node bbox center after discovery.
 
         This keeps the iterative branch search using the raw traced geometry,
-        while the final JSON/overlay lands node terminals on the visible tee dot.
+        while the final JSON/overlay places the terminal anchor on the visible
+        tee dot. The pipe polyline stays at the traced extent (honest geometry);
+        it is not extended to the dot center so it does not over-draw beyond the
+        traced mask.
         """
         node_by_id = {
             str(node.get("id", "")): node
@@ -1666,64 +1734,13 @@ class Stage5bPipelineMixin:
             bbox = node["bbox"]
             terminal_x = (int(bbox["x_min"]) + int(bbox["x_max"])) // 2
             terminal_y = (int(bbox["y_min"]) + int(bbox["y_max"])) // 2
+            # Keep the terminal anchor at the tee-node bbox center but leave the
+            # pipe polyline at the traced extent. Extending the last segment to
+            # the node center fabricates a few pixels of pipe (measured ~2-6px
+            # elongation on real smoke-run traces) and can over-draw toward the
+            # dot center.
             result["terminal_x"] = terminal_x
             result["terminal_y"] = terminal_y
-            segments = result.get("segments") or []
-            if not segments:
-                continue
-            last = segments[-1]
-            same_axis = (
-                last["direction"] in ("LEFT", "RIGHT")
-                and abs(int(last["y2"]) - terminal_y) <= 3
-            ) or (
-                last["direction"] in ("UP", "DOWN")
-                and abs(int(last["x2"]) - terminal_x) <= 3
-            )
-            if not same_axis:
-                continue
-            old_len = int(last.get("length_px", 0))
-            last["x2"] = terminal_x
-            last["y2"] = terminal_y
-            new_len = max(
-                abs(int(last["x2"]) - int(last["x1"])),
-                abs(int(last["y2"]) - int(last["y1"])),
-            )
-            last["length_px"] = new_len
-            result["trace_length_px"] = int(result.get("trace_length_px", 0)) + new_len - old_len
-
-    def _extend_stage5b_result_to_terminal(self, result: dict[str, Any]) -> None:
-        segments = result.get("segments") or []
-        if not segments:
-            return
-        terminal_x = result.get("terminal_x")
-        terminal_y = result.get("terminal_y")
-        if terminal_x is None or terminal_y is None:
-            return
-        last = segments[-1]
-        same_axis = (
-            last["direction"] in ("LEFT", "RIGHT")
-            and abs(int(last["y2"]) - int(terminal_y)) <= 3
-        ) or (
-            last["direction"] in ("UP", "DOWN")
-            and abs(int(last["x2"]) - int(terminal_x)) <= 3
-        )
-        if not same_axis:
-            return
-        if int(last["x2"]) == int(terminal_x) and int(last["y2"]) == int(terminal_y):
-            return
-        old_len = int(last.get("length_px", 0))
-        if last["direction"] in ("LEFT", "RIGHT"):
-            last["x2"] = int(terminal_x)
-            last["y2"] = int(last["y1"])
-        else:
-            last["x2"] = int(last["x1"])
-            last["y2"] = int(terminal_y)
-        new_len = max(
-            abs(int(last["x2"]) - int(last["x1"])),
-            abs(int(last["y2"]) - int(last["y1"])),
-        )
-        last["length_px"] = new_len
-        result["trace_length_px"] = int(result.get("trace_length_px", 0)) + new_len - old_len
 
     def _rebuild_stage5b_turns_from_segments(
         self,
@@ -1808,19 +1825,9 @@ class Stage5bPipelineMixin:
         result["terminal_obj_id"] = node_id
         result["terminal_x"] = cx
         result["terminal_y"] = cy
-        segments = result.get("segments") or []
-        if not segments:
-            return
-        last = segments[-1]
-        old_len = int(last.get("length_px", 0))
-        last["x2"] = cx
-        last["y2"] = cy
-        new_len = max(
-            abs(int(last["x2"]) - int(last["x1"])),
-            abs(int(last["y2"]) - int(last["y1"])),
-        )
-        last["length_px"] = new_len
-        result["trace_length_px"] = int(result.get("trace_length_px", 0)) + new_len - old_len
+        # Keep the terminal anchor at the nearest tee-node center but leave the
+        # pipe polyline at the traced extent (same honest-geometry treatment as
+        # the branch-node terminals above).
 
     def _reverse_stage5b_trace_result(
         self,
@@ -2304,7 +2311,17 @@ class Stage5bPipelineMixin:
                 len(_all_terminals),
             )
 
-        # Trace from each port
+        # Trace from each port.
+        #
+        # The `visited` mask is SHARED across every trace.  Once a pixel is
+        # visited, later traces will not re-walk it, so the first trace to reach
+        # a shared pipe segment effectively "claims" it (and its continuation).
+        # This is an intentional design choice to avoid re-walking the mask, but
+        # it makes results order-dependent: which trace claims a shared segment
+        # depends on iteration order.  Keep the ordering below deterministic and
+        # document it explicitly before changing it.  Equipment sources (`equip_`)
+        # are traced first so their long lines are claimed before page connections
+        # reach the same segments.
         visited = np.zeros_like(pipe_mask)
         all_results: dict[str, dict] = {}
 
@@ -2312,6 +2329,7 @@ class Stage5bPipelineMixin:
         logger.info("CV pipe trace: %d objects, %d ports", len(ports), total_ports)
         t0 = _time.monotonic()
 
+        # Equipment ports first, then the remaining objects in stable id order.
         port_items = sorted(
             ports.items(),
             key=lambda item: (1 if str(item[0]).startswith("equip_") else 0, str(item[0])),
@@ -2362,6 +2380,7 @@ class Stage5bPipelineMixin:
                     equipment_objects=equipment,
                     junction_markers=node_symbols,
                     visited_mask=visited,
+                    **self._trace_cv_params(),
                 )
                 tracer.set_inline_symbols(inline_symbols)
 
@@ -2396,7 +2415,6 @@ class Stage5bPipelineMixin:
                     "trace_length_px": result.trace_length_px,
                     "status": result.status,
                 }
-                self._extend_stage5b_result_to_terminal(all_results[trace_id])
                 self._align_stage5b_result_to_near_node(all_results[trace_id], node_symbols)
                 logger.info(
                     "  %s -> %s (%d px, %d segs)",
@@ -2427,6 +2445,7 @@ class Stage5bPipelineMixin:
             inline_symbols=inline_symbols,
             node_symbols=node_symbols,
             visited=visited,
+            max_iterations=self._cfg_attr("trace_branch_max_iterations", 5),
             candidate_overlay_base=image if self.cfg.debug_artifacts else None,
         )
         self._align_stage5b_branch_node_terminals(branch_results, node_symbols)

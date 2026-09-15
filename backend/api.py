@@ -2,14 +2,16 @@
 GARNET API Service - Pure API backend for React frontend
 
 This is the API-only backend service. Run with:
-    uvicorn api:app --reload --port 8001
+    uvicorn api:app --reload --port 8090
 
 The React frontend should run separately on port 5173 (dev) or be built for production.
 """
 
 import base64
+import copy
 import datetime
 import glob
+import hashlib
 import inspect
 import json
 import logging
@@ -54,6 +56,7 @@ from garnet.review_workspace import (
 )
 from garnet.reviewed_outputs import generate_reviewed_outputs
 from garnet.pipe_sheet_merge import resolve_merge_pairs
+from garnet.versioned_export import graph_content_sha256, release_gate_sha256, validate_downstream_export
 from garnet.utils import rotate_image
 
 # =============================================================================
@@ -66,6 +69,7 @@ RUNS_DIR = os.path.join(BACKEND_DIR, "runs")
 DETECT_DIR = os.path.join(RUNS_DIR, "detect")
 ULTRALYTICS_RUNS_DIR = os.path.join(BACKEND_DIR, ".ultralytics_runs")
 PIPELINE_JOBS_DIR = os.path.join(BACKEND_DIR, "output", "pipeline_jobs")
+PIPELINE_SYSTEMS_DIR = os.path.join(BACKEND_DIR, "output", "pipeline_systems")
 
 # Load environment from repository root first, then backend-local fallback.
 load_dotenv(os.path.join(ROOT_DIR, ".env"), override=False)
@@ -81,7 +85,7 @@ class AppConfig:
 
     # Server
     HOST = os.getenv("HOST", "localhost")
-    PORT = int(os.getenv("PORT", "8001"))
+    PORT = int(os.getenv("PORT", "8090"))
 
     # CORS
     ALLOWED_ORIGINS = os.getenv(
@@ -365,6 +369,24 @@ class ReviewStateRequest(BaseModel):
     workspace_objects: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
 
 
+class ConnectorOverrideRequest(BaseModel):
+    connector_id: str = Field(..., min_length=1)
+    target_sheet_id: str | None = None
+    connector_key: str | None = None
+    review_state: str = "accepted"
+
+
+class ManualConnectorPairRequest(BaseModel):
+    left_connector_id: str = Field(..., min_length=1)
+    right_connector_id: str = Field(..., min_length=1)
+
+
+class ConnectorReviewRequest(BaseModel):
+    connector_overrides: list[ConnectorOverrideRequest] = Field(default_factory=list)
+    manual_pairs: list[ManualConnectorPairRequest] = Field(default_factory=list)
+    reviewer: str | None = None
+
+
 # =============================================================================
 # Global State
 # =============================================================================
@@ -375,6 +397,9 @@ RESULTS_CREATED_AT: dict[str, float] = {}
 RESULTS_LOCK = threading.RLock()
 PIPELINE_JOBS: dict[str, dict[str, Any]] = {}
 PIPELINE_JOBS_LOCK = threading.RLock()
+PIPELINE_SYSTEMS_LOCK = threading.RLock()
+# ponytail: system locks live for the process lifetime; prune only if system volume makes this measurable.
+PIPELINE_SYSTEM_RUN_LOCKS: dict[str, threading.Lock] = {}
 
 PIPELINE_STAGE_ORDER: list[tuple[int, str]] = [
     (1, "stage1_input_normalization"),
@@ -395,6 +420,36 @@ PIPELINE_STAGE_ORDER: list[tuple[int, str]] = [
 ]
 PIPELINE_STAGE_INDEX = {name: idx for idx, (_num, name) in enumerate(PIPELINE_STAGE_ORDER)}
 PIPELINE_STAGE_NUMBERS = {name: num for num, name in PIPELINE_STAGE_ORDER}
+PIPELINE_LAST_STAGE = max(num for num, _name in PIPELINE_STAGE_ORDER)
+PHASE8_ARTIFACT_NAMES: tuple[str, ...] = (
+    "stage10_process_boundaries.json",
+    "stage10_test_package_candidates.json",
+    "stage10_engineering_view_summary.json",
+    "stage10_llm_projections.json",
+)
+
+# Graph-bearing artifacts are withheld while the Stage 9 release gate is
+# blocked.  Review evidence stays readable so a client can inspect and resolve
+# the items that are preventing release; these names are graph outputs or
+# graph-derived visualizations and must follow the same release boundary as
+# the public graph-v1 export.
+PIPELINE_GRAPH_ARTIFACT_NAMES = frozenset(
+    {
+        "stage7_graph.json",
+        "stage7_graph_summary.json",
+        "stage7_trace_edge_nodes.json",
+        "stage7_graph_normalization.json",
+        "stage7_graph_normalization_summary.json",
+        "stage7_graph_overlay.png",
+        "stage7b_graph_v1.json",
+        # Older runners used Stage 12 names for the same graph outputs.
+        "stage12_graph.json",
+        "stage12_graph_reviewed.json",
+        "stage12_graph_summary.json",
+        "stage12_graph_reviewed_summary.json",
+        "stage9_corrected_graph.json",
+    }
+)
 
 ARTIFACT_INVALIDATION_START_STAGE: dict[str, str] = {
     # Stage 3 is a HITL artifact. Stage 5b is the first stage that consumes
@@ -412,6 +467,11 @@ ARTIFACT_INVALIDATION_START_STAGE: dict[str, str] = {
     "stage8_review_decisions.json": "stage9_apply_review_decisions",
 }
 
+# Only these artifacts are accepted by the generic artifact update endpoint.
+# Derived graph/export artifacts are written by their owning pipeline stage and
+# must not be replaced through a review-input API.
+PIPELINE_EDITABLE_ARTIFACT_NAMES = frozenset(ARTIFACT_INVALIDATION_START_STAGE)
+
 STALE_ARTIFACTS_BY_SOURCE: dict[str, tuple[str, ...]] = {
     "stage3_equipment_bboxes.json": (
         "stage5_connection_ports.json",
@@ -421,9 +481,16 @@ STALE_ARTIFACTS_BY_SOURCE: dict[str, tuple[str, ...]] = {
         "stage5b_branch_trace_results.json",
         "stage5b_trace_overlay.png",
         "stage5b_branch_trace_overlay.png",
+        "stage10_process_boundaries.json",
+        "stage10_test_package_candidates.json",
+        "stage10_engineering_view_summary.json",
+        "stage10_llm_projections.json",
     ),
     "stage4_objects.json": (
-        "stage4_objects_overlay.png",
+        # NOTE: stage4_objects_overlay.png is owned by the still-completed
+        # stage4_object_detection stage and is regenerated by
+        # _refresh_stage4_reviewed_object_artifacts; it must never be deleted here
+        # or resume validation fails with "completed artifact is missing".
         "stage4_line_numbers.json",
         "stage4_line_number_summary.json",
         "stage4_line_number_overlay.png",
@@ -475,6 +542,10 @@ STALE_ARTIFACTS_BY_SOURCE: dict[str, tuple[str, ...]] = {
         "stage10_inline_mto_overlay.png",
         "stage10_line_number_overlay.png",
         "stage11_connection_pipeline_overlay.png",
+        "stage10_process_boundaries.json",
+        "stage10_test_package_candidates.json",
+        "stage10_engineering_view_summary.json",
+        "stage10_llm_projections.json",
     ),
     "stage4_line_numbers.json": (
         "stage6_trace_associations.json",
@@ -512,6 +583,10 @@ STALE_ARTIFACTS_BY_SOURCE: dict[str, tuple[str, ...]] = {
         "stage10_inline_mto_overlay.png",
         "stage10_line_number_overlay.png",
         "stage11_connection_pipeline_overlay.png",
+        "stage10_process_boundaries.json",
+        "stage10_test_package_candidates.json",
+        "stage10_engineering_view_summary.json",
+        "stage10_llm_projections.json",
     ),
     "stage6_line_number_review.json": (
         "stage7_graph.json",
@@ -544,6 +619,33 @@ STALE_ARTIFACTS_BY_SOURCE: dict[str, tuple[str, ...]] = {
         "stage10_inline_mto_overlay.png",
         "stage10_line_number_overlay.png",
         "stage11_connection_pipeline_overlay.png",
+        "stage10_process_boundaries.json",
+        "stage10_test_package_candidates.json",
+        "stage10_engineering_view_summary.json",
+        "stage10_llm_projections.json",
+    ),
+    # Review decisions change the corrected graph revision and every artifact
+    # derived from it, including the graph consumed by system-sheet merging.
+    "stage8_review_decisions.json": (
+        "stage9_corrected_graph.json",
+        "stage9_review_resolutions.json",
+        "stage9_correction_audit.json",
+        "stage9_correction_summary.json",
+        "stage9_release_gate.json",
+        "stage7b_graph_v1.json",
+        "stage10_line_list.json",
+        "stage10_equipment_connectivity.json",
+        "stage10_inline_mto.json",
+        "stage10_inline_observations.json",
+        "stage10_instrument_index.json",
+        "stage10_process_export_summary.json",
+        "stage10_inline_mto_overlay.png",
+        "stage10_line_number_overlay.png",
+        "stage11_connection_pipeline_overlay.png",
+        "stage10_process_boundaries.json",
+        "stage10_test_package_candidates.json",
+        "stage10_engineering_view_summary.json",
+        "stage10_llm_projections.json",
     ),
     "review_workspace_recompute": (
         "stage5_pipe_mask.png",
@@ -561,6 +663,10 @@ STALE_ARTIFACTS_BY_SOURCE: dict[str, tuple[str, ...]] = {
         "stage6_line_number_review.json",
         "stage6_line_number_review_summary.json",
         "stage6_trace_association_overlay.png",
+        "stage10_process_boundaries.json",
+        "stage10_test_package_candidates.json",
+        "stage10_engineering_view_summary.json",
+        "stage10_llm_projections.json",
     ),
     "review_workspace_commit": (
         "stage7_graph.json",
@@ -593,6 +699,10 @@ STALE_ARTIFACTS_BY_SOURCE: dict[str, tuple[str, ...]] = {
         "stage10_inline_mto_overlay.png",
         "stage10_line_number_overlay.png",
         "stage11_connection_pipeline_overlay.png",
+        "stage10_process_boundaries.json",
+        "stage10_test_package_candidates.json",
+        "stage10_engineering_view_summary.json",
+        "stage10_llm_projections.json",
     ),
 }
 
@@ -1016,6 +1126,12 @@ def _pipeline_job_from_disk(job_id: str) -> dict[str, Any] | None:
         "image_path": input_path,
         "recovered_from_disk": True,
     }
+    metadata_path = os.path.join(job_dir, "job_metadata.json")
+    if os.path.isfile(metadata_path):
+        with open(metadata_path, "r", encoding="utf-8") as f:
+            metadata = json.load(f)
+        if isinstance(metadata, dict):
+            payload.update(metadata)
     with PIPELINE_JOBS_LOCK:
         PIPELINE_JOBS[job_id] = payload
     return payload
@@ -1037,8 +1153,8 @@ def _serialize_pipeline_job(job_id: str) -> dict[str, Any]:
             manifest = json.load(f)
     payload["manifest"] = manifest
     payload["artifacts"] = _pipeline_job_artifacts(job_id, payload["job_dir"])
-    graph_v1_path = os.path.join(payload["job_dir"], "stage12b_graph_v1.json")
-    if os.path.exists(graph_v1_path):
+    graph_v1_path = os.path.join(payload["job_dir"], "stage7b_graph_v1.json")
+    if os.path.exists(graph_v1_path) and _pipeline_graph_is_fresh(payload["job_dir"]):
         with open(graph_v1_path, "r", encoding="utf-8") as f:
             payload["graph_v1"] = json.load(f)
     recovery_path = os.path.join(payload["job_dir"], "stage5_recovery_decisions.json")
@@ -1054,6 +1170,77 @@ def _pipeline_job_manifest(job_dir: str) -> dict[str, Any] | None:
         return None
     with open(manifest_path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def _phase8_graph_content_sha256(graph_payload: dict[str, Any]) -> str:
+    """Hash the canonical JSON representation used by Phase 8 provenance."""
+    encoded = json.dumps(
+        graph_payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _pipeline_graph_is_fresh(job_dir: str) -> bool:
+    manifest = _pipeline_job_manifest(job_dir) or {}
+    entries = [entry for entry in manifest.get("stages", []) if isinstance(entry, dict)]
+    stage9 = next((entry for entry in reversed(entries) if entry.get("name") == "stage9_apply_review_decisions"), None)
+    if stage9 is None or stage9.get("status") != "completed":
+        return stage9 is None
+    # The artifact list is the compatibility boundary.  Older completed
+    # Stage 9 manifests never registered the release gate and remain readable;
+    # current manifests explicitly register it and therefore require a valid
+    # gate artifact to release graph-derived outputs.
+    registered_artifacts = stage9.get("artifacts")
+    gate_registered = isinstance(registered_artifacts, list) and "stage9_release_gate.json" in registered_artifacts
+    if not gate_registered:
+        return True
+    gate_path = os.path.join(job_dir, "stage9_release_gate.json")
+    if not os.path.exists(gate_path):
+        return False
+    try:
+        with open(gate_path, "r", encoding="utf-8") as handle:
+            gate = json.load(handle)
+        return bool(isinstance(gate, dict) and gate.get("release_ready") is True)
+    except (OSError, ValueError, TypeError):
+        return False
+
+
+def _pipeline_final_export_is_fresh(job_dir: str) -> bool:
+    """Check the versioned Stage 10 envelope against live graph and gate data."""
+    if not _pipeline_graph_is_fresh(job_dir):
+        return False
+    manifest = _pipeline_job_manifest(job_dir) or {}
+    stage10 = next(
+        (entry for entry in manifest.get("stages", []) if isinstance(entry, dict) and entry.get("name") == "stage10_process_exports"),
+        None,
+    )
+    if stage10 is not None and stage10.get("status") != "completed":
+        return False
+    export_path = os.path.join(job_dir, "stage10_final_export.json")
+    graph_path = os.path.join(job_dir, "stage9_corrected_graph.json")
+    gate_path = os.path.join(job_dir, "stage9_release_gate.json")
+    try:
+        with open(export_path, "r", encoding="utf-8") as handle:
+            export = json.load(handle)
+        with open(graph_path, "r", encoding="utf-8") as handle:
+            graph = json.load(handle)
+        with open(gate_path, "r", encoding="utf-8") as handle:
+            gate = json.load(handle)
+        result = validate_downstream_export(export, source_graph=graph)
+        source = export.get("source") if isinstance(export, dict) else {}
+        return bool(
+            result["valid"]
+            and isinstance(export, dict)
+            and export.get("release_ready") is True
+            and source.get("graph_content_sha256") == graph_content_sha256(graph)
+            and source.get("release_gate_sha256") == release_gate_sha256(gate)
+        )
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return False
 
 
 def _write_pipeline_job_manifest(job_dir: str, manifest: dict[str, Any]) -> None:
@@ -1072,8 +1259,14 @@ def _resolve_pipeline_stage(stage: str) -> tuple[int, str]:
     if raw_stage.isdigit():
         stage_num = int(raw_stage)
         matching = [(num, name) for num, name in PIPELINE_STAGE_ORDER if num == stage_num]
-        if matching:
-            return matching[-1]
+        if len(matching) == 1:
+            return matching[0]
+        if len(matching) > 1:
+            alternatives = ", ".join(name for _num, name in matching)
+            raise HTTPException(
+                status_code=400,
+                detail=f"Ambiguous pipeline stage {stage_num}; use one of: {alternatives}",
+            )
 
     if raw_stage in PIPELINE_STAGE_NUMBERS:
         return PIPELINE_STAGE_NUMBERS[raw_stage], raw_stage
@@ -1131,6 +1324,12 @@ def _mark_pipeline_stale_from(
     from_index = PIPELINE_STAGE_INDEX.get(from_stage_name)
     if from_index is None:
         return
+    # stage7b_graph_v1 is also regenerated by Stage 9 after review.  If the
+    # shared artifact is removed, invalidate its producing stage as well so a
+    # resume does not reject the manifest for a completed stage with a missing
+    # registered artifact.
+    if source_artifact == "stage8_review_decisions.json":
+        from_index = min(from_index, PIPELINE_STAGE_INDEX["stage7b_graph_export"])
 
     stale_at = time.time()
     for entry in manifest["stages"]:
@@ -1154,6 +1353,17 @@ def _mark_pipeline_stale_from(
                 os.remove(artifact_path)
             except OSError as exc:
                 logger.warning("Failed to remove stale artifact %s: %s", artifact_path, exc)
+    # The final export is a derived release artifact for source updates and
+    # resumes through Stage 10.  A Stage 11-only resume must preserve the
+    # completed Stage 10 entry and its export so resume validation still sees a
+    # coherent completed prefix and the already released export remains usable.
+    if from_index <= PIPELINE_STAGE_INDEX["stage10_process_exports"]:
+        final_export_path = os.path.join(job_dir, "stage10_final_export.json")
+        if os.path.isfile(final_export_path):
+            try:
+                os.remove(final_export_path)
+            except OSError as exc:
+                logger.warning("Failed to remove stale artifact %s: %s", final_export_path, exc)
 
 
 def _safe_pipeline_artifact_path(job_dir: str, artifact_name: str) -> str:
@@ -1238,6 +1448,26 @@ def _refresh_stage4_reviewed_object_artifacts(job_dir: str, payload: dict[str, A
     with open(os.path.join(job_dir, "stage4_topology_marker_summary.json"), "w", encoding="utf-8") as f:
         json.dump(topology_marker_result["summary"], f, indent=2)
 
+    # Regenerate the Stage 4 overlay from the reviewed objects. The overlay is a
+    # registered artifact of the completed stage4_object_detection stage, and
+    # _validate_resume_manifest refuses to resume while it is missing.
+    if not image_path or not os.path.isfile(image_path):
+        logger.warning("Cannot regenerate stage4_objects_overlay.png: image missing for %s", job_dir)
+        return
+    try:
+        import cv2
+
+        from garnet.object_detection_sahi import _draw_overlay
+
+        image_bgr = cv2.imread(image_path)
+        if image_bgr is None:
+            logger.warning("Cannot regenerate stage4_objects_overlay.png: unreadable image %s", image_path)
+            return
+        overlay = _draw_overlay(image_bgr, objects, connection_ports={})
+        cv2.imwrite(os.path.join(job_dir, "stage4_objects_overlay.png"), overlay)
+    except Exception as exc:
+        logger.warning("Failed to regenerate stage4_objects_overlay.png for %s: %s", job_dir, exc)
+
 
 def _refresh_stage4_line_number_summary(job_dir: str, payload: dict[str, Any]) -> None:
     summary = {
@@ -1257,9 +1487,13 @@ def _write_pipeline_json_artifact(job_dir: str, artifact_name: str, payload: dic
         artifact_name = f"{artifact_name}.json"
     artifact_path = _safe_pipeline_artifact_path(job_dir, artifact_name)
     tmp_path = f"{artifact_path}.tmp"
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2)
-    os.replace(tmp_path, artifact_path)
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, sort_keys=True, allow_nan=False)
+        os.replace(tmp_path, artifact_path)
+    finally:
+        if os.path.isfile(tmp_path):
+            os.unlink(tmp_path)
 
 
 def _read_pipeline_json_artifact(job_dir: str, artifact_name: str) -> dict[str, Any]:
@@ -1340,7 +1574,7 @@ def _resolve_pipeline_job_image_path(job_dir: str) -> str:
     raise HTTPException(status_code=404, detail="Pipeline input image not found")
 
 
-def _run_pipeline_job(
+def _execute_pipeline_job(
     job_id: str,
     image_path: str,
     job_dir: str,
@@ -1367,6 +1601,9 @@ def _run_pipeline_job(
                 job["error"] = stage.get("error", "Pipeline stage failed")
 
     try:
+        with PIPELINE_JOBS_LOCK:
+            document_id = (PIPELINE_JOBS.get(job_id) or {}).get("document_id")
+        identity_kwargs = {"document_id": document_id} if document_id else {}
         pipe = PIDPipeline(
             image_path=image_path,
             output_dir=job_dir,
@@ -1377,6 +1614,7 @@ def _run_pipeline_job(
                 detection_weight_path=weight_file,
                 debug_artifacts=debug_artifacts,
             ),
+            **identity_kwargs,
         )
         pipe.run(stop_after=stop_after, resume=resume)
     except Exception as exc:
@@ -1394,6 +1632,869 @@ def _run_pipeline_job(
             completed_stages = pipe.stage_manifest.get("stages", [])
             if completed_stages:
                 job["current_stage"] = completed_stages[-1]["name"]
+            system_id = job.get("system_id")
+        else:
+            system_id = None
+    if system_id:
+        _maybe_regenerate_pipeline_system(str(system_id))
+
+
+def _run_pipeline_job(
+    job_id: str,
+    image_path: str,
+    job_dir: str,
+    stop_after: int,
+    ocr_route: str,
+    gemini_postprocess_match_threshold: float,
+    weight_file: str,
+    debug_artifacts: bool = False,
+    resume: bool = False,
+) -> None:
+    with PIPELINE_JOBS_LOCK:
+        system_id = str((PIPELINE_JOBS.get(job_id) or {}).get("system_id") or "")
+    if not system_id:
+        _execute_pipeline_job(
+            job_id, image_path, job_dir, stop_after, ocr_route,
+            gemini_postprocess_match_threshold, weight_file, debug_artifacts, resume,
+        )
+        return
+    with PIPELINE_SYSTEMS_LOCK:
+        run_lock = PIPELINE_SYSTEM_RUN_LOCKS.setdefault(system_id, threading.Lock())
+    with run_lock:
+        _execute_pipeline_job(
+            job_id, image_path, job_dir, stop_after, ocr_route,
+            gemini_postprocess_match_threshold, weight_file, debug_artifacts, resume,
+        )
+
+
+def _write_json_atomic(path: str, payload: dict[str, Any]) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp_path = os.path.join(os.path.dirname(path), f".{os.path.basename(path)}.tmp")
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, allow_nan=False)
+        os.replace(tmp_path, path)
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+def _register_pipeline_job(
+    *,
+    input_bytes: bytes,
+    filename: str,
+    stop_after: int,
+    ocr_route: str,
+    gemini_postprocess_match_threshold: float,
+    weight_file: str,
+    debug_artifacts: bool,
+    system_id: str | None = None,
+    document_id: str | None = None,
+) -> dict[str, Any]:
+    job_id = uuid.uuid4().hex
+    job_dir = os.path.join(PIPELINE_JOBS_DIR, job_id)
+    os.makedirs(job_dir, exist_ok=True)
+    ext = os.path.splitext(filename)[1].lower() or ".png"
+    image_path = os.path.join(job_dir, f"input{ext}")
+    with open(image_path, "wb") as f:
+        f.write(input_bytes)
+    job = {
+        "job_id": job_id,
+        "status": "queued",
+        "current_stage": None,
+        "error": None,
+        "job_dir": job_dir,
+        "image_path": image_path,
+        "created_at": time.time(),
+        "stop_after": stop_after,
+        "ocr_route": ocr_route,
+        "gemini_postprocess_match_threshold": gemini_postprocess_match_threshold,
+        "weight_file": weight_file,
+        "debug_artifacts": debug_artifacts,
+        "source_filename": filename,
+        "system_id": system_id,
+        "document_id": document_id,
+    }
+    with PIPELINE_JOBS_LOCK:
+        PIPELINE_JOBS[job_id] = job
+    _write_json_atomic(
+        os.path.join(job_dir, "job_metadata.json"),
+        {key: value for key, value in job.items() if key not in {"job_dir", "image_path", "status", "error", "current_stage"}},
+    )
+    return job
+
+
+def _pipeline_system_dir(system_id: str) -> str:
+    if not system_id or system_id != os.path.basename(system_id):
+        raise HTTPException(status_code=400, detail="Invalid pipeline system ID")
+    root = os.path.abspath(PIPELINE_SYSTEMS_DIR)
+    system_dir = os.path.abspath(os.path.join(root, system_id))
+    if os.path.commonpath([root, system_dir]) != root:
+        raise HTTPException(status_code=400, detail="Invalid pipeline system ID")
+    return system_dir
+
+
+def _pipeline_system_manifest_path(system_id: str) -> str:
+    return os.path.join(_pipeline_system_dir(system_id), "system_manifest.json")
+
+
+def _read_pipeline_system_manifest(system_id: str) -> dict[str, Any]:
+    path = _pipeline_system_manifest_path(system_id)
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="Pipeline system not found")
+    with open(path, "r", encoding="utf-8") as f:
+        payload = json.load(f)
+    if payload.get("manifest_version") != 1 or payload.get("system_id") != system_id:
+        raise HTTPException(status_code=409, detail="Pipeline system manifest is invalid")
+    return payload
+
+
+def _write_pipeline_system_manifest(system_id: str, manifest: dict[str, Any]) -> None:
+    _write_json_atomic(_pipeline_system_manifest_path(system_id), manifest)
+
+
+def _system_page_graphs(manifest: dict[str, Any]) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    result: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    for page in manifest.get("pages", []):
+        job_id = str(page.get("job_id") or "")
+        payload = _serialize_pipeline_job(job_id)
+        if not _pipeline_graph_is_fresh(payload["job_dir"]):
+            raise HTTPException(status_code=409, detail=f"Page {page.get('sheet_id')} graph is awaiting Stage 9 review completion")
+        graph_path = os.path.join(payload["job_dir"], "stage7b_graph_v1.json")
+        if not os.path.isfile(graph_path):
+            raise HTTPException(status_code=409, detail=f"Page {page.get('sheet_id')} is missing stage7b_graph_v1.json")
+        with open(graph_path, "r", encoding="utf-8") as f:
+            graph = json.load(f)
+        result.append((page, graph))
+    return result
+
+
+def _phase8_entity_kind_map(
+    *payloads: Any,
+) -> dict[str, dict[str, str]]:
+    """Build collision-aware ID maps keyed by the Phase 8 entity namespace."""
+    result: dict[str, dict[str, str]] = {}
+    type_kinds = {
+        "equipment": "equipment",
+        "equipment_port": "port",
+        "instrumentation": "instrument",
+        "inlet_outlet": "boundary_terminal",
+        "ankle": "topology",
+        "crossing": "topology",
+        "route": "edge",
+        "relationship": "relationship",
+        "topology": "topology",
+        "instrument": "instrument",
+        "boundary": "boundary",
+        "test_package": "test_package",
+    }
+    collection_kinds = {
+        "edges": "edge", "routes": "edge", "relationships": "relationship",
+        "lines": "line", "line_numbers": "line", "inline_objects": "inline",
+        "instruments": "instrument", "instrument_tags": "instrument", "connectors": "connector",
+        "candidates": "boundary", "boundaries": "boundary", "test_packages": "test_package",
+    }
+
+    def add_records(value: Any, kind: str) -> None:
+        records = list(value.values()) if isinstance(value, dict) else value
+        if not isinstance(records, list):
+            return
+        for record in records:
+            if not isinstance(record, dict):
+                continue
+            record_id = str(
+                record.get("id")
+                or record.get("canonical_id")
+                or record.get("source_object_id")
+                or record.get("line_id")
+                or record.get("instrument_id")
+                or ""
+            ).strip()
+            if record_id:
+                result.setdefault(kind, {}).setdefault(record_id, kind)
+
+    def walk(value: Any, kind: str = "") -> None:
+        if isinstance(value, list):
+            for item in value:
+                walk(item, kind)
+            return
+        if not isinstance(value, dict):
+            return
+        record_type = str(value.get("type") or value.get("kind") or "").strip().lower()
+        inferred_kind = type_kinds.get(record_type, "") or kind
+        record_id = str(value.get("id") or value.get("canonical_id") or "").strip()
+        if record_id and inferred_kind:
+            result.setdefault(inferred_kind, {}).setdefault(record_id, inferred_kind)
+        for key, child in value.items():
+            walk(child, collection_kinds.get(str(key), ""))
+
+    for payload in payloads:
+        if not isinstance(payload, dict):
+            continue
+        add_records(payload.get("edges"), "edge")
+        add_records(payload.get("relationships"), "relationship")
+        add_records(payload.get("lines") or payload.get("line_numbers"), "line")
+        add_records(payload.get("inline_objects"), "inline")
+        add_records(payload.get("instruments") or payload.get("instrument_tags"), "instrument")
+        add_records(payload.get("connectors"), "connector")
+        nodes = payload.get("nodes")
+        if isinstance(nodes, dict):
+            nodes = list(nodes.values())
+        for node in nodes or []:
+            if not isinstance(node, dict):
+                continue
+            node_id = str(node.get("id") or node.get("node_id") or "").strip()
+            if node_id:
+                node_type = str(node.get("type") or node.get("kind") or "").strip().lower()
+                result.setdefault("node", {}).setdefault(node_id, type_kinds.get(node_type, "topology"))
+        for collection, kind in (("candidates", "boundary"), ("boundaries", "boundary"), ("test_packages", "test_package")):
+            add_records(payload.get(collection), kind)
+        walk(payload)
+    return result
+
+
+def _qualify_phase8_record(
+    record: Any,
+    *,
+    sheet_id: str,
+    entity_kind: str = "",
+    id_kinds: dict[str, dict[str, str]] | None = None,
+    reference_kind: str = "",
+) -> Any:
+    """Qualify Phase 8 entity references while preserving pixel geometry."""
+    if isinstance(record, list):
+        return [
+            _qualify_phase8_record(
+                item, sheet_id=sheet_id, entity_kind=entity_kind,
+                id_kinds=id_kinds, reference_kind=reference_kind,
+            )
+            for item in record
+        ]
+    if not isinstance(record, dict):
+        return record
+
+    field_kinds = {
+        "boundary_candidate_ids": "boundary", "boundary_ids": "boundary",
+        "edge_id": "edge", "edge_ids": "edge", "member_edge_ids": "edge",
+        "source_node_id": "node", "target_node_id": "node", "node_id": "node",
+        "node_ids": "node", "member_node_ids": "node",
+        "line_id": "line", "line_ids": "line", "member_line_ids": "line",
+        "line_number_id": "line", "line_number_ids": "line",
+        "equipment_id": "equipment", "equipment_ids": "equipment", "member_equipment_ids": "equipment",
+        "inline_object_id": "inline", "inline_object_ids": "inline", "member_inline_object_ids": "inline",
+        "instrument_id": "instrument", "instrument_ids": "instrument", "member_instrument_ids": "instrument",
+        "relationship_id": "relationship", "relationship_ids": "relationship", "member_relationship_ids": "relationship",
+        "connector_id": "connector", "connector_ids": "connector",
+    }
+
+    def qualify(value: Any, kind: str) -> Any:
+        if value in (None, "") or not kind:
+            return value
+        raw = str(value)
+        prefix = f"{kind}::{sheet_id}::"
+        return raw if raw.startswith(prefix) or raw.startswith(f"{kind}::") else f"{prefix}{raw}"
+
+    def normalize_kind(value: Any) -> str:
+        aliases = {
+            "node": "node", "equipment": "equipment", "equipment_node": "equipment",
+            "edge": "edge", "route": "edge", "pipe": "edge",
+            "relationship": "relationship", "connector": "connector",
+            "line": "line", "port": "port", "instrument": "instrument",
+            "inline": "inline", "inline_object": "inline",
+        }
+        return aliases.get(str(value or "").strip().lower().replace("-", "_"), "")
+
+    def relationship_endpoint_kind(key: str) -> str:
+        for field in (f"{key}_kind", f"{key}_type", f"{key}_entity_type", f"{key}_ref_type"):
+            kind = normalize_kind(record.get(field))
+            if kind:
+                return kind
+        relation_type = str(record.get("type") or record.get("relationship_type") or "").strip().lower()
+        relation_type = relation_type.replace("-", "_").replace(" ", "_")
+        schemas = {
+            "cross_sheet_continues": {"source": "connector", "target": "connector"},
+            "edge_to_equipment": {"source": "edge", "target": "node"},
+            "equipment_to_edge": {"source": "node", "target": "edge"},
+            "node_to_edge": {"source": "node", "target": "edge"},
+            "edge_to_node": {"source": "edge", "target": "node"},
+            "equipment_to_port": {"source": "equipment", "target": "port"},
+            "port_to_equipment": {"source": "port", "target": "equipment"},
+        }
+        return schemas.get(relation_type, {}).get(key, "")
+
+    def candidate_kinds(raw: str) -> list[str]:
+        return sorted(kind for kind, values in (id_kinds or {}).items() if raw in values)
+
+    def resolve_untyped_kind(raw: str) -> str:
+        candidates = set(candidate_kinds(raw))
+        if not candidates:
+            return ""
+        # Typed node entities (equipment/topology/terminal) and the graph's
+        # node namespace describe the same endpoint domain. They are safe to
+        # collapse only when no non-node namespace also claims the ID.
+        node_namespaces = {"node", "equipment", "topology", "boundary_terminal"}
+        if "node" in candidates and not (candidates - node_namespaces):
+            return "node"
+        return next(iter(candidates)) if len(candidates) == 1 else ""
+
+    reference_uncertainty: list[dict[str, str]] = []
+
+    def resolve_reference(value: Any, requested_kind: str, field: str) -> Any:
+        if value in (None, ""):
+            return value
+        raw = str(value)
+        kind = normalize_kind(requested_kind)
+        if kind == "node":
+            kind = (id_kinds or {}).get("node", {}).get(raw, "")
+            if not kind:
+                if raw in (id_kinds or {}).get("node", {}):
+                    kind = "node"
+                else:
+                    reference_uncertainty.append({"field": field, "value": raw, "reason": "unresolved_node_reference"})
+                    return value
+        elif kind:
+            if raw not in (id_kinds or {}).get(kind, {}):
+                # Explicit schema context is safe even if a sparse legacy graph
+                # omitted the catalog row; preserve a qualified typed reference.
+                return qualify(value, kind)
+        else:
+            candidates = candidate_kinds(raw)
+            kind = resolve_untyped_kind(raw)
+            if kind == "node":
+                pass
+            elif len(candidates) == 1:
+                kind = candidates[0]
+            elif len(candidates) > 1:
+                reference_uncertainty.append({"field": field, "value": raw, "reason": "ambiguous_id_kind"})
+                return value
+            else:
+                return value
+        if kind == "node":
+            kind = (id_kinds or {}).get("node", {}).get(raw, "node")
+        return qualify(value, kind)
+
+    result: dict[str, Any] = {}
+    for key, value in record.items():
+        if key == "id" and entity_kind:
+            result[key] = qualify(value, entity_kind)
+        elif key in {"source", "target"}:
+            requested_kind = reference_kind
+            if entity_kind == "edge":
+                requested_kind = "node"
+            elif entity_kind == "relationship":
+                requested_kind = relationship_endpoint_kind(key)
+            result[key] = resolve_reference(value, requested_kind, key)
+        elif key in field_kinds:
+            kind = field_kinds[key]
+            if isinstance(value, list):
+                result[key] = [
+                    resolve_reference(item, kind, key)
+                    for item in value
+                ]
+            else:
+                result[key] = resolve_reference(value, kind, key)
+        elif isinstance(value, dict):
+            result[key] = _qualify_phase8_record(
+                value, sheet_id=sheet_id, id_kinds=id_kinds,
+                reference_kind="node" if key == "flow" else "",
+            )
+        elif isinstance(value, list) and any(isinstance(item, dict) for item in value):
+            child_kinds = {
+                "candidates": entity_kind,
+                "line_number_records": "line",
+                "routes": "edge",
+                "candidate_segments": "edge",
+                "isolation_elements": "inline",
+                "relationships": "relationship",
+                "deviation_dimensions": "deviation",
+                "evidence_gaps": "gap",
+                "unresolved_questions": "gap",
+            }
+            result[key] = [
+                _qualify_phase8_record(
+                    item,
+                    sheet_id=sheet_id,
+                    id_kinds=id_kinds,
+                    entity_kind=(
+                        {
+                            "equipment": "equipment",
+                            "port": "port",
+                            "instrument": "instrument",
+                            "line": "line",
+                            "inline_object": "inline",
+                            "off_page_connector": "connector",
+                            "boundary": "boundary",
+                            "test_package": "test_package",
+                            "topology": "topology",
+                            "terminal": "topology",
+                            "connection": "topology",
+                            "route": "edge",
+                            "relationship": "relationship",
+                        }.get(str(item.get("type") or ""), "")
+                        if key in {"entities", "candidate_nodes"}
+                        else child_kinds.get(key, "")
+                    ),
+                )
+                for item in value
+            ]
+        else:
+            result[key] = value
+    if reference_uncertainty:
+        result["reference_uncertainty"] = reference_uncertainty
+    return result
+
+
+def _load_system_phase8_views(
+    manifest: dict[str, Any],
+    page_graphs: list[tuple[dict[str, Any], dict[str, Any]]],
+) -> list[dict[str, Any]] | None:
+    """Load an all-page Phase 8 bundle, preserving the legacy all-missing mode."""
+    bundles: list[tuple[dict[str, Any], dict[str, Any], bool]] = []
+    for page, graph in page_graphs:
+        payload = _serialize_pipeline_job(str(page.get("job_id") or ""))
+        job_dir = payload["job_dir"]
+        present = [os.path.isfile(os.path.join(job_dir, name)) for name in PHASE8_ARTIFACT_NAMES]
+        if any(present) and not all(present):
+            raise HTTPException(status_code=409, detail=f"Page {page.get('sheet_id')} has an incomplete Phase 8 artifact bundle")
+        bundles.append((page, graph, all(present)))
+
+    if not any(item[2] for item in bundles):
+        return None
+    if not all(item[2] for item in bundles):
+        raise HTTPException(status_code=409, detail="All pages must have Phase 8 artifacts before system release")
+
+    result: list[dict[str, Any]] = []
+    for page, graph, _present in bundles:
+        payload = _serialize_pipeline_job(str(page.get("job_id") or ""))
+        job_dir = payload["job_dir"]
+        loaded: dict[str, Any] = {}
+        try:
+            for name in PHASE8_ARTIFACT_NAMES:
+                with open(os.path.join(job_dir, name), "r", encoding="utf-8") as handle:
+                    loaded[name] = json.load(handle)
+        except (OSError, ValueError, TypeError) as exc:
+            raise HTTPException(status_code=409, detail=f"Page {page.get('sheet_id')} has invalid Phase 8 artifacts") from exc
+
+        boundary = loaded[PHASE8_ARTIFACT_NAMES[0]]
+        packages = loaded[PHASE8_ARTIFACT_NAMES[1]]
+        summary = loaded[PHASE8_ARTIFACT_NAMES[2]]
+        llm = loaded[PHASE8_ARTIFACT_NAMES[3]]
+        if (
+            not isinstance(boundary, dict)
+            or not isinstance(packages, dict)
+            or not isinstance(summary, dict)
+            or not isinstance(llm, dict)
+            or boundary.get("release_ready") is not True
+            or packages.get("release_ready") is not True
+            or summary.get("release_ready") is not True
+        ):
+            raise HTTPException(status_code=409, detail=f"Page {page.get('sheet_id')} Phase 8 views are not released")
+
+        corrected_graph_path = os.path.join(job_dir, "stage9_corrected_graph.json")
+        try:
+            with open(corrected_graph_path, "r", encoding="utf-8") as handle:
+                corrected_graph = json.load(handle)
+            if not isinstance(corrected_graph, dict):
+                raise TypeError("corrected graph must be an object")
+            expected_hash = _phase8_graph_content_sha256(corrected_graph)
+        except (OSError, ValueError, TypeError) as exc:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Page {page.get('sheet_id')} is missing a valid stage9_corrected_graph.json for Phase 8",
+            ) from exc
+        phase8_hashes = {
+            name: loaded[name].get("source_graph_content_sha256")
+            for name in PHASE8_ARTIFACT_NAMES
+        }
+        if summary.get("graph_content_sha256") != expected_hash or any(
+            value != expected_hash for value in phase8_hashes.values()
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail=f"Page {page.get('sheet_id')} Phase 8 views do not match stage9_corrected_graph.json",
+            )
+
+        sheet_id = str(page.get("sheet_id") or graph.get("document", {}).get("doc_id") or "unknown")
+        id_kinds = _phase8_entity_kind_map(graph, corrected_graph, boundary, packages, llm)
+        result.append({
+            "sheet_id": sheet_id,
+            "process_boundaries": _qualify_phase8_record(
+                copy.deepcopy(boundary), sheet_id=sheet_id, entity_kind="boundary", id_kinds=id_kinds
+            ),
+            "test_packages": _qualify_phase8_record(
+                copy.deepcopy(packages), sheet_id=sheet_id, entity_kind="test_package", id_kinds=id_kinds
+            ),
+            "engineering_view_summary": copy.deepcopy(summary),
+            "llm_projections": _qualify_phase8_record(copy.deepcopy(llm), sheet_id=sheet_id, id_kinds=id_kinds),
+        })
+    return sorted(result, key=lambda item: item["sheet_id"])
+
+
+def _aggregate_system_phase8_views(page_views: list[dict[str, Any]]) -> dict[str, Any]:
+    """Aggregate page-local Phase 8 views without merging test packages."""
+    boundaries = [
+        candidate
+        for page in page_views
+        for candidate in (page["process_boundaries"].get("candidates") or [])
+        if isinstance(candidate, dict)
+    ]
+    packages = [
+        candidate
+        for page in page_views
+        for candidate in (page["test_packages"].get("candidates") or [])
+        if isinstance(candidate, dict)
+    ]
+    graph_summaries = [
+        page.get("engineering_view_summary")
+        for page in page_views
+        if isinstance(page.get("engineering_view_summary"), dict)
+    ]
+    graph_counts = {
+        key: sum(
+            int(summary.get("graph_counts", {}).get(key, 0) or 0)
+            for summary in graph_summaries
+            if isinstance(summary.get("graph_counts"), dict)
+        )
+        for key in ("node_count", "edge_count", "relationship_count")
+    }
+    graph_revisions = sorted({
+        str(summary.get("graph_revision"))
+        for summary in graph_summaries
+        if summary.get("graph_revision") is not None
+    })
+    graph_content_hashes = sorted({
+        str(summary.get("graph_content_sha256"))
+        for summary in graph_summaries
+        if summary.get("graph_content_sha256") is not None
+    })
+    return {
+        "schema_version": "phase8_system_views_v1",
+        "scope": "system",
+        "aggregation_policy": "page_local_candidates; cross_sheet_continuity_remains_explicit",
+        "summary": {
+            "page_count": len(page_views),
+            "process_boundary_candidate_count": len(boundaries),
+            "test_package_candidate_count": len(packages),
+            "graph_revision_values": graph_revisions,
+            "graph_content_sha256_values": graph_content_hashes,
+            "graph_counts": graph_counts,
+        },
+        "process_boundaries": sorted(boundaries, key=lambda item: str(item.get("id") or "")),
+        "test_package_candidates": sorted(packages, key=lambda item: str(item.get("id") or "")),
+        "llm_projections": [
+            {"sheet_id": page["sheet_id"], "projection": page["llm_projections"]}
+            for page in page_views
+        ],
+    }
+
+
+def _system_connector_inventory(
+    page_graphs: list[tuple[dict[str, Any], dict[str, Any]]],
+) -> dict[str, dict[str, Any]]:
+    inventory: dict[str, dict[str, Any]] = {}
+    for page, graph in page_graphs:
+        for edge in graph.get("edges", []):
+            connector = edge.get("off_page_connector")
+            if not isinstance(connector, dict):
+                continue
+            local_edge_id = str(connector.get("local_edge_id") or edge.get("id") or "")
+            if not local_edge_id:
+                continue
+            connector_id = f"{page['sheet_id']}::{local_edge_id}"
+            inventory[connector_id] = {
+                "connector_id": connector_id,
+                "sheet_id": page["sheet_id"],
+                "local_edge_id": local_edge_id,
+                "target_sheet_id": str(
+                    connector.get("target_sheet_reference") or connector.get("reference_value") or ""
+                ),
+                "connector_key": str(connector.get("connector_key") or ""),
+                "raw_reference_text": str(connector.get("raw_reference_text") or ""),
+                "review_state": "accepted",
+            }
+    return dict(sorted(inventory.items()))
+
+
+def _job_completed_stage(job_dir: str, stage_name: str) -> bool:
+    manifest = _pipeline_job_manifest(job_dir) or {}
+    latest = {
+        entry.get("name"): entry
+        for entry in manifest.get("stages", [])
+        if isinstance(entry, dict) and isinstance(entry.get("name"), str)
+    }
+    return latest.get(stage_name, {}).get("status") == "completed"
+
+
+def _system_pages_complete(manifest: dict[str, Any]) -> bool:
+    for page in manifest.get("pages", []):
+        payload = _serialize_pipeline_job(str(page.get("job_id") or ""))
+        if payload.get("status") != "completed" or not _job_completed_stage(
+            payload["job_dir"], "stage11_connection_overlay"
+        ):
+            return False
+    return True
+
+
+def _regenerate_pipeline_system_graph(system_id: str) -> dict[str, Any]:
+    with PIPELINE_SYSTEMS_LOCK:
+        manifest = _read_pipeline_system_manifest(system_id)
+        if not _system_pages_complete(manifest):
+            raise HTTPException(status_code=409, detail="All pages must complete Stage 11 before system merge")
+        page_graphs = _system_page_graphs(manifest)
+        phase8_views = _load_system_phase8_views(manifest, page_graphs)
+        review = manifest.get("connector_review") or {}
+        overrides = {
+            str(item.get("connector_id") or ""): item
+            for item in review.get("connector_overrides", [])
+            if str(item.get("connector_id") or "")
+        }
+        merge_result = resolve_merge_pairs(
+            [graph for _page, graph in page_graphs],
+            strict=True,
+            connector_overrides=overrides,
+            manual_pairs=list(review.get("manual_pairs", [])),
+        ).to_dict()
+        graph_payload = {
+            **merge_result,
+            "document": {
+                "doc_id": system_id,
+                "source_sheets": [page["sheet_id"] for page, _graph in page_graphs],
+            },
+            "sheets": [
+                {
+                    "sheet_id": page["sheet_id"],
+                    "source_filename": page["source_filename"],
+                    "job_id": page["job_id"],
+                    "graph_v1": graph,
+                    **(
+                        {
+                            "phase8_views": next(
+                                item for item in phase8_views if item["sheet_id"] == str(page["sheet_id"])
+                            )
+                        }
+                        if phase8_views is not None
+                        else {}
+                    ),
+                }
+                for page, graph in page_graphs
+            ],
+            "connector_review": review,
+            "connector_review_audit": manifest.get("connector_review_audit", []),
+        }
+        if phase8_views is not None:
+            system_phase8 = _aggregate_system_phase8_views(phase8_views)
+            graph_payload["phase8_views"] = system_phase8
+            graph_payload["combined_graph"]["phase8_views"] = system_phase8
+        if int(review.get("revision", 0)) > 0 and not merge_result.get("merge_issues"):
+            for relationship in graph_payload.get("combined_graph", {}).get("relationships", []):
+                if relationship.get("type") == "cross_sheet_continues":
+                    relationship["review_state"] = "accepted"
+                    relationship["semantic_state"] = "reviewed"
+                    relationship.setdefault("provenance", {})["review"] = {
+                        "source": "connector_review",
+                        "revision": int(review.get("revision", 0)),
+                        "reviewer": review.get("reviewer"),
+                    }
+        merge_status = (
+            "awaiting_connector_review"
+            if int(review.get("revision", 0)) == 0 or merge_result["merge_issues"]
+            else "completed"
+        )
+        graph_payload["release_gate"] = {
+            "release_ready": merge_status == "completed",
+            "status": merge_status,
+            "connector_review_revision": int(review.get("revision", 0)),
+            "merge_issue_count": len(merge_result["merge_issues"]),
+            "phase8_views_status": "ready" if phase8_views is not None else "legacy_unavailable",
+        }
+        graph_path = os.path.join(_pipeline_system_dir(system_id), "system_graph_v2.json")
+        _write_json_atomic(graph_path, graph_payload)
+        final_export_path = os.path.join(_pipeline_system_dir(system_id), "system_final_export.json")
+        if phase8_views is not None and merge_status == "completed":
+            from garnet.versioned_export import build_downstream_export, validate_downstream_export
+
+            system_phase8 = graph_payload.get("phase8_views") or {}
+            try:
+                final_export = build_downstream_export(
+                    graph_payload,
+                    engineering_views={
+                        "boundaries": system_phase8.get("process_boundaries", []),
+                        "test_packages": system_phase8.get("test_package_candidates", []),
+                    },
+                    phase8_views={
+                        "pages": phase8_views,
+                        "system": system_phase8,
+                        "page_provenance": [
+                            {
+                                "sheet_id": page["sheet_id"],
+                                "job_id": page["job_id"],
+                                "source_filename": page["source_filename"],
+                                "source_graph_artifact": "stage9_corrected_graph.json",
+                            }
+                            for page, _graph in page_graphs
+                        ],
+                    },
+                    release_gate=graph_payload["release_gate"],
+                    source_graph_artifact="system_graph_v2.json",
+                    source_release_gate_artifact="system_manifest.json",
+                    source_release_gate_sha256=release_gate_sha256(graph_payload["release_gate"]),
+                    source_graph_payload=graph_payload,
+                    scope="system",
+                )
+                validation = validate_downstream_export(final_export, source_graph=graph_payload)
+                if not validation["valid"]:
+                    raise ValueError("schema validation failed")
+            except (TypeError, ValueError) as exc:
+                # Keep the legacy system graph available for review while
+                # withholding a final export whose route geometry or typed
+                # references are incomplete.
+                logger.warning("System final export withheld for %s: %s", system_id, exc)
+                final_export = None
+            if final_export is not None:
+                _write_json_atomic(final_export_path, final_export)
+        elif os.path.isfile(final_export_path):
+            os.unlink(final_export_path)
+        updated_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        manifest["merge"] = {
+            "status": merge_status,
+            "updated_at": updated_at,
+            "graph_artifact": "system_graph_v2.json",
+            "final_export_artifact": "system_final_export.json" if os.path.isfile(final_export_path) else None,
+            "resolved_count": len(merge_result["cross_sheet_edges"]),
+            "issue_count": len(merge_result["merge_issues"]),
+            "release_ready": merge_status == "completed",
+        }
+        manifest["status"] = merge_status
+        manifest.setdefault("audit_history", []).append(
+            {"event": "graph_regenerated", "status": merge_status, "timestamp": updated_at}
+        )
+        _write_pipeline_system_manifest(system_id, manifest)
+        return graph_payload
+
+
+def _maybe_regenerate_pipeline_system(system_id: str) -> None:
+    try:
+        manifest = _read_pipeline_system_manifest(system_id)
+        if _system_pages_complete(manifest):
+            _regenerate_pipeline_system_graph(system_id)
+    except HTTPException as exc:
+        if exc.status_code not in {404, 409}:
+            logger.warning("Pipeline system refresh failed for %s: %s", system_id, exc.detail)
+    except Exception as exc:
+        logger.exception("Pipeline system refresh failed for %s: %s", system_id, exc)
+
+
+def _invalidate_pipeline_system(system_id: str) -> None:
+    with PIPELINE_SYSTEMS_LOCK:
+        manifest = _read_pipeline_system_manifest(system_id)
+        manifest["merge"] = {
+            "status": "stale",
+            "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+        manifest["status"] = "processing"
+        manifest.setdefault("audit_history", []).append(
+            {
+                "event": "graph_invalidated",
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            }
+        )
+        graph_path = os.path.join(_pipeline_system_dir(system_id), "system_graph_v2.json")
+        if os.path.isfile(graph_path):
+            os.unlink(graph_path)
+        final_export_path = os.path.join(_pipeline_system_dir(system_id), "system_final_export.json")
+        if os.path.isfile(final_export_path):
+            os.unlink(final_export_path)
+        _write_pipeline_system_manifest(system_id, manifest)
+
+
+def _page_system_status(job: dict[str, Any]) -> str:
+    if job.get("status") == "failed":
+        return "failed"
+    if job.get("status") in {"queued", "running"}:
+        return "processing"
+    completed = {
+        stage["name"]
+        for stage in _pipeline_stage_status(job["job_dir"])
+        if stage.get("status") == "completed"
+    }
+    if "stage11_connection_overlay" in completed:
+        return "completed"
+    if "stage8_graph_qa" in completed and "stage9_apply_review_decisions" not in completed:
+        return "awaiting_graph_review"
+    if "stage5b_pipe_trace" in completed and "stage6_trace_associations" not in completed:
+        return "awaiting_trace_review"
+    if "stage4_instrument_tag_fusion" in completed and "stage5_pipe_mask" not in completed:
+        return "awaiting_object_review"
+    return "processing"
+
+
+def _serialize_pipeline_system(system_id: str) -> dict[str, Any]:
+    manifest = _read_pipeline_system_manifest(system_id)
+    pages = []
+    page_statuses = []
+    for page in manifest.get("pages", []):
+        job = _serialize_pipeline_job(str(page.get("job_id") or ""))
+        page_status = _page_system_status(job)
+        page_statuses.append(page_status)
+        pages.append({**page, "status": page_status, "job": job})
+    merge = manifest.get("merge") or {}
+    if "failed" in page_statuses:
+        status_value = "failed"
+    elif merge.get("status") in {"completed", "awaiting_connector_review"}:
+        status_value = merge["status"]
+    else:
+        status_value = next(
+            (status for status in ("awaiting_object_review", "awaiting_trace_review", "awaiting_graph_review") if status in page_statuses),
+            "processing",
+        )
+    if manifest.get("status") != status_value:
+        with PIPELINE_SYSTEMS_LOCK:
+            latest = _read_pipeline_system_manifest(system_id)
+            previous_status = latest.get("status")
+            latest["status"] = status_value
+            latest.setdefault("audit_history", []).append(
+                {
+                    "event": "status_changed",
+                    "from": previous_status,
+                    "to": status_value,
+                    "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                }
+            )
+            _write_pipeline_system_manifest(system_id, latest)
+    return {
+        "system_id": system_id,
+        "status": status_value,
+        "created_at": manifest.get("created_at"),
+        "pages": pages,
+        "connector_review": manifest.get("connector_review"),
+        "merge": merge,
+        "graph_url": f"/api/pipeline/systems/{system_id}/graph" if merge.get("graph_artifact") else None,
+        "export_url": f"/api/pipeline/systems/{system_id}/export" if merge.get("final_export_artifact") else None,
+    }
+
+
+def _start_pipeline_system(system_id: str) -> None:
+    def run_pages() -> None:
+        manifest = _read_pipeline_system_manifest(system_id)
+        for page in manifest.get("pages", []):
+            job_id = str(page["job_id"])
+            with PIPELINE_JOBS_LOCK:
+                job = PIPELINE_JOBS.get(job_id)
+            if not job:
+                continue
+            _run_pipeline_job(
+                job_id,
+                job["image_path"],
+                job["job_dir"],
+                4,
+                job["ocr_route"],
+                job["gemini_postprocess_match_threshold"],
+                job["weight_file"],
+                debug_artifacts=bool(job.get("debug_artifacts", False)),
+            )
+
+    # ponytail: one coordinator per system; add a bounded shared pool only if concurrent systems contend.
+    threading.Thread(target=run_pages, daemon=True).start()
 
 
 def sanitize_excel_sheet_name(name: str, fallback: str = "Sheet") -> str:
@@ -1447,6 +2548,9 @@ def initialize_application_runtime() -> None:
 
     MODEL_LIST = list_weight_files()
     CONFIG_FILE_LIST = list_config_files()
+    logger.info(
+        f"Found {len(MODEL_LIST)} weight files: {extract_item_list(MODEL_LIST)}"
+    )
 
     # Weight files are discovered, not loaded: a model is built on first use and
     # then cached by get_cached_detection_model. Startup stays cheap and the
@@ -1623,6 +2727,229 @@ async def api_pdf_extract(file_input: UploadFile = File(...)):
     return {"count": len(pages), "pages": pages}
 
 
+@app.post("/api/pipeline/systems")
+async def create_pipeline_system(
+    files: list[UploadFile] = File(...),
+    sheet_ids: list[str] = Form(...),
+    ocr_route: str = Form(...),
+    gemini_postprocess_match_threshold: float = Form(0.1),
+    weight_file: str = Form(""),
+    debug_artifacts: bool = Form(False),
+):
+    if not 2 <= len(files) <= 50:
+        raise HTTPException(status_code=400, detail="Pipeline systems require 2 to 50 pages")
+    if len(files) != len(sheet_ids):
+        raise HTTPException(status_code=400, detail="files and sheet_ids must have the same count")
+    submitted_sheet_ids = [str(sheet_id) for sheet_id in sheet_ids]
+    normalized_sheet_ids = [" ".join(sheet_id.casefold().split()) for sheet_id in submitted_sheet_ids]
+    if any(not sheet_id for sheet_id in normalized_sheet_ids):
+        raise HTTPException(status_code=400, detail="Every page requires a non-empty sheet ID")
+    if len(set(normalized_sheet_ids)) != len(normalized_sheet_ids):
+        raise HTTPException(status_code=400, detail="Sheet IDs must be unique")
+    if ocr_route not in {"easyocr", "gemini", "paddleocr", "ocrmac"}:
+        raise HTTPException(status_code=400, detail="Invalid ocr_route")
+    if not 0 <= gemini_postprocess_match_threshold <= 1:
+        raise HTTPException(status_code=400, detail="gemini_postprocess_match_threshold must be between 0 and 1")
+    try:
+        resolved_weight_file = resolve_pipeline_weight_file(weight_file)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    uploads: list[tuple[str, bytes]] = []
+    for upload in files:
+        validate_image_file(upload)
+        data = await upload.read()
+        await upload.close()
+        if not data:
+            raise HTTPException(status_code=400, detail=f"Uploaded image is empty: {upload.filename}")
+        if len(data) > config.MAX_FILE_SIZE_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File too large: {upload.filename}. Maximum size: {config.MAX_FILE_SIZE_MB}MB",
+            )
+        uploads.append((str(upload.filename or "page.png"), data))
+
+    system_id = uuid.uuid4().hex
+    os.makedirs(_pipeline_system_dir(system_id), exist_ok=True)
+    pages = []
+    for (filename, data), sheet_id in zip(uploads, submitted_sheet_ids, strict=True):
+        job = _register_pipeline_job(
+            input_bytes=data,
+            filename=filename,
+            stop_after=4,
+            ocr_route=ocr_route,
+            gemini_postprocess_match_threshold=gemini_postprocess_match_threshold,
+            weight_file=resolved_weight_file,
+            debug_artifacts=debug_artifacts,
+            system_id=system_id,
+            document_id=sheet_id,
+        )
+        pages.append({"sheet_id": sheet_id, "source_filename": filename, "job_id": job["job_id"]})
+    created_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    manifest = {
+        "manifest_version": 1,
+        "system_id": system_id,
+        "created_at": created_at,
+        "status": "processing",
+        "config": {
+            "ocr_route": ocr_route,
+            "gemini_postprocess_match_threshold": gemini_postprocess_match_threshold,
+            "weight_file": resolved_weight_file,
+            "debug_artifacts": debug_artifacts,
+        },
+        "pages": pages,
+        "connector_review": {"revision": 0, "connector_overrides": [], "manual_pairs": []},
+        "connector_review_audit": [],
+        "audit_history": [{"event": "system_created", "timestamp": created_at}],
+        "merge": {"status": "stale"},
+    }
+    _write_pipeline_system_manifest(system_id, manifest)
+    _start_pipeline_system(system_id)
+    return {"system_id": system_id, "status": "processing", "pages": pages}
+
+
+@app.get("/api/pipeline/systems/{system_id}")
+async def get_pipeline_system(system_id: str):
+    return _serialize_pipeline_system(system_id)
+
+
+@app.get("/api/pipeline/systems/{system_id}/graph")
+async def get_pipeline_system_graph(system_id: str):
+    manifest = _read_pipeline_system_manifest(system_id)
+    graph_artifact = str((manifest.get("merge") or {}).get("graph_artifact") or "")
+    if graph_artifact != "system_graph_v2.json":
+        raise HTTPException(status_code=409, detail="Pipeline system graph is not ready")
+    merge_state = manifest.get("merge") or {}
+    if merge_state.get("release_ready") is False or merge_state.get("status") in {"awaiting_connector_review", "stale", "processing"}:
+        raise HTTPException(status_code=409, detail="Pipeline system graph is awaiting connector review release")
+    graph_path = os.path.join(_pipeline_system_dir(system_id), graph_artifact)
+    if not os.path.isfile(graph_path):
+        raise HTTPException(status_code=409, detail="Pipeline system graph is not ready")
+    return FileResponse(graph_path, media_type="application/json", filename=f"{system_id}-graph-v2.json")
+
+
+@app.get("/api/pipeline/systems/{system_id}/export")
+async def get_pipeline_system_export(system_id: str):
+    """Serve the complete qualified system export after connector review."""
+    manifest = _read_pipeline_system_manifest(system_id)
+    merge = manifest.get("merge") or {}
+    if merge.get("status") != "completed" or merge.get("release_ready") is not True:
+        raise HTTPException(status_code=409, detail="Pipeline system export is awaiting connector-review release")
+    export_path = os.path.join(_pipeline_system_dir(system_id), "system_final_export.json")
+    graph_path = os.path.join(_pipeline_system_dir(system_id), "system_graph_v2.json")
+    if not os.path.isfile(export_path) or not os.path.isfile(graph_path):
+        raise HTTPException(status_code=409, detail="Pipeline system export is not ready")
+    try:
+        with open(export_path, "r", encoding="utf-8") as handle:
+            export = json.load(handle)
+        with open(graph_path, "r", encoding="utf-8") as handle:
+            graph = json.load(handle)
+        validation = validate_downstream_export(export, source_graph=graph)
+    except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=409, detail="Pipeline system export is invalid") from exc
+    live_gate = graph.get("release_gate") if isinstance(graph, dict) else None
+    source = export.get("source") if isinstance(export, dict) else {}
+    gate_matches = isinstance(live_gate, dict) and source.get("release_gate_sha256") == release_gate_sha256(live_gate)
+    if not validation["valid"] or export.get("release_ready") is not True or not gate_matches:
+        raise HTTPException(status_code=409, detail="Pipeline system export is invalid or stale")
+    return FileResponse(export_path, media_type="application/json", filename=f"{system_id}-final-export.json")
+
+
+@app.put("/api/pipeline/systems/{system_id}/connector-review")
+async def put_pipeline_system_connector_review(system_id: str, request: ConnectorReviewRequest):
+    with PIPELINE_SYSTEMS_LOCK:
+        manifest = _read_pipeline_system_manifest(system_id)
+        page_graphs = _system_page_graphs(manifest)
+        raw_connectors = _system_connector_inventory(page_graphs)
+        connector_sheet = {
+            connector_id: str(connector["sheet_id"])
+            for connector_id, connector in raw_connectors.items()
+        }
+        sheet_ids = {str(page["sheet_id"]) for page in manifest.get("pages", [])}
+        sheet_by_normalized = {" ".join(sheet_id.casefold().split()): sheet_id for sheet_id in sheet_ids}
+
+        overrides = []
+        seen_override_ids: set[str] = set()
+        for item in request.connector_overrides:
+            if item.connector_id not in connector_sheet:
+                raise HTTPException(status_code=400, detail=f"Unknown connector: {item.connector_id}")
+            if item.connector_id in seen_override_ids:
+                raise HTTPException(status_code=400, detail=f"Duplicate connector override: {item.connector_id}")
+            if item.review_state not in {"accepted", "rejected"}:
+                raise HTTPException(status_code=400, detail="review_state must be accepted or rejected")
+            payload = item.model_dump()
+            if item.target_sheet_id:
+                normalized_target = " ".join(item.target_sheet_id.strip().casefold().split())
+                if normalized_target not in sheet_by_normalized:
+                    raise HTTPException(status_code=400, detail=f"Unknown target sheet: {item.target_sheet_id}")
+                payload["target_sheet_id"] = sheet_by_normalized[normalized_target]
+            overrides.append(payload)
+            seen_override_ids.add(item.connector_id)
+
+        override_by_id = {item["connector_id"]: item for item in overrides}
+        effective_connectors = []
+        for connector_id, raw_connector in raw_connectors.items():
+            override = override_by_id.get(connector_id, {})
+            effective_connectors.append(
+                {
+                    **raw_connector,
+                    "target_sheet_id": override.get("target_sheet_id") or raw_connector["target_sheet_id"],
+                    "connector_key": override.get("connector_key") or raw_connector["connector_key"],
+                    "review_state": override.get("review_state") or raw_connector["review_state"],
+                }
+            )
+
+        pairs = []
+        used_ids: set[str] = set()
+        rejected_ids = {item["connector_id"] for item in overrides if item["review_state"] == "rejected"}
+        for pair in request.manual_pairs:
+            left_id, right_id = pair.left_connector_id, pair.right_connector_id
+            if left_id not in connector_sheet or right_id not in connector_sheet:
+                missing_id = left_id if left_id not in connector_sheet else right_id
+                raise HTTPException(status_code=400, detail=f"Unknown connector: {missing_id}")
+            if left_id == right_id or connector_sheet[left_id] == connector_sheet[right_id]:
+                raise HTTPException(status_code=400, detail="Manual pairs must connect two different sheets")
+            if left_id in used_ids or right_id in used_ids:
+                raise HTTPException(status_code=400, detail="A connector can appear in only one manual pair")
+            if left_id in rejected_ids or right_id in rejected_ids:
+                raise HTTPException(status_code=400, detail="Rejected connectors cannot be manually paired")
+            pairs.append(pair.model_dump())
+            used_ids.update((left_id, right_id))
+
+        previous = manifest.get("connector_review") or {}
+        next_review = {
+            "revision": int(previous.get("revision", 0)) + 1,
+            "connector_overrides": overrides,
+            "manual_pairs": pairs,
+            "raw_connectors": list(raw_connectors.values()),
+            "effective_connectors": effective_connectors,
+            "reviewer": request.reviewer,
+            "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+        same_content = (
+            previous.get("connector_overrides", []) == overrides
+            and previous.get("manual_pairs", []) == pairs
+            and previous.get("raw_connectors", []) == list(raw_connectors.values())
+            and previous.get("effective_connectors", []) == effective_connectors
+            and previous.get("reviewer") == request.reviewer
+            and int(previous.get("revision", 0)) > 0
+        )
+        if not same_content:
+            manifest["connector_review"] = next_review
+            manifest.setdefault("connector_review_audit", []).append(next_review)
+            manifest.setdefault("audit_history", []).append(
+                {
+                    "event": "connector_review_replaced",
+                    "revision": next_review["revision"],
+                    "timestamp": next_review["updated_at"],
+                }
+            )
+            _write_pipeline_system_manifest(system_id, manifest)
+    if not same_content:
+        _regenerate_pipeline_system_graph(system_id)
+    return _serialize_pipeline_system(system_id)
+
+
 @app.post("/api/pipeline/jobs")
 async def create_pipeline_job(
     file_input: UploadFile = File(...),
@@ -1655,32 +2982,20 @@ async def create_pipeline_job(
         )
     await file_input.close()
 
-    ext = os.path.splitext(file_input.filename or "")[1].lower() or ".png"
-    job_id = uuid.uuid4().hex
-    job_dir = os.path.join(PIPELINE_JOBS_DIR, job_id)
-    os.makedirs(job_dir, exist_ok=True)
-    image_path = os.path.join(job_dir, f"input{ext}")
-    with open(image_path, "wb") as f:
-        f.write(input_bytes)
-
-    with PIPELINE_JOBS_LOCK:
-        PIPELINE_JOBS[job_id] = {
-            "job_id": job_id,
-            "status": "queued",
-            "current_stage": None,
-            "error": None,
-            "job_dir": job_dir,
-            "created_at": time.time(),
-            "stop_after": stop_after,
-            "ocr_route": ocr_route,
-            "gemini_postprocess_match_threshold": gemini_postprocess_match_threshold,
-            "weight_file": resolved_weight_file,
-            "debug_artifacts": debug_artifacts,
-        }
+    job = _register_pipeline_job(
+        input_bytes=input_bytes,
+        filename=str(file_input.filename or "input.png"),
+        stop_after=stop_after,
+        ocr_route=ocr_route,
+        gemini_postprocess_match_threshold=gemini_postprocess_match_threshold,
+        weight_file=resolved_weight_file,
+        debug_artifacts=debug_artifacts,
+    )
+    job_id = job["job_id"]
 
     worker = threading.Thread(
         target=_run_pipeline_job,
-        args=(job_id, image_path, job_dir, stop_after, ocr_route, gemini_postprocess_match_threshold, resolved_weight_file),
+        args=(job_id, job["image_path"], job["job_dir"], stop_after, ocr_route, gemini_postprocess_match_threshold, resolved_weight_file),
         kwargs={"debug_artifacts": debug_artifacts},
         daemon=True,
     )
@@ -1702,6 +3017,16 @@ async def get_pipeline_stage_status(job_id: str):
     }
 
 
+@app.get("/api/pipeline/jobs/{job_id}/export")
+async def get_pipeline_job_export(job_id: str):
+    """Serve the validated, release-gated versioned Stage 10 export."""
+    payload = _serialize_pipeline_job(job_id)
+    if not _pipeline_final_export_is_fresh(payload["job_dir"]):
+        raise HTTPException(status_code=409, detail="Pipeline final export is stale or awaiting the Stage 9 release gate")
+    path = os.path.join(payload["job_dir"], "stage10_final_export.json")
+    return FileResponse(path, media_type="application/json", filename=f"{job_id}-final-export.json")
+
+
 @app.post("/api/pipeline/jobs/{job_id}/resume-from/{stage}")
 async def resume_pipeline_job_from_stage(job_id: str, stage: str, stop_after: int | None = None):
     stage_num, stage_name = _resolve_pipeline_stage(stage)
@@ -1720,17 +3045,20 @@ async def resume_pipeline_job_from_stage(job_id: str, stage: str, stop_after: in
             raise HTTPException(status_code=404, detail="Pipeline job not found")
         job_dir = job["job_dir"]
         image_path = _resolve_pipeline_job_image_path(job_dir)
-        target_stop_after = stop_after if stop_after is not None else max(int(job.get("stop_after") or stage_num), stage_num)
+        target_stop_after = stop_after if stop_after is not None else PIPELINE_LAST_STAGE
         ocr_route = str(job.get("ocr_route") or "ocrmac")
         gemini_threshold = float(job.get("gemini_postprocess_match_threshold") or 0.1)
         weight_file = str(job.get("weight_file") or resolve_pipeline_weight_file(""))
         debug_artifacts = bool(job.get("debug_artifacts", False))
+        system_id = str(job.get("system_id") or "")
         job["status"] = "queued"
         job["current_stage"] = stage_name
         job["error"] = None
         job["stop_after"] = target_stop_after
 
     _mark_pipeline_stale_from(job_dir, stage_name, f"resume_from:{stage_name}")
+    if system_id:
+        _invalidate_pipeline_system(system_id)
 
     worker = threading.Thread(
         target=_run_pipeline_job,
@@ -1748,24 +3076,23 @@ async def resume_pipeline_job_from_stage(job_id: str, stage: str, stop_after: in
 
 
 class MergeSheetsRequest(BaseModel):
-    job_ids: list[str] = Field(..., description="Pipeline job IDs to merge. Each must have a stage12b_graph_v1.json artifact.")
+    job_ids: list[str] = Field(..., description="Pipeline job IDs to merge. Each must have a stage7b_graph_v1.json artifact.")
 
 
 @app.post("/api/pipeline/merge", response_model=dict[str, Any])
 async def post_pipeline_merge(request: MergeSheetsRequest):
     """Run the multi-sheet merge engine on a list of completed pipeline jobs.
 
-    Each job_id must have a ``stage12b_graph_v1.json`` artifact (stage 12b must
-    have completed).  The merge engine pairs off-page connectors by
-    ``(reference_type, reference_value)`` across different sheets and returns
-    ``cross_sheet_edges`` plus any ``merge_issues`` requiring human review.
+    Each job_id must have a current ``stage7b_graph_v1.json`` artifact.
     """
     graphs: list[dict[str, Any]] = []
     missing: list[str] = []
 
     for job_id in request.job_ids:
         payload = _serialize_pipeline_job(job_id)
-        graph_path = os.path.join(payload["job_dir"], "stage12b_graph_v1.json")
+        if not _pipeline_graph_is_fresh(payload["job_dir"]):
+            raise HTTPException(status_code=409, detail=f"Pipeline job {job_id} graph is awaiting Stage 9 review completion")
+        graph_path = os.path.join(payload["job_dir"], "stage7b_graph_v1.json")
         if not os.path.exists(graph_path):
             missing.append(job_id)
             continue
@@ -1776,7 +3103,7 @@ async def post_pipeline_merge(request: MergeSheetsRequest):
         raise HTTPException(
             status_code=404,
             detail={
-                "message": "One or more job IDs do not have stage12b_graph_v1.json artifacts.",
+                "message": "One or more job IDs do not have stage7b_graph_v1.json artifacts.",
                 "missing_job_ids": missing,
             },
         )
@@ -1784,7 +3111,18 @@ async def post_pipeline_merge(request: MergeSheetsRequest):
     if not graphs:
         raise HTTPException(status_code=400, detail="No valid graph payloads found.")
 
-    result = resolve_merge_pairs(graphs)
+    normalized_documents: dict[str, str] = {}
+    for graph, job_id in zip(graphs, request.job_ids):
+        raw_doc_id = str((graph.get("document") or {}).get("doc_id") or "")
+        normalized = " ".join(raw_doc_id.split()).casefold()
+        if normalized in normalized_documents:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Duplicate normalized document.doc_id in merge request: {raw_doc_id!r} conflicts with {normalized_documents[normalized]!r}",
+            )
+        normalized_documents[normalized] = raw_doc_id
+
+    result = resolve_merge_pairs(graphs, strict=True)
     return result.to_dict()
 
 
@@ -1976,17 +3314,31 @@ async def put_pipeline_artifact(job_id: str, artifact_name: str, payload: dict[s
     artifact_path = _safe_pipeline_artifact_path(job_dir, artifact_name)
     if not artifact_name.endswith(".json"):
         raise HTTPException(status_code=400, detail="Only JSON artifacts can be updated through this endpoint")
+    if artifact_name not in PIPELINE_EDITABLE_ARTIFACT_NAMES:
+        raise HTTPException(
+            status_code=409,
+            detail="Only review/input artifacts can be updated through this endpoint",
+        )
 
     tmp_path = f"{artifact_path}.tmp"
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2)
-    os.replace(tmp_path, artifact_path)
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, sort_keys=True, allow_nan=False)
+        os.replace(tmp_path, artifact_path)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="Artifact JSON must contain finite JSON values") from exc
+    finally:
+        if os.path.isfile(tmp_path):
+            os.unlink(tmp_path)
 
     from_stage_name = ARTIFACT_INVALIDATION_START_STAGE.get(artifact_name)
     if from_stage_name:
         _mark_pipeline_stale_from(job_dir, from_stage_name, artifact_name)
     if artifact_name == "stage4_objects.json":
         _refresh_stage4_reviewed_object_artifacts(job_dir, payload)
+    system_id = str(job_payload.get("system_id") or "")
+    if system_id:
+        _invalidate_pipeline_system(system_id)
 
     return {
         "job_id": job_id,
@@ -2002,6 +3354,21 @@ async def put_pipeline_artifact(job_id: str, artifact_name: str, payload: dict[s
 async def get_pipeline_artifact(job_id: str, artifact_name: str):
     payload = _serialize_pipeline_job(job_id)
     job_dir = payload["job_dir"]
+    released_artifacts = {
+        "stage7b_graph_v1.json", "stage10_line_list.json", "stage10_equipment_connectivity.json",
+        "stage10_inline_mto.json", "stage10_inline_observations.json", "stage10_instrument_index.json",
+        "stage10_process_export_summary.json", "stage10_inline_mto_overlay.png",
+        "stage10_line_number_overlay.png", "stage11_connection_pipeline_overlay.png",
+        "stage10_process_boundaries.json", "stage10_test_package_candidates.json",
+        "stage10_engineering_view_summary.json", "stage10_llm_projections.json",
+        "stage10_final_export.json",
+    }
+    if artifact_name in PIPELINE_GRAPH_ARTIFACT_NAMES and not _pipeline_graph_is_fresh(job_dir):
+        raise HTTPException(status_code=409, detail="Graph artifacts are withheld until the Stage 9 release gate is ready")
+    if artifact_name == "stage10_final_export.json" and not _pipeline_final_export_is_fresh(job_dir):
+        raise HTTPException(status_code=409, detail="Pipeline final export is stale or awaiting the Stage 9 release gate")
+    if artifact_name in released_artifacts and artifact_name != "stage10_final_export.json" and not _pipeline_graph_is_fresh(job_dir):
+        raise HTTPException(status_code=409, detail="Released process artifacts are stale until the Stage 9 release gate is ready")
     artifact_path = _safe_pipeline_artifact_path(job_dir, artifact_name)
     if not os.path.exists(artifact_path):
         raise HTTPException(status_code=404, detail="Artifact not found")

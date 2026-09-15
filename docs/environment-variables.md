@@ -9,7 +9,7 @@ DEBUG=true
 
 # Server Configuration
 HOST=localhost
-PORT=8001
+PORT=8090
 
 # CORS - Comma-separated list of allowed origins
 ALLOWED_ORIGINS=http://localhost:5173,http://localhost:4173

@@ -170,7 +170,7 @@ def _confirm_with_crop_ocr(image_bgr: np.ndarray, bbox: dict[str, int]) -> tuple
         try:
             annotations = ocrmac.OCR(
                 Image.fromarray(cv2.cvtColor(crop_view, cv2.COLOR_BGR2RGB)),
-                recognition_level="accurate",
+                recognition_level="fast",
                 framework="vision",
                 language_preference=["en-US"],
             ).recognize()

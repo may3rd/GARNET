@@ -1,5 +1,5 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
-import { CanvasView } from '@/components/CanvasView'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { CanvasView, type CanvasViewHandle } from '@/components/CanvasView'
 import type { DetectedObject, PipelineReviewDecision } from '@/types'
 
 type JsonValue = string | number | boolean | null | JsonObject | JsonValue[]
@@ -209,8 +209,28 @@ export function Stage6LineAssociationReview({
 
   useEffect(() => {
     setDrafts(buildInitialDrafts(edges, reviewPayload))
-    setSelectedTraceId((current) => current && edges.some((edge) => edge.trace_id === current) ? current : edges[0]?.trace_id ?? null)
+    setSelectedTraceId((current) => current && edges.some((edge) => edge.trace_id === current) ? current : null)
   }, [edges, reviewPayload])
+
+  const canvasRef = useRef<CanvasViewHandle>(null)
+
+  useEffect(() => {
+    if (!selectedTraceId) return
+    const edge = edges.find((item) => item.trace_id === selectedTraceId)
+    if (!edge) return
+    const pts = edgePoints(edge)
+    if (pts.length < 2) return
+    let sx = 0
+    let sy = 0
+    let count = 0
+    for (let i = 0; i + 1 < pts.length; i += 2) {
+      sx += pts[i]
+      sy += pts[i + 1]
+      count += 1
+    }
+    if (!count) return
+    canvasRef.current?.centerOnImagePoint(sx / count, sy / count)
+  }, [selectedTraceId, edges])
 
   const selectedEdge = edges.find((edge) => edge.trace_id === selectedTraceId) ?? null
   const selectedDraft = selectedTraceId ? drafts[selectedTraceId] : undefined
@@ -338,6 +358,7 @@ export function Stage6LineAssociationReview({
     <>
       <main className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-[var(--bg-canvas)]">
         <CanvasView
+          ref={canvasRef}
           imageUrl={canvasImageUrl}
           objects={canvasObjects}
           selectedObjectKey={null}
@@ -468,11 +489,55 @@ export function Stage6LineAssociationReview({
       </main>
 
       <aside className={layout === 'workspace'
-        ? 'min-h-0 w-[360px] shrink-0 overflow-auto border-l border-[var(--border-muted)] bg-[var(--bg-secondary)] p-6'
-        : 'rounded-xl border border-[var(--border-muted)] bg-[var(--bg-primary)] p-4'}
+        ? 'relative flex min-h-0 w-[360px] shrink-0 flex-col overflow-hidden border-l border-[var(--border-muted)] bg-[var(--bg-secondary)]'
+        : 'relative flex min-h-[420px] flex-col overflow-hidden rounded-xl border border-[var(--border-muted)] bg-[var(--bg-primary)] p-4'}
       >
+        <div className={layout === 'workspace' ? 'flex min-h-0 flex-1 flex-col p-6' : 'flex min-h-0 flex-1 flex-col'}>
+          <div className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">All Traces ({edges.length})</div>
+          <div className="mt-2 min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
+            {edges.map((edge) => {
+              const draft = drafts[edge.trace_id]
+              const isSelected = edge.trace_id === selectedTraceId
+              const label = draft?.lineText.trim() || edge.trace_id
+              const status = draft?.decision === 'accepted'
+                ? 'accepted'
+                : draft?.decision === 'rejected'
+                  ? 'rejected'
+                  : 'deferred'
+              return (
+                <button
+                  key={edge.trace_id}
+                  type="button"
+                  onClick={() => setSelectedTraceId(edge.trace_id)}
+                  className={`flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-xs transition ${
+                    isSelected
+                      ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                      : 'border-[var(--border-muted)] bg-[var(--bg-primary)] hover:border-[var(--accent)]/50'
+                  }`}
+                >
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: draftColor(draft) }} />
+                  <span className="min-w-0 flex-1 truncate font-semibold">{label}</span>
+                  <span
+                    className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                      status === 'accepted'
+                        ? 'bg-emerald-500/10 text-emerald-700'
+                        : status === 'rejected' || status === 'missing'
+                          ? 'bg-red-500/10 text-red-700'
+                          : 'bg-amber-500/10 text-amber-700'
+                    }`}
+                  >
+                    {status}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
         {selectedEdge && selectedDraft ? (
-          <>
+          <div className={layout === 'workspace'
+            ? 'absolute inset-x-0 bottom-0 z-10 animate-slide-up border-t border-[var(--border-muted)] bg-[var(--bg-secondary)] p-6 shadow-[0_-8px_24px_rgba(0,0,0,0.15)]'
+            : 'absolute inset-x-0 bottom-0 z-10 animate-slide-up border-t border-[var(--border-muted)] bg-[var(--bg-primary)] p-4 shadow-[0_-8px_24px_rgba(0,0,0,0.15)]'}
+          >
             <div className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">Selected Trace</div>
             <div className="mt-1 break-all font-mono text-sm font-semibold">{selectedEdge.trace_id}</div>
             <div className="mt-3 space-y-1 text-xs text-[var(--text-secondary)]">
@@ -508,10 +573,8 @@ export function Stage6LineAssociationReview({
                 </button>
               ))}
             </div>
-          </>
-        ) : (
-          <div className="text-sm text-[var(--text-secondary)]">Select a trace path to review.</div>
-        )}
+          </div>
+        ) : null}
 
         {layout === 'card' ? (
           <div className="mt-5 flex flex-col gap-2">
@@ -540,8 +603,9 @@ export function Stage6LineAssociationReview({
               Stage 6 Associations
             </span>
             <span className="ml-auto rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-700">{counts.accepted} accepted</span>
+            <span className="rounded-full bg-red-500/10 px-2 py-1 text-xs font-semibold text-red-700">{counts.rejected} rejected</span>
             <span className="rounded-full bg-amber-500/10 px-2 py-1 text-xs font-semibold text-amber-700">{counts.deferred} deferred</span>
-            <span className="rounded-full bg-red-500/10 px-2 py-1 text-xs font-semibold text-red-700">{counts.missing} missing</span>
+            <span className="rounded-full bg-slate-500/10 px-2 py-1 text-xs font-semibold text-slate-600">{counts.missing} missing</span>
           </div>
         </div>
         <div className="relative flex min-h-0 flex-1">
@@ -562,8 +626,9 @@ export function Stage6LineAssociationReview({
         </div>
         <div className="flex flex-wrap gap-2 text-xs">
           <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-emerald-700">{counts.accepted} accepted</span>
+          <span className="rounded-full bg-red-500/10 px-2 py-1 text-red-700">{counts.rejected} rejected</span>
           <span className="rounded-full bg-amber-500/10 px-2 py-1 text-amber-700">{counts.deferred} deferred</span>
-          <span className="rounded-full bg-red-500/10 px-2 py-1 text-red-700">{counts.missing} missing</span>
+          <span className="rounded-full bg-slate-500/10 px-2 py-1 text-slate-600">{counts.missing} missing</span>
         </div>
       </div>
 
