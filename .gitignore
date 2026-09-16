@@ -165,7 +165,9 @@ cython_debug/
 */.DS_Store
 .DS_Store
 .ruff_cache/
-.claude/
+.claude/*
+!.claude/skills/
+!.claude/agents/
 .tmp-mpl/
 output/
 

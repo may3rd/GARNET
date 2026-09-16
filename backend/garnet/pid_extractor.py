@@ -222,6 +222,7 @@ class PipelineConfig:
     ocr_line_merge_gap_px: int = 24
     ocr_line_merge_y_tolerance_px: int = 10
     ocr_enable_rotated: bool = True
+    ocr_detect_only: bool = False
     ocrmac_framework: str = "vision"
     ocrmac_recognition_level: str = "fast"
     detection_weight_path: str = field(default_factory=_default_detection_weight_path)
@@ -881,6 +882,10 @@ class PIDPipeline(Stage5bPipelineMixin):
     # ---------- Stage 2 ----------
     def stage2_ocr_discovery(self) -> None:
         """Run the configured OCR route on Stage 1 grayscale to discover text regions."""
+        if self.cfg.ocr_detect_only and self.cfg.ocr_route != "easyocr":
+            raise ValueError(
+                f"ocr_detect_only requires ocr_route='easyocr', got ocr_route={self.cfg.ocr_route!r}"
+            )
         stage1_input = self.out_dir / "stage1_gray.png"
         if not stage1_input.exists():
             raise FileNotFoundError(f"Stage 2 requires Stage 1 artifact: {stage1_input}")
@@ -903,6 +908,7 @@ class PIDPipeline(Stage5bPipelineMixin):
                     line_merge_gap_px=self.cfg.ocr_line_merge_gap_px,
                     line_merge_y_tolerance_px=self.cfg.ocr_line_merge_y_tolerance_px,
                     enable_rotated_ocr=self.cfg.ocr_enable_rotated,
+                    detect_only=self.cfg.ocr_detect_only,
                 ),
             )
         elif self.cfg.ocr_route == "gemini":
@@ -1746,6 +1752,16 @@ def main() -> None:
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     parser.add_argument("--ocr-route", choices=["easyocr", "gemini", "paddleocr", "ocrmac"], default="ocrmac")
     parser.add_argument(
+        "--ocr-detect-only",
+        action="store_true",
+        default=False,
+        help=(
+            "Detection-only Stage 2: emits text bounding boxes for the pipe mask without "
+            "transcription; requires --ocr-route easyocr. Line-number and instrument-tag text "
+            "must then come from --ai-line-numbers or the crop-OCR fallback."
+        ),
+    )
+    parser.add_argument(
         "--weight-file",
         default="",
         help=(
@@ -1795,6 +1811,7 @@ def main() -> None:
         output_dir=args.out,
         cfg=PipelineConfig(
             ocr_route=args.ocr_route,
+            ocr_detect_only=args.ocr_detect_only,
             detection_weight_path=detection_weight_path,
             debug_artifacts=args.debug_artifacts,
             ai_equipment_path=args.ai_equipment,

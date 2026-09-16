@@ -51,6 +51,7 @@ class EasyOcrSahiConfig:
     line_merge_gap_px: int = 24
     line_merge_y_tolerance_px: int = 10
     enable_rotated_ocr: bool = True
+    detect_only: bool = False
     paragraph: bool = False
     postprocess_type: str = "GREEDYNMM"
     postprocess_match_metric: str = "IOS"
@@ -462,14 +463,26 @@ def _read_tile_with_orientations(reader: easyocr.Reader, tile: np.ndarray, cfg: 
     oriented_results: list[tuple[str, list[Any]]] = []
     for orientation in orientations:
         oriented_tile = _rotate_image(tile, orientation)
-        results = reader.readtext(
-            oriented_tile,
-            detail=1,
-            paragraph=cfg.paragraph,
-            text_threshold=cfg.text_threshold,
-            low_text=cfg.low_text,
-            link_threshold=cfg.link_threshold,
-        )
+        if cfg.detect_only:
+            horizontal_list, free_list = reader.detect(
+                oriented_tile,
+                text_threshold=cfg.text_threshold,
+                low_text=cfg.low_text,
+                link_threshold=cfg.link_threshold,
+            )
+            results = [
+                ([[x_min, y_min], [x_max, y_min], [x_max, y_max], [x_min, y_max]], "", 1.0)
+                for x_min, x_max, y_min, y_max in horizontal_list[0]
+            ] + [(quad, "", 1.0) for quad in free_list[0]]
+        else:
+            results = reader.readtext(
+                oriented_tile,
+                detail=1,
+                paragraph=cfg.paragraph,
+                text_threshold=cfg.text_threshold,
+                low_text=cfg.low_text,
+                link_threshold=cfg.link_threshold,
+            )
         oriented_results.append((orientation, results))
     return oriented_results
 
@@ -499,9 +512,9 @@ class EasyOcrSahiDetectionModel(DetectionModel):
         for orientation, results in _read_tile_with_orientations(self.reader, image, self.cfg):
             rotation = 0 if orientation == "none" else 90
             for quad, text, score in results:
-                if float(score) < self.cfg.min_score:
+                if not self.cfg.detect_only and float(score) < self.cfg.min_score:
                     continue
-                if len(text.strip()) < self.cfg.min_text_len:
+                if not self.cfg.detect_only and len(text.strip()) < self.cfg.min_text_len:
                     continue
                 restored_quad = _rotate_quad_back(
                     [[float(point[0]), float(point[1])] for point in quad],
