@@ -141,9 +141,14 @@ def _containment(a: list[int], b: list[int]) -> float:
 
 
 # Instrument tags: a bubble tagged LT/PT/TT/FT/PI... is an instrument, never equipment.
+# `PDIT 200` is function pair `PD` + modifiers `IT`, so up to 3 modifier letters are allowed
+# directly after the function prefix, then an optional decoration letter, then the loop number.
+# Equipment tags (P-2503A, D-2502, E-2501, V-101, SRT-P2503A, PRW, PWD) start with a letter
+# that is not a function prefix, so they do not match.
 _INSTRUMENT_TAG = re.compile(
-    r"\b(LT|LG|LC|LV|LIC|LSL|LSH|LS|PT|PG|PC|PV|PIC|PSV|PS|TT|TG|TC|TV|TIC|TS|TE|"
-    r"FT|FG|FC|FV|FIC|FI|FE|FF|FS|AT|AI|AE|AC|AV|ZS|ZT|XV|HV|MOV|SDV|BDV)\b[\s\-]*\d",
+    r"\b(LT|LG|LC|LV|LIC|LSL|LSH|LS|PT|PD|PG|PC|PV|PIC|PSV|PS|TT|TD|TG|TC|TV|TIC|TS|TE|"
+    r"FT|FG|FC|FV|FIC|FI|FE|FF|FS|AT|AI|AE|AC|AV|ZS|ZT|XV|HV|MOV|SDV|BDV)"
+    r"[A-Z]{0,3}[\s\-_/.]*[A-Z]?[\s\-_/.]*\d",
     re.IGNORECASE,
 )
 # In-line items the prompt excludes but the model still reports.
@@ -153,6 +158,16 @@ _INLINE_ITEM = re.compile(
     r"junction|note|label|callout|dimension",
     re.IGNORECASE,
 )
+# Tag prefixes that are in-line items by convention, whatever `equipment_type` the model picks.
+# Observed: a strainer `SRT-P2503A` came back typed "filter" and would have imported as equipment.
+_INLINE_TAG = re.compile(r"^(SRT|SG|BL|SP|MS)[\s\-_]", re.IGNORECASE)
+# Pipe line-number-ish tags are text annotations on the pipe, not equipment — the model reads
+# them as symbols when they sit alone. Observed: `NAS 41-0007` typed "mixer", and `PRW`/`PWD`
+# (header text) typed "filter".
+# Equipment tags are a letter prefix plus a short number (`D-2502`, `P-2503A`, `E-2501`, `V-101`),
+# so the tell is a whitespace-separated second token carrying digits — `NAS 41-0007`. Matching on
+# `-[0-9]{4,}` instead would wrongly reject the pumps (`P-2503A`).
+_ANNOTATION_TAG = re.compile(r"^\S+\s+\S*\d")
 
 
 def call_vision(b64: str, prompt: str, *, model: str, base_url: str, api_key: str,
@@ -238,11 +253,16 @@ def extract(
             print(f"  tile {idx}/{len(boxes)} ({x1},{y1})-({x2},{y2}): {len(detections)} total",
                   file=sys.stderr)
 
-    # Reject instrument bubbles / in-line items the model reports despite the prompt.
+    # Reject instrument bubbles / in-line items the model reports despite the prompt. A tag with
+    # an in-line prefix goes regardless of the type the model chose (SRT-* typed "filter").
     filtered: list[dict] = []
     for det in detections:
         if _INSTRUMENT_TAG.search(det["tag"]):
             det["reject"] = "instrument tag"
+        elif _INLINE_TAG.match(det["tag"]):
+            det["reject"] = "in-line tag prefix"
+        elif _ANNOTATION_TAG.match(det["tag"]):
+            det["reject"] = "annotation text, not an equipment tag"
         elif _INLINE_ITEM.search(det["raw_type"]) or _INLINE_ITEM.search(det["tag"]):
             det["reject"] = "in-line item / non-equipment"
         if det.get("reject"):
@@ -347,15 +367,21 @@ def to_contract_b(result: dict, *, source_drawing: str) -> dict:
     }
 
 
-def draw_overlay(result: dict) -> "object":
+def draw_overlay(result: dict, *, outline_only: bool = False) -> "object":
+    """Draw boxes + labels. `outline_only` draws thin outlines and no label banners, so the
+    drawing underneath stays readable — use it as the actual verification image."""
     import cv2
-    import numpy as np
+
     overlay = result["image"].copy()
     scale = max(0.6, min(1.6, result["width"] / 2500))
+    thickness = 2 if outline_only else 3
+
     for d in result["detections"]:
         x1, y1, x2, y2 = d["bbox_px"]
         color = (36, 242, 36) if d["equipment_type"] else (0, 165, 255)   # green ok / amber bad type
-        cv2.rectangle(overlay, (x1, y1), (x2, y2), color, 3)
+        cv2.rectangle(overlay, (x1, y1), (x2, y2), color, thickness)
+        if outline_only:
+            continue
         label = f"{d['tag'] or '?'} [{d['equipment_type'] or d['raw_type'] or '?'}]"
         (tw, th), base = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, scale, 2)
         ly = y1 - 6 if y1 - th - 12 >= 0 else y2 + th + 6
@@ -422,6 +448,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error: failed to write overlay: {overlay_path}", file=sys.stderr)
             return 1
         print(f"overlay -> {overlay_path}")
+        # Banner-free thin-outline render: this is the one you can actually verify from.
+        verify_path = out_path.with_name(out_path.stem + "_outline.png")
+        if not cv2.imwrite(str(verify_path), draw_overlay(result, outline_only=True)):
+            print(f"error: failed to write outline: {verify_path}", file=sys.stderr)
+            return 1
+        print(f"verify  -> {verify_path}")
     return 0
 
 
