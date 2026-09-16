@@ -99,6 +99,14 @@ def load_pipeline_env() -> None:
     load_dotenv(BACKEND_DIR / ".env", override=False)
 
 
+def _read_json_file(path: str) -> dict[str, Any]:
+    with open(path, "r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path}: expected a JSON object at the top level")
+    return payload
+
+
 def normalize_for_save(img: np.ndarray) -> np.ndarray:
     if img.dtype == bool:
         return img.astype(np.uint8) * 255
@@ -226,6 +234,13 @@ class PipelineConfig:
     instrument_tag_fusion_max_distance_px: float = 60.0
     graph_duplicate_route_tolerance_px: float = 1.0
     debug_artifacts: bool = False
+    # Externally produced (AI-generated) equipment / line-number JSON to fold in
+    # before Stage 5. See garnet.ai_import. ai_align permits fitting a transform
+    # when the source raster is framed differently from this job's image; without
+    # it a frame mismatch is an error rather than a guess.
+    ai_equipment_path: str = ""
+    ai_line_numbers_path: str = ""
+    ai_align: bool = False
     pipe_mask_ocr_padding: int = 1
     pipe_mask_object_inset: int = 1
     pipe_mask_inline_object_inset: int = 12
@@ -273,6 +288,11 @@ class PipelineConfig:
     trace_inline_exit_margin_px: int = 6
     trace_branch_point_tolerance_px: int = 10
     trace_branch_turn_tolerance_px: int = 8
+    # Treat a tee a trace stopped at as a place to keep walking, not a place
+    # that is already handled: seed the untraced legs, and stop suppressing
+    # branch candidates merely for being near that tee. Set False to restore
+    # the previous behaviour, where those legs were dropped.
+    trace_branch_seed_from_tees: bool = True
     trace_association_equipment_port_max_distance_px: float = 16.0
     trace_association_inline_object_max_distance_px: float = 24.0
     trace_association_text_max_distance_px: float = 100.0
@@ -1001,6 +1021,7 @@ class PIDPipeline(Stage5bPipelineMixin):
     # ---------- Stage 5 ----------
     def stage5_pipe_mask(self) -> None:
         """Generate analysis and continuity pipe masks from OCR/object-suppressed candidates."""
+        self._apply_ai_import()
         gray_path = self.out_dir / "stage1_gray.png"
         adaptive_path = self.out_dir / "stage1_binary_adaptive.png"
         otsu_path = self.out_dir / "stage1_binary_otsu.png"
@@ -1387,6 +1408,10 @@ class PIDPipeline(Stage5bPipelineMixin):
         export_kwargs = {
             "process_exports": process_exports,
             "phase8_views": phase8_views,
+            # Without these the envelope's typed engineering_views slot stays
+            # empty while phase8_views carries the same released candidates.
+            "boundary_payload": engineering_views["process_boundaries"],
+            "test_package_payload": engineering_views["test_packages"],
             "release_gate": release_gate,
             "source_graph_artifact": "stage9_corrected_graph.json",
             "source_release_gate_artifact": "stage9_release_gate.json",
@@ -1400,7 +1425,9 @@ class PIDPipeline(Stage5bPipelineMixin):
             final_export = build_blocked_export(
                 corrected_graph,
                 blocked_reasons=["stage9_release_gate_not_ready"],
-                **{key: value for key, value in export_kwargs.items() if key not in {"process_exports", "phase8_views", "release_gate"}},
+                **{key: value for key, value in export_kwargs.items()
+                   if key not in {"process_exports", "phase8_views", "release_gate",
+                                  "boundary_payload", "test_package_payload"}},
             )
         validation = validate_downstream_export(final_export, source_graph=corrected_graph)
         if not validation["valid"]:
@@ -1539,6 +1566,99 @@ class PIDPipeline(Stage5bPipelineMixin):
                 equipment.append(normalized)
         return equipment
 
+    def _apply_ai_import(self) -> None:
+        """Fold externally produced equipment / line-number JSON into Stage 4.
+
+        Runs at the head of Stage 5 rather than as its own stage: it needs the
+        fused line numbers as an alignment reference, and it must land before
+        ports are computed. Does nothing unless a path is configured.
+        """
+        equipment_path = str(getattr(self.cfg, "ai_equipment_path", "") or "")
+        line_path = str(getattr(self.cfg, "ai_line_numbers_path", "") or "")
+        if not equipment_path and not line_path:
+            return
+
+        from garnet import ai_import
+
+        equipment_payload = _read_json_file(equipment_path) if equipment_path else None
+        line_payload = _read_json_file(line_path) if line_path else None
+
+        image = self._ensure_image_loaded()
+        job_size = (int(image.shape[1]), int(image.shape[0]))
+        mismatched = ai_import.check_frames(
+            [p for p in (equipment_payload, line_payload) if p], job_size
+        )
+
+        transform = ai_import.Transform()
+        if mismatched:
+            if not getattr(self.cfg, "ai_align", False):
+                raise ai_import.AiImportError(
+                    f"Imported file declares raster {mismatched[0]} but this job's image is "
+                    f"{job_size}. Re-extract against this job's image, or pass --ai-align to "
+                    "fit the offset from matching line-number text."
+                )
+            reference = self._load_json_artifact_or_default(
+                "stage4_line_numbers", {"line_numbers": []}
+            ).get("line_numbers", [])
+            source_lines = (line_payload or {}).get("objects") or []
+            transform, fit = ai_import.fit_transform(source_lines, reference)
+            logger.info(
+                "AI import alignment: dx=%.1f dy=%.1f scale=%.3f "
+                "(%d/%d pairs, median residual %.1f/%.1f px)",
+                transform.dx, transform.dy, transform.scale,
+                fit.pairs_used, fit.pairs_matched,
+                fit.residual_median_x, fit.residual_median_y,
+            )
+
+        result = ai_import.convert(
+            equipment_payload,
+            line_payload,
+            equipment_labels=EQUIPMENT_LABELS,
+            transform=transform,
+            image_id=self._image_id(),
+        )
+
+        if result.objects:
+            payload = self._load_json_artifact_or_default(
+                "stage4_objects", {"objects": []}
+            )
+            payload["objects"] = ai_import.merge_objects(
+                payload.get("objects", []), result.objects, EQUIPMENT_LABELS
+            )
+            self._save_json("stage4_objects", payload)
+            self._save_json(
+                "stage3_equipment_bboxes",
+                {
+                    "equipment": [
+                        {
+                            "id": obj["id"],
+                            "class_name": obj["class_name"],
+                            "bbox": obj["bbox"],
+                            "tag": obj.get("text", ""),
+                            "source": "ai_import",
+                            "review_state": "accepted",
+                        }
+                        for obj in result.objects
+                    ]
+                },
+            )
+        if result.equipment_ports:
+            self._save_json("ai_equipment_ports", result.equipment_ports)
+        if result.line_numbers:
+            self._save_json(
+                "stage4_line_numbers",
+                ai_import.line_numbers_payload(result, self._image_id()),
+            )
+
+        counts = result.counts
+        logger.info(
+            "AI import: %d equipment, %d ports, %d line numbers, %d skipped",
+            counts["equipment"], counts["ports"], counts["line_numbers"], counts["skipped"],
+        )
+        for row in result.report:
+            if row.status == "skipped":
+                logger.warning("AI import skipped %s %s: %s", row.kind, row.key, row.reason)
+
     def _load_equipment_bboxes_for_stage5b(self) -> list[dict[str, Any]]:
         stage3_equipment = self._load_stage3_equipment_bboxes()
         if stage3_equipment:
@@ -1648,6 +1768,26 @@ def main() -> None:
         default=False,
         help="Save heavy diagnostic artifacts such as Stage 5b per-trace images and branch-candidate iteration overlays.",
     )
+    parser.add_argument(
+        "--ai-equipment",
+        default="",
+        help="Externally produced equipment bounding-box JSON (with nozzle ports) to fold in before Stage 5.",
+    )
+    parser.add_argument(
+        "--ai-line-numbers",
+        default="",
+        help="Externally produced line-number bounding-box JSON to fold in before Stage 5.",
+    )
+    parser.add_argument(
+        "--ai-align",
+        action="store_true",
+        default=False,
+        help=(
+            "Allow importing AI JSON whose source raster is framed differently from this job's "
+            "image, by fitting the offset from matching line-number text. Without this a frame "
+            "mismatch is an error."
+        ),
+    )
     args = parser.parse_args()
     detection_weight_path = _resolve_cli_weight_file(args.weight_file)
     pipe = PIDPipeline(
@@ -1657,6 +1797,9 @@ def main() -> None:
             ocr_route=args.ocr_route,
             detection_weight_path=detection_weight_path,
             debug_artifacts=args.debug_artifacts,
+            ai_equipment_path=args.ai_equipment,
+            ai_line_numbers_path=args.ai_line_numbers,
+            ai_align=args.ai_align,
         ),
     )
     pipe.run(stop_after=args.stop_after)

@@ -283,6 +283,29 @@ def _route(edge: dict[str, Any], drawing_id: str) -> dict[str, Any]:
     }
 
 
+# Catalog collections the Stage 9 corrected graph never carries at top level,
+# mapped to the edge-attachment key that holds the same records.
+_ATTACHMENT_CATALOG_KEYS = {"inline_objects": "inline_objects"}
+
+
+def _attachment_catalog(graph: dict[str, Any], attachment_key: str) -> list[dict[str, Any]]:
+    """Rebuild a catalog from the edge attachments that reference it.
+
+    The Stage 9 corrected graph carries inline objects and instrument tags
+    only as per-edge attachments -- it has no top-level catalog collection.
+    Deriving the catalog from those same attachment records keeps the ids
+    identical to the ones ``_route`` emits, so released routes never dangle.
+    """
+    catalog: dict[str, dict[str, Any]] = {}
+    for edge in _records(graph, "edges", "routes"):
+        attachments = edge.get("attachments") if isinstance(edge.get("attachments"), dict) else {}
+        for item in _as_records(attachments.get(attachment_key)):
+            item_id = _record_id(item, f"canonical_{attachment_key[:-1]}_id", f"{attachment_key[:-1]}_id", "source_object_id", "id")
+            if item_id and item_id not in catalog:
+                catalog[item_id] = {**copy.deepcopy(item), "id": item_id}
+    return list(catalog.values())
+
+
 def _catalog_records(graph: dict[str, Any], drawing_id: str, kind: str) -> list[dict[str, Any]]:
     keys = {
         # Raw detector ``objects`` are provisional evidence and are not
@@ -294,8 +317,11 @@ def _catalog_records(graph: dict[str, Any], drawing_id: str, kind: str) -> list[
         "lines": ("lines", "canonical_lines"),
         "connectors": ("connectors",),
     }
+    source_records = _records(graph, *keys[kind])
+    if not source_records and kind in _ATTACHMENT_CATALOG_KEYS:
+        source_records = _attachment_catalog(graph, _ATTACHMENT_CATALOG_KEYS[kind])
     result = []
-    for item in _records(graph, *keys[kind]):
+    for item in source_records:
         item = copy.deepcopy(item)
         if kind == "ports":
             item["id"] = _record_id(item, "id", "port_id")
@@ -774,6 +800,11 @@ def validate_downstream_export(payload: Any, *, source_graph: dict[str, Any] | N
         for item_id in ids:
             id_owners.setdefault(item_id, set()).add(kind)
     for item_id, owners in sorted(id_owners.items()):
+        if owners == {"node", "port"} and _text(records_by_type["port"].get(item_id, {}).get("source_node_id")) == item_id:
+            # An equipment port and its graph node are one physical thing. The
+            # port record says so explicitly via source_node_id, so the shared
+            # id is a declared identity, not an unresolvable collision.
+            continue
         if len(owners) > 1:
             add("$.graph", "ambiguous_typed_id", f"id {item_id!r} is used by multiple typed collections: {sorted(owners)}", "Use globally distinct typed identifiers so physical endpoints resolve unambiguously")
 

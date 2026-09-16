@@ -1,0 +1,165 @@
+{
+  "source_drawing": "14780-8120-25-25-0007, Rev. Z1 (AS BUILT, 4/25/16)",
+  "coordinate_frame": {
+    "width_px": 4963,
+    "height_px": 3509,
+    "dpi": null,
+    "page_pt": null,
+    "page_rotate_deg": null,
+    "note": "Source supplied as a JPEG raster (4963 x 3509 px), not a PDF. No mediabox, /Rotate or text layer available. Coordinates are pixel coordinates in this raster, origin top-left, measured at native resolution (no rescaling). Aspect 1.4144 matches ISO A-series landscape, consistent with an unrotated sheet."
+  },
+  "objects": [
+    {
+      "Index": 1,
+      "Object": "Mixing pot (vessel)",
+      "Tag": "D-2506",
+      "Equipment_type": "Mixing pot (vessel)",
+      "Service": "OEC Mixing Pot",
+      "Size": "Diameter x Length (T/T): 700 mm x 2100 mm",
+      "Evidence": "both (agree)",
+      "Left": 1607,
+      "Top": 1713,
+      "Width": 149,
+      "Height": 321,
+      "Bounding_box_px": {
+        "x_min": 1607,
+        "y_min": 1713,
+        "x_max": 1756,
+        "y_max": 2034
+      },
+      "Bounding_box_norm": [
+        0.3238,
+        0.4882,
+        0.3538,
+        0.5797
+      ],
+      "Ports": [
+        {
+          "mark": "AO",
+          "size": null,
+          "line_number": null,
+          "side": "top",
+          "point_px": [
+            1682,
+            1713
+          ],
+          "point_norm": [
+            0.3389,
+            0.4882
+          ]
+        },
+        {
+          "mark": "DW",
+          "size": "3\"",
+          "line_number": "3\"-PL-25-006002-TFE2-ET",
+          "side": "bottom",
+          "point_px": [
+            1682,
+            2034
+          ],
+          "point_norm": [
+            0.3389,
+            0.5797
+          ]
+        }
+      ]
+    },
+    {
+      "Index": 2,
+      "Object": "Static mixer",
+      "Tag": "X-2503",
+      "Equipment_type": "Static mixer",
+      "Service": "OEC Feed Static Mixer",
+      "Size": "3\" x 760 mm",
+      "Evidence": "both (agree)",
+      "Left": 1070,
+      "Top": 2072,
+      "Width": 119,
+      "Height": 44,
+      "Bounding_box_px": {
+        "x_min": 1070,
+        "y_min": 2072,
+        "x_max": 1189,
+        "y_max": 2116
+      },
+      "Bounding_box_norm": [
+        0.2156,
+        0.5905,
+        0.2396,
+        0.603
+      ],
+      "Ports": [
+        {
+          "mark": null,
+          "size": "3\"",
+          "line_number": "3\"-PL-25-006002-TFE2-ET",
+          "side": "left",
+          "point_px": [
+            1070,
+            2094
+          ],
+          "point_norm": [
+            0.2156,
+            0.5968
+          ]
+        },
+        {
+          "mark": null,
+          "size": "3\"",
+          "line_number": "3\"-PL-25-006002-TFE2-ET",
+          "side": "right",
+          "point_px": [
+            1189,
+            2094
+          ],
+          "point_norm": [
+            0.2396,
+            0.5968
+          ]
+        }
+      ]
+    }
+  ],
+  "unresolved": [
+    {
+      "what": "D-2506 nozzle AO size and line number",
+      "why": "Neither is annotated at the nozzle or on the short run leaving it. The run reaches 3\"-PL-25-007001-N2A1-ET only after the FIF-0701 / analyzer section and a spec change.",
+      "location_hint_px": [
+        1682,
+        1676
+      ]
+    },
+    {
+      "what": "D-2506 top-nozzle mark (AO vs AM)",
+      "why": "AM sits on the bolted top cover and AO on the pipe run leaving it. AO is taken as the nozzle mark because on the companion sheets AM/BM/DM mark manways and covers while letter pairs like AO mark process nozzles. Placement alone does not settle it.",
+      "location_hint_px": [
+        1682,
+        1713
+      ]
+    },
+    {
+      "what": "X-2503 upstream line number",
+      "why": "The 3\"-PL-25-006002-TFE2-ET label sits downstream of the mixer. It is assigned to both mixer ports because the mixer and its bypass sit on one continuous run, but the label is not adjacent to the inlet flange.",
+      "location_hint_px": [
+        1070,
+        2094
+      ]
+    },
+    {
+      "what": "All text on this sheet",
+      "why": "No PDF text layer was supplied, so every tag, size and line number was read visually from the raster and cross-checked between the equipment data block and the in-drawing labels.",
+      "location_hint_px": [
+        0,
+        0
+      ]
+    }
+  ],
+  "excluded_by_rule": {
+    "D-2506 cover/manway AM": "bolted top cover, no process line terminates",
+    "D-2506 baffle and distributor": "vessel internals",
+    "BAFFLE and DISTRIBUTOR leader lines": "annotation leaders that terminate on the shell outline and mimic nozzle stubs; not ports",
+    "SD-X2503 distributor (DETAIL C)": "piping specialty item shown in a detail view, not a flowsheet equipment symbol",
+    "PSV-0702A/B, AE/AT/AIC-0702, FIF-0701, FT/FIC-0702, PDT/PDI-0703, PI-0702, magnetic flow element, TYPE B-PH SN-2511, off-page connectors": "not major equipment"
+  },
+  "verification": "overlay rendered and visually checked: yes"
+}

@@ -1,0 +1,231 @@
+{
+  "source_drawing": "14780-8120-25-25-0004, Rev. Z1 (AS BUILT, 4/25/16)",
+  "coordinate_frame": {
+    "width_px": 4963,
+    "height_px": 3509,
+    "dpi": null,
+    "page_pt": null,
+    "page_rotate_deg": null,
+    "note": "Source supplied as a JPEG raster (4963 x 3509 px), not a PDF. No mediabox, /Rotate or text layer available. Coordinates are pixel coordinates in this raster, origin top-left, measured at native resolution (no rescaling). Aspect 1.4144 matches ISO A-series landscape, consistent with an unrotated sheet."
+  },
+  "objects": [
+    {
+      "Index": 1,
+      "Object": "Vessel (water wash drum)",
+      "Tag": "D-2501",
+      "Equipment_type": "Vessel (water wash drum)",
+      "Service": "Cumene-AMS Water Wash",
+      "Size": "Diameter x Length (T/T): 1600 mm x 7200 mm",
+      "Evidence": "both (agree)",
+      "Left": 1711,
+      "Top": 899,
+      "Width": 179,
+      "Height": 808,
+      "Bounding_box_px": {
+        "x_min": 1711,
+        "y_min": 899,
+        "x_max": 1890,
+        "y_max": 1707
+      },
+      "Bounding_box_norm": [
+        0.3448,
+        0.2562,
+        0.3808,
+        0.4865
+      ],
+      "Ports": [
+        {
+          "mark": "O01",
+          "size": null,
+          "line_number": null,
+          "side": "top",
+          "point_px": [
+            1855,
+            909
+          ],
+          "point_norm": [
+            0.3738,
+            0.259
+          ]
+        },
+        {
+          "mark": "U02",
+          "size": "4\"",
+          "line_number": "4\"-CUL-25-004004-B1A2-NI",
+          "side": "left",
+          "point_px": [
+            1711,
+            1079
+          ],
+          "point_norm": [
+            0.3448,
+            0.3075
+          ]
+        },
+        {
+          "mark": "R02A",
+          "size": "2\"",
+          "line_number": null,
+          "side": "left",
+          "point_px": [
+            1711,
+            1154
+          ],
+          "point_norm": [
+            0.3448,
+            0.3289
+          ]
+        },
+        {
+          "mark": "R02B",
+          "size": "2\"",
+          "line_number": null,
+          "side": "left",
+          "point_px": [
+            1711,
+            1176
+          ],
+          "point_norm": [
+            0.3448,
+            0.3351
+          ]
+        },
+        {
+          "mark": "R02C",
+          "size": "2\"",
+          "line_number": null,
+          "side": "left",
+          "point_px": [
+            1711,
+            1199
+          ],
+          "point_norm": [
+            0.3448,
+            0.3417
+          ]
+        },
+        {
+          "mark": "P02",
+          "size": "2\"",
+          "line_number": null,
+          "side": "right",
+          "point_px": [
+            1890,
+            1244
+          ],
+          "point_norm": [
+            0.3808,
+            0.3545
+          ]
+        },
+        {
+          "mark": "J02A",
+          "size": "3\"",
+          "line_number": "3\"-CUL-25-004001-B1A2-NI",
+          "side": "left",
+          "point_px": [
+            1711,
+            1468
+          ],
+          "point_norm": [
+            0.3448,
+            0.4184
+          ]
+        },
+        {
+          "mark": "J02B",
+          "size": "3\"",
+          "line_number": "3\"-CUL-25-003001-B1A2-NI",
+          "side": "left",
+          "point_px": [
+            1711,
+            1587
+          ],
+          "point_norm": [
+            0.3448,
+            0.4523
+          ]
+        },
+        {
+          "mark": "S02",
+          "size": "2\"",
+          "line_number": null,
+          "side": "left",
+          "point_px": [
+            1711,
+            1647
+          ],
+          "point_norm": [
+            0.3448,
+            0.4694
+          ]
+        },
+        {
+          "mark": "W03",
+          "size": "2\"",
+          "line_number": null,
+          "side": "bottom",
+          "point_px": [
+            1800,
+            1707
+          ],
+          "point_norm": [
+            0.3627,
+            0.4865
+          ]
+        }
+      ]
+    }
+  ],
+  "unresolved": [
+    {
+      "what": "D-2501 nozzle O01 size and line number",
+      "why": "No size or line number annotated at the nozzle. The overhead run carries 3\"-CUL-25-004003-B1A2-NI, but that label sits about 1700 px away across two bends, so it is not treated as adjacent.",
+      "location_hint_px": [
+        1855,
+        880
+      ]
+    },
+    {
+      "what": "D-2501 nozzle P02 line number",
+      "why": "Only the 2\" size is annotated at the nozzle. The visible number on that run, 1\"-PRW-25-014003-B1A1-NI, applies on the far side of a B1A1/B1A2 spec break.",
+      "location_hint_px": [
+        1890,
+        1244
+      ]
+    },
+    {
+      "what": "D-2501 nozzles R02A, R02B, R02C line numbers",
+      "why": "Only the 2\" nozzle size and 1\" valve size are annotated; the wash-water sub-header carries no line number on this sheet.",
+      "location_hint_px": [
+        1600,
+        1176
+      ]
+    },
+    {
+      "what": "D-2501 nozzles S02 and W03 line numbers",
+      "why": "S02 is labelled only 2\" BLANKOFF (UTILITY). W03 discharges to a 2\" run that becomes 1 1/2\"-WW-91-051018-B1A2-NI further downstream, past a reducer.",
+      "location_hint_px": [
+        1750,
+        1730
+      ]
+    },
+    {
+      "what": "All text on this sheet",
+      "why": "No PDF text layer was supplied, so every tag, size and line number was read visually from the raster and cross-checked between the equipment data block and the in-drawing labels.",
+      "location_hint_px": [
+        0,
+        0
+      ]
+    }
+  ],
+  "excluded_by_rule": {
+    "D-2501 manway M01 (24\" ID, top head, blinded)": "manway, no process line terminates",
+    "D-2501 manway B02 (24\" ID, shell)": "manway",
+    "D-2501 nozzles L02A, L02B, L02C, L02D": "level gauge bridle taps to LG-0404A/B/C and LG-0404D/E/F",
+    "D-2501 nozzles Q02A, Q02B": "level transmitter bridle taps to LT-0401 (GWR)",
+    "D-2501 coalescer and distributor": "vessel internals",
+    "PSV-0401A/B, LV-0401, FV-0401, FE/FT/FIC/LT/LIC/PI-0403, TYPE A-PH SN-2506, TYPE B-PH SN-2521, off-page connectors": "not major equipment"
+  },
+  "verification": "overlay rendered and visually checked: yes"
+}

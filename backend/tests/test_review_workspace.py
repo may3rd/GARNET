@@ -206,3 +206,45 @@ class ReviewWorkspaceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Stage3EquipmentBridgeTests(unittest.TestCase):
+    """Equipment must survive the stage4 refresh that follows a workspace commit.
+
+    workspace_to_stage4_objects filters equipment classes out of
+    stage4_objects.json, so the stage4-derived bridge finds none and used to
+    write an empty list over the equipment workspace_to_stage3_equipment had
+    just written -- which left stage5b with no equipment ports and Gate 2
+    unable to add or remove them.
+    """
+
+    def test_empty_derivation_does_not_clobber_workspace_equipment(self) -> None:
+        import api
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "stage3_equipment_bboxes.json"
+            path.write_text(
+                json.dumps({"equipment": [{"id": "V-2501", "class_name": "vessel", "bbox": {}}]}),
+                encoding="utf-8",
+            )
+            # Objects carry no equipment class, exactly as after a commit.
+            api._derive_stage3_equipment_bboxes(tmp, [{"id": "obj_1", "class_name": "gate valve", "bbox": {}}])
+            self.assertEqual(
+                [item["id"] for item in json.loads(path.read_text())["equipment"]], ["V-2501"]
+            )
+
+    def test_equipment_objects_still_seed_an_absent_artifact(self) -> None:
+        import api
+
+        with tempfile.TemporaryDirectory() as tmp:
+            api._derive_stage3_equipment_bboxes(
+                tmp, [{"id": "obj_1", "class_name": "pump", "bbox": {"x_min": 0}, "text": "P-101"}]
+            )
+            payload = json.loads((Path(tmp) / "stage3_equipment_bboxes.json").read_text())
+            # The id must stay ``equip_``-prefixed: stage5b tells an equipment
+            # terminal from a page connection by that prefix alone (see
+            # stage5b_pipeline._compute_connection_ports and its callers), so
+            # using the tag as the id mislabels every terminal on the item. The
+            # tag travels in its own field instead.
+            self.assertEqual([item["id"] for item in payload["equipment"]], ["equip_001"])
+            self.assertEqual([item["tag"] for item in payload["equipment"]], ["P-101"])

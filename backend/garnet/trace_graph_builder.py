@@ -429,7 +429,10 @@ def _line_number_records(edge: dict[str, Any]) -> list[dict[str, Any]]:
             {
                 "id": item_id,
                 "source_object_id": item.get("source_object_id"),
-                "display_text": item.get("text") or item.get("normalized_text") or "",
+                # normalized_text first: it is the canonical hyphenated form.
+                # Raw OCR reads "-" as "_" often enough that the raw text is
+                # not a usable line number, and it stays intact under "text".
+                "display_text": item.get("normalized_text") or item.get("text") or "",
                 "normalized_text": item.get("normalized_text") or item.get("text") or "",
                 "review_state": item.get("review_state"),
                 "review_source": item.get("review_source"),

@@ -553,6 +553,71 @@ export async function extractPdfPages(
   return response.json()
 }
 
+/** One row of the import report: what happened to a single input item. */
+export type AiImportReportRow = {
+  kind: 'equipment' | 'line_number' | 'port' | 'note'
+  key: string
+  status: 'imported' | 'replaced' | 'skipped' | 'info'
+  reason: string
+  source_index: number | null
+}
+
+export type AiImportResult = {
+  job_id: string
+  mode: 'preview' | 'apply'
+  job_image_size: { width: number; height: number }
+  transform: { dx: number; dy: number; scale: number }
+  /** Present only when the source raster was framed differently and a fit was run. */
+  fit: {
+    pairs_matched: number
+    pairs_used: number
+    residual_median_x: number
+    residual_median_y: number
+    residual_max_x: number
+    residual_max_y: number
+  } | null
+  counts: { equipment: number; ports: number; line_numbers: number; skipped: number }
+  report: AiImportReportRow[]
+}
+
+/**
+ * Send externally produced equipment / line-number JSON to a job.
+ * `mode: 'preview'` writes nothing — it returns the same report the apply would
+ * produce, so the reviewer can check the fitted transform first.
+ */
+export async function importAiObjects(
+  jobId: string,
+  files: { equipment?: File; lineNumbers?: File },
+  options: { mode: 'preview' | 'apply'; align: boolean; timeoutMs?: number }
+): Promise<AiImportResult> {
+  const formData = new FormData()
+  if (files.equipment) formData.append('equipment_file', files.equipment)
+  if (files.lineNumbers) formData.append('line_number_file', files.lineNumbers)
+  formData.append('mode', options.mode)
+  formData.append('align', String(options.align))
+
+  const response = await fetch(`/api/pipeline/jobs/${jobId}/ai-import`, {
+    method: 'POST',
+    body: formData,
+    signal: createTimeoutSignal(options.timeoutMs ?? 120000),
+  })
+
+  if (!response.ok) {
+    // FastAPI puts the human-readable reason in `detail`; the raw body is JSON.
+    const body = await response.text()
+    let message = body
+    try {
+      const parsed = JSON.parse(body) as { detail?: string }
+      if (parsed.detail) message = parsed.detail
+    } catch {
+      // Not JSON — fall back to the raw body.
+    }
+    throw new APIError(message || 'Import failed', response.status)
+  }
+
+  return response.json()
+}
+
 export async function exportResultsToExcel(
   images: ExcelExportImage[],
   filename = 'garnet-results.xlsx',

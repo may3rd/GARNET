@@ -185,11 +185,17 @@ def workspace_to_stage3_equipment(state: dict[str, Any]) -> dict[str, Any]:
     for index, item in enumerate(_list_from_payload(state, "equipment")):
         if item.get("review_state") == "rejected" or item.get("ReviewStatus") == "rejected":
             continue
+        # The id must keep the ``equip_`` prefix — stage5b tells equipment
+        # terminals from page connections by that prefix alone, so falling back
+        # to the tag text ("V-2501") mislabels every terminal on that item. The
+        # tag is kept in its own field, which survives normalization downstream.
+        item_id = str(item.get("id") or "").strip()
         equipment.append(
             {
-                "id": item.get("id") or item.get("Text") or f"equip_{index + 1:03d}",
+                "id": item_id if item_id.startswith("equip_") else f"equip_{index + 1:03d}",
                 "class_name": item.get("class_name") or item.get("Object") or "equipment",
                 "bbox": item.get("bbox") or _bbox_from_detected_object(item),
+                "tag": str(item.get("Text") or item.get("tag") or "").strip(),
                 "source": "hitl",
                 "review_state": item.get("review_state") or item.get("ReviewStatus") or "accepted",
             }

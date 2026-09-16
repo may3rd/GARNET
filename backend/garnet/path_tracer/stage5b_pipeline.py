@@ -16,6 +16,7 @@ from typing import Any, Optional
 
 import numpy as np
 
+from garnet.ai_import import project_port_to_bbox_edge as _project_port_to_bbox_edge
 from garnet.path_tracer.cv_pipe_tracer import CVPipeTracer
 
 try:
@@ -489,6 +490,7 @@ class Stage5bPipelineMixin:
             for turn in result.get("turns", [])
         ]
         existing_points = tee_points + turn_points
+        seed_from_tees = bool(self._cfg_attr("trace_branch_seed_from_tees", True))
 
         raw_candidates: list[dict[str, Any]] = []
         for obj_id, result in all_results.items():
@@ -540,7 +542,15 @@ class Stage5bPipelineMixin:
                         if self._point_inside_any_bbox(x, y, equipment_objects or [], margin=2):
                             status = "rejected_inside_equipment"
                             reason = "candidate_inside_equipment_bbox"
-                        elif any(abs(x - tx) <= point_tol and abs(y - ty) <= point_tol for tx, ty in tee_points):
+                        # Proximity to a tee terminal is no longer a suppressor:
+                        # a trace that *ends* at a tee has walked none of the
+                        # other legs, so treating the tee as "done" hid exactly
+                        # the runs the tee implies. Whether this direction is
+                        # really covered is decided by the direction-aware
+                        # _branch_already_traced check below.
+                        elif not seed_from_tees and any(
+                            abs(x - tx) <= point_tol and abs(y - ty) <= point_tol for tx, ty in tee_points
+                        ):
                             status = "done_existing_tee"
                             reason = "near_existing_tee_terminal"
                         elif any(abs(x - tx) <= turn_tol and abs(y - ty) <= turn_tol for tx, ty in turn_points):
@@ -562,6 +572,50 @@ class Stage5bPipelineMixin:
                             "status": status,
                             "reason": reason,
                         })
+
+        # Seed from every tee terminal. A trace that stops at a tee has walked
+        # one leg of it; the remaining legs are real pipe runs that no other
+        # seed source reaches — segment sampling skips the last min_branch_run
+        # px before a terminal, so the pipe leaving a tee was invisible. This is
+        # what stage 7 QA reports as `unmerged_tee_terminal`.
+        tee_terminal_seeds = all_results.items() if seed_from_tees else []
+        for obj_id, result in tee_terminal_seeds:
+            if result.get("terminal_type") != "tee_junction":
+                continue
+            segments = result.get("segments") or []
+            if not segments:
+                continue
+            tee_x = int(result["terminal_x"])
+            tee_y = int(result["terminal_y"])
+            arrival = str(segments[-1]["direction"])
+            if self._point_inside_any_bbox(tee_x, tee_y, equipment_objects or [], margin=2):
+                continue
+            # Both perpendicular legs, plus straight on: the tracer stopped
+            # here, so even the continuation past the tee is unwalked.
+            for branch_direction in (TURN_LEFT[arrival], TURN_RIGHT[arrival], arrival):
+                if not self._has_branch_candidate_run(
+                    pipe_mask,
+                    tee_x,
+                    tee_y,
+                    branch_direction,
+                    inline_symbols,
+                    min_run=min_branch_run,
+                ):
+                    continue
+                if self._branch_already_traced(
+                    tee_x, tee_y, branch_direction, all_results, obj_id, len(segments) - 1
+                ):
+                    continue
+                raw_candidates.append({
+                    "x": tee_x,
+                    "y": tee_y,
+                    "branch_direction": branch_direction,
+                    "source_trace_id": obj_id,
+                    "source_segment_index": len(segments) - 1,
+                    "source_direction": arrival,
+                    "status": "queued",
+                    "reason": "tee_terminal_leg",
+                })
 
         for node in node_symbols or []:
             bbox = node.get("bbox")
@@ -2143,42 +2197,65 @@ class Stage5bPipelineMixin:
         if not conn_objects:
             all_classes = {o.get("class_name", "?") for o in objects}
             logger.info("No connection objects found. Stage4 classes: %s", sorted(all_classes))
-            return ports
+        else:
+            logger.info("CV port detection: %d connection objects", len(conn_objects))
+            for obj in conn_objects:
+                obj_id = obj["id"]
+                result = self._detect_port_cv(image, obj["bbox"])
+                if result:
+                    px, py, direction = result
+                    ports[obj_id] = [(px, py, direction)]
+                    logger.info("  %s -> %s (%d,%d) [CV]", obj_id, direction, px, py)
+                else:
+                    logger.warning("  %s -> CV failed, skipping", obj_id)
 
-        logger.info("CV port detection: %d connection objects", len(conn_objects))
-        for obj in conn_objects:
-            obj_id = obj["id"]
-            result = self._detect_port_cv(image, obj["bbox"])
-            if result:
-                px, py, direction = result
-                ports[obj_id] = [(px, py, direction)]
-                logger.info("  %s -> %s (%d,%d) [CV]", obj_id, direction, px, py)
-            else:
-                logger.warning("  %s -> CV failed, skipping", obj_id)
-
-        logger.info(
-            "Connection port detection: %d/%d ports found",
-            len(ports),
-            len(conn_objects),
-        )
+            logger.info(
+                "Connection port detection: %d/%d ports found",
+                len(ports),
+                len(conn_objects),
+            )
 
         # --- Equipment port detection from Stage 3 HITL bboxes, LabelMe fallback ---
+        # Runs even when the sheet has no page connections: a drawing can be all
+        # equipment and inline symbols, and returning early there used to leave
+        # every equipment nozzle undetected.
         equipment_bboxes = self._load_equipment_bboxes_for_stage5b()
         if equipment_bboxes:
+            # Ports supplied by an external extraction (see garnet.ai_import) are
+            # authoritative — they were read off the drawing rather than inferred
+            # from pixel runs at the bbox edge. CV still covers any equipment the
+            # import did not describe.
+            supplied_ports = self._load_json_artifact_or_default("ai_equipment_ports", {})
             logger.info("Equipment port detection: %d equipment bboxes", len(equipment_bboxes))
             for equipment_obj in equipment_bboxes:
                 eq_id = str(equipment_obj["id"])
                 label = str(equipment_obj.get("class_name", "equipment"))
                 bbox = equipment_obj["bbox"]
-                eq_ports = self._detect_equipment_ports_cv(image, bbox)
+                supplied = supplied_ports.get(eq_id) or []
+                # Supplied points mark the nozzle on the equipment outline, which
+                # can sit well inside the box; the walk has to start on the edge.
+                eq_ports = []
+                for p in supplied:
+                    if not (isinstance(p, dict) and {"x", "y", "direction"} <= set(p)):
+                        continue
+                    direction = str(p["direction"])
+                    px, py = _project_port_to_bbox_edge(
+                        int(p["x"]), int(p["y"]), direction, bbox
+                    )
+                    eq_ports.append((px, py, direction))
+                origin = "supplied"
+                if not eq_ports:
+                    eq_ports = self._detect_equipment_ports_cv(image, bbox)
+                    origin = "CV"
                 if eq_ports:
                     ports[eq_id] = eq_ports
                     port_str = ", ".join(f"{d}({x},{y})" for x, y, d in eq_ports)
                     logger.info(
-                        "  %s (%s) -> %d ports: %s",
+                        "  %s (%s) -> %d ports [%s]: %s",
                         eq_id,
                         label,
                         len(eq_ports),
+                        origin,
                         port_str,
                     )
                 else:

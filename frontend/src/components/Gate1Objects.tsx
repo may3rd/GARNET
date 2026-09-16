@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button, Spinner } from '@heroui/react'
-import { Check, Minus, Pencil, Play, Plus, Trash2, X } from 'lucide-react'
+import { Check, Minus, Pencil, Play, Plus, Trash2, Upload, X } from 'lucide-react'
+import { AiImportDialog } from '@/components/AiImportDialog'
 import { Card, ResizableSidebar, SectionHeader, Tag } from '@/components/ui/primitives'
 import { useResizableSidebar } from '@/hooks/useResizableSidebar'
 import { classColor, normalizeClass } from '@/lib/detectionClasses'
@@ -151,6 +152,8 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [drawing, setDrawing] = useState(false)
   const [drawRect, setDrawRect] = useState<Box | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
+  const [reloadToken, setReloadToken] = useState(0)
   /** Crosshair guide while placing a new box — screen-space so it doesn't scale with zoom; image-space kept alongside for the coordinate readout. */
   const [cursorGuide, setCursorGuide] = useState<{ imageX: number; imageY: number; screenX: number; screenY: number } | null>(null)
 
@@ -174,6 +177,7 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
   useEffect(() => {
     if (!jobId) return
     let cancelled = false
+    setLoadError(null)
     Promise.all(
       BUCKET_ORDER.map((key) => getPipelineArtifactJson<RawArtifact>(jobId, BUCKETS[key].artifact))
     )
@@ -186,7 +190,8 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
     return () => {
       cancelled = true
     }
-  }, [jobId])
+    // reloadToken lets an import pull the rewritten artifacts back in.
+  }, [jobId, reloadToken])
 
   const items = itemsOf(raw[bucket], bucket)
   const setItems = (updater: (current: Stage4Item[]) => Stage4Item[]) => {
@@ -1065,6 +1070,15 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
               {drawing ? <X size={14} strokeWidth={2} /> : <Plus size={14} strokeWidth={2.2} />}
               {drawing ? 'Cancel' : 'Box'}
             </Button>
+            <Button
+              variant="secondary"
+              isDisabled={editing || drawing}
+              style={{ height: 30, borderRadius: 'var(--r-btn)', fontSize: 12.5 }}
+              onPress={() => setImportOpen(true)}
+            >
+              <Upload size={13} strokeWidth={2} />
+              Import JSON
+            </Button>
             <div className="min-h-0 flex-1 overflow-y-auto">
               {visible.length === 0 && (
                 <div style={{ fontSize: 13, color: 'var(--muted)' }}>
@@ -1170,6 +1184,21 @@ export function Gate1Objects({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
           {anyDirty ? 'Save & continue' : 'Continue'}
         </Button>
       </div>
+
+      {importOpen && jobId && (
+        <AiImportDialog
+          jobId={jobId}
+          onClose={() => setImportOpen(false)}
+          onImported={() => {
+            setImportOpen(false)
+            setSelectedId(null)
+            // The import rewrote the artifacts server-side; pull them back in
+            // rather than keeping the pre-import copy in local state.
+            setDirty({ equipment: false, instrument: false, line_number: false })
+            setReloadToken((token) => token + 1)
+          }}
+        />
+      )}
     </div>
   )
 }

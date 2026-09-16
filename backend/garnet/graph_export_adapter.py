@@ -245,7 +245,7 @@ def _document_payload(image_id: str, image_dimensions: dict[str, Any] | None) ->
             "file_type": file_type,
             "page_index": 0,
             "render_dpi": 300,
-            "notes": "Generated from stage12_graph.json",
+            "notes": "Generated from stage7_graph.json",
         },
         "image": {"width": width, "height": height},
     }
@@ -372,7 +372,7 @@ def _attachment_order_key(item: dict[str, Any], edge: dict[str, Any], index: int
 
 
 def _record_text(record: dict[str, Any]) -> tuple[str, str]:
-    display = str(record.get("display_text") or record.get("text") or record.get("normalized_text") or "").strip()
+    display = str(record.get("display_text") or record.get("normalized_text") or record.get("text") or "").strip()
     normalized = str(record.get("normalized_text") or display).strip()
     return display, normalized
 

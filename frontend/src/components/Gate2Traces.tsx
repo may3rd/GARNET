@@ -9,7 +9,6 @@ import {
   getPipelineArtifactJson,
   getPipelineReviewWorkspace,
   commitPipelineReviewWorkspace,
-  putPipelineArtifact,
 } from '@/lib/api'
 import { clampPan, fitScale as computeFit, wheelIntent, zoomAbout } from '@/lib/viewport'
 import { useRunStore, type Sheet } from '@/stores/runStore'
@@ -59,6 +58,24 @@ const pathFor = (segments: TraceSegment[] | undefined): string => {
 const PAGE_CONNECTION_CLASSES = new Set(['page connection', 'connection', 'utility connection', 'page connection symbol'])
 const bboxKey = (b: Bbox) => `${b.x_min},${b.y_min},${b.x_max},${b.y_max}`
 
+/**
+ * The reviewed port set, in the `manual_ports` shape the review workspace
+ * stores (backend/garnet/review_workspace.py's workspace_to_stage5_ports).
+ * Every port Gate 2 shows becomes a reviewed port, auto-detected ones
+ * included — after this gate the human's set is the authoritative one.
+ */
+const toManualPorts = (ports: PortsArtifact) =>
+  Object.entries(ports).flatMap(([owner_id, list]) =>
+    (list ?? []).map(([x, y, direction], index) => ({
+      owner_id,
+      x,
+      y,
+      direction,
+      port_id: `${owner_id}:port_${String(index + 1).padStart(2, '0')}`,
+      review_state: 'accepted',
+    }))
+  )
+
 /** Snap a click point onto the nearest edge of an object's bbox, in the same TOP/BOTTOM/LEFT/RIGHT -> UP/DOWN/LEFT/RIGHT convention _detect_equipment_ports_cv uses. */
 const snapToEdge = (px: number, py: number, b: Bbox): { x: number; y: number; direction: Direction } => {
   const cx = clamp(px, b.x_min, b.x_max)
@@ -107,7 +124,6 @@ export function Gate2Traces({ sheet, onBack }: { sheet: Sheet; onBack: () => voi
   const [portKeyByBbox, setPortKeyByBbox] = useState<Map<string, string>>(new Map())
   const [showPorts, setShowPorts] = useState(true)
   const [editingPorts, setEditingPorts] = useState(false)
-  const [portsDirty, setPortsDirty] = useState(false)
 
   const [zoom, setZoom] = useState<number | null>(null)
   const [pan, setPan] = useState({ x: 0, y: 0 })
@@ -317,13 +333,13 @@ export function Gate2Traces({ sheet, onBack }: { sheet: Sheet; onBack: () => voi
 
   const addPort = (portKey: string, x: number, y: number, direction: Direction) => {
     setPorts((prev) => ({ ...prev, [portKey]: [...(prev[portKey] ?? []), [x, y, direction]] }))
-    setPortsDirty(true)
+    setDirty(true)
     setDirty(true)
   }
 
   const removePort = (portKey: string, index: number) => {
     setPorts((prev) => ({ ...prev, [portKey]: (prev[portKey] ?? []).filter((_, i) => i !== index) }))
-    setPortsDirty(true)
+    setDirty(true)
     setDirty(true)
   }
 
@@ -356,11 +372,11 @@ export function Gate2Traces({ sheet, onBack }: { sheet: Sheet; onBack: () => voi
         const [target_type, target_id] = key.split(/:(.*)/s) as [Kind, string]
         return { target_id, target_type, review_state: 'rejected' }
       })
-      await commitPipelineReviewWorkspace(jobId, { ...workspace, trace_overrides })
-      if (portsDirty) {
-        await putPipelineArtifact(jobId, 'stage5_connection_ports.json', ports)
-        setPortsDirty(false)
-      }
+      // Ports go into the workspace, not straight to the artifact: the commit
+      // endpoint regenerates stage5_connection_ports.json from
+      // workspace.manual_ports, so a raw PUT here would be overwritten by the
+      // stale workspace on the next commit from any gate.
+      await commitPipelineReviewWorkspace(jobId, { ...workspace, trace_overrides, manual_ports: toManualPorts(ports) })
       setDirty(false)
       return true
     } catch (err) {

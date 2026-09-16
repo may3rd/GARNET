@@ -312,7 +312,9 @@ class TraceGraphBuilderNormalizationTests(unittest.TestCase):
         self.assertEqual(edges["obj_main::part_002"]["effective_line_number_ids"], ["line_1"])
         self.assertEqual(edges["branch_000001"]["line_number_assignment_state"], "missing")
         self.assertEqual(edges["branch_000001"]["effective_line_number_ids"], [])
-        self.assertEqual(edges["obj_main::part_001"]["direct_line_numbers"][0]["display_text"], '3"_PL-26-003008-NZA1_Nl')
+        # display_text carries the canonical hyphenated form; OCR's raw read
+        # ('3"_PL-26-003008-NZA1_Nl') stays available under "text".
+        self.assertEqual(edges["obj_main::part_001"]["direct_line_numbers"][0]["display_text"], '3"-PL-26-003008-NZA1-NL')
         self.assertEqual(edges["obj_main::part_002"]["effective_line_numbers"][0]["normalized_text"], '3"-PL-26-003008-NZA1-NL')
 
     def test_line_evidence_can_make_tee_through_turn_instead_of_straight(self) -> None:

@@ -1,0 +1,276 @@
+{
+  "source_drawing": "14780-8120-25-25-0003, Rev. Z1 (AS BUILT, 4/25/16)",
+  "coordinate_frame": {
+    "width_px": 4963,
+    "height_px": 3509,
+    "dpi": null,
+    "page_pt": null,
+    "page_rotate_deg": null,
+    "note": "Source supplied as a JPEG raster (4963 x 3509 px), not a PDF. No mediabox, /Rotate or text layer available. Coordinates are pixel coordinates in this raster, origin top-left, measured at native resolution (no rescaling). Aspect 1.4144 matches ISO A-series landscape, consistent with an unrotated sheet."
+  },
+  "objects": [
+    {
+      "Index": 1,
+      "Object": "Settler (horizontal vessel)",
+      "Tag": "D-2502",
+      "Equipment_type": "Settler (horizontal vessel)",
+      "Service": "Caustic Settler",
+      "Size": "Diameter x Length (T/T): 2100 mm x 6300 mm",
+      "Evidence": "both (agree)",
+      "Left": 1943,
+      "Top": 1635,
+      "Width": 1028,
+      "Height": 179,
+      "Bounding_box_px": {
+        "x_min": 1943,
+        "y_min": 1635,
+        "x_max": 2971,
+        "y_max": 1814
+      },
+      "Bounding_box_norm": [
+        0.3915,
+        0.4659,
+        0.5986,
+        0.517
+      ],
+      "Ports": [
+        {
+          "mark": "I01",
+          "size": "4\"",
+          "line_number": "4\"-CUL-25-002007-B1A2-NI",
+          "side": "top",
+          "point_px": [
+            2025,
+            1635
+          ],
+          "point_norm": [
+            0.408,
+            0.4659
+          ]
+        },
+        {
+          "mark": "A01",
+          "size": "6\"",
+          "line_number": "6\"-CUL-25-003008-B1A2-NI",
+          "side": "top",
+          "point_px": [
+            2098,
+            1635
+          ],
+          "point_norm": [
+            0.4227,
+            0.4659
+          ]
+        },
+        {
+          "mark": "B02",
+          "size": "8\"",
+          "line_number": null,
+          "side": "top",
+          "point_px": [
+            2782,
+            1635
+          ],
+          "point_norm": [
+            0.5605,
+            0.4659
+          ]
+        },
+        {
+          "mark": "O02",
+          "size": "3\"",
+          "line_number": "3\"-CUL-25-003001-B1A2-NI",
+          "side": "top",
+          "point_px": [
+            2865,
+            1635
+          ],
+          "point_norm": [
+            0.5773,
+            0.4659
+          ]
+        },
+        {
+          "mark": "S01",
+          "size": "2\"",
+          "line_number": null,
+          "side": "left",
+          "point_px": [
+            1964,
+            1800
+          ],
+          "point_norm": [
+            0.3957,
+            0.513
+          ]
+        },
+        {
+          "mark": "N02",
+          "size": "6\"",
+          "line_number": "6\"-NAS-25-003002-B1A2-NI",
+          "side": "bottom",
+          "point_px": [
+            2844,
+            1814
+          ],
+          "point_norm": [
+            0.573,
+            0.517
+          ]
+        }
+      ]
+    },
+    {
+      "Index": 2,
+      "Object": "Pump",
+      "Tag": "P-2503A",
+      "Equipment_type": "Pump",
+      "Service": "Caustic Settler Pump",
+      "Size": "24.6 m3/hr, diff. press. 4.05 kg/cm2, 11 kW",
+      "Evidence": "both (agree): P-2503A/B in data block, individual tag on symbol",
+      "Left": 890,
+      "Top": 1852,
+      "Width": 134,
+      "Height": 74,
+      "Bounding_box_px": {
+        "x_min": 890,
+        "y_min": 1852,
+        "x_max": 1024,
+        "y_max": 1926
+      },
+      "Bounding_box_norm": [
+        0.1793,
+        0.5278,
+        0.2063,
+        0.5489
+      ],
+      "Ports": [
+        {
+          "mark": null,
+          "size": "1 1/2\"",
+          "line_number": "4\"-NAS-25-003005-B2A2-NI",
+          "side": "top",
+          "point_px": [
+            987,
+            1852
+          ],
+          "point_norm": [
+            0.1989,
+            0.5278
+          ]
+        },
+        {
+          "mark": null,
+          "size": "3\"",
+          "line_number": null,
+          "side": "bottom",
+          "point_px": [
+            987,
+            1926
+          ],
+          "point_norm": [
+            0.1989,
+            0.5489
+          ]
+        }
+      ]
+    },
+    {
+      "Index": 3,
+      "Object": "Pump",
+      "Tag": "P-2503B",
+      "Equipment_type": "Pump",
+      "Service": "Caustic Settler Pump",
+      "Size": "24.6 m3/hr, diff. press. 4.05 kg/cm2, 11 kW",
+      "Evidence": "both (agree): P-2503A/B in data block, individual tag on symbol",
+      "Left": 1249,
+      "Top": 1852,
+      "Width": 133,
+      "Height": 74,
+      "Bounding_box_px": {
+        "x_min": 1249,
+        "y_min": 1852,
+        "x_max": 1382,
+        "y_max": 1926
+      },
+      "Bounding_box_norm": [
+        0.2517,
+        0.5278,
+        0.2785,
+        0.5489
+      ],
+      "Ports": [
+        {
+          "mark": null,
+          "size": "1 1/2\"",
+          "line_number": "4\"-NAS-25-003005-B2A2-NI",
+          "side": "top",
+          "point_px": [
+            1286,
+            1852
+          ],
+          "point_norm": [
+            0.2591,
+            0.5278
+          ]
+        },
+        {
+          "mark": null,
+          "size": "3\"",
+          "line_number": "6\"-NAS-25-003003-B2A2-NI",
+          "side": "bottom",
+          "point_px": [
+            1286,
+            1926
+          ],
+          "point_norm": [
+            0.2591,
+            0.5489
+          ]
+        }
+      ]
+    }
+  ],
+  "unresolved": [
+    {
+      "what": "P-2503A suction line number",
+      "why": "The 6\"-NAS-25-003003-B2A2-NI leader lands on the P-2503B suction leg only; no line number is annotated on the P-2503A leg.",
+      "location_hint_px": [
+        987,
+        1990
+      ]
+    },
+    {
+      "what": "D-2502 nozzle B02 line number",
+      "why": "Only the 8\" size callout is annotated; the branch above is a blankoff with no line number.",
+      "location_hint_px": [
+        2782,
+        1600
+      ]
+    },
+    {
+      "what": "D-2502 nozzle S01 line number",
+      "why": "Labelled only as 2\" UTILITY (BLANKOFF); no line number on the sheet.",
+      "location_hint_px": [
+        1930,
+        1800
+      ]
+    },
+    {
+      "what": "All text on this sheet",
+      "why": "No PDF text layer was supplied, so every tag, size and line number was read visually from the raster and cross-checked between the equipment data block and the in-drawing labels.",
+      "location_hint_px": [
+        0,
+        0
+      ]
+    }
+  ],
+  "excluded_by_rule": {
+    "D-2502 manway M01 (24\" ID)": "manway, no process line terminates",
+    "D-2502 nozzles L02A, R02A, R02B, L02B": "level bridle taps to LG-M-0302 and LT-0301",
+    "D-2502 distributor and coalescer": "vessel internals",
+    "SRT-P2503A/B": "suction strainers, piping specialty items, not major equipment",
+    "PSV-0301A/B, SG-D2502, PDV/LV/FE/FT/PI/TI, control valves, off-page connectors": "not major equipment"
+  },
+  "verification": "overlay rendered and visually checked: yes"
+}

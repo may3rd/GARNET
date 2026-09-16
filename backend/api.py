@@ -1382,8 +1382,13 @@ def _derive_stage3_equipment_bboxes(job_dir: str, objects: list[Any]) -> None:
     detection (_load_equipment_bboxes_for_stage5b) actually reads. The
     current pipeline has no Stage 3, so without this the equipment-port
     branch of _compute_connection_ports never has anything to work with and
-    no traces are ever seeded from equipment. Id fallback mirrors
-    frontend_old's equipmentObjectsToStage3Artifact (tag text, else equip_NNN)."""
+    no traces are ever seeded from equipment.
+
+    Ids must keep the ``equip_`` prefix: stage5b classifies a port/terminal as
+    equipment (rather than a page connection) purely by that prefix, so an id
+    taken from the tag text — "V-2501" — silently mislabels every terminal on
+    that vessel. The tag rides along in its own field instead; it survives
+    _normalize_equipment_object, which preserves unknown keys."""
     equipment = []
     for index, obj in enumerate(objects):
         if not isinstance(obj, dict):
@@ -1395,18 +1400,38 @@ def _derive_stage3_equipment_bboxes(job_dir: str, objects: list[Any]) -> None:
         if not isinstance(bbox, dict):
             continue
         tag = str(obj.get("text") or obj.get("normalized_text") or "").strip()
+        obj_id = str(obj.get("id") or "").strip()
         equipment.append(
             {
-                "id": tag or f"equip_{index + 1:03d}",
+                "id": obj_id if obj_id.startswith("equip_") else f"equip_{index + 1:03d}",
                 "class_name": class_name,
                 "bbox": bbox,
+                "tag": tag,
                 "source": "hitl",
                 "review_state": "accepted",
             }
         )
     artifact_path = os.path.join(job_dir, "stage3_equipment_bboxes.json")
+    if not equipment and _stage3_equipment_count(artifact_path):
+        # The review workspace keeps equipment in its own `equipment` list and
+        # workspace_to_stage4_objects deliberately filters equipment classes out
+        # of stage4_objects.json, so this derivation finds nothing on the
+        # workspace-commit path. Writing the empty result there would clobber
+        # the equipment workspace_to_stage3_equipment just wrote, leaving
+        # stage5b with no equipment ports and Gate 2 unable to edit them.
+        return
     with open(artifact_path, "w", encoding="utf-8") as f:
         json.dump({"equipment": equipment}, f, indent=2)
+
+
+def _stage3_equipment_count(artifact_path: str) -> int:
+    try:
+        with open(artifact_path, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+    except (OSError, ValueError):
+        return 0
+    values = payload.get("equipment") if isinstance(payload, dict) else None
+    return len(values) if isinstance(values, list) else 0
 
 
 def _refresh_stage4_reviewed_object_artifacts(job_dir: str, payload: dict[str, Any]) -> None:
@@ -3305,6 +3330,157 @@ async def get_pipeline_reviewed_qa(job_id: str):
         "review_queue": result["qa"]["review_queue"],
         "summary": result["qa"]["summary"],
     }
+
+
+async def _read_json_upload(upload: UploadFile, label: str) -> dict[str, Any]:
+    """Read one uploaded JSON file, mirroring the /api/pdf-extract checks."""
+    if not upload.filename or not upload.filename.lower().endswith(".json"):
+        raise HTTPException(status_code=400, detail=f"{label} must be a .json file")
+    raw = await upload.read()
+    await upload.close()
+    if not raw:
+        raise HTTPException(status_code=400, detail=f"{label} is empty")
+    if len(raw) > config.MAX_FILE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"{label} too large. Maximum size: {config.MAX_FILE_SIZE_MB}MB",
+        )
+    try:
+        payload = json.loads(raw)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"{label} is not valid JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail=f"{label} must be a JSON object")
+    return payload
+
+
+@app.post("/api/pipeline/jobs/{job_id}/ai-import")
+async def ai_import_pipeline_job(
+    job_id: str,
+    equipment_file: UploadFile | None = File(None),
+    line_number_file: UploadFile | None = File(None),
+    mode: str = Form("preview"),
+    align: bool = Form(False),
+):
+    """Fold externally produced equipment / line-number JSON into a job.
+
+    `mode="preview"` performs the whole conversion and writes nothing, so the
+    reviewer can see the fitted transform and the per-item report before
+    committing. `mode="apply"` re-sends the same files and writes.
+    """
+    from garnet import ai_import
+
+    if mode not in ("preview", "apply"):
+        raise HTTPException(status_code=400, detail="mode must be 'preview' or 'apply'")
+    if equipment_file is None and line_number_file is None:
+        raise HTTPException(status_code=400, detail="Provide at least one file to import")
+
+    job_payload = _serialize_pipeline_job(job_id)
+    job_dir = job_payload["job_dir"]
+
+    equipment_payload = (
+        await _read_json_upload(equipment_file, "Equipment file") if equipment_file else None
+    )
+    line_payload = (
+        await _read_json_upload(line_number_file, "Line-number file") if line_number_file else None
+    )
+
+    image_path = _resolve_pipeline_job_image_path(job_dir)
+    image = cv2.imread(image_path)
+    if image is None:
+        raise HTTPException(status_code=500, detail="Could not read this job's input image")
+    job_size = (int(image.shape[1]), int(image.shape[0]))
+
+    mismatched = ai_import.check_frames(
+        [p for p in (equipment_payload, line_payload) if p], job_size
+    )
+    transform = ai_import.Transform()
+    fit_details: dict[str, Any] | None = None
+    try:
+        if mismatched:
+            if not align:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"Imported file describes a {mismatched[0][0]}x{mismatched[0][1]} image but "
+                        f"this job's image is {job_size[0]}x{job_size[1]}. Re-extract against this "
+                        "job's image, or enable alignment to fit the offset from line-number text."
+                    ),
+                )
+            reference = _read_pipeline_json_artifact(job_dir, "stage4_line_numbers.json").get(
+                "line_numbers", []
+            )
+            if not reference:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Alignment needs this job's line numbers as a reference, but "
+                        "stage4_line_numbers.json is empty. Run the job through Stage 4 first."
+                    ),
+                )
+            transform, fit = ai_import.fit_transform(
+                (line_payload or {}).get("objects") or [], reference
+            )
+            fit_details = fit.as_dict()
+
+        result = ai_import.convert(
+            equipment_payload,
+            line_payload,
+            equipment_labels=EQUIPMENT_LABELS,
+            transform=transform,
+            image_id=os.path.basename(image_path),
+        )
+    except ai_import.AiImportError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    response = {
+        "job_id": job_id,
+        "mode": mode,
+        "job_image_size": {"width": job_size[0], "height": job_size[1]},
+        "transform": {"dx": transform.dx, "dy": transform.dy, "scale": transform.scale},
+        "fit": fit_details,
+        "counts": result.counts,
+        "report": [row.as_dict() for row in result.report],
+    }
+    if mode == "preview":
+        return response
+
+    # Write order matters: saving stage4_objects.json invalidates and deletes
+    # stage4_line_numbers.json, so the imported line numbers go last.
+    if result.objects:
+        objects_payload = _read_pipeline_json_artifact(job_dir, "stage4_objects.json")
+        objects_payload["objects"] = ai_import.merge_objects(
+            objects_payload.get("objects", []), result.objects, EQUIPMENT_LABELS
+        )
+        _write_pipeline_json_artifact(job_dir, "stage4_objects.json", objects_payload)
+        _refresh_stage4_reviewed_object_artifacts(job_dir, objects_payload)
+
+    # Marking starts at stage5_pipe_mask rather than the generic stage4_objects.json
+    # rule (stage4_line_number_fusion): re-running fusion would discard the line
+    # numbers this import is about to write. The two source artifacts below pick the
+    # deletion lists — equipment invalidates the connection-port cache (without which
+    # stage5b short-circuits and the supplied ports never take effect), line numbers
+    # invalidate stage 6 onward. Neither list touches a stage4 artifact, so the
+    # still-completed stage4 fusion stages keep the files resume validation expects.
+    _mark_pipeline_stale_from(job_dir, "stage5_pipe_mask", "stage3_equipment_bboxes.json")
+    if result.line_numbers:
+        _mark_pipeline_stale_from(job_dir, "stage6_trace_associations", "stage4_line_numbers.json")
+
+    if result.equipment_ports:
+        _write_pipeline_json_artifact(job_dir, "ai_equipment_ports.json", result.equipment_ports)
+    if result.line_numbers:
+        _write_pipeline_json_artifact(
+            job_dir,
+            "stage4_line_numbers.json",
+            ai_import.line_numbers_payload(result, os.path.basename(image_path)),
+        )
+
+    system_id = str(job_payload.get("system_id") or "")
+    if system_id:
+        _invalidate_pipeline_system(system_id)
+
+    response["stages"] = _pipeline_stage_status(job_dir)
+    return response
 
 
 @app.put("/api/pipeline/jobs/{job_id}/artifacts/{artifact_name}")

@@ -18,6 +18,10 @@ type ReviewItem = {
   message: string
   evidence?: Record<string, unknown>
   geometry?: { x: number; y: number }
+  /** 'flow_direction' items get direction buttons instead of the generic three. */
+  review_item_type?: string
+  /** The edge `set_flow_direction` applies to. Only flow_direction items carry it. */
+  edge_id?: string
 }
 type ReviewItemsArtifact = { image_id?: string; review_items: ReviewItem[] }
 
@@ -27,6 +31,30 @@ const DECISIONS: { key: Decision; label: string }[] = [
   { key: 'false_positive', label: 'False positive' },
   { key: 'defer', label: 'Defer' },
 ]
+
+/**
+ * Flow-direction review. `forward`/`reverse` are relative to the stored
+ * polyline order, which is why the selected edge is drawn on the canvas with
+ * a start marker — direction is meaningless without seeing which end is which.
+ */
+type FlowState = 'forward' | 'reverse' | 'bidirectional' | 'unknown'
+const FLOW_DECISIONS: { key: FlowState; label: string }[] = [
+  { key: 'forward', label: 'Forward' },
+  { key: 'reverse', label: 'Reverse' },
+  { key: 'bidirectional', label: 'Both' },
+  { key: 'unknown', label: 'Unknown' },
+]
+const FLOW_STATES = new Set<string>(FLOW_DECISIONS.map((d) => d.key))
+const isFlowItem = (item: ReviewItem) => item.review_item_type === 'flow_direction' && !!item.edge_id
+
+/** stage8_review_items.json carries the edge polyline under both keys. */
+const edgePolyline = (item: ReviewItem): { x: number; y: number }[] => {
+  const geom = (item as Record<string, unknown>).edge_geometry ?? (item.evidence ?? {}).edge_geometry
+  const pts = (geom as { polyline?: unknown } | undefined)?.polyline
+  return Array.isArray(pts)
+    ? pts.filter((pt): pt is { x: number; y: number } => typeof pt?.x === 'number' && typeof pt?.y === 'number')
+    : []
+}
 
 const SEVERITY_TONE: Record<string, TagTone> = {
   high: 'danger',
@@ -54,12 +82,16 @@ const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n
  * stage8_review_decisions.json (registered in ARTIFACT_INVALIDATION_START_STAGE,
  * same simple pattern as Gate 1 and Gate 3 — no review-workspace step here).
  *
- * Decisions are a strict subset of what stage9_review_decisions.py supports:
- * accept_as_is / false_positive / defer. The fourth, set_line_number, edits
- * the graph directly (picking a line number id + specific edge ids from each
- * item's evidence) and is a materially bigger feature — skipped until asked
- * for; an item left undecided already resolves as "accepted_by_assumption"
- * on the backend, so silence is a safe default.
+ * Decisions map onto stage9_review_decisions.py: accept_as_is /
+ * false_positive / defer for ordinary items, and set_flow_direction for
+ * flow_direction items (forward / reverse / bidirectional / unknown).
+ * set_line_number is still missing — it edits the graph directly, picking a
+ * line number id plus specific edge ids, and is a materially bigger feature.
+ *
+ * Silence is NOT a safe default. Stage 9 counts an undecided release-blocking
+ * item as "unresolved", and stage9_release_gate stays blocked — which redacts
+ * the Stage 10 final export. Only accept_as_is, false_positive,
+ * set_line_number and set_flow_direction clear an item; defer does not.
  */
 export function Gate4GraphQA({ sheet, onBack }: { sheet: Sheet; onBack: () => void }) {
   const resumeGate = useRunStore((s) => s.resumeGate)
@@ -67,7 +99,7 @@ export function Gate4GraphQA({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
   const sidebar = useResizableSidebar(420, { min: 280, max: 640 })
 
   const [items, setItems] = useState<ReviewItem[] | null>(null)
-  const [decisions, setDecisions] = useState<Map<string, Decision>>(new Map())
+  const [decisions, setDecisions] = useState<Map<string, Decision | FlowState>>(new Map())
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -98,12 +130,16 @@ export function Gate4GraphQA({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
             jobId,
             'stage8_review_decisions.json'
           )
-          const seeded = new Map<string, Decision>()
+          const seeded = new Map<string, Decision | FlowState>()
           for (const d of existing.decisions ?? []) {
             const id = String(d.review_item_id ?? '')
             const decision = String(d.decision ?? '')
-            if (id && (decision === 'accept_as_is' || decision === 'false_positive' || decision === 'defer')) {
+            if (!id) continue
+            if (decision === 'accept_as_is' || decision === 'false_positive' || decision === 'defer') {
               seeded.set(id, decision)
+            } else if (decision === 'set_flow_direction') {
+              const state = String(d.flow_direction_state ?? '')
+              if (FLOW_STATES.has(state)) seeded.set(id, state as FlowState)
             }
           }
           if (!cancelled) setDecisions(seeded)
@@ -235,7 +271,7 @@ export function Gate4GraphQA({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
     }
   }
 
-  const setDecision = (item: ReviewItem, decision: Decision | null) => {
+  const setDecision = (item: ReviewItem, decision: Decision | FlowState | null) => {
     setDecisions((prev) => {
       const next = new Map(prev)
       if (decision) next.set(item.id, decision)
@@ -255,12 +291,19 @@ export function Gate4GraphQA({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
     setSaving(true)
     setSaveError(null)
     try {
+      const edgeById = new Map((items ?? []).map((it) => [it.id, it.edge_id]))
       const payload = {
-        decisions: [...decisions.entries()].map(([review_item_id, decision]) => ({
-          review_item_id,
-          decision,
-          reviewer: 'hitl',
-        })),
+        decisions: [...decisions.entries()].map(([review_item_id, decision]) =>
+          FLOW_STATES.has(decision)
+            ? {
+                review_item_id,
+                decision: 'set_flow_direction',
+                flow_direction_state: decision,
+                edge_id: edgeById.get(review_item_id),
+                reviewer: 'hitl',
+              }
+            : { review_item_id, decision, reviewer: 'hitl' }
+        ),
       }
       await putPipelineArtifact(jobId, 'stage8_review_decisions.json', payload)
       setDirty(false)
@@ -343,6 +386,32 @@ export function Gate4GraphQA({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
                   viewBox={`0 0 ${imgW} ${imgH}`}
                   style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none' }}
                 >
+                  {(() => {
+                    // Forward/reverse are relative to polyline order, so the
+                    // selected edge is drawn with its start end marked.
+                    const sel = filtered.find((it) => it.id === selectedId)
+                    const pts = sel && isFlowItem(sel) ? edgePolyline(sel) : []
+                    if (pts.length < 2) return null
+                    return (
+                      <g>
+                        <polyline
+                          points={pts.map((pt) => `${pt.x},${pt.y}`).join(' ')}
+                          fill="none"
+                          stroke="var(--accent)"
+                          strokeWidth={4 / scale}
+                        />
+                        <circle cx={pts[0].x} cy={pts[0].y} r={7 / scale} fill="var(--accent)" />
+                        <text
+                          x={pts[0].x + 10 / scale}
+                          y={pts[0].y - 10 / scale}
+                          fill="var(--accent)"
+                          style={{ fontSize: 14 / scale }}
+                        >
+                          start
+                        </text>
+                      </g>
+                    )
+                  })()}
                   {filtered.map((item) => {
                     if (!item.geometry) return null
                     const isSel = item.id === selectedId
@@ -478,7 +547,7 @@ export function Gate4GraphQA({ sheet, onBack }: { sheet: Sheet; onBack: () => vo
                       </div>
                       <div style={{ fontSize: 13, marginTop: 4 }}>{item.message}</div>
                       <div className="mt-2 flex items-center gap-1.5">
-                        {DECISIONS.map((d) => (
+                        {(isFlowItem(item) ? FLOW_DECISIONS : DECISIONS).map((d) => (
                           <button
                             key={d.key}
                             type="button"

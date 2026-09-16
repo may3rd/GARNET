@@ -426,18 +426,18 @@ def run_stage12_trace_graph_qa(
     severity_counts = Counter(str(issue.get("severity")) for issue in issues)
     summary = {
         "image_id": image_id,
-        "source": "stage12_trace_graph",
+        "source": "stage7_trace_graph",
         "node_count": len(nodes_by_id),
         "edge_count": len(edges_by_id),
         "connected_component_count": len(components),
         "issue_count": len(issues),
         "issue_counts": dict(sorted(issue_counts.items())),
         "severity_counts": dict(sorted(severity_counts.items())),
-        "source_artifacts": ["stage12_graph.json"],
+        "source_artifacts": ["stage7_graph.json"],
     }
     qa_payload = {
         "image_id": image_id,
-        "source": "stage12_trace_graph",
+        "source": "stage7_trace_graph",
         "components": [
             {
                 "component_id": component_id,
