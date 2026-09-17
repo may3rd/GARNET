@@ -15,6 +15,23 @@ Review gate over the traced network — mostly deterministic:
     review_rules.md       the rules, thresholds and their calibration
     review_prompt.md      the narrow question the model is asked (residual only)
 
+Stage 6 — attach semantic evidence to the traced paths (line numbers, valves, tags, arrows):
+
+    trace_associations.py  vendored byte-identical from backend/garnet/
+    flow_direction.py      vendored byte-identical (its only dependency)
+    run_associations.py    CLI: stage5b artifacts -> stage6_* artifacts + overlay
+
+    python -m garnet.stage5b.run_associations --stem Test-00001
+
+**Line-number association is the point of Stage 6.** A label attaches to the path it is written
+ALONG, not merely the nearest one: when the globally nearest segment runs perpendicular to the
+label's long axis (a crossing pipe clipping a corner), an orientation-matching segment within
+threshold wins instead. Measured on Test-00001 that preference decides 24 of 25 attachments, and
+in three cases it deliberately picks a path 50-83px away over one 2-32px away — correctly, since
+the near path runs perpendicular to the label. A naive "nearest path wins" check flags those
+three as errors; they are not. Labels that find nothing in range become `needs_review` and
+traces with no label are reported in `traces_without_line_number` — never fabricated.
+
 **This copy has DIVERGED from the backend original — deliberately.** The tracer and the mixin
 were vendored byte-identical except for import paths, but both now carry fixes that exist only
 here:
