@@ -44,6 +44,12 @@ class TerminalType(Enum):
     DEAD_END = "dead_end"
     NO_PIPE = "no_pipe"
     MAX_STEPS = "max_steps"
+    # A pressure relief valve is an endpoint, not a pass-through. Its body is drawn as a
+    # T/elbow and the walker used to force a 90-degree turn through it (see
+    # _compute_pressure_relief_exit), which sent the trace off down a perpendicular line that
+    # was frequently NOT the pipe — the recorded horizontal leg then ran 5-8px off the ink
+    # for its whole length. The PSV is where the traced run legitimately ends.
+    PRESSURE_RELIEF = "pressure_relief_valve"
 
 
 @dataclass
@@ -270,6 +276,16 @@ class CVPipeTracer:
         terminal_ahead_equipment_margin_px: int = 4,
         inline_hit_margin_px: int = 2,
         inline_exit_margin_px: int = 6,
+        # Terminate a walk at a pressure relief valve instead of turning 90 degrees through it.
+        # A PSV is an endpoint of the traced run; traversing it forced the path down a
+        # perpendicular line and produced segments running beside the ink. Set False to restore
+        # the old pass-through behaviour.
+        psv_is_terminal: bool = True,
+        # Bridge a short break in the mask (px) when a known equipment bbox lies just beyond —
+        # recovers walks that died as dead_end a few px short of a nozzle. See
+        # _bridge_short_gap_to_equipment.
+        gap_bridge_max_px: int = 7,
+        gap_bridge_equipment_reach_px: int = 12,
     ):
         self.mask = pipe_mask
         self.image = image
@@ -304,6 +320,9 @@ class CVPipeTracer:
         self.terminal_ahead_equipment_margin_px = terminal_ahead_equipment_margin_px
         self.inline_hit_margin_px = inline_hit_margin_px
         self.inline_exit_margin_px = inline_exit_margin_px
+        self.psv_is_terminal = psv_is_terminal
+        self.gap_bridge_max_px = gap_bridge_max_px
+        self.gap_bridge_equipment_reach_px = gap_bridge_equipment_reach_px
 
         # Terminal candidates
         self.page_connections = page_connections or []
@@ -1170,9 +1189,30 @@ class CVPipeTracer:
                 x, y, direction, seg_start_x, seg_start_y = inline_state
                 dx, dy = DIRECTION_DELTA[direction]
                 continue
+            # The inline handler can also decide the run ENDS here (a pressure relief valve is
+            # an endpoint). `None` normally means "no inline symbol, keep walking", so the stop
+            # has to be checked explicitly — otherwise the fall-through would resume walking
+            # straight past the PSV.
+            if result.terminal_type == TerminalType.PRESSURE_RELIEF.value:
+                break
 
             # Look ahead — what's in front?
             forward_ok = _has_line_of_sight_axis_band(self.mask, x, y, direction, self.min_step, band_width=1)
+
+            if not forward_ok:
+                # Bridge a short break in the mask when equipment lies just beyond it.
+                #
+                # A 6px break in the ink (a symbol boundary or a scan artefact) used to end the
+                # walk as `dead_end` even though the pipe demonstrably continues into a pump 30px
+                # further on — see Test-00001 branch_000004. The look-ahead only reaches
+                # `min_step` (5px). Only bridged when the ink resumes AND a known equipment bbox
+                # is within a short reach ahead, so this cannot invent a route into empty paper.
+                bridged = self._bridge_short_gap_to_equipment(x, y, direction)
+                if bridged is not None:
+                    self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+                    x, y = bridged
+                    seg_start_x, seg_start_y = x, y
+                    continue
 
             current_leg_len = max(abs(x - seg_start_x), abs(y - seg_start_y))
             if source_obj_id.startswith("branch_") and current_leg_len > 60:
@@ -1358,6 +1398,8 @@ class CVPipeTracer:
 
             # No candidate turn available — the trace ends here.
             self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+            # Both branches are position-only terminals; clear any stale object id.
+            result.terminal_obj_id = None
             if self._is_sheet_edge(x, y, direction):
                 result.terminal_type = TerminalType.SHEET_EDGE.value
                 result.terminal_x, result.terminal_y = x, y
@@ -1385,10 +1427,10 @@ class CVPipeTracer:
     ) -> Optional[tuple[int, int, str, int, int]]:
         """Handle traversal through an inline symbol (valve, reducer, PSV).
 
-        Inline symbols are passed through, not treated as terminals. Returns the
-        updated walker state ``(x, y, direction, seg_start_x, seg_start_y)`` when
-        an inline overlap was handled, or ``None`` when there is no inline symbol
-        at the current position (caller should keep walking).
+        Inline symbols are passed through, not treated as terminals — EXCEPT a pressure relief
+        valve, which is an endpoint (see `psv_is_terminal`). Returns the updated walker state
+        ``(x, y, direction, seg_start_x, seg_start_y)`` when an inline overlap was handled, or
+        ``None`` when there is no inline symbol at the current position (caller keeps walking).
         """
         inline_hits = self._find_inline_overlap(x, y)
         if not inline_hits:
@@ -1399,6 +1441,22 @@ class CVPipeTracer:
                 class_name=hit.get("class_name", "unknown"),
                 x=x, y=y,
             ))
+
+        if self.psv_is_terminal and self._is_pressure_relief_group(inline_hits):
+            # End the run AT the PSV. The body is drawn as a T/elbow, and the old pass-through
+            # picked a perpendicular exit by scoring pipe pixels 80px out — which happily found
+            # an unrelated line and produced a leg running 5-8px off the ink for its whole
+            # length (Test-00001 #2 and #5). Stopping here keeps every recorded segment on the
+            # line actually walked.
+            psv = next((s for s in inline_hits
+                        if str(s.get("class_name", "")).replace("_", " ").lower()
+                        == "pressure relief valve"), None)
+            self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+            result.terminal_type = TerminalType.PRESSURE_RELIEF.value
+            result.terminal_x, result.terminal_y = x, y
+            result.terminal_obj_id = psv.get("id") if psv else None
+            return None            # caller resolves the terminal below
+
         psv_exit = (
             self._compute_pressure_relief_exit(x, y, direction, inline_hits)
             if self._is_pressure_relief_group(inline_hits)
@@ -1582,6 +1640,9 @@ class CVPipeTracer:
         self._append_segment(result, seg_start_x, seg_start_y, jx, jy, direction)
         result.terminal_type = TerminalType.TEE_JUNCTION.value
         result.terminal_x, result.terminal_y = jx, jy
+        # position-only terminal (no junction object identified): clear any
+        # id set earlier in the walk, or it names an unrelated object
+        result.terminal_obj_id = None
         return "break",
 
     def _handle_multi_elbow_tee(
@@ -1629,6 +1690,9 @@ class CVPipeTracer:
             self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
             result.terminal_type = TerminalType.TEE_JUNCTION.value
             result.terminal_x, result.terminal_y = x, y
+            # position-only terminal (no junction object identified): clear any
+            # id set earlier in the walk, or it names an unrelated object
+            result.terminal_obj_id = None
             return "break",
         return "next", [c for c in turn_candidates if c[2] in connected_turn_dirs], True
 
@@ -1694,6 +1758,10 @@ class CVPipeTracer:
             self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
             result.terminal_type = TerminalType.TEE_JUNCTION.value
             result.terminal_x, result.terminal_y = x, y
+            # No junction OBJECT is identified here, only a position. Clear any id set
+            # earlier so the terminal does not claim an unrelated object (a stale id made
+            # these terminals name objects 368-622px away).
+            result.terminal_obj_id = None
             return "break",
         if raycast is not None and turn_hits_blocking_terminal:
             self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
@@ -1708,6 +1776,8 @@ class CVPipeTracer:
             self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
             result.terminal_type = TerminalType.TEE_JUNCTION.value
             result.terminal_x, result.terminal_y = x, y
+            # position-only terminal; see the note above on stale terminal_obj_id
+            result.terminal_obj_id = None
             return "break",
         self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
         result.turns.append((x, y, exact_turn_dir))
@@ -1778,6 +1848,9 @@ class CVPipeTracer:
             self._append_segment(result, seg_start_x, seg_start_y, tx, ty, direction)
             result.terminal_type = TerminalType.TEE_JUNCTION.value
             result.terminal_x, result.terminal_y = tx, ty
+            # position-only terminal (no junction object identified): clear any
+            # id set earlier in the walk, or it names an unrelated object
+            result.terminal_obj_id = None
             return "break",
         self._append_segment(result, seg_start_x, seg_start_y, tx, ty, direction)
         result.turns.append((tx, ty, turn_dir))
@@ -1835,6 +1908,9 @@ class CVPipeTracer:
                     return "continue", x, y, direction, x, y
                 result.terminal_type = TerminalType.TEE_JUNCTION.value
                 result.terminal_x, result.terminal_y = x, y
+                # position-only terminal (no junction object identified): clear any
+                # id set earlier in the walk, or it names an unrelated object
+                result.terminal_obj_id = None
                 return "break",
             turn_x, turn_y = x, y
             result.turns.append((turn_x, turn_y, turn_dir))
@@ -1867,6 +1943,9 @@ class CVPipeTracer:
             return "continue", x, y, direction, x, y
         result.terminal_type = TerminalType.TEE_JUNCTION.value
         result.terminal_x, result.terminal_y = x, y
+        # position-only terminal (no junction object identified): clear any
+        # id set earlier in the walk, or it names an unrelated object
+        result.terminal_obj_id = None
         return "break",
 
     def _handle_nearest_candidate_turn(
@@ -1914,6 +1993,9 @@ class CVPipeTracer:
                 return "continue", x, y, direction, x, y
             result.terminal_type = TerminalType.TEE_JUNCTION.value
             result.terminal_x, result.terminal_y = tx, ty
+            # position-only terminal (no junction object identified): clear any
+            # id set earlier in the walk, or it names an unrelated object
+            result.terminal_obj_id = None
             return "break",
         if self._has_bidirectional_turn_leg(tx, ty, turn_dir):
             if self._axis_continues_past(
@@ -1925,6 +2007,9 @@ class CVPipeTracer:
                 return "continue", x, y, direction, x, y
             result.terminal_type = TerminalType.TEE_JUNCTION.value
             result.terminal_x, result.terminal_y = tx, ty
+            # position-only terminal (no junction object identified): clear any
+            # id set earlier in the walk, or it names an unrelated object
+            result.terminal_obj_id = None
             return "break",
         entered_x = tx + DIRECTION_DELTA[turn_dir][0] * self.min_step
         entered_y = ty + DIRECTION_DELTA[turn_dir][1] * self.min_step
@@ -2107,6 +2192,46 @@ class CVPipeTracer:
             str(sym.get("class_name", "")).replace("_", " ").lower() == "pressure relief valve"
             for sym in group
         )
+
+    def _bridge_short_gap_to_equipment(self, x: int, y: int, direction: str) -> Optional[tuple[int, int]]:
+        """Step over a short break in the mask when an equipment bbox sits just beyond it.
+
+        The forward look-ahead reaches only `min_step` (5px), so a 6px gap in the ink ends the
+        walk as `dead_end` even when the pipe visibly continues into a nozzle a few px on —
+        Test-00001 branch_000004 stopped 30px short of `equip_p_2504a` this way.
+
+        Deliberately narrow: the gap must be short, the ink must resume, AND a known equipment
+        bbox must lie within reach ahead. Without the equipment condition this would happily
+        hop across breaks in the middle of nowhere and invent topology.
+        """
+        if not self.equipment_objects:
+            return None
+        dx, dy = DIRECTION_DELTA[direction]
+        gap_limit = self.gap_bridge_max_px
+        # find where the ink resumes
+        resume = None
+        for step in range(self.min_step + 1, gap_limit + 1):
+            nx, ny = x + dx * step, y + dy * step
+            if not (0 <= nx < self.w and 0 <= ny < self.h):
+                return None
+            if _is_pipe_band(self.mask, nx, ny, direction, band_width=1):
+                resume = (nx, ny, step)
+                break
+        if resume is None:
+            return None
+        nx, ny, step = resume
+        # is equipment within reach of the resume point (or of the original)? Only then is the
+        # continuation meaningful.
+        reach = self.gap_bridge_equipment_reach_px
+        for eq in self.equipment_objects:
+            b = eq.get("bbox")
+            if not b:
+                continue
+            for px, py in ((nx, ny), (nx + dx * reach, ny + dy * reach)):
+                if (b["x_min"] - reach <= px <= b["x_max"] + reach
+                        and b["y_min"] - reach <= py <= b["y_max"] + reach):
+                    return self._snap_to_centerline(nx, ny, direction)
+        return None
 
     def _score_pipe_exit(
         self,

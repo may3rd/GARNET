@@ -1434,6 +1434,7 @@ class Stage5bPipelineMixin:
             terminal_x = result.terminal_x
             terminal_y = result.terminal_y
             terminal_obj_id = result.terminal_obj_id
+            joined_trace_id = None
             turns = [
                 {"x": tx, "y": ty, "new_dir": td}
                 for tx, ty, td in result.turns
@@ -1493,7 +1494,14 @@ class Stage5bPipelineMixin:
                         )
                     )
                     terminal_type = "tee_junction"
-                    terminal_obj_id = hit_trace_id
+                    # A branch that merges into an existing path ends at a junction, but
+                    # `hit_trace_id` is the id of the PATH it joined (a page-connection object
+                    # or another branch), NOT a stage4 object sitting at the terminal point.
+                    # Writing it to `terminal_obj_id` broke that field's contract ("matching
+                    # stage4 object ID") and made R3 see a tee naming an object 368-622px away.
+                    # Record the joined path where it belongs and leave the object id empty.
+                    joined_trace_id = hit_trace_id
+                    terminal_obj_id = None
 
             if (terminal_obj_id or "").startswith("branch_"):
                 terminal_type = "branch_connection"
@@ -1504,6 +1512,7 @@ class Stage5bPipelineMixin:
                     "terminal_x": terminal_x,
                     "terminal_y": terminal_y,
                     "terminal_obj_id": terminal_obj_id,
+                    "joined_trace_id": joined_trace_id,
                     "segments": segments,
                     "trace_length_px": trace_length,
                 }
@@ -1550,6 +1559,7 @@ class Stage5bPipelineMixin:
                 "terminal_x": terminal_x,
                 "terminal_y": terminal_y,
                 "terminal_obj_id": terminal_obj_id,
+                "joined_trace_id": joined_trace_id if not str(terminal_obj_id or "").startswith("branch_") else None,
                 "segments": segments,
                 "turns": turns,
                 "hits": hits,

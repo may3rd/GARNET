@@ -10,7 +10,7 @@
   "postprocess_type": "GREEDYNMM",
   "postprocess_match_metric": "IOS",
   "postprocess_match_threshold": 0.1,
-  "object_count": 236,
+  "object_count": 237,
   "class_counts": {
     "arrow": 27,
     "check valve": 9,
@@ -30,7 +30,7 @@
     "sampling point": 1,
     "spectacle blind": 14,
     "strainer": 3,
-    "utility connection": 2
+    "utility connection": 3
   },
   "objects": [
     {
@@ -2628,6 +2628,20 @@
         "x_max": 4019,
         "y_max": 1599
       }
+    },
+    {
+      "id": "obj_000237",
+      "class_name": "utility connection",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 789,
+        "y_min": 470,
+        "x_max": 849,
+        "y_max": 531
+      },
+      "text": "25-0017",
+      "source": "hard_coded",
+      "note": "hard-coded: YOLO missed this utility-connection box; located by template match of the user's screenshot against the sheet, then the closed 4-vertex rectangle contour inside it (fill 0.97, 1.2% interior ink = the 'F' glyph)"
     }
   ]
 }
