@@ -1,0 +1,450 @@
+{
+  "source_drawing": "14780-8120-25-25-0002A, Rev. Z1 (AS BUILT, 4/25/16)",
+  "coordinate_frame": {
+    "width_px": 4962,
+    "height_px": 3508,
+    "dpi": null,
+    "page_pt": null,
+    "page_rotate_deg": null,
+    "note": "Source supplied as a JPEG raster (4962 x 3508 px), not a PDF. No mediabox, /Rotate or text layer available. All coordinates are pixel coordinates in this raster, origin top-left, measured directly on the delivered image at native resolution (no rescaling). Aspect ratio 1.4145 matches ISO A-series landscape, consistent with an unrotated sheet."
+  },
+  "objects": [
+    {
+      "Index": 1,
+      "Object": "Column",
+      "Tag": "V-2501",
+      "Equipment_type": "Column",
+      "Service": "Cumene-AMS Caustic Wash Column",
+      "Size": "Top 1400 mm / Bottom 2400 mm x 27200 mm (T/T)",
+      "Evidence": "both (agree)",
+      "Left": 1697,
+      "Top": 884,
+      "Width": 254,
+      "Height": 1206,
+      "Bounding_box_px": {
+        "x_min": 1697,
+        "y_min": 884,
+        "x_max": 1951,
+        "y_max": 2090
+      },
+      "Bounding_box_norm": [
+        0.342,
+        0.252,
+        0.3932,
+        0.5958
+      ],
+      "Ports": [
+        {
+          "mark": "AV",
+          "size": "2\"",
+          "line_number": null,
+          "side": "top",
+          "point_px": [
+            1824,
+            884
+          ],
+          "point_norm": [
+            0.3676,
+            0.252
+          ]
+        },
+        {
+          "mark": "BO",
+          "size": "8\"",
+          "line_number": null,
+          "side": "top",
+          "point_px": [
+            1885,
+            896
+          ],
+          "point_norm": [
+            0.3799,
+            0.2554
+          ]
+        },
+        {
+          "mark": "AU",
+          "size": "4\"",
+          "line_number": "4\"-CUL-25-002017-B1A2-NI",
+          "side": "left",
+          "point_px": [
+            1734,
+            959
+          ],
+          "point_norm": [
+            0.3495,
+            0.2734
+          ]
+        },
+        {
+          "mark": "AO",
+          "size": "4\"",
+          "line_number": "4\"-CUL-25-002007-B1A2-NI",
+          "side": "right",
+          "point_px": [
+            1914,
+            959
+          ],
+          "point_norm": [
+            0.3857,
+            0.2734
+          ]
+        },
+        {
+          "mark": "AI",
+          "size": "2\"",
+          "line_number": null,
+          "side": "right",
+          "point_px": [
+            1914,
+            1056
+          ],
+          "point_norm": [
+            0.3857,
+            0.301
+          ]
+        },
+        {
+          "mark": "CT",
+          "size": "2\"",
+          "line_number": "2\"-PL-25-002015-B1A2-NI",
+          "side": "right",
+          "point_px": [
+            1914,
+            1266
+          ],
+          "point_norm": [
+            0.3857,
+            0.3609
+          ]
+        },
+        {
+          "mark": "BT",
+          "size": "3\"",
+          "line_number": "3\"-PL-25-002014-B1A2-NI",
+          "side": "right",
+          "point_px": [
+            1914,
+            1333
+          ],
+          "point_norm": [
+            0.3857,
+            0.38
+          ]
+        },
+        {
+          "mark": "CI",
+          "size": "6\"",
+          "line_number": null,
+          "side": "left",
+          "point_px": [
+            1734,
+            1739
+          ],
+          "point_norm": [
+            0.3495,
+            0.4957
+          ]
+        },
+        {
+          "mark": "DS",
+          "size": "2\"",
+          "line_number": "2\"-S12-66-059061-MS12-H",
+          "side": "right",
+          "point_px": [
+            1951,
+            2008
+          ],
+          "point_norm": [
+            0.3932,
+            0.5724
+          ]
+        },
+        {
+          "mark": "EO",
+          "size": null,
+          "line_number": null,
+          "side": "bottom",
+          "point_px": [
+            1824,
+            2090
+          ],
+          "point_norm": [
+            0.3676,
+            0.5958
+          ]
+        }
+      ]
+    },
+    {
+      "Index": 2,
+      "Object": "Static mixer",
+      "Tag": "X-2501",
+      "Equipment_type": "Static mixer",
+      "Service": "Caustic Wash Feed Static Mixer",
+      "Size": "3\" x 760 mm",
+      "Evidence": "both (agree)",
+      "Left": 983,
+      "Top": 1717,
+      "Width": 119,
+      "Height": 44,
+      "Bounding_box_px": {
+        "x_min": 983,
+        "y_min": 1717,
+        "x_max": 1102,
+        "y_max": 1761
+      },
+      "Bounding_box_norm": [
+        0.1981,
+        0.4895,
+        0.2221,
+        0.502
+      ],
+      "Ports": [
+        {
+          "mark": null,
+          "size": null,
+          "line_number": null,
+          "side": "left",
+          "point_px": [
+            983,
+            1739
+          ],
+          "point_norm": [
+            0.1981,
+            0.4957
+          ]
+        },
+        {
+          "mark": null,
+          "size": null,
+          "line_number": null,
+          "side": "right",
+          "point_px": [
+            1102,
+            1739
+          ],
+          "point_norm": [
+            0.2221,
+            0.4957
+          ]
+        }
+      ]
+    },
+    {
+      "Index": 3,
+      "Object": "Pump",
+      "Tag": "P-2512",
+      "Equipment_type": "Pump",
+      "Service": "Cumene-AMS Caustic Wash Column Sample Pump",
+      "Size": "4.54 m3/hr, dP 2.10 kg/cm2, 4.0 kW",
+      "Evidence": "both (agree)",
+      "Left": 2437,
+      "Top": 2035,
+      "Width": 134,
+      "Height": 74,
+      "Bounding_box_px": {
+        "x_min": 2437,
+        "y_min": 2035,
+        "x_max": 2571,
+        "y_max": 2109
+      },
+      "Bounding_box_norm": [
+        0.4911,
+        0.5801,
+        0.5181,
+        0.6012
+      ],
+      "Ports": [
+        {
+          "mark": null,
+          "size": null,
+          "line_number": null,
+          "side": "top",
+          "point_px": [
+            2534,
+            2035
+          ],
+          "point_norm": [
+            0.5107,
+            0.5801
+          ]
+        },
+        {
+          "mark": null,
+          "size": null,
+          "line_number": null,
+          "side": "bottom",
+          "point_px": [
+            2534,
+            2109
+          ],
+          "point_norm": [
+            0.5107,
+            0.6012
+          ]
+        }
+      ]
+    },
+    {
+      "Index": 4,
+      "Object": "Pump",
+      "Tag": "P-2504A",
+      "Equipment_type": "Pump",
+      "Service": "Cumene-AMS Caustic Wash Column Recirculation Pump",
+      "Size": "9.18 m3/hr, dP 3.21 kg/cm2, 5.5 kW",
+      "Evidence": "both (agree): P-2504A/B in data block, individual tags on symbols",
+      "Left": 2762,
+      "Top": 2303,
+      "Width": 134,
+      "Height": 75,
+      "Bounding_box_px": {
+        "x_min": 2762,
+        "y_min": 2303,
+        "x_max": 2896,
+        "y_max": 2378
+      },
+      "Bounding_box_norm": [
+        0.5566,
+        0.6565,
+        0.5836,
+        0.6779
+      ],
+      "Ports": [
+        {
+          "mark": null,
+          "size": null,
+          "line_number": "3\"-CUL-25-002011-B2A2-NI",
+          "side": "top",
+          "point_px": [
+            2859,
+            2303
+          ],
+          "point_norm": [
+            0.5762,
+            0.6565
+          ]
+        },
+        {
+          "mark": null,
+          "size": null,
+          "line_number": "3\"-CUL-25-002009-B2A2-NI",
+          "side": "bottom",
+          "point_px": [
+            2859,
+            2378
+          ],
+          "point_norm": [
+            0.5762,
+            0.6779
+          ]
+        }
+      ]
+    },
+    {
+      "Index": 5,
+      "Object": "Pump",
+      "Tag": "P-2504B",
+      "Equipment_type": "Pump",
+      "Service": "Cumene-AMS Caustic Wash Column Recirculation Pump",
+      "Size": "9.18 m3/hr, dP 3.21 kg/cm2, 5.5 kW",
+      "Evidence": "both (agree): P-2504A/B in data block, individual tags on symbols",
+      "Left": 3264,
+      "Top": 2303,
+      "Width": 135,
+      "Height": 75,
+      "Bounding_box_px": {
+        "x_min": 3264,
+        "y_min": 2303,
+        "x_max": 3399,
+        "y_max": 2378
+      },
+      "Bounding_box_norm": [
+        0.6578,
+        0.6565,
+        0.685,
+        0.6779
+      ],
+      "Ports": [
+        {
+          "mark": null,
+          "size": null,
+          "line_number": "3\"-CUL-25-002011-B2A2-NI",
+          "side": "top",
+          "point_px": [
+            3302,
+            2303
+          ],
+          "point_norm": [
+            0.6655,
+            0.6565
+          ]
+        },
+        {
+          "mark": null,
+          "size": null,
+          "line_number": "3\"-CUL-25-002009-B2A2-NI",
+          "side": "bottom",
+          "point_px": [
+            3302,
+            2378
+          ],
+          "point_norm": [
+            0.6655,
+            0.6779
+          ]
+        }
+      ]
+    }
+  ],
+  "unresolved": [
+    {
+      "what": "Pump suction/discharge nozzle sizes (P-2512, P-2504A, P-2504B)",
+      "why": "Only reducer callouts are adjacent (1\"X2\" and 3\"X2\" at P-2512; 1\"X3\" and 3\"X1 1/2\" at P-2504A/B). Which side of each reducer is the pump nozzle is not readable at this resolution, so no size is asserted.",
+      "location_hint_px": [
+        2534,
+        2000
+      ]
+    },
+    {
+      "what": "X-2501 inlet/outlet port sizes",
+      "why": "Nearest size callout (6\") has its leader on the line downstream of an expander, not on the mixer flange.",
+      "location_hint_px": [
+        1160,
+        1768
+      ]
+    },
+    {
+      "what": "V-2501 nozzle EO line number and size",
+      "why": "No size or line number annotated adjacent to the bottom outlet; the nearest 2\" callout belongs to a branch valve.",
+      "location_hint_px": [
+        1824,
+        2120
+      ]
+    },
+    {
+      "what": "V-2501 nozzle AI line number",
+      "why": "Only the 2\" size callout is adjacent; the line number is not annotated near the nozzle.",
+      "location_hint_px": [
+        1914,
+        1056
+      ]
+    },
+    {
+      "what": "All text on this sheet",
+      "why": "No PDF text layer was supplied, so every tag, size and line number was read visually from the raster. Strings were cross-checked between the equipment data block and the in-drawing labels.",
+      "location_hint_px": [
+        0,
+        0
+      ]
+    }
+  ],
+  "excluded_by_rule": {
+    "V-2501 manways AM, BM, DM (24\" ID)": "manways, no process line terminates",
+    "V-2501 nozzle CP": "instrument tapping to PI-0204",
+    "V-2501 nozzles DN1, DN2": "level transmitter LT-0201 bridle taps",
+    "V-2501 nozzles DL1, DL2": "level gauge LG-0202A/B bridle taps",
+    "PSV-0201A/B, SG-V2501, S12 (66-0059), control valves, instruments": "not major equipment"
+  },
+  "verification": "overlay rendered and visually checked: yes"
+}

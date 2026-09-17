@@ -1,0 +1,31 @@
+{
+  "id": "",
+  "objects": [
+    {"Index": 1, "Object": "line number", "CategoryID": 1, "ObjectID": 1, "Left": 1162, "Top": 333, "Width": 338, "Height": 24, "Score": 1.0, "Text": "1½\"-VG-25-002021-L1A1-NI"},
+    {"Index": 2, "Object": "line number", "CategoryID": 1, "ObjectID": 2, "Left": 998, "Top": 471, "Width": 310, "Height": 20, "Score": 1.0, "Text": "6\"-F-25-002019-L1A1-NI"},
+    {"Index": 3, "Object": "line number", "CategoryID": 1, "ObjectID": 3, "Left": 868, "Top": 603, "Width": 312, "Height": 19, "Score": 1.0, "Text": "6\"-F-25-002020-L1A1-NI"},
+    {"Index": 4, "Object": "line number", "CategoryID": 1, "ObjectID": 4, "Left": 3369, "Top": 920, "Width": 347, "Height": 19, "Score": 1.0, "Text": "4\"-CUL-25-002007-B1A2-NI"},
+    {"Index": 5, "Object": "line number", "CategoryID": 1, "ObjectID": 5, "Left": 994, "Top": 936, "Width": 344, "Height": 20, "Score": 1.0, "Text": "4\"-CUL-25-002018-B1A2-NI"},
+    {"Index": 6, "Object": "line number", "CategoryID": 1, "ObjectID": 6, "Left": 1186, "Top": 977, "Width": 343, "Height": 20, "Score": 1.0, "Text": "4\"-CUL-25-002017-B1A2-NI"},
+    {"Index": 7, "Object": "line number", "CategoryID": 1, "ObjectID": 7, "Left": 3410, "Top": 998, "Width": 380, "Height": 26, "Score": 1.0, "Text": "3\"-CUL-25-002008-B1A2-NI"},
+    {"Index": 8, "Object": "line number", "CategoryID": 1, "ObjectID": 8, "Left": 448, "Top": 1052, "Width": 347, "Height": 22, "Score": 1.0, "Text": "1½\"-PL-25-002004-B2A2-NI"},
+    {"Index": 9, "Object": "line number", "CategoryID": 1, "ObjectID": 9, "Left": 3025, "Top": 1218, "Width": 22, "Height": 357, "Score": 1.0, "Text": "1½\"-CUL-25-002012-B1A2-NI"},
+    {"Index": 10, "Object": "line number", "CategoryID": 1, "ObjectID": 10, "Left": 2316, "Top": 1235, "Width": 328, "Height": 19, "Score": 1.0, "Text": "2\"-PL-25-002015-B1A2-NI"},
+    {"Index": 11, "Object": "line number", "CategoryID": 1, "ObjectID": 11, "Left": 2390, "Top": 1528, "Width": 19, "Height": 329, "Score": 1.0, "Text": "3\"-PL-25-002014-B1A2-NI"},
+    {"Index": 12, "Object": "line number", "CategoryID": 1, "ObjectID": 12, "Left": 3321, "Top": 1780, "Width": 381, "Height": 28, "Score": 1.0, "Text": "2\"-NAS-25-003004-B2A2-NI"},
+    {"Index": 13, "Object": "line number", "CategoryID": 1, "ObjectID": 13, "Left": 2076, "Top": 1917, "Width": 336, "Height": 19, "Score": 1.0, "Text": "2\"-S12-66-059061-MS12-H"},
+    {"Index": 14, "Object": "line number", "CategoryID": 1, "ObjectID": 14, "Left": 3172, "Top": 2048, "Width": 344, "Height": 19, "Score": 1.0, "Text": "3\"-CUL-25-002011-B2A2-NI"},
+    {"Index": 15, "Object": "line number", "CategoryID": 1, "ObjectID": 15, "Left": 739, "Top": 2354, "Width": 328, "Height": 19, "Score": 1.0, "Text": "3\"-PL-25-002013-B1A2-NI"},
+    {"Index": 16, "Object": "line number", "CategoryID": 1, "ObjectID": 16, "Left": 612, "Top": 2409, "Width": 19, "Height": 329, "Score": 1.0, "Text": "3\"-PL-24-015002-N2A1-NI"},
+    {"Index": 17, "Object": "line number", "CategoryID": 1, "ObjectID": 17, "Left": 2917, "Top": 2458, "Width": 350, "Height": 20, "Score": 1.0, "Text": "3\"-CUL-25-002009-B2A2-NI"},
+    {"Index": 18, "Object": "line number", "CategoryID": 1, "ObjectID": 18, "Left": 1773, "Top": 2477, "Width": 25, "Height": 309, "Score": 1.0, "Text": "1½\"-PWD-25-002016-L1A1-NI"},
+    {"Index": 19, "Object": "line number", "CategoryID": 1, "ObjectID": 19, "Left": 2868, "Top": 2649, "Width": 348, "Height": 20, "Score": 1.0, "Text": "3\"-CUL-25-002008-B1A2-NI"},
+    {"Index": 20, "Object": "line number", "CategoryID": 1, "ObjectID": 20, "Left": 543, "Top": 2676, "Width": 19, "Height": 332, "Score": 1.0, "Text": "3\"-PL-26-003008-N2A1-NI"},
+    {"Index": 21, "Object": "line number", "CategoryID": 1, "ObjectID": 21, "Left": 2106, "Top": 3037, "Width": 347, "Height": 19, "Score": 1.0, "Text": "3\"-CUL-25-002010-B2A2-NI"},
+    {"Index": 22, "Object": "line number", "CategoryID": 1, "ObjectID": 22, "Left": 2705, "Top": 3194, "Width": 319, "Height": 16, "Score": 1.0, "Text": "1\"-PL-25-002022-N2A1-NI"}
+  ],
+  "image_url": "",
+  "image_width": 4962,
+  "image_height": 3508,
+  "count": 22
+}
