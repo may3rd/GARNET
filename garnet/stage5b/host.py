@@ -91,6 +91,10 @@ class Stage5bConfig:
     trace_branch_max_iterations: int = 5
     trace_branch_min_run_px: int = 25
     trace_branch_cluster_radius_px: int = 8
+    # Reject a branch walk that ends by running onto blank paper no known object
+    # explains. Measured across the three runnable sheets: every genuine walk's
+    # unexplained tail is <=14px, the one symbol-side walk's is 33px.
+    trace_branch_tail_paper_px: int = 24
     trace_branch_turn_tolerance_px: int = 8
     trace_branch_point_tolerance_px: int = 10
     trace_branch_candidate_sample_step_px: int = 5
