@@ -269,6 +269,13 @@ def _equipment_as_objects(items: list[dict]) -> list[dict]:
         "shell and tube exchanger": "heat exchanger", "shell & tube exchanger": "heat exchanger",
         "exchanger": "heat exchanger", "air cooler": "cooler",
         "drum": "vessel", "separator": "vessel", "accumulator": "vessel",
+        # Compound Equipment_type values that name a recognised class as their HEAD
+        # noun. `_equipment_as_objects` matches the whole string, so "Filter Vessel"
+        # missed both `filter` and `vessel` and the item was dropped -- sheet 0004A
+        # lost its only equipment (D-2511) that way, ran with `equipment : 0`, traced
+        # nothing from equipment and still exited 0.
+        "filter vessel": "filter", "filter separator": "filter",
+        "sand filter": "filter", "cartridge filter": "filter",
     }
 
     out = []
@@ -278,6 +285,18 @@ def _equipment_as_objects(items: list[dict]) -> list[dict]:
             continue
         raw = str(item.get("Equipment_type") or "").strip().lower().replace("_", " ")
         label = raw if raw in EQUIPMENT_LABELS else synonyms.get(raw, "")
+        if not label:
+            # Last resort: match a recognised class as the HEAD noun of a compound
+            # type. Fixtures spell types freely ("Filter Vessel", "KO Drum"),
+            # and an exact-match-only table silently drops any compound someone
+            # has not enumerated yet -- which is how a sheet loses its equipment
+            # while still exiting 0. Longest head first so "knockout drum" wins
+            # over "drum", and a single token must match whole so "pump" does not
+            # capture "pumpkin".
+            for token in sorted(EQUIPMENT_LABELS, key=len, reverse=True):
+                if raw == token or raw.startswith(token + " ") or raw.endswith(" " + token):
+                    label = token
+                    break
         if not label:
             log.warning("equipment %r has no EQUIPMENT_LABELS equivalent; skipped",
                         item.get("Equipment_type"))
@@ -317,7 +336,16 @@ def load_equipment_ports(indir: Path, stem: str) -> dict[str, list[dict]]:
     `line_number` ride along as metadata — the tracer ignores them, but they let a trace be
     labelled with the nozzle and line it started from.
     """
+    # Same alternates `load_fixtures` accepts. These two MUST agree: if the fixture
+    # loader reads `_equipment.json` but this reader only looks for
+    # `_equipment_bboxes.json`, the sheet loads equipment with ZERO ports and
+    # `fill_equipment_ports_from_mask` silently invents starts from bbox edge
+    # midpoints -- the failure its own docstring warns about. Six sheets in
+    # garnet/tests/input use the `_equipment.json` spelling and all six loaded 0
+    # ports (0008: 8 ports present in the file, 0 loaded) until this was aligned.
     p = indir / f"{stem}_equipment_bboxes.json"
+    if not p.is_file():
+        p = indir / f"{stem}_equipment.json"
     if not p.is_file():
         return {}
     items = json.loads(p.read_text()).get("objects", [])
