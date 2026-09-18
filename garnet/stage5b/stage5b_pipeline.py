@@ -1195,8 +1195,27 @@ class Stage5bPipelineMixin:
         image: np.ndarray,
         branch_results: dict[str, dict],
     ) -> np.ndarray:
+        """Branch overlay: path, plus a labelled START and END condition per branch.
+
+        The start condition is how the branch was seeded (`candidate.reason`:
+        orphan_junction_leg, node_object_branch, untraced_branch, tee_terminal_leg),
+        and the end condition is the terminal it reached. Both are drawn as text at
+        their markers, because the walk's meaning is not visible from geometry alone:
+        two branches can look identical yet one ended `tee_junction` (a junction) and
+        the other `branch_connection` (a sibling's linework), which the review gate
+        treats differently.
+        """
         import cv2 as _cv2
 
+        SHORT = {
+            "orphan_junction_leg": "orphan",
+            "node_object_branch": "node",
+            "untraced_branch": "untraced",
+            "tee_terminal_leg": "tee_leg",
+            "source_node_reached_by_prior_branch": "src_reached",
+            "branch_direction_covered_by_existing_segment": "covered",
+            "candidate_inside_equipment_bbox": "in_equip",
+        }
         overlay = image.copy()
         for branch_id, data in (branch_results or {}).items():
             if data.get("status") != "traced":
@@ -1209,23 +1228,27 @@ class Stage5bPipelineMixin:
                     (0, 0, 255),
                     3,
                 )
+            short = str(branch_id).replace("branch_", "b")
+            cand = data.get("candidate") or {}
             start = self._trace_start_point(data)
             if start:
                 self._draw_trace_start_marker(overlay, start[0], start[1],
                                               (0, 0, 255), radius=7)
+                reason = SHORT.get(str(cand.get("reason") or ""), str(cand.get("reason") or "?"))
+                label = f"{short} START {reason}"
+                # place above the circle, kept inside the sheet
+                ty_txt = max(14, start[1] - 14)
+                _cv2.putText(overlay, label, (start[0] + 10, ty_txt),
+                             _cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
             tx = int(data.get("terminal_x", 0))
             ty = int(data.get("terminal_y", 0))
             if tx or ty:
                 self._draw_trace_end_marker(overlay, tx, ty, (0, 0, 255), half=7)
-            _cv2.putText(
-                overlay,
-                f"{branch_id}:branch",
-                (tx + 8, ty + 14),
-                _cv2.FONT_HERSHEY_SIMPLEX,
-                0.45,
-                (0, 0, 255),
-                1,
-            )
+                end_label = f"{short} END {data.get('terminal_type')}"
+                h_img = overlay.shape[0]
+                ty_txt = min(h_img - 8, ty + 22)
+                _cv2.putText(overlay, end_label, (tx + 10, ty_txt),
+                             _cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
         return overlay
 
     def _safe_stage5b_trace_image_name(self, trace_id: str) -> str:
@@ -1882,7 +1905,18 @@ class Stage5bPipelineMixin:
                             intersection,
                         )
                     )
-                    terminal_type = "tee_junction"
+                    # The walk stopped because it MET EXISTING LINEWORK, not because it
+                    # reached a junction. `branch_connection` is the terminal type defined
+                    # for exactly that ("stops on its parent line; valid walk, not an
+                    # endpoint"), and R3 flags it rather than accepting it as a tee.
+                    #
+                    # Labelling it `tee_junction` (as this did) told the gate and every
+                    # downstream consumer that the walk terminated on a real junction,
+                    # when the only thing at the stop point was a sibling's linework.
+                    # On sheet 0002A that produced branch_000022/026/027/029/036/034/032/043,
+                    # and the same pattern on 0003 and 0004 -- every orphan-junction leg
+                    # whose neighbour already covered the line it set out along.
+                    terminal_type = "branch_connection"
                     # A branch that merges into an existing path ends at a junction, but
                     # `hit_trace_id` is the id of the PATH it joined (a page-connection object
                     # or another branch), NOT a stage4 object sitting at the terminal point.
@@ -2177,7 +2211,80 @@ class Stage5bPipelineMixin:
                 iteration_summaries[-1]["stop_reason"] = "no_new_trace_sources"
                 break
 
+        self._suppress_redundant_branch_walks(all_branch_results)
+        self._suppress_degenerate_loop_walks(all_branch_results)
         return all_candidates, all_branch_results, iteration_summaries
+
+    def _suppress_redundant_branch_walks(self, branch_results: dict[str, dict]) -> int:
+        """Drop a branch walk whose line another branch already covers in full.
+
+        Orphan dots sit ON an existing line, so a leg launched from one often walks a
+        line a sibling owns. `branch_000022` on sheet 0002A is the worked example: it
+        seeded at dot obj_000049 (3055,1809) heading UP and walked x=3054
+        y1241..1807, which `branch_000006` already covered (x=3054 y1217..1808) --
+        566 of 566px, 100% overlap. Verified on the drawing that this is ONE pipe with
+        a single centreline at x=3055, not two parallel lines.
+
+        The redundancy has to be detected HERE, after every walk exists, rather than
+        at seeding time. `_branch_already_traced` consults completed walks, but
+        branch_000006 and branch_000022 are both iteration 1 -- they are seeded before
+        either is walked, so a seeding-time check cannot see the sibling. Measured:
+        the predicate returns True against the final walk set and False at seeding
+        time, which is why adding it to the orphan seeding loop changed nothing.
+
+        Only a FULLY covered walk is dropped, and only when a longer walk covers it,
+        so a genuine short leg into a junction survives. The survivor keeps its
+        terminal; the dropped one's linework was never unique.
+        """
+        def seg_sig(w):
+            return [(int(s['x1']), int(s['y1']), int(s['x2']), int(s['y2']))
+                    for s in (w.get('segments') or [])]
+
+        def points(w, step=2):
+            pts = []
+            for x1, y1, x2, y2 in seg_sig(w):
+                n = max(abs(x2 - x1), abs(y2 - y1))
+                for i in range(0, n + 1, step):
+                    t = i / n if n else 0
+                    pts.append((round(x1 + (x2 - x1) * t),
+                                round(y1 + (y2 - y1) * t)))
+            return pts
+
+        def covered_by(pts, donor_segments, tol=3):
+            if not pts:
+                return 0.0
+            hit = 0
+            for px, py in pts:
+                for x1, y1, x2, y2 in donor_segments:
+                    dx, dy = x2 - x1, y2 - y1
+                    L2 = dx * dx + dy * dy
+                    t = 0 if L2 == 0 else max(0, min(1, ((px - x1) * dx + (py - y1) * dy) / L2))
+                    if abs(px - (x1 + t * dx)) <= tol and abs(py - (y1 + t * dy)) <= tol:
+                        hit += 1
+                        break
+            return hit / len(pts)
+
+        walked = {k: v for k, v in branch_results.items()
+                  if v.get("status") == "traced" and (v.get("segments") or [])}
+        # longest first: the survivor should be the more complete walk
+        order = sorted(walked, key=lambda k: -sum(
+            max(abs(s['x2'] - s['x1']), abs(s['y2'] - s['y1']))
+            for s in walked[k]['segments']))
+        suppressed = 0
+        for i, wid in enumerate(order):
+            if branch_results[wid].get("status") != "traced":
+                continue
+            pts = points(walked[wid])
+            for donor in order[:i]:                    # only longer walks
+                if branch_results[donor].get("status") != "traced":
+                    continue
+                if covered_by(pts, seg_sig(branch_results[donor])) >= 0.98:
+                    branch_results[wid]["status"] = "skipped"
+                    branch_results[wid]["skip_reason"] = "redundant_line_already_walked"
+                    branch_results[wid]["superseded_by"] = donor
+                    suppressed += 1
+                    break
+        return suppressed
 
     def _align_stage5b_branch_node_terminals(
         self,
@@ -2216,6 +2323,89 @@ class Stage5bPipelineMixin:
             # dot center.
             result["terminal_x"] = terminal_x
             result["terminal_y"] = terminal_y
+
+    def _suppress_degenerate_loop_walks(self, branch_results: dict[str, dict]) -> int:
+        """Trim a walk at a reversal that returns to its own start.
+
+        `branch_000015` on sheet 0002A is the worked example: it descends 129px,
+        steps 2px sideways, climbs 125px straight back, and ends 1px from where it
+        began. It covers no ground. The 2px connector was read as a turn.
+
+        The discriminator is displacement, not segment length. Measured across nine
+        sheets, nine walks contain a reversal, and they split cleanly:
+
+            reversal, displacement <= 2px   (9 walks)  -> degenerate
+            reversal, displacement 45-59px  (2 walks)  -> legitimate doubling back
+
+        A length threshold would tune to one case: 0 of 48 tiny segments in the corpus
+        are followed by a reversal, so `branch_000015`'s 2px->UP is unique in shape but
+        not in cause.
+
+        **TRIMS, it does not drop the walk.** Suppressing the whole result destroys
+        legitimate pipe whenever the loop is not the whole walk: measured, that would
+        have removed 5,191px of real pipe from `branch_000006` alone (an 11-segment
+        5,333px walk whose loop sits at seg[9]). Only three of the nine walks are
+        wholly degenerate; the rest carry real geometry before the loop. So the walk
+        is truncated at the loop, keeping everything before it, and the terminal is
+        moved to the new end.
+
+        Two forms are matched, because the connector between the outbound and return
+        legs is not always absent:
+          A) segment[i] then segment[i+1] opposite, displacement <= `max_disp`
+          B) segment[i], a tiny connector, then an opposite segment, displacement <=
+             `max_disp` over the triple -- branch_000015's shape, where the 2px
+             sideways step sits between the down and the up.
+        """
+        max_disp = 3
+        max_connector = 10
+        opp = {"UP": "DOWN", "DOWN": "UP", "LEFT": "RIGHT", "RIGHT": "LEFT"}
+
+        def loop_start(segs: list[dict]):
+            for i in range(len(segs) - 1):
+                a, b = segs[i], segs[i + 1]
+                if a["direction"] == opp.get(b["direction"]):
+                    d = max(abs(b["x2"] - a["x1"]), abs(b["y2"] - a["y1"]))
+                    if d <= max_disp:
+                        return i
+                if i + 2 < len(segs):
+                    c = segs[i + 2]
+                    if (int(b.get("length_px") or 0) <= max_connector
+                            and a["direction"] == opp.get(c["direction"])):
+                        d = max(abs(c["x2"] - a["x1"]), abs(c["y2"] - a["y1"]))
+                        if d <= max_disp:
+                            return i
+            return None
+
+        trimmed = 0
+        for wid, v in branch_results.items():
+            if v.get("status") != "traced":
+                continue
+            segs = v.get("segments") or []
+            if len(segs) < 2:
+                continue
+            i = loop_start(segs)
+            if i is None:
+                continue
+            kept = segs[:i]
+            if not kept:
+                # wholly degenerate: the loop is the entire walk
+                v["status"] = "skipped"
+                v["skip_reason"] = "degenerate_loop_returns_to_start"
+                trimmed += 1
+                continue
+            # keep the real geometry before the loop, and re-anchor the terminal
+            last = kept[-1]
+            v["segments"] = kept
+            v["terminal_x"] = int(last["x2"])
+            v["terminal_y"] = int(last["y2"])
+            v["trace_length_px"] = sum(int(s.get("length_px") or 0) for s in kept)
+            v["turns"] = [t for t in (v.get("turns") or [])
+                          if abs(int(t["x"]) - int(last["x2"])) > max_disp
+                          or abs(int(t["y"]) - int(last["y2"])) > max_disp]
+            v["trimmed_reason"] = "degenerate_loop_returns_to_start"
+            v["trimmed_segments"] = len(segs) - len(kept)
+            trimmed += 1
+        return trimmed
 
     def _rebuild_stage5b_turns_from_segments(
         self,
@@ -3065,6 +3255,14 @@ class Stage5bPipelineMixin:
             # Port marker (start of tracing line): unfilled circle
             px, py = data["port"]["x"], data["port"]["y"]
             self._draw_trace_start_marker(overlay, px, py, (0, 255, 0), radius=7)
+            # Start condition: which object/port the walk launched from. Paired with
+            # the END label below so every traced line states where it began and what
+            # it reached, rather than leaving the reader to infer it from geometry.
+            _cv2.putText(
+                overlay, f"{obj_id} START {data['port'].get('direction', '')}".strip(),
+                (px + 10, max(14, py - 14)),
+                _cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2,
+            )
 
             # Terminal marker (end of tracing line): unfilled square
             tx, ty = data["terminal_x"], data["terminal_y"]
@@ -3073,7 +3271,7 @@ class Stage5bPipelineMixin:
             self._draw_trace_end_marker(overlay, tx, ty, color, half=8)
 
             # Label
-            label = f"{obj_id}:{ttype}"
+            label = f"{obj_id} END {ttype}"
             _cv2.putText(
                 overlay, label,
                 (tx + 12, ty - 12),
