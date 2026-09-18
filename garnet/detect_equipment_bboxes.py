@@ -412,6 +412,19 @@ def main(argv: list[str] | None = None) -> int:
     if not image_path.is_file():
         print(f"error: image not found: {image_path}", file=sys.stderr)
         return 1
+
+    out_path = Path(args.out).expanduser() if args.out else REPO_ROOT / "output" / f"{image_path.stem}_equipment_bboxes.json"
+    overlay_path = out_path.with_name(out_path.stem + "_overlay.png")
+    verify_path = out_path.with_name(out_path.stem + "_outline.png")
+    reserved = [out_path] + ([] if args.no_overlay else [overlay_path, verify_path])
+    # Refuse before the first tile: `extract()` bills one vision call per tile, and the
+    # raster is only read there, so a colliding out path would burn the whole run and
+    # then destroy the sheet on write.
+    colliding = next((path for path in reserved if path.exists() and path.samefile(image_path)), None)
+    if colliding is not None:
+        print(f"error: refusing to overwrite the input image: {colliding}", file=sys.stderr)
+        return 1
+
     key = _api_key(args.api_key)
     if not key:
         print("error: no API key (set OLLAMA_API_KEY or pass --api-key)", file=sys.stderr)
@@ -422,7 +435,6 @@ def main(argv: list[str] | None = None) -> int:
                      timeout=args.timeout, min_area=args.min_area, verbose=args.verbose)
 
     payload = to_contract_b(result, source_drawing=image_path.stem)
-    out_path = Path(args.out) if args.out else REPO_ROOT / "output" / f"{image_path.stem}_equipment_bboxes.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
@@ -443,13 +455,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if not args.no_overlay:
         import cv2
-        overlay_path = out_path.with_suffix(".png")
         if not cv2.imwrite(str(overlay_path), draw_overlay(result)):
             print(f"error: failed to write overlay: {overlay_path}", file=sys.stderr)
             return 1
         print(f"overlay -> {overlay_path}")
         # Banner-free thin-outline render: this is the one you can actually verify from.
-        verify_path = out_path.with_name(out_path.stem + "_outline.png")
         if not cv2.imwrite(str(verify_path), draw_overlay(result, outline_only=True)):
             print(f"error: failed to write outline: {verify_path}", file=sys.stderr)
             return 1

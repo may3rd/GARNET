@@ -3,7 +3,7 @@
 
 Standalone: no GARNET pipeline, no OCR, no tracing. Tiles the image with SAHI and runs a
 YOLO (Ultralytics) weight over the slices, then writes a flat JSON object list and an
-overlay image with every detected box drawn and labelled.
+overlay image (`<out-stem>_overlay.png`) with every detected box drawn and labelled.
 
 Detection classes come from the weight file, not from a dataset YAML.
 
@@ -32,7 +32,10 @@ DEFAULT_WEIGHT = "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
 def _resolve(path: str) -> Path:
     """Resolve a user path against cwd first, then the repo root."""
     candidate = Path(path).expanduser()
-    return candidate if candidate.is_absolute() else (candidate if candidate.exists() else REPO_ROOT / candidate)
+    if candidate.is_absolute() or candidate.exists():
+        return candidate
+    repo_candidate = REPO_ROOT / candidate
+    return repo_candidate if repo_candidate.exists() else candidate
 
 
 def detect(
@@ -46,7 +49,6 @@ def detect(
     postprocess_match_metric: str,
     postprocess_match_threshold: float,
     device: str | None,
-    config_path: Path | None,
 ) -> tuple[dict, "object"]:
     """Run sliced detection. Returns (payload, image_bgr)."""
     import cv2
@@ -58,14 +60,13 @@ def detect(
         raise FileNotFoundError(f"Cannot read image: {image_path}")
     height, width = image_bgr.shape[:2]
 
+    model_type = "ultralytics"
     kwargs: dict = {
-        "model_type": "ultralytics",
+        "model_type": model_type,
         "model_path": str(weight_path),
         "confidence_threshold": conf_th,
         "image_size": image_size,
     }
-    if config_path is not None:
-        kwargs["config_path"] = str(config_path)
     if device:
         kwargs["device"] = device
     model = AutoDetectionModel.from_pretrained(**kwargs)
@@ -80,6 +81,9 @@ def detect(
         postprocess_type=postprocess_type,
         postprocess_match_metric=postprocess_match_metric,
         postprocess_match_threshold=postprocess_match_threshold,
+        # SAHI silently swaps the postprocess to NMS/IOU below conf 0.1, which would make the
+        # recorded postprocess fields a lie; keep whatever the caller asked for.
+        force_postprocess_type=True,
         verbose=0,
     )
 
@@ -97,15 +101,22 @@ def detect(
                     "x_max": int(x_max),
                     "y_max": int(y_max),
                 },
+                # Contract A provenance: lets this JSON seed stage4_objects.json unchanged.
+                "source_model": model_type,
+                "source_weight": str(weight_path),
             }
         )
 
     payload = {
         "image_id": image_path.name,
+        "pass_type": "sheet",
         "image_path": str(image_path),
         "image_width": width,
         "image_height": height,
         "weight": str(weight_path),
+        # The device SAHI actually resolved to — "auto" (None) picks mps here but cpu on a
+        # CUDA-less Linux box, and an unavailable --device silently falls back to cpu.
+        "device": str(model.device),
         "image_size": image_size,
         "overlap_ratio": overlap_ratio,
         "conf_th": conf_th,
@@ -127,12 +138,26 @@ def _class_color(name: str) -> tuple[int, int, int]:
     return int(b * 255), int(g * 255), int(r * 255)
 
 
+def _collides_with_image(reserved: list[Path], image_path: Path) -> Path | None:
+    """First reserved output path that aliases the input raster, if any.
+
+    `detect()` reads the raster up front, so an output path pointing back at it would destroy
+    the sheet only after a full inference run. Compare with `samefile` so hard links, symlinks
+    and `./x.jpg` vs `x.jpg` all count.
+    """
+    for path in reserved:
+        if path.exists() and path.samefile(image_path):
+            return path
+    return None
+
+
 def draw_overlay(image_bgr, objects: list[dict]) -> "object":
     """Draw a coloured box + class/confidence label for each detected object."""
     import cv2
 
     overlay = image_bgr.copy()
-    scale = max(0.5, min(1.5, image_bgr.shape[1] / 2000))
+    height, width = image_bgr.shape[:2]
+    scale = max(0.5, min(1.5, width / 2000))
     pad = max(2, int(round(3 * scale)))
     thickness = 2
 
@@ -144,13 +169,16 @@ def draw_overlay(image_bgr, objects: list[dict]) -> "object":
 
         label = f"{obj['class_name']} {obj['confidence']:.2f}"
         (tw, th), base = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, scale, 1)
-        # Label above the box; drop it below when there is no room at the image top.
+        # Label above the box (below it for a box touching the top edge), then clamp the
+        # rectangle into the canvas — a bottom-edge box would otherwise draw it off-image.
         ly = y1 - pad if y1 - th - 2 * pad >= 0 else y2 + th + pad
-        cv2.rectangle(overlay, (x1, ly - th - pad), (x1 + tw + 2 * pad, ly + base), color, -1)
+        top = min(max(ly - th - pad, 0), max(0, height - (th + base + pad)))
+        left = min(x1, max(0, width - (tw + 2 * pad)))
+        cv2.rectangle(overlay, (left, top), (left + tw + 2 * pad, top + th + base + pad), color, -1)
         cv2.putText(
             overlay,
             label,
-            (x1 + pad, ly),
+            (left + pad, top + th + pad),
             cv2.FONT_HERSHEY_SIMPLEX,
             scale,
             (255, 255, 255),
@@ -166,16 +194,35 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--image", required=True, help="Input image (png/jpg/tif).")
     parser.add_argument("--weight", default=DEFAULT_WEIGHT, help=f"YOLO weight file. Default: {DEFAULT_WEIGHT}")
     parser.add_argument("--image-size", type=int, default=640, help="SAHI slice size in px. Default: 640")
-    parser.add_argument("--overlap-ratio", type=float, default=0.25, help="SAHI slice overlap. Default: 0.25")
+    parser.add_argument("--overlap-ratio", type=float, default=0.2, help="SAHI slice overlap. Default: 0.2")
     parser.add_argument("--conf-th", type=float, default=0.8, help="Confidence threshold. Default: 0.8")
-    parser.add_argument("--postprocess-type", default="GREEDYNMM", help="SAHI postprocess. Default: GREEDYNMM")
-    parser.add_argument("--match-metric", default="IOS", help="SAHI match metric. Default: IOS")
+    parser.add_argument(
+        "--postprocess-type",
+        default="GREEDYNMM",
+        # LSNMS is excluded deliberately: SAHI raises ModuleNotFoundError without the extra
+        # `lsnms` package (not a dependency here) and rejects its only useful metric.
+        choices=["GREEDYNMM", "NMM", "NMS"],
+        help="SAHI postprocess. Default: GREEDYNMM",
+    )
+    parser.add_argument("--match-metric", default="IOS", choices=["IOS", "IOU"], help="SAHI match metric. Default: IOS")
     parser.add_argument("--match-threshold", type=float, default=0.1, help="SAHI match threshold. Default: 0.1")
     parser.add_argument("--device", default=None, help="Torch device, e.g. cpu / mps / cuda:0. Default: auto")
-    parser.add_argument("--config-path", default=None, help="Optional dataset YAML (class names). Default: from weight")
     parser.add_argument("--out", default=None, help="Output JSON path. Default: output/<stem>_objects.json")
     parser.add_argument("--no-overlay", action="store_true", help="Skip writing the overlay PNG.")
     args = parser.parse_args(argv)
+
+    if args.image_size < 1:
+        print("error: --image-size must be >= 1", file=sys.stderr)
+        return 1
+    if not 0.0 <= args.overlap_ratio < 1.0:
+        print("error: --overlap-ratio must be in [0, 1)", file=sys.stderr)
+        return 1
+    if not 0.0 <= args.conf_th <= 1.0:
+        print("error: --conf-th must be in [0, 1]", file=sys.stderr)
+        return 1
+    if not 0.0 <= args.match_threshold <= 1.0:
+        print("error: --match-threshold must be in [0, 1]", file=sys.stderr)
+        return 1
 
     image_path = _resolve(args.image)
     if not image_path.is_file():
@@ -184,6 +231,14 @@ def main(argv: list[str] | None = None) -> int:
     weight_path = _resolve(args.weight)
     if not weight_path.is_file():
         print(f"error: weight not found: {weight_path}", file=sys.stderr)
+        return 1
+
+    out_path = Path(args.out).expanduser() if args.out else REPO_ROOT / "output" / f"{image_path.stem}_objects.json"
+    overlay_path = out_path.with_name(out_path.stem + "_overlay.png")
+    reserved = [out_path] + ([] if args.no_overlay else [overlay_path])
+    colliding = _collides_with_image(reserved, image_path)
+    if colliding is not None:
+        print(f"error: refusing to overwrite the input image: {colliding}", file=sys.stderr)
         return 1
 
     payload, image_bgr = detect(
@@ -196,10 +251,8 @@ def main(argv: list[str] | None = None) -> int:
         postprocess_match_metric=args.match_metric,
         postprocess_match_threshold=args.match_threshold,
         device=args.device,
-        config_path=_resolve(args.config_path) if args.config_path else None,
     )
 
-    out_path = Path(args.out) if args.out else REPO_ROOT / "output" / f"{image_path.stem}_objects.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     print(f"{payload['object_count']} objects → {out_path}")
@@ -207,7 +260,6 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_overlay:
         import cv2
 
-        overlay_path = out_path.with_suffix(".png")
         if not cv2.imwrite(str(overlay_path), draw_overlay(image_bgr, payload["objects"])):
             print(f"error: failed to write overlay: {overlay_path}", file=sys.stderr)
             return 1
