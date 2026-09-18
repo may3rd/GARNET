@@ -268,6 +268,13 @@ class CVPipeTracer:
         branch_side_turn_terminal_px: int = 90,
         turn_probe_px: int = 8,
         tee_search_px: int = 8,
+        # Max current-leg length for a junction-dot arrival to end the walk. A walk
+        # that has turned and then runs a short leg into a dot has arrived; a long
+        # leg passing over a dot mid-traverse has not. Measured: the arrival at
+        # sheet 0002A obj_000065 comes 196px into a leg, so the cap must exceed that
+        # -- but stay well under a full straight traverse (the same walk's straight
+        # legs run 1160px and 1481px).
+        junction_stop_leg_px: int = 260,
         terminal_current_margin_px: int = 2,
         terminal_current_tag_margin_px: int = 4,
         terminal_current_dcs_margin_px: int = 6,
@@ -312,6 +319,7 @@ class CVPipeTracer:
         self.branch_side_turn_terminal_px = branch_side_turn_terminal_px
         self.turn_probe_px = turn_probe_px
         self.tee_search_px = tee_search_px
+        self.junction_stop_leg_px = junction_stop_leg_px
         self.terminal_current_margin_px = terminal_current_margin_px
         self.terminal_current_tag_margin_px = terminal_current_tag_margin_px
         self.terminal_current_dcs_margin_px = terminal_current_dcs_margin_px
@@ -1312,15 +1320,37 @@ class CVPipeTracer:
                     continue
 
             current_leg_len = max(abs(x - seg_start_x), abs(y - seg_start_y))
-            if source_obj_id.startswith("branch_") and current_leg_len > 60:
+            # A junction dot TERMINATES a walk only when the walk ARRIVES at it.
+            #
+            # The distinction that matters: a walk passing over a dot mid-traverse has
+            # pipe continuing forward beyond it; a walk that arrives has none. Stopping
+            # on proximity alone truncated `obj_000197` from 2445px to 572px on sheet
+            # 0002A -- it was traversing a dot, and the walk was cut 1800px early.
+            # Measured, `forward` past the dot separates the two cleanly:
+            #
+            #   equip_p_2504a:port_02  arrived UP    forward=False  <- genuine arrival
+            #   equip_v_2501:port_06   arrived DOWN  forward=False  <- genuine arrival
+            #   obj_000199             arrived RIGHT forward=True   <- passing through
+            #   obj_000224             arrived RIGHT forward=True   <- passing through
+            #
+            # The earlier `branch_`-only test also required BOTH perpendicular legs to
+            # be connected. That is relaxed here because a leg running into an inline
+            # symbol fails `_has_connected_side_path`: the symbol interior is blanked,
+            # so the run breaks before `connected_turn_min`. At the target junction
+            # RIGHT is exactly that -- reducer `obj_000172` (x 3804-3837) sits right of
+            # the dot, RIGHT measured disconnected, yet the pipe continues to x=3860.
+            #
+            # And the reason this stop is no longer `branch_`-only: without it,
+            # `equip_p_2504a:port_02` arrived at dot `obj_000065` and, rather than
+            # stopping, climbed 22px out of the dot, ran 50px along the text baseline
+            # of the label `4" X 3"`, descended back to the pipe and claimed a
+            # `tee_junction` 44px to the right of the dot it had actually reached.
+            if current_leg_len > 0:
                 junction_obj_id = self._check_junction_marker(x, y, source_obj_id)
-                if junction_obj_id:
-                    left_dir = TURN_LEFT[direction]
-                    right_dir = TURN_RIGHT[direction]
-                    connected_turn_min = max(25, self.straight_min_step)
-                    left_connected = self._has_connected_side_path(x, y, left_dir, connected_turn_min)
-                    right_connected = self._has_connected_side_path(x, y, right_dir, connected_turn_min)
-                    if left_connected and right_connected:
+                if junction_obj_id and current_leg_len <= self.junction_stop_leg_px:
+                    forward_open = self._has_connected_side_path(
+                        x, y, direction, max(25, self.straight_min_step))
+                    if not forward_open:
                         marker_id, marker_x, marker_y = junction_obj_id
                         self._append_segment(result, seg_start_x, seg_start_y, marker_x, marker_y, direction)
                         result.terminal_type = TerminalType.TEE_JUNCTION.value
