@@ -261,12 +261,21 @@ def load_equipment_ports(indir: Path, stem: str) -> dict[str, list[dict]]:
                 rejected.append(f"{tag}:{side!r} (unusable side)")
                 continue
             pt = port.get("point_px")
-            if not (isinstance(pt, (list, tuple)) and len(pt) == 2):
-                rejected.append(f"{tag}:{side} (no point_px)")
+            # Contract B ships `point_px` in two shapes: `[x, y]` and `{"x":.., "y":..}`.
+            # Accepting only the list form silently discarded EVERY port of a dict-form
+            # fixture, which then let `fill_equipment_ports_from_mask` invent starts from
+            # bbox-edge midpoints -- the exact bad-port failure that function warns about
+            # (sheet 14780-8120-25-25-0003 lost all 10 extracted nozzles and the pumps
+            # were traced from LEFT/RIGHT edge midpoints on the symbol itself).
+            if isinstance(pt, dict):
+                pt = (pt.get("x"), pt.get("y"))
+            if not (isinstance(pt, (list, tuple)) and len(pt) == 2
+                    and pt[0] is not None and pt[1] is not None):
+                rejected.append(f"{tag}:{side} (no usable point_px)")
                 continue
             usable.append({
-                "x": int(pt[0]),
-                "y": int(pt[1]),
+                "x": int(round(float(pt[0]))),
+                "y": int(round(float(pt[1]))),
                 "direction": direction,
                 "mark": port.get("mark") or f"port_{index:02d}",
                 "size": port.get("size"),
@@ -482,12 +491,13 @@ class Stage5bHost:
 
     # ---- overlay helpers (no-ops if the artifacts are absent) -------------
     def _draw_equipment_port_markers(self, overlay: np.ndarray, ports: dict) -> None:
+        # Unfilled so a port marker never hides the drawing underneath it, and so
+        # it stays visibly distinct from a trace's filled/outlined start circle.
         for obj_id, port_list in ports.items():
             if not str(obj_id).startswith("equip_"):
                 continue
             for i, (px, py, direction) in enumerate(port_list, start=1):
-                cv2.circle(overlay, (int(px), int(py)), 6, (255, 200, 0), -1)
-                cv2.circle(overlay, (int(px), int(py)), 6, (255, 255, 255), 1)
+                cv2.circle(overlay, (int(px), int(py)), 6, (255, 200, 0), 2)
                 cv2.putText(overlay, f"p{i:02d}", (int(px) + 8, int(py) - 8),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 120, 120), 2)
 
