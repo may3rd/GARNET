@@ -155,6 +155,79 @@ def merge_line_numbers(objects: list[dict], line_numbers: list[dict]) -> list[di
     return merged
 
 
+def merge_ocr_regions(objects: list[dict], ocr_regions: list[dict]) -> list[dict]:
+    """Fold Stage 2 OCR text boxes into the object list, without displacing fixtures.
+
+    Same contract as `merge_line_numbers`, for the same reason: the two sources
+    disagree by a few px on the same label (detector boxes are consistently taller
+    than tight text boxes, and OCR re-tightens to ink), so IoU-based matching
+    silently drops correct pairs. Matching is by **centre containment** instead.
+
+    Precedence, and why:
+      * an object box containing the OCR box's centre KEEPS its own bbox and class;
+        OCR only contributes `text` when the object had none. The detector's class
+        is more trustworthy than the OCR regex classifier, which mislabels words
+        like "ITIM No." and cannot tell a note from a title block.
+      * a fixture box with no overlapping object is ADDED, so nothing the detector
+        missed stays in the pipe mask as followable ink -- this is the coverage
+        Stage 2 exists to supply.
+      * OCR regions already carrying a `text` on a matched object are recorded in
+        `ocr_text_alt` rather than overwriting, so a disagreement stays auditable.
+    """
+    merged = [dict(o) for o in objects]
+    added = 0
+    matched = 0
+    conflicts = 0
+
+    for region in ocr_regions:
+        bbox = region.get("bbox") or {}
+        if not {"x_min", "y_min", "x_max", "y_max"}.issubset(bbox):
+            continue
+        cx = (bbox["x_min"] + bbox["x_max"]) / 2
+        cy = (bbox["y_min"] + bbox["y_max"]) / 2
+
+        target = None
+        for obj in merged:
+            b = obj.get("bbox") or {}
+            if not {"x_min", "y_min", "x_max", "y_max"}.issubset(b):
+                continue
+            if b["x_min"] <= cx <= b["x_max"] and b["y_min"] <= cy <= b["y_max"]:
+                target = obj
+                break
+
+        if target is not None:
+            matched += 1
+            ocr_text = str(region.get("text") or "").strip()
+            if not ocr_text:
+                continue
+            if not str(target.get("text") or "").strip():
+                target["text"] = ocr_text
+                target["text_source"] = "stage2_ocr"
+            elif str(target["text"]).strip() != ocr_text:
+                # Keep the fixture text (it was transcribed deliberately), but
+                # record the disagreement instead of hiding it.
+                alt = target.setdefault("ocr_text_alt", [])
+                if ocr_text not in alt:
+                    alt.append(ocr_text)
+                conflicts += 1
+            continue
+
+        merged.append({
+            "id": f"ocr_{len(merged) + 1:06d}",
+            "class_name": region.get("class_name", "unknown"),
+            "confidence": float(region.get("confidence") or 0.0),
+            "bbox": {k: int(bbox[k]) for k in ("x_min", "y_min", "x_max", "y_max")},
+            "text": region.get("text"),
+            "text_source": "stage2_ocr",
+        })
+        added += 1
+
+    log.info("stage2 ocr merge: %d regions, %d matched to existing objects, %d added, "
+             "%d text disagreements kept as ocr_text_alt",
+             len(ocr_regions), matched, added, conflicts)
+    return merged
+
+
 def load_fixtures(indir: Path, stem: str) -> tuple[list[dict], list[dict]]:
     """Return (objects_with_line_numbers_merged, equipment_as_objects)."""
     def read(name: str, *alts: str):

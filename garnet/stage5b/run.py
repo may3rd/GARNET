@@ -31,7 +31,8 @@ if __package__ in (None, ""):                       # allow `python garnet/stage
     __package__ = "garnet.stage5b"
 
 from .host import (Stage5bConfig, Stage5bHost, build_pipe_mask, load_equipment_ports,
-                   load_fixtures)
+                   load_fixtures, merge_ocr_regions)
+from .stage2_ocr import Stage2OcrConfig, run_stage2_ocr
 from .stage5b_pipeline import Stage5bPipelineMixin
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -109,6 +110,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out", default=None, help="Default: output/stage5b_<stem>")
     p.add_argument("--debug-artifacts", action="store_true",
                    help="Also write per-trace images and branch-candidate iteration overlays.")
+    p.add_argument("--ocr", action="store_true",
+                   help="Run Stage 2 OCR (macOS Vision) and merge its text boxes into the "
+                        "object list before building the pipe mask.")
+    p.add_argument("--ocr-slice", type=int, default=2400,
+                   help="Stage 2 SAHI tile size in px (default 2400).")
     p.add_argument("--verbose", action="store_true")
     args = p.parse_args(argv)
 
@@ -138,6 +144,26 @@ def main(argv: list[str] | None = None) -> int:
 
     # ---- fixtures ---------------------------------------------------------
     objects, equipment = load_fixtures(indir, args.stem)
+
+    # ---- Stage 2: OCR text discovery --------------------------------------
+    # Supplying text boxes the detector missed. build_pipe_mask erases text, so any
+    # unboxed text stays as ink the tracer can follow; OCR is what closes that gap.
+    if args.ocr:
+        ocr = run_stage2_ocr(
+            image_path, out_dir,
+            cfg=Stage2OcrConfig(slice_height=args.ocr_slice, slice_width=args.ocr_slice),
+        )
+        before = len(objects)
+        objects = merge_ocr_regions(objects, ocr["regions"])
+        s = ocr["summary"]
+        print(f"  stage 2   : ocr {s['raw_detection_count']} raw -> {s['merged_region_count']} "
+              f"regions ({s['text_carrying_regions']} carrying text)")
+        print(f"  stage 2   : objects {before} -> {len(objects)} "
+              f"(+{len(objects) - before} OCR boxes merged)")
+        (out_dir / "stage4_objects.json").write_text(
+            json.dumps({"image_id": image_path.name, "pass_type": "sheet",
+                        "objects": objects}, indent=2), encoding="utf-8")
+
     n_ln = sum(1 for o in objects if str(o.get("class_name", "")).lower() == "line number")
     n_text = sum(1 for o in objects if str(o.get("text") or "").strip())
     print(f"{args.stem}: {w}x{h}")
