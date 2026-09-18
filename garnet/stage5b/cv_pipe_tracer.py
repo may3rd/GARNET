@@ -293,6 +293,15 @@ class CVPipeTracer:
         # _bridge_short_gap_to_equipment.
         gap_bridge_max_px: int = 7,
         gap_bridge_equipment_reach_px: int = 12,
+        # LINE JUMP: where two pipes cross, one is drawn with a short break. Measured
+        # on sheet 0002A, the vertical at x~3055 breaks for 26px. The window is 30 so
+        # a jump is covered with margin, while a line that genuinely ends has no
+        # collinear ink to resume into.
+        jump_max_gap_px: int = 30,
+        # And the resumed line must keep going this far, or it is a stray mark rather
+        # than the same line picking up again. The measured jump resumes and runs on
+        # past 120px, so 20 is comfortably clear of a false resume.
+        jump_min_resume_run_px: int = 20,
     ):
         self.mask = pipe_mask
         self.image = image
@@ -331,6 +340,10 @@ class CVPipeTracer:
         self.psv_is_terminal = psv_is_terminal
         self.gap_bridge_max_px = gap_bridge_max_px
         self.gap_bridge_equipment_reach_px = gap_bridge_equipment_reach_px
+        self.jump_max_gap_px = jump_max_gap_px
+        self.jump_min_resume_run_px = jump_min_resume_run_px
+        # cached boolean ink from the raw raster, for dash-train screening
+        self._raw_ink_cache: Optional[np.ndarray] = None
 
         # Terminal candidates
         self.page_connections = page_connections or []
@@ -1316,6 +1329,19 @@ class CVPipeTracer:
                 if bridged is not None:
                     self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
                     x, y = bridged
+                    seg_start_x, seg_start_y = x, y
+                    continue
+                # A LINE JUMP: on a P&ID, where two distinct pipes cross, one of them
+                # is drawn with a small break so the reader can see they do not
+                # connect. The break is deliberate, so the stroke resumes collinear
+                # on the far side — but to the walker it looks like the line ended.
+                # Measured on sheet 0002A: the vertical at x~3055 runs 1140..1191,
+                # breaks for 26px, and resumes at 1218; `branch_000022` stopped at
+                # y=1241 because the forward look-ahead reaches only `min_step` (5px).
+                jumped = self._bridge_line_jump(x, y, direction)
+                if jumped is not None:
+                    self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
+                    x, y = jumped
                     seg_start_x, seg_start_y = x, y
                     continue
 
@@ -2359,6 +2385,136 @@ class CVPipeTracer:
                         and b["y_min"] - reach <= py <= b["y_max"] + reach):
                     return self._snap_to_centerline(nx, ny, direction)
         return None
+
+    def _gap_is_part_of_a_train(self, x: int, y: int, direction: str,
+                                look_px: int = 400, min_cycles: int = 2) -> bool:
+        """True when the gap ahead sits inside a REPEATING dash train.
+
+        The discriminator between a drawn line jump and a dashed signal line is not
+        gap size — it is **repetition**. Measured on sheet 0002A:
+
+            jump:  ink 52px | GAP 26px | ink 122px     <- happens ONCE
+            dash:  ink 31px | gap 11px | ink 31px      <- repeats at ~42px period
+
+        A size threshold cannot separate those: an 11px dash gap and a 26px jump gap
+        both fall under any window wide enough to bridge a jump. Counting cycles can.
+
+        **Screens the RAW raster, not the pipe mask.** The mask is blanked and then
+        morph-closed, and that close merges dashes: at (1088,988) RIGHT the mask reads
+        `I3 g9 I31 g357` (1 cycle) while the drawing reads 23 cycles. Screening the mask
+        let the bridge walk down dashed signal lines — 47 bogus bridges in one sheet.
+
+        Two cycles over a long window, not three over a short one: a short window clips
+        a train at a boundary and under-counts it.
+        """
+        src = self._raw_ink()
+        if src is None:
+            return False
+        dx, dy = DIRECTION_DELTA[direction]
+        h, w = src.shape[:2]
+        runs: list[tuple[bool, int]] = []
+        cur: Optional[bool] = None
+        ln = 0
+        for step in range(0, look_px):
+            px, py = x + dx * step, y + dy * step
+            if not (0 <= px < w and 0 <= py < h):
+                break
+            # band of 1 across the line of travel, matching the walker's own test
+            if direction in ("LEFT", "RIGHT"):
+                on = bool(src[max(0, py - 1):py + 2, px].max())
+            else:
+                on = bool(src[py, max(0, px - 1):px + 2].max())
+            if cur is None:
+                cur, ln = on, 1
+            elif on == cur:
+                ln += 1
+            else:
+                runs.append((cur, ln))
+                cur, ln = on, 1
+        runs.append((cur, ln))
+        cycles = 0
+        for i in range(len(runs) - 2):
+            ink1, ink2 = runs[i], runs[i + 2]
+            gap = runs[i + 1]
+            if ink1[0] and not gap[0] and ink2[0]:
+                if (ink1[1] <= 45 and ink2[1] <= 45
+                        and 3 <= gap[1] <= 40):
+                    cycles += 1
+        return cycles >= min_cycles
+
+    def _raw_ink(self) -> Optional[np.ndarray]:
+        """Boolean ink from the raw raster, or None when the tracer has no image.
+
+        Cached on first use: this is called per gap and the threshold is the same
+        for the whole run.
+        """
+        if self._raw_ink_cache is not None:
+            return self._raw_ink_cache
+        if self.image is None:
+            return None
+        import cv2 as _cv2
+        gray = _cv2.cvtColor(self.image, _cv2.COLOR_BGR2GRAY) \
+            if self.image.ndim == 3 else self.image
+        self._raw_ink_cache = (gray < 128)
+        return self._raw_ink_cache
+
+    def _bridge_line_jump(self, x: int, y: int, direction: str) -> Optional[tuple[int, int]]:
+        """Step over a drawn LINE JUMP: a short break where another pipe crosses.
+
+        Where two distinct pipes cross on a P&ID, one is drawn with a small break so
+        the reader can see they do not connect. The stroke resumes collinear on the
+        far side, so the gap is a drawing convention rather than lost linework — but
+        the forward look-ahead reaches only `min_step` (5px), so the walker treated
+        every jump as the end of the line.
+
+        A candidate must satisfy all three, which is what separates a jump from a
+        line that genuinely ends:
+
+          1. the break is short and bounded (`jump_max_gap_px`);
+          2. ink resumes COLLINEAR within the window — measured on the axis, not a
+             band, so a turn is not mistaken for a continuation;
+          3. after resuming, the line keeps going for a real run
+             (`jump_min_resume_run_px`). A jump is followed by more pipe; a line
+             ending at a nozzle or a dead end is not.
+
+        Deliberately NOT required: that a crossing line pass through the gap. That
+        would need the crossing identified, and a jump at a symbol boundary or a
+        scan artefact is equally real. Conditions 2 and 3 already exclude a line
+        that simply stops — measured on sheet 0002A, the vertical at x~3055 breaks
+        1192..1217 (26px) and resumes at 1218 running on to 1339.
+        """
+        dx, dy = DIRECTION_DELTA[direction]
+        max_gap = self.jump_max_gap_px
+        # 1 + 2: find where collinear ink resumes within the jump window
+        resume = None
+        for step in range(self.min_step + 1, max_gap + 1):
+            nx, ny = x + dx * step, y + dy * step
+            if not (0 <= nx < self.w and 0 <= ny < self.h):
+                return None
+            if _is_pipe(self.mask, nx, ny):
+                resume = (nx, ny, step)
+                break
+        if resume is None:
+            return None
+        nx, ny, step = resume
+        # A jump happens ONCE. If the gap ahead sits in a repeating dash train this
+        # is a dashed signal line, not a jump — bridging it would walk down a signal
+        # line as if it were pipe (47 such bridges in one sheet before this guard).
+        if self._gap_is_part_of_a_train(x, y, direction):
+            return None
+        # 3: the resumed line must continue for a meaningful run, otherwise this is
+        # a stray mark rather than the same line picking up again
+        run = 0
+        for s2 in range(1, self.jump_min_resume_run_px + 1):
+            px, py = nx + dx * s2, ny + dy * s2
+            if not (0 <= px < self.w and 0 <= py < self.h):
+                break
+            if not _is_pipe_band(self.mask, px, py, direction, band_width=1):
+                break
+            run += 1
+        if run < self.jump_min_resume_run_px:
+            return None
+        return self._snap_to_centerline(nx, ny, direction)
 
     def _score_pipe_exit(
         self,
