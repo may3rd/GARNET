@@ -266,6 +266,83 @@ class Stage5bPipelineMixin:
                     return True
         return False
 
+    def _walk_tail_over_paper(
+        self,
+        pipe_mask: np.ndarray,
+        segments: list[dict[str, Any]],
+        known_objects: list[dict[str, Any]],
+        tolerance: int = 1,
+    ) -> tuple[int, int]:
+        """Measure blank pipe-less run at the walk's END that no object explains.
+
+        Returns (tail_blank_px, unexplained_px).
+
+        A walk that ends at a symbol crosses that symbol's blanked interior, so
+        blank at the end is normal -- `unexplained` subtracts the part of the tail
+        that falls inside a known object bbox. What is left is the walk travelling
+        over genuine paper.
+
+        This is the check that catches a seed taken from a symbol's side: on sheet
+        0002A `branch_000013` seeds at (1748,524), 1px outside a `reducer` bbox,
+        walks LEFT straight through the reducer glyph and then 33px across blank
+        paper to "terminate" on a PSV whose bbox it never reaches (the PSV spans
+        x 1612-1656, the walk stops at 1681). Its tail is 36px blank, all but 3px
+        unexplained.
+        """
+        if not segments:
+            return 0, 0
+        h, w = pipe_mask.shape
+        last = segments[-1]
+        x1, y1 = int(last["x1"]), int(last["y1"])
+        x2, y2 = int(last["x2"]), int(last["y2"])
+        steps = max(abs(x2 - x1), abs(y2 - y1))
+        points: list[tuple[int, int]] = []
+        for i in range(steps + 1):
+            t = i / max(1, steps)
+            points.append((int(round(x1 + (x2 - x1) * t)),
+                           int(round(y1 + (y2 - y1) * t))))
+        points.reverse()                     # start at the terminal end
+
+        blank: list[tuple[int, int]] = []
+        for px, py in points:
+            hit = any(0 <= px + dx < w and 0 <= py + dy < h and pipe_mask[py + dy, px + dx] > 0
+                      for dx in range(-tolerance, tolerance + 1)
+                      for dy in range(-tolerance, tolerance + 1))
+            if hit:
+                break
+            blank.append((px, py))
+        if not blank:
+            return 0, 0
+
+        explained = 0
+        for px, py in blank:
+            for obj in known_objects:
+                b = obj.get("bbox") or {}
+                if not {"x_min", "y_min", "x_max", "y_max"}.issubset(b):
+                    continue
+                if b["x_min"] <= px <= b["x_max"] and b["y_min"] <= py <= b["y_max"]:
+                    explained += 1
+                    break
+        return len(blank), len(blank) - explained
+
+    def _walk_tail_is_paper(
+        self,
+        pipe_mask: np.ndarray,
+        segments: list[dict[str, Any]],
+        known_objects: list[dict[str, Any]],
+    ) -> bool:
+        """True when a walk ends by running onto paper no known object explains.
+
+        Deliberately conservative: the limit comes from measurement across the
+        three runnable sheets, where every genuine walk's unexplained tail is
+        <= 14px and the one bad walk's is 33px. A 24px cut sits between them with
+        room on both sides. Ties go to keeping the walk, because a suppressed real
+        branch loses topology silently while a kept bad one is visible.
+        """
+        limit = int(self._cfg_attr("trace_branch_tail_paper_px", 24))
+        _blank, unexplained = self._walk_tail_over_paper(pipe_mask, segments, known_objects)
+        return unexplained > limit
+
     def _branch_direction_covered_nearby(
         self,
         x: int,
@@ -831,6 +908,11 @@ class Stage5bPipelineMixin:
                 if matched_segment:
                     break
             if not matched_segment:
+                # Orphan junction: a detected dot that NO walk passes near, so there
+                # is no source segment to derive a direction from. Leave it here
+                # rather than guessing a direction — `_seed_orphan_junction_candidates`
+                # handles it from the pipe itself, after every other seed source has
+                # run and the set of walked linework is known.
                 continue
 
             source_obj_id, source_segment_index, source_seg = matched_segment
@@ -869,6 +951,63 @@ class Stage5bPipelineMixin:
                     "node_obj_id": node.get("id", ""),
                 })
 
+        # ---- orphan junction dots -------------------------------------------
+        # A dot that no walk passes near cannot seed through any source segment,
+        # so the node pass above skips it and its branches are never traced. On
+        # sheet 0003 that left junction `obj_000053` (2330,1333) entirely unvisited:
+        # the nearest walk ran 69px away and the vertical below it -- the leg down
+        # to PSV 0301B -- was 100% uncovered by any walk. Sheet 0007 had the same
+        # at `obj_000035` (2253,1212) for PSV obj_000102.
+        #
+        # These are seeded from the PIPE rather than from a matched segment: at an
+        # orphan dot there is no arrival direction to turn from, so every direction
+        # with a real branch run is offered. `_has_branch_candidate_run` still applies
+        # so a direction that is only the dot's own blob is rejected, and the walk
+        # starts at the dot rather than mid-air.
+        orphan_count = 0
+        walked_ids = set(all_results)
+        for node in node_symbols or []:
+            bbox = node.get("bbox")
+            if not bbox:
+                continue
+            x = int(round((bbox["x_min"] + bbox["x_max"]) / 2))
+            y = int(round((bbox["y_min"] + bbox["y_max"]) / 2))
+            if self._point_inside_any_bbox(x, y, equipment_objects or [], margin=2):
+                continue
+            # Only a genuinely orphan dot: no existing walk segment within tolerance.
+            touched = False
+            for result in all_results.values():
+                for seg in result.get("segments", []):
+                    if self._point_near_segment(x, y, seg, tolerance=6):
+                        touched = True
+                        break
+                if touched:
+                    break
+            if touched:
+                continue
+            for branch_direction in ("UP", "DOWN", "LEFT", "RIGHT"):
+                if not self._has_branch_candidate_run(
+                    pipe_mask,
+                    x,
+                    y,
+                    branch_direction,
+                    inline_symbols,
+                    min_run=min_branch_run,
+                ):
+                    continue
+                raw_candidates.append({
+                    "x": x,
+                    "y": y,
+                    "branch_direction": branch_direction,
+                    "source_trace_id": "",
+                    "source_segment_index": -1,
+                    "source_direction": branch_direction,
+                    "status": "queued",
+                    "reason": "orphan_junction_leg",
+                    "node_obj_id": node.get("id", ""),
+                })
+                orphan_count += 1
+
         candidates = self._cluster_branch_candidates(
             raw_candidates,
             radius=self._cfg_attr("trace_branch_cluster_radius_px", 8),
@@ -877,6 +1016,12 @@ class Stage5bPipelineMixin:
             result = all_results.get(str(candidate.get("source_trace_id", "")), {})
             segments = result.get("segments", [])
             seg_index = candidate.get("source_segment_index")
+            # An orphan-junction seed has no source segment by construction: it was
+            # created precisely because no walk reaches that dot. Skip the
+            # source-provenance checks for it; `_has_branch_candidate_run` already
+            # vouched for a real pipe run in that direction.
+            if candidate.get("reason") == "orphan_junction_leg":
+                continue
             if not isinstance(seg_index, int) or seg_index < 0 or seg_index >= len(segments):
                 candidate["status"] = "rejected_not_on_source_trace"
                 candidate["reason"] = "missing_source_segment"
@@ -1812,6 +1957,26 @@ class Stage5bPipelineMixin:
             branch_results[branch_id]["turns"] = self._rebuild_stage5b_turns_from_segments(
                 branch_results[branch_id].get("segments") or []
             )
+            # Safeguard: a walk that ends by running onto blank paper no known
+            # object explains is not following pipe. Catches a seed taken from a
+            # symbol's side, which then walks through the glyph and across paper.
+            _known = list(inline_symbols) + list(node_symbols or []) + list(equipment)
+            if self._walk_tail_is_paper(
+                pipe_mask,
+                branch_results[branch_id].get("segments") or [],
+                _known,
+            ):
+                _blank, _unexplained = self._walk_tail_over_paper(
+                    pipe_mask,
+                    branch_results[branch_id].get("segments") or [],
+                    _known,
+                )
+                branch_results[branch_id]["status"] = "rejected_tail_over_paper"
+                branch_results[branch_id]["reject_reason"] = "walk_ends_over_unexplained_blank"
+                branch_results[branch_id]["tail_blank_px"] = _blank
+                branch_results[branch_id]["tail_unexplained_px"] = _unexplained
+                candidate["status"] = "rejected_tail_over_paper"
+                candidate["reason"] = "walk_ends_over_unexplained_blank"
             if branch_id in pending_branch_pairs and terminal_type == "branch_connection":
                 previous_branch_id = pending_branch_pairs.pop(branch_id)
                 previous_result = branch_results.get(previous_branch_id)
