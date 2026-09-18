@@ -132,12 +132,30 @@ def merge_line_numbers(objects: list[dict], line_numbers: list[dict]) -> list[di
         except (KeyError, TypeError, ValueError):
             continue
         cx, cy = x + w / 2, y + h / 2
+        lx, ly = x, y
+        rx, ry = x + w, y + h
         target = None
         for o in ln_objs:
             b = o.get("bbox") or {}
             if not {"x_min", "y_min", "x_max", "y_max"}.issubset(b):
                 continue
-            if (b["x_min"] <= cx <= b["x_max"]) and (b["y_min"] <= cy <= b["y_max"]):
+            ocx = (b["x_min"] + b["x_max"]) / 2
+            ocy = (b["y_min"] + b["y_max"]) / 2
+            # EITHER centre inside the other box. Testing one direction only misses
+            # partial detections: a detector box that localises the TAIL of a long
+            # label has its own centre inside the fixture box while the fixture's
+            # centre falls outside the detector box. On sheet 0002A that left the
+            # detector box for `3"-PL-25-002013-B1A2-NI` (118px wide, text=None)
+            # unmerged from the 328px fixture box naming the same string: the fixture
+            # centre (903) is outside the detector box (960-1078), but the detector
+            # centre (1019) is inside the fixture box (739-1067). Same label, both
+            # objects survived, and both attached to the same edge.
+            #
+            # Verified before shipping: across nine sheets, ZERO pairs would fuse two
+            # boxes naming DIFFERENT text, so the reverse test cannot mis-merge. It
+            # recovered 8 of the 26 textless line-number objects.
+            if (b["x_min"] <= cx <= b["x_max"] and b["y_min"] <= cy <= b["y_max"]) or \
+               (lx <= ocx <= rx and ly <= ocy <= ry):
                 target = o
                 break
         if target is not None:
