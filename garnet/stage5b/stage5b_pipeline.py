@@ -266,6 +266,51 @@ class Stage5bPipelineMixin:
                     return True
         return False
 
+    def _branch_direction_covered_nearby(
+        self,
+        x: int,
+        y: int,
+        branch_direction: str,
+        all_results: dict[str, dict],
+        source_obj_id: str,
+        source_segment_index: int,
+        tolerance: int = 5,
+        sample_step: int = 4,
+    ) -> bool:
+        """Covered-direction test tolerant of where the sample sits on the source line.
+
+        `_branch_already_traced` tests ONE probe point 12px along the branch. A
+        sample point a few px further along the source line moves that probe off
+        the covering segment, so a sample beside a correctly-suppressed one stays
+        "queued" -- and since `_cluster_branch_candidates` promotes a cluster to
+        queued when ANY member is queued, that single sample made the whole
+        cluster walk a pipe a trace already covered.
+
+        On Test-00001 that produced `branch_000008` (seed x=939): the covering
+        trace `obj_000202` runs straight down x=938, the samples at x=934 and
+        x=939 were suppressed, x=944 was not, and the resulting walk duplicated
+        the 625px climb to (938,1110).
+
+        This walks the branch direction from the seed and asks whether a covering
+        segment lies within `tolerance` of ANY point along that run, which is the
+        question the suppression is actually trying to answer.
+        """
+        deltas = {"UP": (0, -1), "DOWN": (0, 1), "LEFT": (-1, 0), "RIGHT": (1, 0)}
+        dx, dy = deltas[branch_direction]
+        opposite = {"UP": "DOWN", "DOWN": "UP", "LEFT": "RIGHT", "RIGHT": "LEFT"}[branch_direction]
+        for offset in range(sample_step, 3 * sample_step + 1, sample_step):
+            px = x + dx * offset
+            py = y + dy * offset
+            for obj_id, result in all_results.items():
+                for seg_index, seg in enumerate(result.get("segments", [])):
+                    if obj_id == source_obj_id and seg_index == source_segment_index:
+                        continue
+                    if seg.get("direction") not in (branch_direction, opposite):
+                        continue
+                    if self._point_near_segment(px, py, seg, tolerance=tolerance):
+                        return True
+        return False
+
     def _has_orthogonal_branch_run(
         self,
         pipe_mask: np.ndarray,
@@ -410,6 +455,82 @@ class Stage5bPipelineMixin:
         span = max(abs(resume_x - x), abs(resume_y - y))
         return span >= min_run and after_hits >= 5
 
+    def _branch_clears_source_line(
+        self,
+        pipe_mask: np.ndarray,
+        x: int,
+        y: int,
+        direction: str,
+        max_blank: int = 12,
+        reach_cap: int = 60,
+    ) -> bool:
+        """Reject a "branch" whose run is no deeper than the SOURCE line's own width.
+
+        A seed sits ON the source line, so the source line's thickness is present
+        ahead of it along the branch direction.  Sampling the same direction from
+        points offset along the source line therefore measures that thickness as a
+        baseline: any candidate whose own forward run is no greater than the
+        baseline has no branch at all, just the line it is standing on.
+
+        Without this, one 4px-wide pipe produced two candidates 15px apart on
+        Test-00001 (seed x=924 with a 3px "run" that was only the horizontal's own
+        thickness, plus the real seed at x=939), because both passed the
+        `lead_run >= 3` test inside `_has_inline_bridge_branch_run`.  The two
+        walks then traced the same pipe 3px apart to the same terminal.
+
+        Fixing it here, rather than by raising `trace_branch_cluster_radius_px`,
+        matters: the two duplicates sit 15px apart while the next-closest pair sits
+        75px apart, but a radius large enough to merge the first also merges two
+        GENUINELY DISTINCT branches 15px apart elsewhere (different paths,
+        different terminals, one feeding an instrument tag) -- measured at 3 walks
+        deleted to remove 1 duplicate.
+
+        Blank spans up to `max_blank` are tolerated so an inline symbol sitting on
+        the branch does not zero the reach.
+        """
+        deltas = {"UP": (0, -1), "DOWN": (0, 1), "LEFT": (-1, 0), "RIGHT": (1, 0)}
+        dx, dy = deltas.get(direction, (0, 0))
+        if not (dx or dy):
+            return True
+        h, w = pipe_mask.shape
+
+        def has_ink(px: int, py: int, band: int = 1) -> bool:
+            if not (0 <= py < h and 0 <= px < w):
+                return False
+            if direction in ("LEFT", "RIGHT"):
+                return any(0 <= py + off < h and pipe_mask[py + off, px] > 0
+                           for off in range(-band, band + 1))
+            return any(0 <= px + off < w and pipe_mask[py, px + off] > 0
+                       for off in range(-band, band + 1))
+
+        def reach(px: int, py: int) -> int:
+            furthest = 0
+            blank = 0
+            for step in range(1, reach_cap + 1):
+                if has_ink(px + dx * step, py + dy * step):
+                    furthest = step
+                    blank = 0
+                else:
+                    blank += 1
+                    if blank > max_blank:
+                        break
+            return furthest
+
+        own = reach(x, y)
+        # Axis along the source line, perpendicular to the branch direction.
+        ax, ay = -dy, dx
+        baseline = None
+        for offset in (12, 20, 30, 45):
+            for sign in (1, -1):
+                px, py = x + ax * offset * sign, y + ay * offset * sign
+                if not (0 <= py < h and 0 <= px < w) or not pipe_mask[py, px]:
+                    continue
+                value = reach(px, py)
+                baseline = value if baseline is None else min(baseline, value)
+        if baseline is None:
+            return True                     # cannot measure the source line
+        return own > baseline
+
     def _has_branch_candidate_run(
         self,
         pipe_mask: np.ndarray,
@@ -421,6 +542,8 @@ class Stage5bPipelineMixin:
     ) -> bool:
         from .cv_pipe_tracer import _has_connected_side_pipe
 
+        if not self._branch_clears_source_line(pipe_mask, x, y, direction):
+            return False
         if _has_connected_side_pipe(pipe_mask, x, y, direction, min_run=min_run):
             return self._has_orthogonal_branch_run(pipe_mask, x, y, direction, min_run=min_run)
         return self._has_inline_bridge_branch_run(
@@ -437,6 +560,18 @@ class Stage5bPipelineMixin:
         raw_candidates: list[dict[str, Any]],
         radius: int = 8,
     ) -> list[dict[str, Any]]:
+        """Group nearby same-direction samples into one candidate.
+
+        Cluster status is decided by MAJORITY of its members, not by any single
+        one. A source segment is sampled every `sample_step` px, so several
+        samples fall on one physical branch and they normally agree; but a sample
+        whose probe point lands just outside the covering segment's tolerance
+        disagrees with its neighbours. Letting any queued member win meant one
+        such outlier overrode the correct verdict of every other member and the
+        whole cluster walked a pipe that was already traced -- on Test-00001 that
+        produced `branch_000008`, a 625px walk lying entirely on top of trace
+        `obj_000202` (members: x=934 done, x=939 done, x=944 queued).
+        """
         clusters: list[dict[str, Any]] = []
         for candidate in raw_candidates:
             match = None
@@ -456,12 +591,32 @@ class Stage5bPipelineMixin:
             members = match["members"]
             match["x"] = int(round(sum(m["x"] for m in members) / len(members)))
             match["y"] = int(round(sum(m["y"] for m in members) / len(members)))
-            if candidate["status"] == "queued":
-                match["status"] = "queued"
-                match["reason"] = candidate["reason"]
-            if candidate.get("node_obj_id") and not match.get("node_obj_id"):
-                match["node_obj_id"] = candidate["node_obj_id"]
-                match["reason"] = candidate.get("reason", match["reason"])
+
+        for cluster in clusters:
+            members = cluster["members"]
+            queued = [m for m in members if m.get("status") == "queued"]
+            suppressed = [m for m in members if str(m.get("status", "")).startswith("done_")]
+            # A tie keeps the queued verdict: walking a covered run is visible and
+            # recoverable, while suppressing a real branch silently loses topology.
+            if len(queued) > len(suppressed):
+                winner = queued[0]
+                cluster["status"] = "queued"
+                cluster["reason"] = winner.get("reason", cluster.get("reason"))
+            elif suppressed:
+                counts: dict[str, int] = {}
+                for member in suppressed:
+                    key = str(member.get("status"))
+                    counts[key] = counts.get(key, 0) + 1
+                winner_status = max(counts, key=lambda k: counts[k])
+                winner = next(m for m in suppressed
+                              if str(m.get("status")) == winner_status)
+                cluster["status"] = winner_status
+                cluster["reason"] = winner.get("reason", cluster.get("reason"))
+            for member in members:
+                if member.get("node_obj_id") and not cluster.get("node_obj_id"):
+                    cluster["node_obj_id"] = member["node_obj_id"]
+                    if cluster.get("status") == "queued":
+                        cluster["reason"] = member.get("reason", cluster["reason"])
         return clusters
 
     def _detect_stage5b_branch_candidates(
@@ -471,6 +626,7 @@ class Stage5bPipelineMixin:
         inline_symbols: list[dict[str, Any]],
         node_symbols: Optional[list[dict[str, Any]]] = None,
         equipment_objects: Optional[list[dict[str, Any]]] = None,
+        annotation_symbols: Optional[list[dict[str, Any]]] = None,
         sample_step: int = 5,
         min_branch_run: int = 25,
     ) -> list[dict[str, Any]]:
@@ -491,6 +647,16 @@ class Stage5bPipelineMixin:
         ]
         existing_points = tee_points + turn_points
         seed_from_tees = bool(self._cfg_attr("trace_branch_seed_from_tees", True))
+        # Directional arrows are annotation ON the line, not branch points, and the
+        # pipeline's `inline_classes` set does NOT include them, so they reach this
+        # method only via `annotation_symbols`. This exclusion stops the
+        # segment-sampling loop from seeding at a point that falls INSIDE an arrow
+        # glyph; the dedicated node-symbol pass below still seeds from a bbox
+        # centre and re-derives its direction from the matched segment.
+        arrow_symbols = [
+            sym for sym in (annotation_symbols or [])
+            if "arrow" in str(sym.get("class_name", "")).lower()
+        ]
 
         raw_candidates: list[dict[str, Any]] = []
         for obj_id, result in all_results.items():
@@ -522,6 +688,15 @@ class Stage5bPipelineMixin:
                         x = int(round(x1 + ((x2 - x1) * dist / length)))
                         y = y1 + dy * dist
                     if self._point_inside_any_bbox(x, y, inline_symbols, margin=0):
+                        continue
+                    # A directional arrow is an annotation ON the line, not a
+                    # branch point: seeding there walks out of the glyph's side.
+                    # `branch_000026` on Test-00001 seeded at (2690,1867), inside
+                    # arrow obj_000084 bbox (2681,1847)-(2704,1880), and walked a
+                    # 35x54px loop back to its own source instead of following
+                    # pipe. Skip such samples; the real branch point next to the
+                    # arrow is sampled on its own.
+                    if self._point_inside_any_bbox(x, y, arrow_symbols, margin=0):
                         continue
 
                     for branch_direction in branch_dirs:
@@ -559,6 +734,24 @@ class Stage5bPipelineMixin:
                         elif self._branch_already_traced(
                             x, y, branch_direction, all_results, obj_id, seg_index
                         ):
+                            status = "done_already_traced"
+                            reason = "branch_direction_covered_by_existing_segment"
+                        elif self._branch_direction_covered_nearby(
+                            x, y, branch_direction, all_results, obj_id, seg_index
+                        ):
+                            # Same suppression, but tolerant of where the sample
+                            # point falls ALONG the source line rather than
+                            # perpendicular to the branch.
+                            #
+                            # `_branch_already_traced` probes a single point 12px
+                            # along the branch and asks whether any segment passes
+                            # within 5px. A sample sitting a few px further along
+                            # the source line can push that probe off the covering
+                            # segment: on Test-00001 x=934 and x=939 were both
+                            # suppressed while x=944 next to them stayed "queued",
+                            # and clustering then promoted the whole 3-member
+                            # cluster to queued on that single sample, so the walk
+                            # ran even though a trace already covered the pipe.
                             status = "done_already_traced"
                             reason = "branch_direction_covered_by_existing_segment"
 
@@ -769,6 +962,45 @@ class Stage5bPipelineMixin:
             )
         return overlay
 
+    @staticmethod
+    def _draw_trace_start_marker(overlay: np.ndarray, x: int, y: int,
+                                 color: tuple[int, int, int],
+                                 radius: int = 7, thickness: int = 2) -> None:
+        """Start of a traced line: unfilled (outline-only) circle."""
+        import cv2 as _cv2
+
+        _cv2.circle(overlay, (int(x), int(y)), radius, color, thickness)
+
+    @staticmethod
+    def _draw_trace_end_marker(overlay: np.ndarray, x: int, y: int,
+                               color: tuple[int, int, int],
+                               half: int = 7, thickness: int = 2) -> None:
+        """End of a traced line: unfilled (outline-only) square."""
+        import cv2 as _cv2
+
+        _cv2.rectangle(
+            overlay,
+            (int(x) - half, int(y) - half),
+            (int(x) + half, int(y) + half),
+            color,
+            thickness,
+        )
+
+    @staticmethod
+    def _trace_start_point(data: dict[str, Any]) -> Optional[tuple[int, int]]:
+        """Start coordinate for a trace/branch result.
+
+        Prefers the recorded `port`; falls back to the first segment's first
+        vertex so a result without `port` still gets a start marker.
+        """
+        port = data.get("port") or {}
+        if port.get("x") is not None and port.get("y") is not None:
+            return int(port["x"]), int(port["y"])
+        segments = data.get("segments") or []
+        if segments:
+            return int(segments[0]["x1"]), int(segments[0]["y1"])
+        return None
+
     def _draw_stage5b_result_paths(
         self,
         overlay: np.ndarray,
@@ -793,10 +1025,15 @@ class Stage5bPipelineMixin:
                     line_color,
                     thickness,
                 )
+            start = self._trace_start_point(data)
+            if start:
+                self._draw_trace_start_marker(overlay, start[0], start[1],
+                                              terminal_color, radius=5 + thickness // 2)
             tx = int(data.get("terminal_x", 0))
             ty = int(data.get("terminal_y", 0))
             if tx or ty:
-                _cv2.circle(overlay, (tx, ty), 4 + thickness, terminal_color, -1)
+                self._draw_trace_end_marker(overlay, tx, ty, terminal_color,
+                                            half=4 + thickness)
                 if label_terminals:
                     _cv2.putText(
                         overlay,
@@ -827,9 +1064,14 @@ class Stage5bPipelineMixin:
                     (0, 0, 255),
                     3,
                 )
+            start = self._trace_start_point(data)
+            if start:
+                self._draw_trace_start_marker(overlay, start[0], start[1],
+                                              (0, 0, 255), radius=7)
             tx = int(data.get("terminal_x", 0))
             ty = int(data.get("terminal_y", 0))
-            _cv2.circle(overlay, (tx, ty), 6, (0, 0, 255), -1)
+            if tx or ty:
+                self._draw_trace_end_marker(overlay, tx, ty, (0, 0, 255), half=7)
             _cv2.putText(
                 overlay,
                 f"{branch_id}:branch",
@@ -884,7 +1126,8 @@ class Stage5bPipelineMixin:
         port = data.get("port") or {}
         if port.get("x") is not None and port.get("y") is not None:
             start = (int(port["x"]), int(port["y"]))
-            _cv2.circle(overlay, start, 14, (0, 180, 0), -1, _cv2.LINE_AA)
+            self._draw_trace_start_marker(overlay, start[0], start[1],
+                                          (0, 180, 0), radius=14, thickness=3)
             _cv2.putText(
                 overlay,
                 f"{trace_id} start",
@@ -898,7 +1141,8 @@ class Stage5bPipelineMixin:
 
         if data.get("terminal_x") is not None and data.get("terminal_y") is not None:
             end = (int(data["terminal_x"]), int(data["terminal_y"]))
-            _cv2.circle(overlay, end, 16, (255, 0, 255), -1, _cv2.LINE_AA)
+            self._draw_trace_end_marker(overlay, end[0], end[1],
+                                        (255, 0, 255), half=16, thickness=3)
             _cv2.putText(
                 overlay,
                 f"{trace_id}:{data.get('terminal_type', '')}",
@@ -1628,6 +1872,7 @@ class Stage5bPipelineMixin:
         equipment: list[dict[str, Any]],
         inline_symbols: list[dict[str, Any]],
         node_symbols: list[dict[str, Any]],
+        annotation_symbols: list[dict[str, Any]],
         visited: np.ndarray,
         max_iterations: int = 5,
         candidate_overlay_base: Optional[np.ndarray] = None,
@@ -1644,6 +1889,7 @@ class Stage5bPipelineMixin:
                 inline_symbols=inline_symbols,
                 node_symbols=node_symbols,
                 equipment_objects=equipment,
+                annotation_symbols=annotation_symbols,
                 sample_step=self._cfg_attr("trace_branch_candidate_sample_step_px", 5),
                 min_branch_run=self._cfg_attr("trace_branch_min_run_px", 25),
             )
@@ -2384,6 +2630,14 @@ class Stage5bPipelineMixin:
             o for o in objects
             if o.get("class_name") == "node"
         ]
+        # Annotations that sit ON a pipe and must not seed a branch: `arrow`
+        # (flow/gradient markers). Kept separate from `inline_symbols` because the
+        # tracer's inline set DOES include `arrow` for pass-through handling, while
+        # this list exists only to keep the sampler from seeding inside the glyph.
+        annotation_symbols = [
+            o for o in objects
+            if o.get("class_name") == "arrow"
+        ]
 
         # Extend pipe mask into equipment and instrument bboxes
         # so the tracer can walk into terminal objects instead of
@@ -2531,6 +2785,7 @@ class Stage5bPipelineMixin:
             equipment=equipment,
             inline_symbols=inline_symbols,
             node_symbols=node_symbols,
+            annotation_symbols=annotation_symbols,
             visited=visited,
             max_iterations=self._cfg_attr("trace_branch_max_iterations", 5),
             candidate_overlay_base=image if self.cfg.debug_artifacts else None,
@@ -2642,17 +2897,15 @@ class Stage5bPipelineMixin:
                 my = (seg["y1"] + seg["y2"]) // 2
                 _cv2.circle(overlay, (mx, my), 3, (0, 160, 0), -1)
 
-            # Port marker (start point)
+            # Port marker (start of tracing line): unfilled circle
             px, py = data["port"]["x"], data["port"]["y"]
-            _cv2.circle(overlay, (px, py), 5, (0, 255, 0), -1)
-            _cv2.circle(overlay, (px, py), 5, (255, 255, 255), 1)
+            self._draw_trace_start_marker(overlay, px, py, (0, 255, 0), radius=7)
 
-            # Terminal marker
+            # Terminal marker (end of tracing line): unfilled square
             tx, ty = data["terminal_x"], data["terminal_y"]
             ttype = data.get("terminal_type", "unknown")
             color = colors.get(ttype, (128, 128, 128))
-            _cv2.circle(overlay, (tx, ty), 8, color, -1)
-            _cv2.circle(overlay, (tx, ty), 8, (255, 255, 255), 1)
+            self._draw_trace_end_marker(overlay, tx, ty, color, half=8)
 
             # Label
             label = f"{obj_id}:{ttype}"
