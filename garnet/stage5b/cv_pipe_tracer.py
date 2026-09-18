@@ -1141,11 +1141,108 @@ class CVPipeTracer:
         self._append_segment(result, seg_start_x, seg_start_y, x, y, direction)
         return self._resume_along_axis(result, x, y, direction, origin)
 
+    def _looks_like_dashed_lead(self, x: int, y: int, dx: int, dy: int,
+                                window: int = 160, min_gaps: int = 3,
+                                dash_max_ink_px: int = 24,
+                                gap_min_px: int = 3,
+                                gap_max_px: int = 40) -> bool:
+        """Screen a trace start against a periodic dashed signal lead.
+
+        A signal (instrument) lead is a train of SHORT dashes separated by SHORT
+        gaps.  Scan `window` px ahead along the start direction at the current
+        centerline and count dash cycles (ink run <= `dash_max_ink_px` followed by
+        a gap in [`gap_min_px`, `gap_max_px`]).  `min_gaps` or more means dashed.
+
+        Any ink run longer than `dash_max_ink_px` rejects the hypothesis outright:
+        real pipe is solid over long stretches, while a dash train never is.
+
+        Alternations that step4 objects already explain do not count: an ink run
+        or gap whose midpoint falls inside a known inline-symbol bbox (valve,
+        reducer) is that symbol's own glyph, not a dash.  Without this the screen
+        fired on real pipe at three tee junctions on Test-00001 whose short runs
+        all sat inside a `gate valve` box while the runs outside it were 14-62px
+        of solid pipe.
+
+        Known limit, measured: this screen cannot be tuned to separate a dash
+        train from real pipe carrying a dense train of small symbols -- a 31px
+        dash and a 33px run of pipe between two symbol glyphs are numerically
+        identical.  Keep the ink ceiling low and let the caller exempt starts it
+        knows are real pipe (equipment nozzles); do not raise `dash_max_ink_px`
+        to catch a wider dash, or the valve false positives return.
+
+        Must run BEFORE any visited-pixel marking so a rejected start leaves the
+        shared mask untouched.
+        """
+        gaps = 0
+        in_gap = False
+        gap_len = 0
+        ink_run = 0
+        prev_ink_run = None
+        for step in range(1, window + 1):
+            px, py = x + step * dx, y + step * dy
+            if not (0 <= py < self.h and 0 <= px < self.w):
+                break
+            if _is_pipe(self.mask, px, py):
+                if in_gap:
+                    # The gap just ended.  It counts only if the ink run that
+                    # preceded it was dash-sized, and only if the gap is not
+                    # itself explained by a known symbol bbox.
+                    if prev_ink_run is not None and prev_ink_run <= dash_max_ink_px \
+                            and gap_min_px <= gap_len <= gap_max_px \
+                            and not self._is_inline_target(px, py):
+                        gaps += 1
+                        if gaps >= min_gaps:
+                            return True
+                    in_gap = False
+                    ink_run = 0
+                ink_run += 1
+                if ink_run > dash_max_ink_px:
+                    # Long solid ink outside any symbol: real pipe, not a dash
+                    # train.  Inside a symbol bbox the run length means nothing,
+                    # so let it accumulate and be discarded at the next gap.
+                    if not self._is_inline_target(px, py):
+                        return False
+            elif not in_gap:
+                if ink_run > 0:
+                    in_gap = True
+                    gap_len = 0
+                    prev_ink_run = ink_run
+            else:
+                gap_len += 1
+        return False
+
     def trace(self, start_x: int, start_y: int, start_dir: str,
               source_obj_id: str = "") -> TraceResult:
         """Trace from port to terminal. source_obj_id is excluded from terminal checks."""
         result = TraceResult()
         result.terminal_type = None
+
+        dx0, dy0 = DIRECTION_DELTA.get(start_dir.upper(), DIRECTION_DELTA.get(
+            {"TOP": "UP", "BOTTOM": "DOWN"}.get(start_dir.upper(), ""), (0, 0)))
+        # An equipment nozzle is real pipe by construction: the pipeline supplies
+        # these starts from extracted ports.  Never screen them -- on Test-00001
+        # every harmful firing of the dashed screen (7 traces, all reaching
+        # `equipment` or `tee_junction` before the screen existed) was a port
+        # start, so exempt the whole class rather than tune a threshold.
+        is_equipment_start = source_obj_id.startswith("equip_")
+        if (dx0 or dy0) and not is_equipment_start:
+            # Dashed signal-lead screen: decide from raw ink before anything
+            # marks the visited mask or walks warmup steps.
+            sx, sy = start_x, start_y
+            if not _is_pipe(self.mask, sx, sy):
+                for step in range(1, 15):
+                    nx, ny = sx + step * dx0, sy + step * dy0
+                    if _is_pipe(self.mask, nx, ny):
+                        sx, sy = nx, ny
+                        break
+            if _is_pipe(self.mask, sx, sy) and \
+                    self._looks_like_dashed_lead(sx, sy, dx0, dy0):
+                log.warning("CVPipeTracer: dashed signal lead at (%d,%d) %s — not process pipe",
+                            start_x, start_y, start_dir)
+                result.status = "no_pipe"
+                result.terminal_type = TerminalType.NO_PIPE.value
+                result.terminal_x, result.terminal_y = start_x, start_y
+                return result
 
         init = self._init_trace_start(result, start_x, start_y, start_dir)
         if init is None:
