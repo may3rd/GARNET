@@ -1,0 +1,141 @@
+{
+  "id": "1d2ffe57-image.jpg",
+  "objects": [
+    {
+      "Index": 1,
+      "Object": "line number",
+      "CategoryID": 1,
+      "ObjectID": 1,
+      "Left": 988,
+      "Top": 382,
+      "Width": 315,
+      "Height": 16,
+      "Score": 1.0,
+      "Text": "8\"-F-25-008006-L1A1-NI"
+    },
+    {
+      "Index": 2,
+      "Object": "line number",
+      "CategoryID": 1,
+      "ObjectID": 2,
+      "Left": 1028,
+      "Top": 564,
+      "Width": 326,
+      "Height": 21,
+      "Score": 1.0,
+      "Text": "8\"-F-25-008007-L1A1-NI"
+    },
+    {
+      "Index": 3,
+      "Object": "line number",
+      "CategoryID": 1,
+      "ObjectID": 3,
+      "Left": 2033,
+      "Top": 581,
+      "Width": 356,
+      "Height": 22,
+      "Score": 1.0,
+      "Text": "8\"-CUL-25-008004-B2A2-NI"
+    },
+    {
+      "Index": 4,
+      "Object": "line number",
+      "CategoryID": 1,
+      "ObjectID": 4,
+      "Left": 3458,
+      "Top": 643,
+      "Width": 346,
+      "Height": 21,
+      "Score": 1.0,
+      "Text": "6\"-CUL-25-008001-B1A1-NI"
+    },
+    {
+      "Index": 5,
+      "Object": "line number",
+      "CategoryID": 1,
+      "ObjectID": 5,
+      "Left": 1340,
+      "Top": 1011,
+      "Width": 344,
+      "Height": 16,
+      "Score": 1.0,
+      "Text": "8\"-CUL-25-008005-B2A2-NI"
+    },
+    {
+      "Index": 6,
+      "Object": "line number",
+      "CategoryID": 1,
+      "ObjectID": 6,
+      "Left": 833,
+      "Top": 1594,
+      "Width": 344,
+      "Height": 16,
+      "Score": 1.0,
+      "Text": "6\"-CUL-25-007007-B2A2-NI"
+    },
+    {
+      "Index": 7,
+      "Object": "line number",
+      "CategoryID": 1,
+      "ObjectID": 7,
+      "Left": 2648,
+      "Top": 1961,
+      "Width": 330,
+      "Height": 24,
+      "Score": 1.0,
+      "Text": "2\"-S12-66-059066-MS12-H"
+    },
+    {
+      "Index": 8,
+      "Object": "line number",
+      "CategoryID": 1,
+      "ObjectID": 8,
+      "Left": 1921,
+      "Top": 2096,
+      "Width": 330,
+      "Height": 16,
+      "Score": 1.0,
+      "Text": "2\"-PL-25-008002-B2A2-NI"
+    },
+    {
+      "Index": 9,
+      "Object": "line number",
+      "CategoryID": 1,
+      "ObjectID": 9,
+      "Left": 2315,
+      "Top": 2332,
+      "Width": 26,
+      "Height": 345,
+      "Score": 1.0,
+      "Text": "1½\"-PWD-25-008003-L1A1-NI"
+    },
+    {
+      "Index": 10,
+      "Object": "line number",
+      "CategoryID": 1,
+      "ObjectID": 10,
+      "Left": 3558,
+      "Top": 2398,
+      "Width": 16,
+      "Height": 344,
+      "Score": 1.0,
+      "Text": "1\"-NAS-41-007105-B1A2-NI"
+    },
+    {
+      "Index": 11,
+      "Object": "line number",
+      "CategoryID": 1,
+      "ObjectID": 11,
+      "Left": 730,
+      "Top": 3159,
+      "Width": 330,
+      "Height": 28,
+      "Score": 1.0,
+      "Text": "1\"-PL-25-008002-B2A2-NI"
+    }
+  ],
+  "image_url": "",
+  "image_width": 4963,
+  "image_height": 3509,
+  "count": 11
+}

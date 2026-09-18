@@ -1,0 +1,239 @@
+{
+  "source_drawing": "14780-8120-25-25-0003 Rev. Z1 (AS BUILT) - PIPING AND INSTRUMENT DIAGRAM, CAUSTIC SETTLER, PHENOL RECOVERY SECTION, UOP PHENOL PROCESS UNIT",
+  "coordinate_frame": {
+    "width_px": 4963,
+    "height_px": 3509,
+    "dpi": null,
+    "page_pt": null,
+    "page_rotate_deg": 0,
+    "note": "Source supplied as a raster JPEG (4963 x 3509 px), not a PDF; there is no PDF page box, /Rotate or text layer. All coordinates are pixels in this image: origin top-left, x right, y down. Aspect gate: 4963/3509 = 1.4144 vs ISO A-series landscape 1.4142 (0.01% deviation), so the raster is un-rotated and un-stretched. Transform validated by plotting the drawing frame grid: sheet border, zone letters A-J and the title block land where measured. Legibility gate: line-number type reads cleanly at 1:1 in this raster, well above the 2500 px minimum for a full-size sheet."
+  },
+  "objects": [
+    {
+      "Index": 1,
+      "Object": "vessel",
+      "Tag": "D-2502",
+      "Equipment_type": "vessel",
+      "Service": "CAUSTIC SETTLER",
+      "Size": "2100mm x 6300mm (dia x T/T)",
+      "Evidence": "both (agree)",
+      "Left": 1942,
+      "Top": 1635,
+      "Width": 1031,
+      "Height": 179,
+      "Bounding_box_px": {
+        "x_min": 1942,
+        "y_min": 1635,
+        "x_max": 2973,
+        "y_max": 1814
+      },
+      "Bounding_box_norm": [
+        0.3913,
+        0.4659,
+        0.599,
+        0.517
+      ],
+      "Ports": [
+        {
+          "mark": "I01",
+          "side": "top",
+          "point_px": {
+            "x": 2024,
+            "y": 1635
+          },
+          "point_norm": [
+            0.4078,
+            0.4659
+          ],
+          "size": "4\"",
+          "line_number": "4\"-CUL-25-002007-B1A2-NI"
+        },
+        {
+          "mark": "A01",
+          "side": "top",
+          "point_px": {
+            "x": 2097,
+            "y": 1635
+          },
+          "point_norm": [
+            0.4225,
+            0.4659
+          ],
+          "size": "6\"",
+          "line_number": "6\"-CUL-25-003009-B1A2-NI"
+        },
+        {
+          "mark": "B02",
+          "side": "top",
+          "point_px": {
+            "x": 2782,
+            "y": 1635
+          },
+          "point_norm": [
+            0.5605,
+            0.4659
+          ],
+          "size": "8\"",
+          "line_number": null
+        },
+        {
+          "mark": "O02",
+          "side": "top",
+          "point_px": {
+            "x": 2865,
+            "y": 1635
+          },
+          "point_norm": [
+            0.5773,
+            0.4659
+          ],
+          "size": "3\"",
+          "line_number": "3\"-CUL-25-003001-B1A2-NI"
+        },
+        {
+          "mark": "N02",
+          "side": "bottom",
+          "point_px": {
+            "x": 2845,
+            "y": 1814
+          },
+          "point_norm": [
+            0.5732,
+            0.517
+          ],
+          "size": "6\"",
+          "line_number": "6\"-NAS-25-003002-B1A2-NI"
+        },
+        {
+          "mark": "S01",
+          "side": "left",
+          "point_px": {
+            "x": 1967,
+            "y": 1800
+          },
+          "point_norm": [
+            0.3963,
+            0.513
+          ],
+          "size": "2\"",
+          "line_number": null
+        }
+      ],
+      "Score": 1.0
+    },
+    {
+      "Index": 2,
+      "Object": "pump",
+      "Tag": "P-2503A",
+      "Equipment_type": "pump",
+      "Service": "CAUSTIC SETTLER PUMPS",
+      "Size": "",
+      "Evidence": "both (agree)",
+      "Left": 890,
+      "Top": 1852,
+      "Width": 136,
+      "Height": 72,
+      "Bounding_box_px": {
+        "x_min": 890,
+        "y_min": 1852,
+        "x_max": 1026,
+        "y_max": 1924
+      },
+      "Bounding_box_norm": [
+        0.1793,
+        0.5278,
+        0.2067,
+        0.5483
+      ],
+      "Ports": [
+        {
+          "mark": null,
+          "side": "top",
+          "point_px": {
+            "x": 988,
+            "y": 1852
+          },
+          "point_norm": [
+            0.1991,
+            0.5278
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": null,
+          "side": "bottom",
+          "point_px": {
+            "x": 988,
+            "y": 1924
+          },
+          "point_norm": [
+            0.1991,
+            0.5483
+          ],
+          "size": null,
+          "line_number": null
+        }
+      ],
+      "Score": 1.0
+    },
+    {
+      "Index": 3,
+      "Object": "pump",
+      "Tag": "P-2503B",
+      "Equipment_type": "pump",
+      "Service": "CAUSTIC SETTLER PUMPS",
+      "Size": "",
+      "Evidence": "both (agree)",
+      "Left": 1248,
+      "Top": 1852,
+      "Width": 135,
+      "Height": 72,
+      "Bounding_box_px": {
+        "x_min": 1248,
+        "y_min": 1852,
+        "x_max": 1383,
+        "y_max": 1924
+      },
+      "Bounding_box_norm": [
+        0.2515,
+        0.5278,
+        0.2787,
+        0.5483
+      ],
+      "Ports": [
+        {
+          "mark": null,
+          "side": "top",
+          "point_px": {
+            "x": 1286,
+            "y": 1852
+          },
+          "point_norm": [
+            0.2591,
+            0.5278
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": null,
+          "side": "bottom",
+          "point_px": {
+            "x": 1286,
+            "y": 1924
+          },
+          "point_norm": [
+            0.2591,
+            0.5483
+          ],
+          "size": null,
+          "line_number": null
+        }
+      ],
+      "Score": 1.0
+    }
+  ],
+  "unresolved": [],
+  "verification": "overlay rendered and visually checked: yes - every equipment box and port marker was drawn onto the source raster, opened and inspected at full sheet and at 3x per item; boxes enclose the symbol outline only."
+}

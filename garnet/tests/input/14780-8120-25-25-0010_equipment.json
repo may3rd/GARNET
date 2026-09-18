@@ -1,0 +1,248 @@
+{
+  "source_drawing": "14780-8120-25-25-0010 Rev Z1",
+  "coordinate_frame": {
+    "width_px": 4963,
+    "height_px": 3509,
+    "dpi": null,
+    "page_pt": null,
+    "page_rotate_deg": 0,
+    "note": "Raster JPEG 4963x3509px, aspect 1.4144 vs ISO A-series 1.4142 -> un-rotated, un-stretched. Pixel coords, origin top-left, x right, y down, integers."
+  },
+  "objects": [
+    {
+      "Index": 1,
+      "Object": "Pump",
+      "Tag": "P-2511A",
+      "Equipment_type": "Pump",
+      "Service": "OEC ACID INJECTION PUMPS",
+      "Size": "",
+      "Evidence": "equipment data block | in-drawing label | both (agree)",
+      "Left": 1165,
+      "Top": 1700,
+      "Width": 173,
+      "Height": 76,
+      "Bounding_box_px": {
+        "x_min": 1165,
+        "y_min": 1700,
+        "x_max": 1338,
+        "y_max": 1776
+      },
+      "Bounding_box_norm": [
+        0.2347,
+        0.4845,
+        0.2696,
+        0.5061
+      ],
+      "Score": 1.0,
+      "Ports": [
+        {
+          "mark": null,
+          "side": "top",
+          "point_px": {
+            "x": 1251,
+            "y": 1700
+          },
+          "point_norm": [
+            0.2521,
+            0.4845
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": null,
+          "side": "bottom",
+          "point_px": {
+            "x": 1251,
+            "y": 1776
+          },
+          "point_norm": [
+            0.2521,
+            0.5061
+          ],
+          "size": null,
+          "line_number": null
+        }
+      ]
+    },
+    {
+      "Index": 2,
+      "Object": "Pump",
+      "Tag": "P-2511B",
+      "Equipment_type": "Pump",
+      "Service": "OEC ACID INJECTION PUMPS",
+      "Size": "",
+      "Evidence": "equipment data block | in-drawing label | both (agree)",
+      "Left": 1836,
+      "Top": 1700,
+      "Width": 173,
+      "Height": 76,
+      "Bounding_box_px": {
+        "x_min": 1836,
+        "y_min": 1700,
+        "x_max": 2009,
+        "y_max": 1776
+      },
+      "Bounding_box_norm": [
+        0.3699,
+        0.4845,
+        0.4048,
+        0.5061
+      ],
+      "Score": 1.0,
+      "Ports": [
+        {
+          "mark": null,
+          "side": "top",
+          "point_px": {
+            "x": 1922,
+            "y": 1700
+          },
+          "point_norm": [
+            0.3873,
+            0.4845
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": null,
+          "side": "bottom",
+          "point_px": {
+            "x": 1922,
+            "y": 1776
+          },
+          "point_norm": [
+            0.3873,
+            0.5061
+          ],
+          "size": null,
+          "line_number": null
+        }
+      ]
+    },
+    {
+      "Index": 3,
+      "Object": "Pump",
+      "Tag": "P-2514A",
+      "Equipment_type": "Pump",
+      "Service": "DELAY POT ACID INJECTION PUMPS",
+      "Size": "",
+      "Evidence": "equipment data block | in-drawing label | both (agree)",
+      "Left": 2647,
+      "Top": 1700,
+      "Width": 172,
+      "Height": 76,
+      "Bounding_box_px": {
+        "x_min": 2647,
+        "y_min": 1700,
+        "x_max": 2819,
+        "y_max": 1776
+      },
+      "Bounding_box_norm": [
+        0.5333,
+        0.4845,
+        0.568,
+        0.5061
+      ],
+      "Score": 1.0,
+      "Ports": [
+        {
+          "mark": null,
+          "side": "top",
+          "point_px": {
+            "x": 2733,
+            "y": 1700
+          },
+          "point_norm": [
+            0.5507,
+            0.4845
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": null,
+          "side": "bottom",
+          "point_px": {
+            "x": 2733,
+            "y": 1776
+          },
+          "point_norm": [
+            0.5507,
+            0.5061
+          ],
+          "size": null,
+          "line_number": null
+        }
+      ]
+    },
+    {
+      "Index": 4,
+      "Object": "Pump",
+      "Tag": "P-2514B",
+      "Equipment_type": "Pump",
+      "Service": "DELAY POT ACID INJECTION PUMPS",
+      "Size": "",
+      "Evidence": "equipment data block | in-drawing label | both (agree)",
+      "Left": 3341,
+      "Top": 1700,
+      "Width": 173,
+      "Height": 76,
+      "Bounding_box_px": {
+        "x_min": 3341,
+        "y_min": 1700,
+        "x_max": 3514,
+        "y_max": 1776
+      },
+      "Bounding_box_norm": [
+        0.6732,
+        0.4845,
+        0.708,
+        0.5061
+      ],
+      "Score": 1.0,
+      "Ports": [
+        {
+          "mark": null,
+          "side": "top",
+          "point_px": {
+            "x": 3427,
+            "y": 1700
+          },
+          "point_norm": [
+            0.6905,
+            0.4845
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": null,
+          "side": "bottom",
+          "point_px": {
+            "x": 3427,
+            "y": 1776
+          },
+          "point_norm": [
+            0.6905,
+            0.5061
+          ],
+          "size": null,
+          "line_number": null
+        }
+      ]
+    }
+  ],
+  "unresolved": [
+    {
+      "what": "Pulsation dampeners and PSVs marked (BY VENDOR) near P-2511A/B and P-2514A/B discharge (PSV 1001A/B, PSV 1002A/B tags)",
+      "why": "Vendor-supplied in-line relief valves / pulsation dampeners are not on the major-equipment scope list (vessels, columns, drums, reactors, tanks, pumps, compressors, exchangers, fired heaters, filters, package units, static mixers); they are instruments/in-line specialty items, so excluded from major_equipment.",
+      "location_hint_px": [
+        1450,
+        1450
+      ]
+    }
+  ],
+  "verification": "overlay rendered and visually checked: yes"
+}

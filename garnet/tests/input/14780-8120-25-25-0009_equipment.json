@@ -1,0 +1,272 @@
+{
+  "source_drawing": "14780-8120-25-25-0009 Rev. Z1 (AS BUILT) - PIPING AND INSTRUMENT DIAGRAM, SOLVENT DRUM, PHENOL RECOVERY SECTION, UOP PHENOL PROCESS UNIT",
+  "coordinate_frame": {
+    "width_px": 4963,
+    "height_px": 3509,
+    "dpi": null,
+    "page_pt": null,
+    "page_rotate_deg": 0,
+    "note": "Raster JPEG 4963x3509px, no PDF/text layer, no /Rotate. Aspect 4963/3509=1.4144 vs ISO A-series 1.4142 -> un-rotated, un-stretched. Pixel coords, origin top-left, x right, y down, integers."
+  },
+  "objects": [
+    {
+      "Index": 1,
+      "Object": "vessel",
+      "Tag": "D-2507",
+      "Equipment_type": "vessel",
+      "Service": "SOLVENT DRUM",
+      "Size": "2600mm x 7800mm (dia x T/T)",
+      "Evidence": "both (agree)",
+      "Left": 1446,
+      "Top": 1476,
+      "Width": 974,
+      "Height": 395,
+      "Bounding_box_px": {
+        "x_min": 1446,
+        "y_min": 1476,
+        "x_max": 2420,
+        "y_max": 1871
+      },
+      "Bounding_box_norm": [
+        0.2914,
+        0.4206,
+        0.4876,
+        0.5332
+      ],
+      "Ports": [
+        {
+          "mark": "I01",
+          "side": "top",
+          "point_px": {
+            "x": 1536,
+            "y": 1476
+          },
+          "point_norm": [
+            0.3095,
+            0.4206
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": "C02",
+          "side": "top",
+          "point_px": {
+            "x": 2148,
+            "y": 1475
+          },
+          "point_norm": [
+            0.4328,
+            0.4203
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": "B02",
+          "side": "top",
+          "point_px": {
+            "x": 2252,
+            "y": 1475
+          },
+          "point_norm": [
+            0.4538,
+            0.4203
+          ],
+          "size": "8\"",
+          "line_number": null
+        },
+        {
+          "mark": "S01",
+          "side": "left",
+          "point_px": {
+            "x": 1466,
+            "y": 1640
+          },
+          "point_norm": [
+            0.2954,
+            0.4674
+          ],
+          "size": "2\"",
+          "line_number": "2\"-S12-66-059067-MS12-H"
+        },
+        {
+          "mark": "N02",
+          "side": "bottom",
+          "point_px": {
+            "x": 2312,
+            "y": 1655
+          },
+          "point_norm": [
+            0.4658,
+            0.4716
+          ],
+          "size": "10\"",
+          "line_number": "10\"-CUL-25-009002-B1A1-NI"
+        },
+        {
+          "mark": "W02",
+          "side": "bottom",
+          "point_px": {
+            "x": 2074,
+            "y": 1871
+          },
+          "point_norm": [
+            0.4179,
+            0.5332
+          ],
+          "size": null,
+          "line_number": null
+        }
+      ],
+      "Score": 1.0
+    },
+    {
+      "Index": 2,
+      "Object": "pump",
+      "Tag": "P-2507A",
+      "Equipment_type": "pump",
+      "Service": "SOLVENT PUMPS",
+      "Size": "",
+      "Evidence": "both (agree)",
+      "Left": 3310,
+      "Top": 1800,
+      "Width": 135,
+      "Height": 73,
+      "Bounding_box_px": {
+        "x_min": 3310,
+        "y_min": 1800,
+        "x_max": 3445,
+        "y_max": 1873
+      },
+      "Bounding_box_norm": [
+        0.6669,
+        0.513,
+        0.6941,
+        0.5338
+      ],
+      "Ports": [
+        {
+          "mark": null,
+          "side": "top",
+          "point_px": {
+            "x": 3407,
+            "y": 1800
+          },
+          "point_norm": [
+            0.6865,
+            0.513
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": null,
+          "side": "bottom",
+          "point_px": {
+            "x": 3407,
+            "y": 1873
+          },
+          "point_norm": [
+            0.6865,
+            0.5338
+          ],
+          "size": null,
+          "line_number": "10\"-CUL-25-009003-B1A1-NI"
+        }
+      ],
+      "Score": 1.0
+    },
+    {
+      "Index": 3,
+      "Object": "pump",
+      "Tag": "P-2507B",
+      "Equipment_type": "pump",
+      "Service": "SOLVENT PUMPS",
+      "Size": "",
+      "Evidence": "both (agree)",
+      "Left": 3669,
+      "Top": 1799,
+      "Width": 135,
+      "Height": 74,
+      "Bounding_box_px": {
+        "x_min": 3669,
+        "y_min": 1799,
+        "x_max": 3804,
+        "y_max": 1873
+      },
+      "Bounding_box_norm": [
+        0.7393,
+        0.5127,
+        0.7665,
+        0.5338
+      ],
+      "Ports": [
+        {
+          "mark": null,
+          "side": "top",
+          "point_px": {
+            "x": 3705,
+            "y": 1799
+          },
+          "point_norm": [
+            0.7465,
+            0.5127
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": null,
+          "side": "bottom",
+          "point_px": {
+            "x": 3705,
+            "y": 1873
+          },
+          "point_norm": [
+            0.7465,
+            0.5338
+          ],
+          "size": null,
+          "line_number": "10\"-CUL-25-009003-B1A1-NI"
+        }
+      ],
+      "Score": 1.0
+    }
+  ],
+  "unresolved": [
+    {
+      "what": "line number and size at D-2507 nozzle I01",
+      "why": "The 6\" run feeding I01 passes a tee at approx (1535,1200); the nearest label, 6\"-CUL-25-008001-B1A1-NI at (941,656), sits upstream of that branch, so it cannot be carried to the nozzle under the adjacent-text-only rule.",
+      "location_hint_px": [
+        1536,
+        1476
+      ]
+    },
+    {
+      "what": "line number and size at D-2507 boot nozzle W02",
+      "why": "No size or line-number text is printed adjacent to the boot outlet; 2\"-FD-25-009011-B1A2-NI and 1½\"-FD-25-009010-B1A1-NI both run below the boot and neither could be tied to it from this sheet.",
+      "location_hint_px": [
+        2074,
+        1871
+      ]
+    },
+    {
+      "what": "line number at the P-2507A/B discharge (top) ports",
+      "why": "Two 6\" labels sit above the discharge header - 6\"-CUL-25-009004-B1A1-NI at (3593,1329) and 6\"-CUL-25-009005-B1A1-NI at (3599,1534) - and neither is unambiguously the header the pump nozzles land on.",
+      "location_hint_px": [
+        3407,
+        1800
+      ]
+    },
+    {
+      "what": "pump nozzle sizes",
+      "why": "Only reducer callouts are printed adjacent (3\"X6\" at the discharge, 10\"X4\" at the suction). Reading a nozzle size off a reducer callout requires choosing an end, which is inference, not adjacent text.",
+      "location_hint_px": [
+        3407,
+        1873
+      ]
+    }
+  ],
+  "verification": "overlay rendered and visually checked: yes - equipment data blocks, title block, both drum heads, the water boot, every nozzle mark and both pump symbols were measured on gridded crops at 3x-7x, then the boxes and port markers were drawn onto the source raster and inspected at full sheet and per item."
+}

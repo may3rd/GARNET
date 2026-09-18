@@ -1,0 +1,48 @@
+{
+  "source_drawing": "14780-8120-25-25-0007A Rev Z1",
+  "coordinate_frame": {
+    "width_px": 4963,
+    "height_px": 3509,
+    "dpi": null,
+    "page_pt": null,
+    "page_rotate_deg": 0,
+    "note": "Raster JPEG 4963x3509px, no PDF/text layer, no /Rotate. Aspect 4963/3509=1.4144 vs ISO A-series 1.4142 -> un-rotated, un-stretched. Coordinates are pixels in this image, origin top-left, x right, y down, integers."
+  },
+  "objects": [
+    {
+      "Index": 1,
+      "Object": "Column",
+      "Tag": "V-2502",
+      "Equipment_type": "Column",
+      "Service": "OIL EXTRACTION COLUMN",
+      "Size": "1700mm DIA x 19700mm (T/T)",
+      "Evidence": "both (agree)",
+      "Left": 1754,
+      "Top": 902,
+      "Width": 194,
+      "Height": 1407,
+      "Bounding_box_px": {"x_min": 1754, "y_min": 902, "x_max": 1948, "y_max": 2309},
+      "Bounding_box_norm": [0.3534, 0.2571, 0.3925, 0.658],
+      "Score": 1.0,
+      "Ports": [
+        {"mark": "AO", "side": "top", "point_px": {"x": 1826, "y": 902}, "point_norm": [0.3679, 0.2571], "size": "6\"", "line_number": "6\"-CUL-25-007007-B2A2-NI"},
+        {"mark": "BO", "side": "top", "point_px": {"x": 1871, "y": 910}, "point_norm": [0.3769, 0.2593], "size": "8\"", "line_number": null},
+        {"mark": "AU", "side": "left", "point_px": {"x": 1754, "y": 976}, "point_norm": [0.3534, 0.2782], "size": "3\"", "line_number": "3\"-CUL-25-007011-N2A1-ET"},
+        {"mark": "AI", "side": "left", "point_px": {"x": 1754, "y": 1286}, "point_norm": [0.3534, 0.3665], "size": "4\"", "line_number": "3'-PL-25-007001-N2A1-ET"},
+        {"mark": "BI", "side": "left", "point_px": {"x": 1754, "y": 1951}, "point_norm": [0.3534, 0.556], "size": null, "line_number": null},
+        {"mark": "BS", "side": "left", "point_px": {"x": 1754, "y": 2250}, "point_norm": [0.3534, 0.6412], "size": "2\"", "line_number": "2\"-S12-66-059047-MS12-H"},
+        {"mark": "CO", "side": "bottom", "point_px": {"x": 1819, "y": 2309}, "point_norm": [0.3665, 0.658], "size": "3\"", "line_number": null}
+      ]
+    }
+  ],
+  "unresolved": [
+    {"what": "AM nozzle mark, 24\" ID circle on vessel upper shell", "why": "labeled manway/instrument boss with no connecting process line drawn to it; excluded per manway rule, not a port", "location_hint_px": [1859, 1018]},
+    {"what": "BM nozzle mark, 24\" ID circle on vessel lower shell", "why": "labeled manway/instrument boss with no connecting process line drawn to it; excluded per manway rule, not a port", "location_hint_px": [1859, 2218]},
+    {"what": "AL1/AN1/AN2/AL2 nozzle marks, right side of vessel", "why": "feed level gauge LG-R 0702 A/B (bridle gauge glass); excluded as vessel level-bridle taps, not process ports", "location_hint_px": [1948, 1100]},
+    {"what": "AP nozzle mark, left side of vessel", "why": "feeds only PI 0701 (local pressure indicator); excluded as instrument tapping, not a process port", "location_hint_px": [1754, 1050]},
+    {"what": "size/line_number for port BI", "why": "nozzle stub drawn but no size or line-number text found adjacent to it or along its short run; not inferable", "location_hint_px": [1754, 1951]},
+    {"what": "line_number for port BO", "why": "only a bare size callout (8\") found adjacent; no multi-part line number nearby", "location_hint_px": [1871, 910]},
+    {"what": "line_number for port CO", "why": "only a bare size callout (3\") found on the immediate downstream segment before further tees; a specific multi-part line number could not be confidently attributed", "location_hint_px": [1819, 2400]}
+  ],
+  "verification": "overlay rendered and visually checked: yes"
+}

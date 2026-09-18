@@ -1,0 +1,129 @@
+{
+  "id": "0556462a-image.jpg",
+  "objects": [
+    {
+      "Index": 1,
+      "Object": "line number",
+      "CategoryID": 1,
+      "ObjectID": 1,
+      "Left": 3255,
+      "Top": 606,
+      "Width": 344,
+      "Height": 23,
+      "Score": 1.0,
+      "Text": "3\"-PL-25-007001-N2A1-ET"
+    },
+    {
+      "Index": 2,
+      "Object": "line number",
+      "CategoryID": 1,
+      "ObjectID": 2,
+      "Left": 2511,
+      "Top": 983,
+      "Width": 331,
+      "Height": 23,
+      "Score": 1.0,
+      "Text": "2\"-F-25-007005-L1A1-ET"
+    },
+    {
+      "Index": 3,
+      "Object": "line number",
+      "CategoryID": 1,
+      "ObjectID": 3,
+      "Left": 2513,
+      "Top": 1114,
+      "Width": 331,
+      "Height": 23,
+      "Score": 1.0,
+      "Text": "2\"-F-25-007006-L1A1-ET"
+    },
+    {
+      "Index": 4,
+      "Object": "line number",
+      "CategoryID": 1,
+      "ObjectID": 4,
+      "Left": 1985,
+      "Top": 1196,
+      "Width": 20,
+      "Height": 364,
+      "Score": 1.0,
+      "Text": "1½\"-PL-25-007003-N2A1-ET"
+    },
+    {
+      "Index": 5,
+      "Object": "line number",
+      "CategoryID": 1,
+      "ObjectID": 5,
+      "Left": 2253,
+      "Top": 1540,
+      "Width": 367,
+      "Height": 23,
+      "Score": 1.0,
+      "Text": "1½\"-PL-25-007004-N2A1-ET"
+    },
+    {
+      "Index": 6,
+      "Object": "line number",
+      "CategoryID": 1,
+      "ObjectID": 6,
+      "Left": 1371,
+      "Top": 2113,
+      "Width": 347,
+      "Height": 23,
+      "Score": 1.0,
+      "Text": "3\"-PL-25-006002-TFE2-ET"
+    },
+    {
+      "Index": 7,
+      "Object": "line number",
+      "CategoryID": 1,
+      "ObjectID": 7,
+      "Left": 3266,
+      "Top": 2768,
+      "Width": 349,
+      "Height": 23,
+      "Score": 1.0,
+      "Text": "½\"-SA-25-010007-L2A1-NI"
+    },
+    {
+      "Index": 8,
+      "Object": "line number",
+      "CategoryID": 1,
+      "ObjectID": 8,
+      "Left": 3262,
+      "Top": 2886,
+      "Width": 340,
+      "Height": 23,
+      "Score": 1.0,
+      "Text": "2\"-PL-25-013003-B1A2-NI"
+    },
+    {
+      "Index": 9,
+      "Object": "line number",
+      "CategoryID": 1,
+      "ObjectID": 9,
+      "Left": 3260,
+      "Top": 3001,
+      "Width": 352,
+      "Height": 23,
+      "Score": 1.0,
+      "Text": "2\"-PL-25-007002-N2A1-ET"
+    },
+    {
+      "Index": 10,
+      "Object": "line number",
+      "CategoryID": 1,
+      "ObjectID": 10,
+      "Left": 423,
+      "Top": 3116,
+      "Width": 354,
+      "Height": 23,
+      "Score": 1.0,
+      "Text": "2\"-PL-25-006002-N2A1-ET"
+    }
+  ],
+  "image_url": "",
+  "image_width": 4963,
+  "image_height": 3509,
+  "count": 10
+}

@@ -1,0 +1,49 @@
+{
+  "source_drawing": "14780-8120-25-25-0004 Rev Z1",
+  "coordinate_frame": {
+    "width_px": 4963,
+    "height_px": 3509,
+    "dpi": null,
+    "page_pt": null,
+    "page_rotate_deg": 0,
+    "note": "Raster JPEG 4963x3509px, no PDF/text layer, no /Rotate. Aspect 1.4144 vs ISO A-series 1.4142 -> un-rotated, un-stretched. Pixel coords, origin top-left, x right, y down, integers."
+  },
+  "objects": [
+    {
+      "Index": 1,
+      "Object": "Vessel",
+      "Tag": "D-2501",
+      "Equipment_type": "Vessel",
+      "Service": "CUMENE-AMS WATER WASH",
+      "Size": "1600mm x 7200mm (dia x length T/T)",
+      "Evidence": "both (agree)",
+      "Left": 1713,
+      "Top": 902,
+      "Width": 179,
+      "Height": 803,
+      "Bounding_box_px": {"x_min": 1713, "y_min": 902, "x_max": 1892, "y_max": 1705},
+      "Bounding_box_norm": [0.3451, 0.2571, 0.3812, 0.4860],
+      "Score": 1.0,
+      "Ports": [
+        {"mark": "U02", "side": "left", "point_px": {"x": 1713, "y": 1076}, "point_norm": [0.3451, 0.3067], "size": "4\"", "line_number": "4\"-CUL-25-004004-B1A2-NI"},
+        {"mark": "R02A", "side": "left", "point_px": {"x": 1713, "y": 1148}, "point_norm": [0.3451, 0.3272], "size": "2\"", "line_number": null},
+        {"mark": "R02B", "side": "left", "point_px": {"x": 1713, "y": 1176}, "point_norm": [0.3451, 0.3352], "size": "2\"", "line_number": null},
+        {"mark": "R02C", "side": "left", "point_px": {"x": 1713, "y": 1193}, "point_norm": [0.3451, 0.3400], "size": "2\"", "line_number": null},
+        {"mark": "J02A", "side": "left", "point_px": {"x": 1713, "y": 1460}, "point_norm": [0.3451, 0.4161], "size": "3\"", "line_number": "3\"-CUL-25-004001-B1A2-NI"},
+        {"mark": "J02B", "side": "left", "point_px": {"x": 1713, "y": 1550}, "point_norm": [0.3451, 0.4417], "size": null, "line_number": null},
+        {"mark": "S02", "side": "left", "point_px": {"x": 1713, "y": 1664}, "point_norm": [0.3451, 0.4743], "size": "2\"", "line_number": null},
+        {"mark": "O01", "side": "top", "point_px": {"x": 1855, "y": 905}, "point_norm": [0.3737, 0.2579], "size": null, "line_number": null},
+        {"mark": "Q02A", "side": "right", "point_px": {"x": 1892, "y": 1092}, "point_norm": [0.3812, 0.3112], "size": "2\"", "line_number": null},
+        {"mark": "L02A", "side": "right", "point_px": {"x": 1892, "y": 1123}, "point_norm": [0.3812, 0.3201], "size": "2\"", "line_number": null},
+        {"mark": "P02", "side": "right", "point_px": {"x": 1892, "y": 1244}, "point_norm": [0.3812, 0.3545], "size": "2\"", "line_number": null},
+        {"mark": "L02C", "side": "right", "point_px": {"x": 1892, "y": 1310}, "point_norm": [0.3812, 0.3733], "size": "2\"", "line_number": null},
+        {"mark": "L02B", "side": "right", "point_px": {"x": 1892, "y": 1360}, "point_norm": [0.3812, 0.3876], "size": "2\"", "line_number": null},
+        {"mark": "L02D", "side": "right", "point_px": {"x": 1892, "y": 1573}, "point_norm": [0.3812, 0.4483], "size": "2\"", "line_number": null},
+        {"mark": "Q02B", "side": "right", "point_px": {"x": 1892, "y": 1591}, "point_norm": [0.3812, 0.4534], "size": "2\"", "line_number": null},
+        {"mark": "W03", "side": "bottom", "point_px": {"x": 1800, "y": 1705}, "point_norm": [0.3627, 0.4860], "size": null, "line_number": null}
+      ]
+    }
+  ],
+  "unresolved": [],
+  "verification": "overlay rendered and visually checked: yes"
+}
