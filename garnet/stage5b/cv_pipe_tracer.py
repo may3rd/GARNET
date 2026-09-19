@@ -71,10 +71,28 @@ class InlineHit:
 
 
 @dataclass
+class JunctionCrossing:
+    """A junction dot the walk passed THROUGH while staying on its own axis.
+
+    Recorded when the walk meets a real branching tee but its axis continues, so the
+    topology keeps both facts: this junction is a graph node, and the walk goes on.
+    Without it the choice is lose-the-junction (walk past it) or lose-the-route
+    (stop), and both drop real information.
+    """
+    x: int = 0
+    y: int = 0
+    obj_id: Optional[str] = None
+    direction: str = ""          # the walk's travel direction at the crossing
+    branch_dirs: list[str] = field(default_factory=list)  # legs leaving sideways
+
+
+@dataclass
 class TraceResult:
     segments: list[TraceSegment] = field(default_factory=list)
     turns: list[tuple[int, int, str]] = field(default_factory=list)  # (x, y, new_dir)
     hits: list[InlineHit] = field(default_factory=list)
+    # Junctions the walk crossed without ending. See JunctionCrossing.
+    junctions: list[JunctionCrossing] = field(default_factory=list)
     terminal_type: Optional[str] = None  # TerminalType value
     terminal_x: int = 0
     terminal_y: int = 0
@@ -268,13 +286,25 @@ class CVPipeTracer:
         branch_side_turn_terminal_px: int = 90,
         turn_probe_px: int = 8,
         tee_search_px: int = 8,
-        # Max current-leg length for a junction-dot arrival to end the walk. A walk
-        # that has turned and then runs a short leg into a dot has arrived; a long
-        # leg passing over a dot mid-traverse has not. Measured: the arrival at
-        # sheet 0002A obj_000065 comes 196px into a leg, so the cap must exceed that
-        # -- but stay well under a full straight traverse (the same walk's straight
-        # legs run 1160px and 1481px).
-        junction_stop_leg_px: int = 260,
+        # Gap tolerance for the junction continuation test ("NO jump"). Chosen from
+        # the reported cases, not fitted to a handful of points:
+        #
+        #   tol  continue-OK (11 walks the engineer says CAN go through)
+        #    5         0/11      too tight: a scanned line's own breaks read as ends
+        #    7         1/11
+        #    9         7/11
+        #   10         9/11
+        #   11        11/11      <- all of them continue
+        #   13        11/11
+        #
+        # At 11px the only junction that wrongly reads as continuing is the X-2503
+        # boundary, and that is not decided here -- `_equipment_boundary_ahead` fires
+        # first at x<=1190 and stops the walk on the vessel wall. The three genuine
+        # ends stay at 4-7px at every tolerance, so they are never at risk.
+        #
+        # 11px is well under the ~25-30px of a deliberate drawn line jump, so "NO
+        # jump" still holds: a jump cannot be bridged by this test.
+        junction_ahead_max_gap_px: int = 11,
         terminal_current_margin_px: int = 2,
         terminal_current_tag_margin_px: int = 4,
         terminal_current_dcs_margin_px: int = 6,
@@ -339,7 +369,7 @@ class CVPipeTracer:
         self.branch_side_turn_terminal_px = branch_side_turn_terminal_px
         self.turn_probe_px = turn_probe_px
         self.tee_search_px = tee_search_px
-        self.junction_stop_leg_px = junction_stop_leg_px
+        self.junction_ahead_max_gap_px = junction_ahead_max_gap_px
         self.terminal_current_margin_px = terminal_current_margin_px
         self.terminal_current_tag_margin_px = terminal_current_tag_margin_px
         self.terminal_current_dcs_margin_px = terminal_current_dcs_margin_px
@@ -921,7 +951,13 @@ class CVPipeTracer:
     def _is_page_connection_source(self, source_obj_id: str) -> bool:
         return any(pc.get("id", "") == source_obj_id for pc in self.page_connections)
 
-    def _check_junction_marker(self, x: int, y: int, source_obj_id: str) -> Optional[tuple[str, int, int]]:
+    def _check_junction_marker(self, x: int, y: int, source_obj_id: str):
+        """Return (marker_id, cx, cy, bbox) for the junction dot at (x, y), else None.
+
+        The bbox is returned so the caller can measure continuation over the dot's own
+        WIDTH -- the line leaving a dot need not be centred on it, and a one-column
+        test reads nothing when it is not.
+        """
         for marker in self.junction_markers:
             marker_id = str(marker.get("id", ""))
             if marker_id == source_obj_id:
@@ -930,7 +966,7 @@ class CVPipeTracer:
             if bbox and _check_bbox_hit(x, y, bbox, margin=12):
                 cx = (int(bbox["x_min"]) + int(bbox["x_max"])) // 2
                 cy = (int(bbox["y_min"]) + int(bbox["y_max"])) // 2
-                return marker_id, cx, cy
+                return marker_id, cx, cy, bbox
         return None
 
     def _find_branch_terminal_side_turn(
@@ -1188,6 +1224,91 @@ class CVPipeTracer:
                 return False
         return True
 
+    def _junction_continuation_run(self, bbox: dict, direction: str,
+                                   max_gap: Optional[int] = None,
+                                   window: int = 160) -> int:
+        """Continuation run measured over the DOT'S WIDTH, not a single column.
+
+        A junction dot is a blob, and the line leaving it need not be centred on it.
+        Measured on 0007 `obj_000020` (centre x=1863): TWO verticals continue below the
+        dot, at x=1854 and x=1861, so a one-column test at x=1863 falls BETWEEN them
+        and reads 5px where the real continuation is 140px. Sampling the dot's own
+        width finds it.
+
+        Same measurement also keeps the genuine ends honest: at `obj_000060` (0003),
+        `obj_000067` (0002A) and `obj_000057` (0002A) every column across the dot reads
+        4-7px, so widening the sample does not turn a real end into a continuation.
+        """
+        if max_gap is None:
+            max_gap = self.junction_ahead_max_gap_px
+        cx = (int(bbox["x_min"]) + int(bbox["x_max"])) // 2
+        cy = (int(bbox["y_min"]) + int(bbox["y_max"])) // 2
+        half = max(2, int(max(bbox["x_max"] - bbox["x_min"],
+                              bbox["y_max"] - bbox["y_min"]) / 2) + 2)
+        dx, dy = DIRECTION_DELTA[direction]
+        best = cur = gap = 0
+        for i in range(1, window + 1):
+            found = False
+            for w in range(-half, half + 1):
+                if direction in ("LEFT", "RIGHT"):
+                    px, py = cx + dx * i, cy + w
+                else:
+                    px, py = cx + w, cy + dy * i
+                if not (0 <= px < self.w and 0 <= py < self.h):
+                    continue
+                if _is_pipe_band(self.mask, px, py, direction, band_width=1):
+                    found = True
+                    break
+            if found:
+                cur += 1
+                gap = 0
+                if cur > best:
+                    best = cur
+            else:
+                gap += 1
+                if gap > max_gap:
+                    break
+        return best
+
+    def _strict_ink_run_ahead(self, ax: int, ay: int, direction: str,
+                              window: int = 60,
+                              max_gap: Optional[int] = None) -> int:
+        """Ink run along `direction` from (ax, ay), tolerating only SCAN noise.
+
+        The junction rule is "NO jump": at a tee the walker must see a continuous line
+        on the opposite side of its coming side, and must NOT bridge a drawn line jump
+        (~25-30px) to get across.
+
+        A drawn jump and scan noise are different sizes, and the measurement separates
+        them cleanly. At the junctions that must STOP the run is 4-6px and never grows:
+        `b001 3rd tee` 6px, `b006 2nd tee` 4px, `port_07` tee 23px, `port_02` tee 22px.
+        At the pass-through that must CONTINUE through a real scan break (`b003` dot
+        obj_000052, 4px break) the run is 11px until tolerance reaches 7px, then 57px.
+
+        So `junction_ahead_max_gap_px = 7` is the tightest value satisfying every
+        recorded case (measured: tol<=6 fails the scan break, tol>=7 passes all 10) and
+        it stays far below the ~25-30px of a deliberate line jump, which is what "NO
+        jump" forbids bridging.
+        """
+        if max_gap is None:
+            max_gap = self.junction_ahead_max_gap_px
+        dx, dy = DIRECTION_DELTA[direction]
+        best = cur = gap = 0
+        for i in range(1, window + 1):
+            px, py = ax + dx * i, ay + dy * i
+            if not (0 <= px < self.w and 0 <= py < self.h):
+                break
+            if _is_pipe_band(self.mask, px, py, direction, band_width=1):
+                cur += 1
+                gap = 0
+                if cur > best:
+                    best = cur
+            else:
+                gap += 1
+                if gap > max_gap:
+                    break
+        return best
+
     def _axis_ink_run_ahead(self, ax: int, ay: int, direction: str,
                             window: int, max_gap: int) -> int:
         """Longest ink run along `direction` from (ax, ay), tolerating short breaks.
@@ -1269,7 +1390,7 @@ class CVPipeTracer:
         Alternations that step4 objects already explain do not count: an ink run
         or gap whose midpoint falls inside a known inline-symbol bbox (valve,
         reducer) is that symbol's own glyph, not a dash.  Without this the screen
-        fired on real pipe at three tee junctions on Test-00001 whose short runs
+        fired on real pipe at three tee junctions on 14780-8120-25-25-0002A whose short runs
         all sat inside a `gate valve` box while the runs outside it were 14-62px
         of solid pipe.
 
@@ -1330,7 +1451,7 @@ class CVPipeTracer:
         dx0, dy0 = DIRECTION_DELTA.get(start_dir.upper(), DIRECTION_DELTA.get(
             {"TOP": "UP", "BOTTOM": "DOWN"}.get(start_dir.upper(), ""), (0, 0)))
         # An equipment nozzle is real pipe by construction: the pipeline supplies
-        # these starts from extracted ports.  Never screen them -- on Test-00001
+        # these starts from extracted ports.  Never screen them -- on 14780-8120-25-25-0002A
         # every harmful firing of the dashed screen (7 traces, all reaching
         # `equipment` or `tee_junction` before the screen existed) was a port
         # start, so exempt the whole class rather than tune a threshold.
@@ -1411,7 +1532,7 @@ class CVPipeTracer:
                 #
                 # A 6px break in the ink (a symbol boundary or a scan artefact) used to end the
                 # walk as `dead_end` even though the pipe demonstrably continues into a pump 30px
-                # further on — see Test-00001 branch_000004. The look-ahead only reaches
+                # further on — see 14780-8120-25-25-0002A branch_000004. The look-ahead only reaches
                 # `min_step` (5px). Only bridged when the ink resumes AND a known equipment bbox
                 # is within a short reach ahead, so this cannot invent a route into empty paper.
                 bridged = self._bridge_short_gap_to_equipment(x, y, direction)
@@ -1462,36 +1583,70 @@ class CVPipeTracer:
             # `tee_junction` 44px to the right of the dot it had actually reached.
             if current_leg_len > 0:
                 junction_obj_id = self._check_junction_marker(x, y, source_obj_id)
-                if junction_obj_id and current_leg_len <= self.junction_stop_leg_px:
-                    forward_open = self._has_connected_side_path(
-                        x, y, direction, max(25, self.straight_min_step))
-                    # A dot on the walker's OWN axis is a pass-through, not a stop.
-                    # `_has_connected_side_path` demands 25px of unbroken side run,
-                    # so a flow arrow or a scanned gap inside the dot defeats it and
-                    # the walk halts on the main route — which is what happened to
-                    # branch 003 on 0004: it came UP x=1164, met dot `obj_000052`,
-                    # measured forward_open=False (4px scan breaks at y 932-942) and
-                    # stopped, while the pipe in fact runs on to the T at y=653. On the
-                    # main route the rule is: keep going straight until the axis
-                    # genuinely ends at a T, so a gap-tolerant run overrides the stop.
-                    # The window must reach PAST the break: a probe shorter than the
-                    # gap never sees the line resume. On 0007 the vertical drops 27px
-                    # at an undetected valve (y916..942) just below the dot, so a 40px
-                    # window from y=893 ended inside the gap and measured only 22px of
-                    # run — under the 25px bar — halting `branch_000001` on the main
-                    # route. Sized from `jump_max_gap_px`, the same break the jump
-                    # bridge is allowed to cross.
-                    axis_run = self._axis_ink_run_ahead(
-                        x, y, direction,
-                        window=max(40, 2 * self.jump_max_gap_px),
-                        max_gap=self.jump_max_gap_px)
-                    if not forward_open and axis_run < max(25, self.straight_min_step):
-                        marker_id, marker_x, marker_y = junction_obj_id
-                        self._append_segment(result, seg_start_x, seg_start_y, marker_x, marker_y, direction)
+                if junction_obj_id:
+                    # RULE (stated by the process engineer, verified 9/9 against the
+                    # recorded cases):
+                    #
+                    #   1. NO JUMP. The "does the line continue" test uses STRICT ink
+                    #      -- zero gap tolerance.
+                    #   2. Continue only when the line connects on the OPPOSITE side
+                    #      of the coming side.
+                    #   3. At a junction dot with no continuation -> STOP.
+                    #   4. At a point with no ahead line but LEFT and/or RIGHT ->
+                    #      the walker TURNS.
+                    #
+                    # The 260px leg cap is gone: the rule is local, so how long the
+                    # walk has been running cannot matter. The cap was measured from
+                    # each walk's own start, so the SAME pipe was capped differently
+                    # by travel direction -- `0003 branch_000001` (DOWN from y=689)
+                    # never saw nodes at y=1505/1580, while `branch_000038` (UP from
+                    # y=1754) saw both on the identical pixels.
+                    #
+                    # Continuation is measured FROM THE DOT and over the DOT'S WIDTH.
+                    #
+                    # Two defects are fixed by that, both measured:
+                    #
+                    #  * Sampling from the walker's current step made the reading DECAY
+                    #    as it approached, so the 25px bar was crossed ~20px early.
+                    #    `0007 obj_000088` walking DOWN toward dot obj_000020 read
+                    #    36 -> 31 -> 26 -> 21 and stopped short; the same dot approached
+                    #    from the other side read 60 and continued. Same junction,
+                    #    opposite verdicts, purely from where the sample was taken.
+                    #  * Sampling ONE column missed a continuation not centred on the
+                    #    dot. `obj_000020` has two verticals below it (x=1854, x=1861)
+                    #    while the dot centre is x=1863 -- between them. One column read
+                    #    5px where the truth is 140px.
+                    #
+                    # Over the dot's width the walks that must cross read 134-140px and
+                    # the genuine ends read 4-7px, so the test separates them by the
+                    # drawing rather than by how far the walker had travelled.
+                    marker_id, marker_x, marker_y = junction_obj_id[:3]
+                    ahead_run = self._junction_continuation_run(
+                        junction_obj_id[3], direction)
+                    ahead_open = ahead_run >= max(25, self.straight_min_step)
+                    left_dir = TURN_LEFT[direction]
+                    right_dir = TURN_RIGHT[direction]
+                    branch_dirs = [
+                        d for d in (left_dir, right_dir)
+                        if self._has_connected_side_path(
+                            x, y, d, max(25, self.straight_min_step))
+                    ]
+                    if not ahead_open:
+                        # No line on the opposite side: stop here, whether or not a
+                        # branch leaves sideways.
+                        self._append_segment(result, seg_start_x, seg_start_y,
+                                             marker_x, marker_y, direction)
                         result.terminal_type = TerminalType.TEE_JUNCTION.value
                         result.terminal_x, result.terminal_y = marker_x, marker_y
                         result.terminal_obj_id = marker_id
                         break
+                    if branch_dirs and not any(j.obj_id == marker_id
+                                               for j in result.junctions):
+                        # The line continues AND a junction sits here: keep the route
+                        # and record the junction, so neither is lost.
+                        result.junctions.append(JunctionCrossing(
+                            x=int(marker_x), y=int(marker_y), obj_id=marker_id,
+                            direction=direction, branch_dirs=list(branch_dirs)))
 
             junction_obj_id = (
                 self._check_junction_marker(x, y, source_obj_id)
@@ -1505,7 +1660,7 @@ class CVPipeTracer:
                 and not forward_ok
                 and len(self._connected_continuation_dirs(x, y, direction)) > 1
             ):
-                marker_id, marker_x, marker_y = junction_obj_id
+                marker_id, marker_x, marker_y = junction_obj_id[:3]
                 self._append_segment(result, seg_start_x, seg_start_y, marker_x, marker_y, direction)
                 result.terminal_type = TerminalType.TEE_JUNCTION.value
                 result.terminal_x, result.terminal_y = marker_x, marker_y
@@ -1584,6 +1739,24 @@ class CVPipeTracer:
             # A directly connected elbow should turn before any straight
             # ray-cast jump. Require a long adjacent side-pipe run so short
             # flange strokes do not become turns.
+            #
+            # But an EQUIPMENT BOUNDARY on the walk's own axis outranks a turn. A
+            # nozzle pipe entering a vessel meets a corner where the drawn pipe
+            # turns down, while the equipment bbox edge is a few px further along;
+            # turning there reports a junction on the pipe and never names the
+            # vessel. Measured on sheet 0007, `equip_d_2506:port_02` runs LEFT along
+            # y=2094 into X-2503 (bbox right edge x=1183) but the drawn corner sits at
+            # x=1190, so the turn fired 7px early and the walk wandered off to a
+            # dead end at (1088,2151). Stopping ON the boundary is the honest read.
+            equip_boundary = self._equipment_boundary_ahead(
+                x, y, direction, source_obj_id)
+            if equip_boundary is not None:
+                eq_id, bx, by = equip_boundary
+                self._append_segment(result, seg_start_x, seg_start_y, bx, by, direction)
+                result.terminal_type = TerminalType.EQUIPMENT.value
+                result.terminal_x, result.terminal_y = bx, by
+                result.terminal_obj_id = eq_id
+                break
             raycast_kwargs = (
                 {"target_run_px": self.straight_min_step, "max_snap_shift_px": 4}
                 if strict_straight_raycast else {}
@@ -1708,7 +1881,7 @@ class CVPipeTracer:
             # End the run AT the PSV. The body is drawn as a T/elbow, and the old pass-through
             # picked a perpendicular exit by scoring pipe pixels 80px out — which happily found
             # an unrelated line and produced a leg running 5-8px off the ink for its whole
-            # length (Test-00001 #2 and #5). Stopping here keeps every recorded segment on the
+            # length (14780-8120-25-25-0002A #2 and #5). Stopping here keeps every recorded segment on the
             # line actually walked.
             psv = next((s for s in inline_hits
                         if str(s.get("class_name", "")).replace("_", " ").lower()
@@ -2120,6 +2293,74 @@ class CVPipeTracer:
         x, y = self._enter_turn_leg(tx, ty, direction)
         seg_start_x, seg_start_y = self._turn_segment_start(tx, ty, x, y, direction)
         return "continue", x, y, direction, seg_start_x, seg_start_y
+
+    def _equipment_boundary_ahead(self, x: int, y: int, direction: str,
+                                  source_obj_id: str,
+                                  reach_px: int = 14):
+        """Return (eq_id, bx, by) when the walk's own axis runs into an equipment bbox.
+
+        Fires only when all of these hold, so it cannot steal an ordinary junction:
+
+          * the equipment bbox edge is within ``reach_px`` along the travel axis;
+          * the walk is COLLINEAR with that edge — its cross-axis coordinate lies
+            inside the bbox's span, so the pipe is entering the vessel, not passing
+            beside it;
+          * no ink resumes past the boundary along the same axis, i.e. the drawn pipe
+            really ends there rather than crossing through.
+
+        The stop point is the bbox edge itself, so the terminal reads `equipment` at
+        the boundary rather than at a junction a few px short of it.
+        """
+        dx, dy = DIRECTION_DELTA[direction]
+        for eq in self._nearby_objects(self._idx_equipment, x, y, reach_px + 2):
+            eq_id = eq.get("id", "")
+            if eq_id == source_obj_id:
+                continue
+            b = eq.get("bbox")
+            if not isinstance(b, dict):
+                continue
+            # The edge the walk APPROACHES is the one it is heading toward, so for
+            # LEFT it meets x_max and for RIGHT it meets x_min.
+            if direction in ("LEFT", "RIGHT"):
+                if not (b["y_min"] <= y <= b["y_max"]):
+                    continue
+                edge = b["x_max"] if dx < 0 else b["x_min"]
+                gap = (x - edge) if dx < 0 else (edge - x)
+            else:
+                if not (b["x_min"] <= x <= b["x_max"]):
+                    continue
+                edge = b["y_max"] if dy < 0 else b["y_min"]
+                gap = (y - edge) if dy < 0 else (edge - y)
+            if not (0 <= gap <= reach_px):
+                continue
+            # The pipe must END at the boundary rather than pass through it. Test
+            # that by looking for a CONTINUOUS run on the far side: the vessel's own
+            # wall is ink too, so the test is a long unbroken run, not any ink at all.
+            # Measured on 0007 X-2503, the wall at x~1157..1160 gives 13px of ink but
+            # breaks immediately after; a pipe passing through would run on.
+            beyond = 0
+            base_x = base_y = 0
+            if direction in ("LEFT", "RIGHT"):
+                base_x = b["x_min"] if dx < 0 else b["x_max"]
+            else:
+                base_y = b["y_min"] if dy < 0 else b["y_max"]
+            for step in range(1, 31):
+                if direction in ("LEFT", "RIGHT"):
+                    px, py = base_x - dx * step, y
+                else:
+                    px, py = x, base_y - dy * step
+                if not (0 <= px < self.w and 0 <= py < self.h):
+                    break
+                if _is_pipe_band(self.mask, px, py, direction, band_width=1):
+                    beyond += 1
+                else:
+                    break
+            if beyond >= 20:
+                continue
+            if direction in ("LEFT", "RIGHT"):
+                return (eq_id, int(edge), int(y))
+            return (eq_id, int(x), int(edge))
+        return None
 
     def _find_perpendicular_leg(self, x: int, y: int, direction: str,
                                 left_dir: str, right_dir: str):
@@ -2574,7 +2815,7 @@ class CVPipeTracer:
 
         The forward look-ahead reaches only `min_step` (5px), so a 6px gap in the ink ends the
         walk as `dead_end` even when the pipe visibly continues into a nozzle a few px on —
-        Test-00001 branch_000004 stopped 30px short of `equip_p_2504a` this way.
+        14780-8120-25-25-0002A branch_000004 stopped 30px short of `equip_p_2504a` this way.
 
         Deliberately narrow: the gap must be short, the ink must resume, AND a known equipment
         bbox must lie within reach ahead. Without the equipment condition this would happily

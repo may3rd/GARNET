@@ -9,8 +9,8 @@ Pipeline:
         -> stage5b_trace_overlay.png + stage5b_branch_trace_overlay.png
 
 Usage (from the repo root):
-    python -m garnet.stage5b.run --stem Test-00001
-    python -m garnet.stage5b.run --stem Test-00001 --out output/s5b_test01
+    python -m garnet.stage5b.run --stem 14780-8120-25-25-0002A
+    python -m garnet.stage5b.run --stem 14780-8120-25-25-0002A --out output/s5b_test01
 
 Run with the repo venv: /Users/maetee/Code/GARNET/.venv/bin/python
 """
@@ -105,7 +105,7 @@ def fill_equipment_ports_from_mask(mask, equipment: list[dict],
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Stage 5b pipe tracing from fixtures (backend-free).")
-    p.add_argument("--stem", default="Test-00001")
+    p.add_argument("--stem", default="14780-8120-25-25-0002A")
     p.add_argument("--indir", default="garnet/tests/input")
     p.add_argument("--out", default=None, help="Default: output/stage5b_<stem>")
     p.add_argument("--debug-artifacts", action="store_true",

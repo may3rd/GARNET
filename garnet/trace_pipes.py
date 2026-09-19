@@ -20,8 +20,8 @@ Outputs into --out:
     pipe_mask.png                                     the mask that was walked
 
 Usage:
-    python garnet/trace_pipes.py --stem Test-00001
-    python garnet/trace_pipes.py --stem Test-00001 --indir garnet/tests/input --out output/trace_test01
+    python garnet/trace_pipes.py --stem 14780-8120-25-25-0002A
+    python garnet/trace_pipes.py --stem 14780-8120-25-25-0002A --indir garnet/tests/input --out output/trace_test01
 
 Run with the repo venv: /Users/maetee/Code/GARNET/.venv/bin/python
 """
@@ -135,7 +135,7 @@ def ocr_text_boxes(image_bgr: np.ndarray, *, confidence_threshold: float = 0.0) 
     """Detect text boxes with macOS Vision (ocrmac), in raster pixel coordinates.
 
     The three fixtures give only 22 line-number boxes, but a sheet carries hundreds of text
-    regions (notes, data blocks, title block, instrument tags). Measured on Test-00001 those
+    regions (notes, data blocks, title block, instrument tags). Measured on 14780-8120-25-25-0002A those
     unsuppressed strokes account for ~83% of the raw mask, and the walker follows them off the
     pipes — which is exactly why the real pipeline suppresses ~557 OCR regions here.
     Returns [] when ocrmac is unavailable, so the script still runs without it.
@@ -230,7 +230,7 @@ def build_pipe_mask(image_bgr: np.ndarray, objects: list[dict], line_numbers: li
     #                         follows instrument bubbles, notes or connectors
     #    Equipment interiors are NOT blanked by default (equipment_inset=0). Blanking them
     #    stops the walker running along a symbol outline, but it also severs the pipe stubs that
-    #    meet the nozzles: measured on Test-00001, blanking dropped total traced length from
+    #    meet the nozzles: measured on 14780-8120-25-25-0002A, blanking dropped total traced length from
     #    10,670 px to 3,757 px and produced three "no_pipe" starts. Leaving the outlines in
     #    costs some branch quality (see the branch filter in main) but keeps the main network
     #    connected, which matters more. Set equipment_inset>0 to trade the other way.
@@ -817,7 +817,7 @@ def draw_trace_overlay(image, traces: dict, terminals: dict, equipment: list[dic
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Trace pipes from the garnet/tests/input fixtures.")
-    p.add_argument("--stem", default="Test-00001")
+    p.add_argument("--stem", default="14780-8120-25-25-0002A")
     p.add_argument("--indir", default="garnet/tests/input")
     p.add_argument("--out", default=None, help="Default: output/trace_<stem>")
     p.add_argument("--branch-iterations", type=int, default=4)

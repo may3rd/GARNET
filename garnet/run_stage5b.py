@@ -22,14 +22,14 @@ Prerequisites, generated on demand if absent:
 
 Usage:
     # from a raster, generating whatever prerequisites are missing
-    python garnet/run_stage5b.py --image garnet/tests/input/Test-00001.jpg --out output/stage5b_test01
+    python garnet/run_stage5b.py --image garnet/tests/input/14780-8120-25-25-0002A.jpg --out output/stage5b_test01
 
     # reuse an existing job that already has stage4/stage5 artifacts
     python garnet/run_stage5b.py --job-dir backend/output/pipeline_jobs/Baseline
 
     # seed detection from a fixture instead of re-running YOLO
     python garnet/run_stage5b.py --image ... --out ... \
-        --stage4-objects garnet/tests/input/Test-00001_objects.json
+        --stage4-objects garnet/tests/input/14780-8120-25-25-0002A_objects.json
 
 Run with the repo venv: /Users/maetee/Code/GARNET/.venv/bin/python
 """

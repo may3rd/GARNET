@@ -1838,6 +1838,20 @@
       },
       "source_model": "ultralytics",
       "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000140",
+      "class_name": "utility connection",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 3006,
+        "y_min": 3097,
+        "x_max": 3065,
+        "y_max": 3157
+      },
+      "source_model": "manual",
+      "source_weight": "",
+      "text": "WW"
     }
   ]
 }

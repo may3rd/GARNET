@@ -19,8 +19,8 @@ Outputs, written into --out:
     stage5b_branch_trace_overlay.png    branch-trace overlay    <- deliverable
 
 Usage:
-    python -m garnet.stage5b.run --stem Test-00001
-    python -m garnet.stage5b.run --stem Test-00001 --indir garnet/tests/input --out output/s5b
+    python -m garnet.stage5b.run --stem 14780-8120-25-25-0002A
+    python -m garnet.stage5b.run --stem 14780-8120-25-25-0002A --indir garnet/tests/input --out output/s5b
 """
 
 from __future__ import annotations

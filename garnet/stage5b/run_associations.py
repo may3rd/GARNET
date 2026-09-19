@@ -4,7 +4,7 @@
 Vendored from `backend/garnet/trace_associations.py` + `flow_direction.py` so it runs from
 repo-root `garnet/` with no backend dependency.
 
-    python -m garnet.stage5b.run_associations --stem Test-00001
+    python -m garnet.stage5b.run_associations --stem 14780-8120-25-25-0002A
 
 Reads the Stage 5b artifacts this package writes and produces:
 
@@ -58,7 +58,7 @@ def _load(path: Path, what: str) -> dict:
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--stem", default="Test-00001")
+    p.add_argument("--stem", default="14780-8120-25-25-0002A")
     p.add_argument("--indir", default="garnet/tests/input",
                    help="directory holding <stem>.jpg")
     p.add_argument("--dir", default=None,

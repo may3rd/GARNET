@@ -363,7 +363,7 @@ class Stage5bPipelineMixin:
         queued when ANY member is queued, that single sample made the whole
         cluster walk a pipe a trace already covered.
 
-        On Test-00001 that produced `branch_000008` (seed x=939): the covering
+        On 14780-8120-25-25-0002A that produced `branch_000008` (seed x=939): the covering
         trace `obj_000202` runs straight down x=938, the samples at x=934 and
         x=939 were suppressed, x=944 was not, and the resulting walk duplicated
         the 625px climb to (938,1110).
@@ -550,7 +550,7 @@ class Stage5bPipelineMixin:
         baseline has no branch at all, just the line it is standing on.
 
         Without this, one 4px-wide pipe produced two candidates 15px apart on
-        Test-00001 (seed x=924 with a 3px "run" that was only the horizontal's own
+        14780-8120-25-25-0002A (seed x=924 with a 3px "run" that was only the horizontal's own
         thickness, plus the real seed at x=939), because both passed the
         `lead_run >= 3` test inside `_has_inline_bridge_branch_run`.  The two
         walks then traced the same pipe 3px apart to the same terminal.
@@ -645,7 +645,7 @@ class Stage5bPipelineMixin:
         whose probe point lands just outside the covering segment's tolerance
         disagrees with its neighbours. Letting any queued member win meant one
         such outlier overrode the correct verdict of every other member and the
-        whole cluster walked a pipe that was already traced -- on Test-00001 that
+        whole cluster walked a pipe that was already traced -- on 14780-8120-25-25-0002A that
         produced `branch_000008`, a 625px walk lying entirely on top of trace
         `obj_000202` (members: x=934 done, x=939 done, x=944 queued).
         """
@@ -768,7 +768,7 @@ class Stage5bPipelineMixin:
                         continue
                     # A directional arrow is an annotation ON the line, not a
                     # branch point: seeding there walks out of the glyph's side.
-                    # `branch_000026` on Test-00001 seeded at (2690,1867), inside
+                    # `branch_000026` on 14780-8120-25-25-0002A seeded at (2690,1867), inside
                     # arrow obj_000084 bbox (2681,1847)-(2704,1880), and walked a
                     # 35x54px loop back to its own source instead of following
                     # pipe. Skip such samples; the real branch point next to the
@@ -824,7 +824,7 @@ class Stage5bPipelineMixin:
                             # along the branch and asks whether any segment passes
                             # within 5px. A sample sitting a few px further along
                             # the source line can push that probe off the covering
-                            # segment: on Test-00001 x=934 and x=939 were both
+                            # segment: on 14780-8120-25-25-0002A x=934 and x=939 were both
                             # suppressed while x=944 next to them stayed "queued",
                             # and clustering then promoted the whole 3-member
                             # cluster to queued on that single sample, so the walk
@@ -1469,6 +1469,18 @@ class Stage5bPipelineMixin:
             "segments": result.get("segments", []),
             "turns": result.get("turns", []),
             "hits": result.get("hits", []),
+            # Junction dots the walk crossed without ending (option (c)): the walk
+            # keeps the route AND the topology. Converted to dicts here because the
+            # tracer holds JunctionCrossing dataclasses, which json cannot encode.
+            "junctions": [
+                (j if isinstance(j, dict) else {
+                    "x": int(getattr(j, "x", 0)), "y": int(getattr(j, "y", 0)),
+                    "obj_id": getattr(j, "obj_id", None),
+                    "direction": str(getattr(j, "direction", "")),
+                    "branch_dirs": list(getattr(j, "branch_dirs", None) or []),
+                })
+                for j in (result.get("junctions") or [])
+            ],
             "trace_length_px": result.get("trace_length_px", 0),
             "status": result.get("status"),
         }
@@ -2031,6 +2043,15 @@ class Stage5bPipelineMixin:
                 "segments": segments,
                 "turns": turns,
                 "hits": hits,
+                "junctions": [
+                    (j if isinstance(j, dict) else {
+                        "x": int(getattr(j, "x", 0)), "y": int(getattr(j, "y", 0)),
+                        "obj_id": getattr(j, "obj_id", None),
+                        "direction": str(getattr(j, "direction", "")),
+                        "branch_dirs": list(getattr(j, "branch_dirs", None) or []),
+                    })
+                    for j in (getattr(result, "junctions", None) or [])
+                ],
                 "trace_length_px": trace_length,
             }
             branch_results[branch_id]["turns"] = self._rebuild_stage5b_turns_from_segments(

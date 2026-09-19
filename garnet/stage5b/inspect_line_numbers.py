@@ -3,7 +3,7 @@
 
 Renders one review tile per assigned label so a human can confirm the association is right.
 
-    python -m garnet.stage5b.inspect_line_numbers --stem Test-00001
+    python -m garnet.stage5b.inspect_line_numbers --stem 14780-8120-25-25-0002A
 
 Why the tile shows more than the chosen path: Stage 6 attaches a label to the path it is written
 ALONG, not merely the nearest one — when the closest segment runs perpendicular to the label's
@@ -126,7 +126,7 @@ def draw_edge(vis, edge, ox, oy, color, width_halo=7, width_line=2, dashed=False
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--stem", default="Test-00001")
+    p.add_argument("--stem", default="14780-8120-25-25-0002A")
     p.add_argument("--indir", default="garnet/tests/input")
     p.add_argument("--dir", default=None, help="stage5b dir (default output/stage5b_<stem>)")
     p.add_argument("--out", default=None, help="output dir (default <dir>/line_number_review)")

@@ -17,9 +17,9 @@ R2 and R3 are decided in Python, full stop. R1 is also decided in Python when it
 that is mostly-but-not-quite on ink with gaps no known symbol explains — the one case where a
 local pixel test cannot tell an inline valve from a text label.
 
-    python -m garnet.stage5b.review_gate --stem Test-00001 --dry-run   # inspect, no API call
-    python -m garnet.stage5b.review_gate --stem Test-00001 --no-llm    # deterministic only
-    python -m garnet.stage5b.review_gate --stem Test-00001             # + model on residual
+    python -m garnet.stage5b.review_gate --stem 14780-8120-25-25-0002A --dry-run   # inspect, no API call
+    python -m garnet.stage5b.review_gate --stem 14780-8120-25-25-0002A --no-llm    # deterministic only
+    python -m garnet.stage5b.review_gate --stem 14780-8120-25-25-0002A             # + model on residual
 
 The gate reports verdicts and emits the surviving network (`reviewed_walks.json`); it never
 invents geometry.
@@ -374,7 +374,7 @@ def r3_verdict(walk: dict, bboxes: dict[str, dict]) -> dict:
 
     Also checks consistency — a walk claiming to end on an object, whose terminal point is
     nowhere near that object, has a wrong label and must not be trusted either way. On
-    Test-00001, 5 of 36 bbox-naming terminals were inconsistent this way.
+    14780-8120-25-25-0002A, 5 of 36 bbox-naming terminals were inconsistent this way.
     """
     tt = walk.get("terminal_type")
     if tt is None:
@@ -588,7 +588,7 @@ def build_prompt(walk: dict, prof: dict, ov: dict, crop_shape: tuple[int, int],
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--stem", default="Test-00001")
+    p.add_argument("--stem", default="14780-8120-25-25-0002A")
     p.add_argument("--indir", default="garnet/tests/input")
     p.add_argument("--dir", default=None,
                    help="stage5b output dir (default output/stage5b_<stem>)")

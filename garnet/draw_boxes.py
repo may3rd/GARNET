@@ -5,8 +5,8 @@ Reads the three fixture JSONs for one sheet and writes one PNG per type with not
 thin rectangles — no labels, no banners, so the drawing underneath stays readable.
 
 Usage:
-    python garnet/draw_boxes.py --stem Test-00001
-    python garnet/draw_boxes.py --stem Test-00001 --indir garnet/tests/input --outdir output
+    python garnet/draw_boxes.py --stem 14780-8120-25-25-0002A
+    python garnet/draw_boxes.py --stem 14780-8120-25-25-0002A --indir garnet/tests/input --outdir output
 """
 
 from __future__ import annotations
@@ -99,7 +99,7 @@ def _load_boxes(path: Path, kind: str) -> list[tuple[int, int, int, int]]:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Box-only overlays for objects / equipment / line numbers.")
-    p.add_argument("--stem", required=True, help="Fixture stem, e.g. Test-00001")
+    p.add_argument("--stem", required=True, help="Fixture stem, e.g. 14780-8120-25-25-0002A")
     p.add_argument("--indir", default="garnet/tests/input", help="Fixture dir. Default: garnet/tests/input")
     p.add_argument("--outdir", default="output", help="Output dir. Default: output")
     p.add_argument("--thickness", type=int, default=THICKNESS)
