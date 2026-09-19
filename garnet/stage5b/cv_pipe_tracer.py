@@ -302,6 +302,17 @@ class CVPipeTracer:
         # than the same line picking up again. The measured jump resumes and runs on
         # past 120px, so 20 is comfortably clear of a false resume.
         jump_min_resume_run_px: int = 20,
+        # How much ON-AXIS ink a resume candidate must show before it counts. Scanning
+        # for the first ink pixel inside the jump window lands on the CROSSING pipe,
+        # which is itself several px thick in the walker's own band test; a 3px test
+        # accepted it. Measured on sheet 0004, the crossing bar at y=1243 scores 3px
+        # on-axis while the true resume at y=1257 scores 6+, so 5 separates them.
+        jump_axis_confirm_px: int = 5,
+        # Lateral half-width (px) swept when looking for a perpendicular leg that
+        # leaves a junction dot. A dot is ~14px across, so the walk can arrive at its
+        # edge while the leg is centred: on sheet 0004A `branch_000018` arrived at
+        # x=2215 and the UP leg sits at x~2210. 8 covers the dot's own radius.
+        junction_lateral_scan_px: int = 8,
     ):
         self.mask = pipe_mask
         self.image = image
@@ -342,6 +353,8 @@ class CVPipeTracer:
         self.gap_bridge_equipment_reach_px = gap_bridge_equipment_reach_px
         self.jump_max_gap_px = jump_max_gap_px
         self.jump_min_resume_run_px = jump_min_resume_run_px
+        self.jump_axis_confirm_px = jump_axis_confirm_px
+        self.junction_lateral_scan_px = junction_lateral_scan_px
         # cached boolean ink from the raw raster, for dash-train screening
         self._raw_ink_cache: Optional[np.ndarray] = None
 
@@ -412,8 +425,16 @@ class CVPipeTracer:
         candidates: list[int],
         target: int,
         score_at,
+        raw_run_at=None,
     ) -> Optional[int]:
-        """Return midpoint of the nearest best-supported contiguous candidate run."""
+        """Return midpoint of the nearest best-supported contiguous candidate run.
+
+        ``raw_run_at`` breaks ties: the mask is morph-closed, so a dashed line
+        parallel to a solid one is fattened until it can match the true stroke's
+        mask support. The line carrying the longer run of UNSMOOTHED ink is the one
+        the walker is really on. Measured on sheet 0007 at x=2415, rows 1213 (solid)
+        and 1220 (dashed) both scored mask support 10, while raw runs were 105 and 15.
+        """
         if not candidates:
             return None
 
@@ -425,7 +446,45 @@ class CVPipeTracer:
             return None
 
         strong_values = [value for value, score in scored if score == best_score]
+        # The mask is morph-closed, so a dashed line parallel to a solid one gets
+        # fattened until its mask support MATCHES OR BEATS the true stroke. Measured
+        # on sheet 0007 at x=2415: solid row 1213 mask support 6 / raw run 105, while
+        # the dashed row 7px away scored mask 10 / raw 15. Choosing on mask support
+        # alone therefore defects the walk onto the dashed line, so when one candidate
+        # carries a decisively longer run of raw ink it wins outright.
+        if raw_run_at is not None:
+            raw_runs = {v: raw_run_at(v) for v in set(candidates)}
+            if raw_runs:
+                raw_best = max(raw_runs.values())
+                raw_winners = [v for v, r in raw_runs.items() if r == raw_best]
+                strong_raw = max((raw_runs[v] for v in strong_values), default=0)
+                if raw_best > strong_raw * 2 and raw_best >= 25:
+                    strong_values = raw_winners
         return self._center_of_nearest_run(strong_values, target)
+
+    def _raw_run_through(self, x: int, y: int, direction: str) -> int:
+        """Longest raw-ink run on this row/column within a window around (x, y).
+
+        The mask is morph-closed, so a dashed line running parallel and ~7px from a
+        solid one is fattened until it out-scores the true stroke. Raw ink is not:
+        measured on sheet 0007 at x=2415, the solid row 1213 carries a 105px run
+        while the dashed row 1220 carries 15px in dashes. Used to keep a snap on the
+        line the walker is actually following.
+        """
+        src = self._raw_ink()
+        if src is None:
+            return 0
+        radius = max(40, 2 * self.centerline_radius_px)
+        best = cur = 0
+        if direction in ("UP", "DOWN"):
+            for cy in range(max(0, y - radius), min(self.h, y + radius + 1)):
+                cur = cur + 1 if src[cy, x] else 0
+                best = max(best, cur)
+        else:
+            for cx in range(max(0, x - radius), min(self.w, x + radius + 1)):
+                cur = cur + 1 if src[y, cx] else 0
+                best = max(best, cur)
+        return best
 
     def _snap_to_centerline(self, x: int, y: int, direction: str) -> tuple[int, int]:
         """Snap to the centerline using support along the current travel axis.
@@ -443,6 +502,7 @@ class CVPipeTracer:
                 cols,
                 x,
                 lambda cx: self._line_support_score(cx, y, direction),
+                lambda cx: self._raw_run_through(cx, y, direction),
             )
             if center is not None:
                 return (center, y)
@@ -454,6 +514,7 @@ class CVPipeTracer:
                 rows,
                 y,
                 lambda cy: self._line_support_score(x, cy, direction),
+                lambda cy: self._raw_run_through(x, cy, direction),
             )
             if center is not None:
                 return (x, center)
@@ -1127,6 +1188,34 @@ class CVPipeTracer:
                 return False
         return True
 
+    def _axis_ink_run_ahead(self, ax: int, ay: int, direction: str,
+                            window: int, max_gap: int) -> int:
+        """Longest ink run along `direction` from (ax, ay), tolerating short breaks.
+
+        A strict pixel-by-pixel probe reads a scanned break as a line end. On sheet
+        0004 the main vertical at x=1164 drops 4px at y 932-935 and again at
+        939-942 (a flow arrow and scan noise); probing 10px from y=951 therefore hit
+        the gap and declared the line finished, halting a main-route walk at the
+        junction dot when the pipe in fact runs on to the T at y=653. Breaks up to
+        `max_gap` are stepped over; anything longer ends the run.
+        """
+        dx, dy = DIRECTION_DELTA[direction]
+        best = cur = gap = 0
+        for i in range(1, window + 1):
+            px, py = ax + dx * i, ay + dy * i
+            if not (0 <= px < self.w and 0 <= py < self.h):
+                break
+            if _is_pipe_band(self.mask, px, py, direction, band_width=1):
+                cur += 1
+                gap = 0
+                if cur > best:
+                    best = cur
+            else:
+                gap += 1
+                if gap > max_gap:
+                    break
+        return best
+
     def _resume_along_axis(
         self,
         result: TraceResult,
@@ -1376,7 +1465,27 @@ class CVPipeTracer:
                 if junction_obj_id and current_leg_len <= self.junction_stop_leg_px:
                     forward_open = self._has_connected_side_path(
                         x, y, direction, max(25, self.straight_min_step))
-                    if not forward_open:
+                    # A dot on the walker's OWN axis is a pass-through, not a stop.
+                    # `_has_connected_side_path` demands 25px of unbroken side run,
+                    # so a flow arrow or a scanned gap inside the dot defeats it and
+                    # the walk halts on the main route — which is what happened to
+                    # branch 003 on 0004: it came UP x=1164, met dot `obj_000052`,
+                    # measured forward_open=False (4px scan breaks at y 932-942) and
+                    # stopped, while the pipe in fact runs on to the T at y=653. On the
+                    # main route the rule is: keep going straight until the axis
+                    # genuinely ends at a T, so a gap-tolerant run overrides the stop.
+                    # The window must reach PAST the break: a probe shorter than the
+                    # gap never sees the line resume. On 0007 the vertical drops 27px
+                    # at an undetected valve (y916..942) just below the dot, so a 40px
+                    # window from y=893 ended inside the gap and measured only 22px of
+                    # run — under the 25px bar — halting `branch_000001` on the main
+                    # route. Sized from `jump_max_gap_px`, the same break the jump
+                    # bridge is allowed to cross.
+                    axis_run = self._axis_ink_run_ahead(
+                        x, y, direction,
+                        window=max(40, 2 * self.jump_max_gap_px),
+                        max_gap=self.jump_max_gap_px)
+                    if not forward_open and axis_run < max(25, self.straight_min_step):
                         marker_id, marker_x, marker_y = junction_obj_id
                         self._append_segment(result, seg_start_x, seg_start_y, marker_x, marker_y, direction)
                         result.terminal_type = TerminalType.TEE_JUNCTION.value
@@ -2012,6 +2121,42 @@ class CVPipeTracer:
         seg_start_x, seg_start_y = self._turn_segment_start(tx, ty, x, y, direction)
         return "continue", x, y, direction, seg_start_x, seg_start_y
 
+    def _find_perpendicular_leg(self, x: int, y: int, direction: str,
+                                left_dir: str, right_dir: str):
+        """Find a real pipe leg leaving a junction dot, sampled across the dot.
+
+        Returns ``(px, py, leg_dir)`` for the longest qualifying leg, else
+        ``(None, run)``.
+
+        Only the two perpendicular directions are tried, and the sample point is
+        swept over a small BOX around the arrival point — not a one-axis line —
+        because the leg can be offset on either axis. On sheet 0004A `branch_000018`
+        arrived RIGHT at x=2215 (the dot's right edge) while the UP leg is centred at
+        x~2210: sweeping `y` alone kept sampling x=2215 and never found it, while
+        sweeping `x` back by 5px measured 202px of leg. Nearest points are tried
+        first so the closest qualifying leg wins.
+        """
+        scan = self.junction_lateral_scan_px
+        best = (None, 0)
+        offsets = [(dx, dy) for dx in range(-scan, scan + 1)
+                   for dy in range(-scan, scan + 1)]
+        offsets.sort(key=lambda o: (o[0] * o[0] + o[1] * o[1], o[0], o[1]))
+        threshold = max(25, self.straight_min_step)
+        for leg_dir in (left_dir, right_dir):
+            for dx, dy in offsets:
+                px, py = x + dx, y + dy
+                if not (0 <= px < self.w and 0 <= py < self.h):
+                    continue
+                run = self._axis_ink_run_ahead(
+                    px, py, leg_dir,
+                    window=max(40, 2 * self.jump_max_gap_px),
+                    max_gap=self.jump_max_gap_px)
+                if run > best[1]:
+                    best = ((px, py, leg_dir), run)
+                if best[1] >= threshold:
+                    return best[0], best[1]
+        return best[0], best[1]
+
     def _handle_left_sides_ok(
         self,
         result: TraceResult,
@@ -2059,6 +2204,38 @@ class CVPipeTracer:
                         result, x, y, direction, (seg_start_x, seg_start_y)
                     )
                     return "continue", x, y, direction, x, y
+                # The walk has run out of pipe on its axis at a junction dot, but a
+                # real perpendicular leg leaves it. The leg is not always centred on
+                # the arrival x: on sheet 0004A `branch_000018` ended at a dot whose
+                # UP leg sits at x~2210 while the arrival was at x=2215 (the dot's
+                # right edge), so the probe from the arrival point measured 5px and
+                # the walk stopped dead. Swept laterally across the dot, the same leg
+                # measures 202px and climbs to the tee at y~946. Take it rather than
+                # stopping — the lateral range is the dot's own width.
+                lx, ly = DIRECTION_DELTA[direction]
+                leg_pt = None
+                leg_run = 0
+                for off in range(0, self.junction_lateral_scan_px + 1):
+                    for sgn in ((0, 1, -1) if off == 0 else (1, -1)):
+                        px, py = x + lx * 0 + (-ly * off * sgn), y + (-lx * off * sgn)
+                        if not (0 <= px < self.w and 0 <= py < self.h):
+                            continue
+                        run = self._axis_ink_run_ahead(
+                            px, py, turn_dir,
+                            window=max(40, 2 * self.jump_max_gap_px),
+                            max_gap=self.jump_max_gap_px)
+                        if run > leg_run:
+                            leg_run, leg_pt = run, (px, py)
+                    if leg_run >= max(25, self.straight_min_step):
+                        break
+                if leg_pt is not None and leg_run >= max(25, self.straight_min_step) \
+                        and not self._is_backtrack_turn(result, leg_pt[0], leg_pt[1], turn_dir):
+                    result.turns.append((leg_pt[0], leg_pt[1], turn_dir))
+                    direction = turn_dir
+                    x, y = self._enter_turn_leg(leg_pt[0], leg_pt[1], direction)
+                    seg_start_x, seg_start_y = self._turn_segment_start(
+                        leg_pt[0], leg_pt[1], x, y, direction)
+                    return "continue", x, y, direction, seg_start_x, seg_start_y
                 result.terminal_type = TerminalType.TEE_JUNCTION.value
                 result.terminal_x, result.terminal_y = x, y
                 # position-only terminal (no junction object identified): clear any
@@ -2094,6 +2271,23 @@ class CVPipeTracer:
         if self._axis_continues_past(x, y, direction, origin=(seg_start_x, seg_start_y)):
             x, y = self._resume_along_axis(result, x, y, direction, (seg_start_x, seg_start_y))
             return "continue", x, y, direction, x, y
+        # The walk has run out of pipe on its own axis at a junction dot, but a real
+        # perpendicular leg may leave that dot. The leg is not always centred on the
+        # arrival point: on sheet 0004A `branch_000018` arrived RIGHT at a dot whose
+        # UP leg sits at x~2210 while the arrival was x=2215 (the dot's right edge),
+        # so a probe from the arrival measured 5px and the walk stopped dead. Swept
+        # laterally across the dot's own width, the same leg measures 202px and
+        # climbs to the tee at y~946. Take it rather than stopping.
+        leg_pt, leg_run = self._find_perpendicular_leg(
+            x, y, direction, left_dir, right_dir)
+        if leg_pt is not None:
+            turn_x, turn_y, turn_dir = leg_pt[0], leg_pt[1], leg_pt[2]
+            result.turns.append((turn_x, turn_y, turn_dir))
+            direction = turn_dir
+            x, y = self._enter_turn_leg(turn_x, turn_y, direction)
+            seg_start_x, seg_start_y = self._turn_segment_start(
+                turn_x, turn_y, x, y, direction)
+            return "continue", x, y, direction, seg_start_x, seg_start_y
         result.terminal_type = TerminalType.TEE_JUNCTION.value
         result.terminal_x, result.terminal_y = x, y
         # position-only terminal (no junction object identified): clear any
@@ -2196,6 +2390,35 @@ class CVPipeTracer:
             if pc_id == source_obj_id:
                 continue
             if _check_bbox_hit(x, y, pc["bbox"], margin=current_page_margin):
+                # A synthetic `branch_candidate` box that sits ON this walk's own
+                # travel axis is another leg of the same line, not a terminal this
+                # walk can arrive at. Treating it as one diverts the walk onto it
+                # instead of letting it continue straight.
+                #
+                # Measured on sheet 0002A: `branch_000012` walks RIGHT then UP
+                # (2690,1937)->(2690,1793) and should carry on through the junction at
+                # (2690,1792) to (2690,1601). Three orphan candidates from dot
+                # obj_000052 are injected as 8px terminal boxes covering
+                # (2684,1784)-(2700,1800), which CONTAINS that junction. Replaying the
+                # walk's captured state reproduced the LEFT turn only when
+                # page_connections was supplied, and bisecting the 58 entries isolated
+                # it to those three; without them the walk ends correctly.
+                #
+                # The axis must come from the direction the walk is TRAVELLING here,
+                # not from the candidate's seed direction -- an earlier attempt keyed
+                # it on `branch_direction` (the seed's entry direction, RIGHT for b12)
+                # and screened the horizontal while the turn happened on the vertical,
+                # so it filtered nothing.
+                if pc.get("class_name") == "branch_candidate" and direction:
+                    dx, dy = DIRECTION_DELTA.get(direction, (0, 0))
+                    pc_bbox = pc["bbox"]
+                    pc_cx = (pc_bbox["x_min"] + pc_bbox["x_max"]) / 2
+                    pc_cy = (pc_bbox["y_min"] + pc_bbox["y_max"]) / 2
+                    collinear = (
+                        abs(pc_cy - y) <= 4 if dx else abs(pc_cx - x) <= 4
+                    ) if (dx or dy) else False
+                    if collinear:
+                        continue
                 return (TerminalType.PAGE_CONNECTION.value, pc_id)
 
         # Exact equipment hit wins over nearby labels.
@@ -2386,6 +2609,24 @@ class CVPipeTracer:
                     return self._snap_to_centerline(nx, ny, direction)
         return None
 
+    def _ink_run_behind(self, x: int, y: int, direction: str,
+                        window: int = 120) -> int:
+        """Length of the solid ink run ending at (x, y), measured backwards.
+
+        Capped at `window`. Used to tell the end of a long pipe (a line jump) from
+        the end of a dash (a dash train) without rescanning a forward window.
+        """
+        dx, dy = DIRECTION_DELTA[direction]
+        run = 0
+        for step in range(1, window + 1):
+            px, py = x - dx * step, y - dy * step
+            if not (0 <= px < self.w and 0 <= py < self.h):
+                break
+            if not _is_pipe_band(self.mask, px, py, direction, band_width=1):
+                break
+            run += 1
+        return run
+
     def _gap_is_part_of_a_train(self, x: int, y: int, direction: str,
                                 look_px: int = 400, min_cycles: int = 2) -> bool:
         """True when the gap ahead sits inside a REPEATING dash train.
@@ -2412,6 +2653,18 @@ class CVPipeTracer:
             return False
         dx, dy = DIRECTION_DELTA[direction]
         h, w = src.shape[:2]
+
+        # Precondition: a dash train is UNIFORM, so the run the walker is standing at
+        # the end of must itself be dash-sized. Jumping a real line jump the walker
+        # sits at the end of a long solid run -- on sheet 0004 at (2224,1230) DOWN the
+        # pipe ran unbroken from y=1154, ~77px. Without this test the 400px window ran
+        # past the gap into the glyph rows of instrument bubble `obj_000007` (y 1269+),
+        # whose short ink runs read as repeating dashes, so a genuine jump was rejected
+        # and `branch_000027` ended `dead_end` in open paper.
+        behind = self._ink_run_behind(x, y, direction)
+        if behind > 45:
+            return False
+
         runs: list[tuple[bool, int]] = []
         cur: Optional[bool] = None
         ln = 0
@@ -2485,13 +2738,37 @@ class CVPipeTracer:
         """
         dx, dy = DIRECTION_DELTA[direction]
         max_gap = self.jump_max_gap_px
-        # 1 + 2: find where collinear ink resumes within the jump window
+        # 1 + 2: find where collinear ink resumes within the jump window.
+        #
+        # Scanning for the FIRST ink pixel is wrong: at a crossed line the crossing
+        # itself is ink, and it is perpendicular. On sheet 0004 `branch_000027` ran
+        # DOWN x=2224, broke at y=1233 for the crossing pipe at y=1243..1245, and the
+        # first-ink scan snapped onto that 3px crossing stroke — 10px later it failed
+        # the resume-run test and the walk ended `dead_end` in open paper, when the
+        # vertical in fact resumes at y=1257 and runs into instrument tag `obj_000007`
+        # at y=1269. So a candidate must be an ON-AXIS run, not just any ink.
         resume = None
         for step in range(self.min_step + 1, max_gap + 1):
             nx, ny = x + dx * step, y + dy * step
             if not (0 <= nx < self.w and 0 <= ny < self.h):
                 return None
-            if _is_pipe(self.mask, nx, ny):
+            if not _is_pipe_band(self.mask, nx, ny, direction, band_width=1):
+                continue
+            # Reject perpendicular crossing ink: require the run to continue on the
+            # axis well past the crossing stroke. A horizontal bar crossed by a
+            # vertical walk is `band_width` px thick, so a 2-3px test is satisfied by
+            # the crossing itself — on sheet 0004 that snapped the resume onto the
+            # crossed pipe at y=1243. The real resume at y=1257 then has to beat
+            # `crossing_max` so the bar is never mistaken for the line picking up.
+            on_axis = 0
+            for s2 in range(0, self.jump_axis_confirm_px):
+                px, py = nx + dx * s2, ny + dy * s2
+                if not (0 <= px < self.w and 0 <= py < self.h):
+                    break
+                if not _is_pipe_band(self.mask, px, py, direction, band_width=1):
+                    break
+                on_axis += 1
+            if on_axis >= self.jump_axis_confirm_px:
                 resume = (nx, ny, step)
                 break
         if resume is None:
@@ -2503,8 +2780,15 @@ class CVPipeTracer:
         if self._gap_is_part_of_a_train(x, y, direction):
             return None
         # 3: the resumed line must continue for a meaningful run, otherwise this is
-        # a stray mark rather than the same line picking up again
+        # a stray mark rather than the same line picking up again.
+        #
+        # A short run is enough when it lands in a terminal: the jump's far side is
+        # often a stub straight into an instrument bubble or a nozzle. On sheet 0004
+        # x=2224 resumes at y=1257 and reaches instrument tag `obj_000007` (y 1269)
+        # after 11px, so a flat 20px rule rejected a real jump and the walk ended
+        # `dead_end` in open paper instead of stopping at the tag.
         run = 0
+        reached_terminal = False
         for s2 in range(1, self.jump_min_resume_run_px + 1):
             px, py = nx + dx * s2, ny + dy * s2
             if not (0 <= px < self.w and 0 <= py < self.h):
@@ -2512,7 +2796,10 @@ class CVPipeTracer:
             if not _is_pipe_band(self.mask, px, py, direction, band_width=1):
                 break
             run += 1
-        if run < self.jump_min_resume_run_px:
+            if self._nearby_objects(self._idx_instruments, px, py, 4):
+                reached_terminal = True
+                break
+        if run < self.jump_min_resume_run_px and not reached_terminal:
             return None
         return self._snap_to_centerline(nx, ny, direction)
 

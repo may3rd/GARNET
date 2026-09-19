@@ -1,8 +1,11 @@
 {
   "source_drawing": "14780-8120-25-25-0004A Rev Z1",
   "coordinate_frame": {
-    "width_px": 4963, "height_px": 3509, "dpi": null,
-    "page_pt": null, "page_rotate_deg": 0,
+    "width_px": 4963,
+    "height_px": 3509,
+    "dpi": null,
+    "page_pt": null,
+    "page_rotate_deg": 0,
     "note": "Raster JPEG 4963x3509px, no PDF/text layer, no /Rotate. Aspect 1.4144 vs ISO A 1.4142 -> un-rotated, un-stretched. All coords integer px, origin top-left, x right, y down."
   },
   "objects": [
@@ -14,26 +17,128 @@
       "Service": "CUMENE-AMS SAND FILTER",
       "Size": "1500mm x 4300mm",
       "Evidence": "both (agree)",
-      "Left": 1920,
-      "Top": 1378,
-      "Width": 152,
-      "Height": 850,
-      "Bounding_box_px": {"x_min": 1920, "y_min": 1378, "x_max": 2072, "y_max": 2228},
-      "Bounding_box_norm": [0.3869, 0.3927, 0.4175, 0.6349],
+      "Left": 1922,
+      "Top": 1379,
+      "Width": 151,
+      "Height": 851,
+      "Bounding_box_px": {
+        "x_min": 1922,
+        "y_min": 1379,
+        "x_max": 2073,
+        "y_max": 2230
+      },
+      "Bounding_box_norm": [
+        0.3873,
+        0.393,
+        0.4177,
+        0.6355
+      ],
       "Score": 1.0,
       "Ports": [
-        {"mark": "M01", "side": "top",    "point_px": {"x": 1998, "y": 1378}, "point_norm": [0.4026, 0.3927], "size": null,  "line_number": null},
-        {"mark": "J02", "side": "left",   "point_px": {"x": 1921, "y": 1526}, "point_norm": [0.3871, 0.4349], "size": "3\"", "line_number": "3\"-CUL-25-004008-B1A1-NI"},
-        {"mark": "N02", "side": "right",  "point_px": {"x": 2072, "y": 1812}, "point_norm": [0.4175, 0.5164], "size": "3\"", "line_number": "3\"-CUL-25-004010-B1A1-NI"},
-        {"mark": "Q02A","side": "right",  "point_px": {"x": 2071, "y": 1960}, "point_norm": [0.4173, 0.5586], "size": "2\"", "line_number": null},
-        {"mark": "L02A","side": "right",  "point_px": {"x": 2071, "y": 1992}, "point_norm": [0.4173, 0.5677], "size": "2\"", "line_number": null},
-        {"mark": "L02B","side": "right",  "point_px": {"x": 2071, "y": 2141}, "point_norm": [0.4173, 0.6101], "size": "2\"", "line_number": null},
-        {"mark": "Q02B","side": "right",  "point_px": {"x": 2071, "y": 2170}, "point_norm": [0.4173, 0.6184], "size": "2\"", "line_number": null},
-        {"mark": "R02", "side": "left",   "point_px": {"x": 1921, "y": 2158}, "point_norm": [0.3871, 0.615], "size": "2\"", "line_number": null},
-        {"mark": "D03", "side": "bottom", "point_px": {"x": 1998, "y": 2228}, "point_norm": [0.4026, 0.6349], "size": "3\"", "line_number": null}
+        {
+          "mark": "M01",
+          "side": "top",
+          "point_px": {
+            "x": 1996,
+            "y": 1379
+          },
+          "point_norm": [
+            0.4022,
+            0.393
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": "O01",
+          "side": "top",
+          "point_px": {
+            "x": 2041,
+            "y": 1394
+          },
+          "point_norm": [
+            0.4112,
+            0.3973
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": "J02",
+          "side": "left",
+          "point_px": {
+            "x": 1922,
+            "y": 1528
+          },
+          "point_norm": [
+            0.3873,
+            0.4355
+          ],
+          "size": "3\"",
+          "line_number": "3\"-CUL-25-004003-B1A2-NI"
+        },
+        {
+          "mark": "N02",
+          "side": "right",
+          "point_px": {
+            "x": 2073,
+            "y": 1809
+          },
+          "point_norm": [
+            0.4177,
+            0.5155
+          ],
+          "size": "3\"",
+          "line_number": "3\"-CUL-25-004010-B1A1-NI"
+        },
+        {
+          "mark": "R02",
+          "side": "left",
+          "point_px": {
+            "x": 1922,
+            "y": 2163
+          },
+          "point_norm": [
+            0.3873,
+            0.6164
+          ],
+          "size": "2\"",
+          "line_number": null
+        },
+        {
+          "mark": "D03",
+          "side": "bottom",
+          "point_px": {
+            "x": 1996,
+            "y": 2230
+          },
+          "point_norm": [
+            0.4022,
+            0.6355
+          ],
+          "size": null,
+          "line_number": null
+        }
       ]
     }
   ],
-  "unresolved": [],
-  "verification": "overlay rendered and visually checked: yes"
+  "unresolved": [
+    {
+      "what": "connections excluded from Ports on D-2511",
+      "why": "Q02A/Q02B feed the LT-0403 bridle and L02A/L02B the LG-M-0402 gauge glass; B02 is the 24\" ID manway with no pipe; VB is an internal vortex breaker.",
+      "location_hint_px": [
+        2073,
+        1963
+      ]
+    },
+    {
+      "what": "line number and size at M01, O01, D03",
+      "why": "No size or line-number text printed adjacent to these nozzles.",
+      "location_hint_px": [
+        1994,
+        1381
+      ]
+    }
+  ],
+  "verification": "overlay rendered and visually checked: yes - every nozzle mark on the sheet was read on gridded crops at 1.75x-5x, classified as process line / instrument tapping / level-bridle tap / manway / internal, and the resulting boxes and port markers were drawn onto the source raster and inspected."
 }

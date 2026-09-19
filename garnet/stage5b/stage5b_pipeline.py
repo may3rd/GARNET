@@ -1292,13 +1292,18 @@ class Stage5bPipelineMixin:
             )
 
         port = data.get("port") or {}
+        cand = data.get("candidate") or {}
+        start = None
         if port.get("x") is not None and port.get("y") is not None:
             start = (int(port["x"]), int(port["y"]))
             self._draw_trace_start_marker(overlay, start[0], start[1],
                                           (0, 180, 0), radius=14, thickness=3)
+            # START CONDITION: how the walk was seeded. `candidate.reason` for a
+            # branch, the port direction for a trace.
+            seed_reason = str(cand.get("reason") or port.get("direction") or "")
             _cv2.putText(
                 overlay,
-                f"{trace_id} start",
+                f"{trace_id} START {seed_reason}",
                 (start[0] + 14, start[1] - 14),
                 _cv2.FONT_HERSHEY_SIMPLEX,
                 0.8,
@@ -1311,9 +1316,17 @@ class Stage5bPipelineMixin:
             end = (int(data["terminal_x"]), int(data["terminal_y"]))
             self._draw_trace_end_marker(overlay, end[0], end[1],
                                         (255, 0, 255), half=16, thickness=3)
+            # END CONDITION: the terminal reached, and the object if named.
+            end_txt = f"{trace_id} END {data.get('terminal_type', '')}"
+            if data.get("terminal_obj_id"):
+                end_txt += f" {data['terminal_obj_id']}"
+            if data.get("skip_reason"):
+                end_txt += f" SKIPPED:{data['skip_reason']}"
+            if data.get("trimmed_reason"):
+                end_txt += f" TRIMMED:{data['trimmed_reason']}"
             _cv2.putText(
                 overlay,
-                f"{trace_id}:{data.get('terminal_type', '')}",
+                end_txt,
                 (end[0] + 16, end[1] - 16),
                 _cv2.FONT_HERSHEY_SIMPLEX,
                 0.8,
@@ -1325,7 +1338,9 @@ class Stage5bPipelineMixin:
         banner = (
             f"{trace_id} only | {len(segments)} segs | "
             f"terminal={data.get('terminal_type')} | "
-            f"length={data.get('trace_length_px', 0)} px"
+            f"length={data.get('trace_length_px', 0)} px | "
+            f"seed={cand.get('reason') or port.get('direction') or '?'} "
+            f"@({start[0] if start else '?'},{start[1] if start else '?'})"
         )
         _cv2.rectangle(
             overlay,
@@ -1371,6 +1386,8 @@ class Stage5bPipelineMixin:
         traces: list[tuple[str, dict[str, Any], tuple[int, int, int]]] = []
         traces.extend((trace_id, data, (0, 160, 0)) for trace_id, data in sorted(all_results.items()))
         traces.extend((trace_id, data, (0, 0, 255)) for trace_id, data in sorted(branch_results.items()))
+        crop_dir = trace_dir / "crop"
+        crop_dir.mkdir(parents=True, exist_ok=True)
         for trace_id, data, color in traces:
             if data.get("status") == "skipped":
                 continue
@@ -1390,6 +1407,34 @@ class Stage5bPipelineMixin:
             elif Image is not None:  # pragma: no cover
                 Image.fromarray(out).save(str(path))
             written += 1
+
+            # A cropped, zoomed view of the SAME trace. A single short walk on a
+            # 4962x3508 sheet is unreadable at full size, so each trace also gets a
+            # window around its own extent. Padding is generous enough to show the
+            # approach to each terminal, which is what the walk has to be judged on.
+            segs = data.get("segments") or []
+            xs = [int(c) for s in segs for c in (s["x1"], s["x2"])]
+            ys = [int(c) for s in segs for c in (s["y1"], s["y2"])]
+            for k in ("terminal_x", "terminal_y"):
+                if data.get(k) is not None:
+                    (xs if k.endswith("x") else ys).append(int(data[k]))
+            pad = 140
+            x0 = max(0, min(xs) - pad)
+            y0 = max(0, min(ys) - pad)
+            x1 = min(overlay.shape[1], max(xs) + pad)
+            y1 = min(overlay.shape[0], max(ys) + pad)
+            if x1 > x0 and y1 > y0:
+                crop = overlay[y0:y1, x0:x1]
+                # upscale small crops so thin linework stays legible
+                scale = max(1, min(4, int(1200 / max(1, crop.shape[1]))))
+                if scale > 1:
+                    crop = cv2.resize(crop, (crop.shape[1] * scale, crop.shape[0] * scale),
+                                      interpolation=cv2.INTER_LANCZOS4)
+                crop_path = crop_dir / filename
+                if cv2 is not None:
+                    cv2.imwrite(str(crop_path), normalize_for_save(crop))
+                elif Image is not None:  # pragma: no cover
+                    Image.fromarray(normalize_for_save(crop)).save(str(crop_path))
 
         self._register_artifact("stage5b_traced_path")
         logger.info("saved %d individual Stage 5b trace images to %s", written, trace_dir)

@@ -1,0 +1,144 @@
+{
+  "source_drawing": "14780-8120-25-25-0007 Rev. Z1 (AS BUILT) - PIPING AND INSTRUMENT DIAGRAM, OEC MIXING POT, PHENOL RECOVERY SECTION, UOP PHENOL PROCESS UNIT",
+  "coordinate_frame": {
+    "width_px": 4963,
+    "height_px": 3509,
+    "dpi": null,
+    "page_pt": null,
+    "page_rotate_deg": 0,
+    "note": "Source supplied as a raster JPEG (4963 x 3509 px), not a PDF; there is no PDF page box, /Rotate or text layer. All coordinates are pixels in this image: origin top-left, x right, y down. Aspect gate: 4963/3509 = 1.4144 vs ISO A-series landscape 1.4142 (0.01% deviation), so the raster is un-rotated and un-stretched. Transform validated by plotting the drawing frame grid: sheet border, zone letters A-J and the title block land where measured. Legibility gate: line-number type reads cleanly at 1:1 in this raster, well above the 2500 px minimum for a full-size sheet."
+  },
+  "objects": [
+    {
+      "Index": 1,
+      "Object": "vessel",
+      "Tag": "D-2506",
+      "Equipment_type": "vessel",
+      "Service": "OEC MIXING POT",
+      "Size": "700mm x 2100mm (dia x T/T)",
+      "Evidence": "both (agree)",
+      "Left": 1607,
+      "Top": 1713,
+      "Width": 151,
+      "Height": 327,
+      "Bounding_box_px": {
+        "x_min": 1607,
+        "y_min": 1713,
+        "x_max": 1758,
+        "y_max": 2040
+      },
+      "Bounding_box_norm": [
+        0.3238,
+        0.4882,
+        0.3542,
+        0.5814
+      ],
+      "Ports": [
+        {
+          "mark": "AO",
+          "side": "top",
+          "point_px": {
+            "x": 1682,
+            "y": 1713
+          },
+          "point_norm": [
+            0.3389,
+            0.4882
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": null,
+          "side": "bottom",
+          "point_px": {
+            "x": 1682,
+            "y": 2040
+          },
+          "point_norm": [
+            0.3389,
+            0.5814
+          ],
+          "size": "3\"",
+          "line_number": "3\"-PL-25-006002-TFE2-ET"
+        }
+      ],
+      "Score": 1.0
+    },
+    {
+      "Index": 2,
+      "Object": "static mixer",
+      "Tag": "X-2503",
+      "Equipment_type": "static mixer",
+      "Service": "OEC FEED STATIC MIXER",
+      "Size": "3\" X 760 mm",
+      "Evidence": "both (agree)",
+      "Left": 1078,
+      "Top": 2072,
+      "Width": 105,
+      "Height": 45,
+      "Bounding_box_px": {
+        "x_min": 1078,
+        "y_min": 2072,
+        "x_max": 1183,
+        "y_max": 2117
+      },
+      "Bounding_box_norm": [
+        0.2172,
+        0.5905,
+        0.2384,
+        0.6033
+      ],
+      "Ports": [
+        {
+          "mark": null,
+          "side": "left",
+          "point_px": {
+            "x": 1078,
+            "y": 2094
+          },
+          "point_norm": [
+            0.2172,
+            0.5968
+          ],
+          "size": "3\"",
+          "line_number": null
+        },
+        {
+          "mark": null,
+          "side": "right",
+          "point_px": {
+            "x": 1183,
+            "y": 2094
+          },
+          "point_norm": [
+            0.2384,
+            0.5968
+          ],
+          "size": "3\"",
+          "line_number": "3\"-PL-25-006002-TFE2-ET"
+        }
+      ],
+      "Score": 1.0
+    }
+  ],
+  "unresolved": [
+    {
+      "what": "nozzle marks on D-2506",
+      "why": "AM is read as the top cover/manway mark, not the nozzle: AM and BM denote the 24\" ID manways on V-2502 (0007A) and V-2503 (0008), so M is the manway letter in this mark family. The top process nozzle therefore carries AO, matching the top-nozzle mark on both columns. DW labels the internal dip pipe rather than the bottom nozzle, so the bottom port is left unmarked.",
+      "location_hint_px": [
+        1682,
+        1713
+      ]
+    },
+    {
+      "what": "size and line number at the D-2506 top nozzle and at the X-2503 inlet",
+      "why": "No size or line-number text is printed adjacent to either connection.",
+      "location_hint_px": [
+        1682,
+        1713
+      ]
+    }
+  ],
+  "verification": "overlay rendered and visually checked: yes - nozzle marks re-read against the mark family used on the companion column sheets, and the boxes and port markers inspected on the source raster."
+}

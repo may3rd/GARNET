@@ -17,25 +17,150 @@
       "Service": "EXTRACTION OIL CAUSTIC SCRUBBING COLUMN",
       "Size": "2500mm DIA x 19500mm (T/T)",
       "Evidence": "both (agree)",
-      "Left": 2226,
-      "Top": 799,
-      "Width": 208,
+      "Left": 2256,
+      "Top": 800,
+      "Width": 178,
       "Height": 1244,
-      "Bounding_box_px": {"x_min": 2226, "y_min": 799, "x_max": 2434, "y_max": 2043},
-      "Bounding_box_norm": [0.4485, 0.2277, 0.4904, 0.5822],
+      "Bounding_box_px": {
+        "x_min": 2256,
+        "y_min": 800,
+        "x_max": 2434,
+        "y_max": 2044
+      },
+      "Bounding_box_norm": [
+        0.4546,
+        0.228,
+        0.4904,
+        0.5825
+      ],
       "Score": 1.0,
       "Ports": [
-        {"mark": "AO", "side": "top", "point_px": {"x": 2340, "y": 799}, "point_norm": [0.4715, 0.2277], "size": null, "line_number": null},
-        {"mark": "BO", "side": "top", "point_px": {"x": 2276, "y": 801}, "point_norm": [0.4586, 0.2283], "size": "8\"", "line_number": null},
-        {"mark": "AU", "side": "left", "point_px": {"x": 2226, "y": 958}, "point_norm": [0.4485, 0.2730], "size": null, "line_number": null},
-        {"mark": "AI", "side": "right", "point_px": {"x": 2434, "y": 1055}, "point_norm": [0.4904, 0.3007], "size": "2\"", "line_number": null},
-        {"mark": "BI", "side": "left", "point_px": {"x": 2226, "y": 1652}, "point_norm": [0.4485, 0.4708], "size": "8\"", "line_number": null},
-        {"mark": "BP", "side": "right", "point_px": {"x": 2434, "y": 1790}, "point_norm": [0.4904, 0.5101], "size": "2\"", "line_number": null},
-        {"mark": "BS", "side": "right", "point_px": {"x": 2434, "y": 1995}, "point_norm": [0.4904, 0.5686], "size": "2\"", "line_number": "2\"-S12-66-059066-MS12-H"},
-        {"mark": "CO", "side": "bottom", "point_px": {"x": 2340, "y": 2043}, "point_norm": [0.4715, 0.5822], "size": "1½\"", "line_number": "1½\"-PWD-25-008003-L1A1-NI"}
+        {
+          "mark": "AO",
+          "side": "top",
+          "point_px": {
+            "x": 2345,
+            "y": 800
+          },
+          "point_norm": [
+            0.4725,
+            0.228
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": "BO",
+          "side": "top",
+          "point_px": {
+            "x": 2276,
+            "y": 816
+          },
+          "point_norm": [
+            0.4586,
+            0.2325
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": "AU",
+          "side": "left",
+          "point_px": {
+            "x": 2256,
+            "y": 976
+          },
+          "point_norm": [
+            0.4546,
+            0.2781
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": "AI",
+          "side": "right",
+          "point_px": {
+            "x": 2434,
+            "y": 1066
+          },
+          "point_norm": [
+            0.4904,
+            0.3038
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": "BI",
+          "side": "left",
+          "point_px": {
+            "x": 2256,
+            "y": 1649
+          },
+          "point_norm": [
+            0.4546,
+            0.4699
+          ],
+          "size": "8\"",
+          "line_number": null
+        },
+        {
+          "mark": "BS",
+          "side": "right",
+          "point_px": {
+            "x": 2434,
+            "y": 1986
+          },
+          "point_norm": [
+            0.4904,
+            0.566
+          ],
+          "size": "2\"",
+          "line_number": "2\"-S12-66-059066-MS12-H"
+        },
+        {
+          "mark": "CO",
+          "side": "bottom",
+          "point_px": {
+            "x": 2345,
+            "y": 2044
+          },
+          "point_norm": [
+            0.4725,
+            0.5825
+          ],
+          "size": null,
+          "line_number": null
+        }
       ]
     }
   ],
-  "unresolved": [],
-  "verification": "overlay rendered and visually checked: yes"
+  "unresolved": [
+    {
+      "what": "BP removed from Ports on V-2503",
+      "why": "BP is a 2\" tapping running straight into pressure gauge PI-0802, so it is an instrument tapping, not a process line. It was listed as a port in the previous extraction.",
+      "location_hint_px": [
+        2434,
+        1790
+      ]
+    },
+    {
+      "what": "other connections excluded on V-2503",
+      "why": "BN1/BN2 and BL1/BL2 are the LG-0802 A/B gauge-glass and level-bridle taps; AM and BM are 24\" ID manways with no pipe; VB is an internal vortex breaker.",
+      "location_hint_px": [
+        2256,
+        1790
+      ]
+    },
+    {
+      "what": "line number and size at AO, BO, AU, AI, CO",
+      "why": "No size or line-number text printed adjacent to these nozzles.",
+      "location_hint_px": [
+        2345,
+        800
+      ]
+    }
+  ],
+  "verification": "overlay rendered and visually checked: yes - every nozzle mark on the sheet was read on gridded crops at 1.75x-5x, classified as process line / instrument tapping / level-bridle tap / manway / internal, and the resulting boxes and port markers were drawn onto the source raster and inspected."
 }

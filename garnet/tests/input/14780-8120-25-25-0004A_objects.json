@@ -1967,6 +1967,20 @@
       },
       "source_model": "ultralytics",
       "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000150",
+      "class_name": "pressure relief valve",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 2194,
+        "y_min": 931,
+        "x_max": 2227,
+        "y_max": 964
+      },
+      "source_model": "manual",
+      "source_weight": "",
+      "text": "PSV-0402B"
     }
   ]
 }

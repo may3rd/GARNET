@@ -17,32 +17,142 @@
       "Service": "OIL EXTRACTION COLUMN",
       "Size": "1700mm DIA x 19700mm (T/T)",
       "Evidence": "both (agree)",
-      "Left": 1754,
-      "Top": 902,
-      "Width": 194,
-      "Height": 1407,
-      "Bounding_box_px": {"x_min": 1754, "y_min": 902, "x_max": 1948, "y_max": 2309},
-      "Bounding_box_norm": [0.3534, 0.2571, 0.3925, 0.658],
+      "Left": 1755,
+      "Top": 904,
+      "Width": 209,
+      "Height": 1420,
+      "Bounding_box_px": {
+        "x_min": 1755,
+        "y_min": 904,
+        "x_max": 1964,
+        "y_max": 2324
+      },
+      "Bounding_box_norm": [
+        0.3536,
+        0.2576,
+        0.3957,
+        0.6623
+      ],
       "Score": 1.0,
       "Ports": [
-        {"mark": "AO", "side": "top", "point_px": {"x": 1826, "y": 902}, "point_norm": [0.3679, 0.2571], "size": "6\"", "line_number": "6\"-CUL-25-007007-B2A2-NI"},
-        {"mark": "BO", "side": "top", "point_px": {"x": 1871, "y": 910}, "point_norm": [0.3769, 0.2593], "size": "8\"", "line_number": null},
-        {"mark": "AU", "side": "left", "point_px": {"x": 1754, "y": 976}, "point_norm": [0.3534, 0.2782], "size": "3\"", "line_number": "3\"-CUL-25-007011-N2A1-ET"},
-        {"mark": "AI", "side": "left", "point_px": {"x": 1754, "y": 1286}, "point_norm": [0.3534, 0.3665], "size": "4\"", "line_number": "3'-PL-25-007001-N2A1-ET"},
-        {"mark": "BI", "side": "left", "point_px": {"x": 1754, "y": 1951}, "point_norm": [0.3534, 0.556], "size": null, "line_number": null},
-        {"mark": "BS", "side": "left", "point_px": {"x": 1754, "y": 2250}, "point_norm": [0.3534, 0.6412], "size": "2\"", "line_number": "2\"-S12-66-059047-MS12-H"},
-        {"mark": "CO", "side": "bottom", "point_px": {"x": 1819, "y": 2309}, "point_norm": [0.3665, 0.658], "size": "3\"", "line_number": null}
+        {
+          "mark": "AO",
+          "side": "top",
+          "point_px": {
+            "x": 1860,
+            "y": 905
+          },
+          "point_norm": [
+            0.3748,
+            0.2579
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": "BO",
+          "side": "top",
+          "point_px": {
+            "x": 1928,
+            "y": 925
+          },
+          "point_norm": [
+            0.3885,
+            0.2636
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": "AU",
+          "side": "left",
+          "point_px": {
+            "x": 1755,
+            "y": 979
+          },
+          "point_norm": [
+            0.3536,
+            0.279
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": "AI",
+          "side": "left",
+          "point_px": {
+            "x": 1755,
+            "y": 1294
+          },
+          "point_norm": [
+            0.3536,
+            0.3688
+          ],
+          "size": "4\"",
+          "line_number": null
+        },
+        {
+          "mark": "BI",
+          "side": "left",
+          "point_px": {
+            "x": 1755,
+            "y": 1950
+          },
+          "point_norm": [
+            0.3536,
+            0.5557
+          ],
+          "size": "8\"",
+          "line_number": null
+        },
+        {
+          "mark": "BS",
+          "side": "left",
+          "point_px": {
+            "x": 1755,
+            "y": 2249
+          },
+          "point_norm": [
+            0.3536,
+            0.6409
+          ],
+          "size": "2\"",
+          "line_number": "2\"-S12-66-059047-MS12-H"
+        },
+        {
+          "mark": "CO",
+          "side": "bottom",
+          "point_px": {
+            "x": 1859,
+            "y": 2324
+          },
+          "point_norm": [
+            0.3746,
+            0.6623
+          ],
+          "size": null,
+          "line_number": null
+        }
       ]
     }
   ],
   "unresolved": [
-    {"what": "AM nozzle mark, 24\" ID circle on vessel upper shell", "why": "labeled manway/instrument boss with no connecting process line drawn to it; excluded per manway rule, not a port", "location_hint_px": [1859, 1018]},
-    {"what": "BM nozzle mark, 24\" ID circle on vessel lower shell", "why": "labeled manway/instrument boss with no connecting process line drawn to it; excluded per manway rule, not a port", "location_hint_px": [1859, 2218]},
-    {"what": "AL1/AN1/AN2/AL2 nozzle marks, right side of vessel", "why": "feed level gauge LG-R 0702 A/B (bridle gauge glass); excluded as vessel level-bridle taps, not process ports", "location_hint_px": [1948, 1100]},
-    {"what": "AP nozzle mark, left side of vessel", "why": "feeds only PI 0701 (local pressure indicator); excluded as instrument tapping, not a process port", "location_hint_px": [1754, 1050]},
-    {"what": "size/line_number for port BI", "why": "nozzle stub drawn but no size or line-number text found adjacent to it or along its short run; not inferable", "location_hint_px": [1754, 1951]},
-    {"what": "line_number for port BO", "why": "only a bare size callout (8\") found adjacent; no multi-part line number nearby", "location_hint_px": [1871, 910]},
-    {"what": "line_number for port CO", "why": "only a bare size callout (3\") found on the immediate downstream segment before further tees; a specific multi-part line number could not be confidently attributed", "location_hint_px": [1819, 2400]}
+    {
+      "what": "connections excluded from Ports on V-2502",
+      "why": "AP is a 2\" tapping to pressure gauge PI-0701; AL1/AL2 are the LG-R-0702 A/B gauge-glass taps and AN1/AN2 the LT-0701 bridle taps; AM and BM are 24\" ID manways with no pipe; VB is an internal vortex breaker.",
+      "location_hint_px": [
+        1756,
+        1053
+      ]
+    },
+    {
+      "what": "line number and size at AO, BO, AU, CO",
+      "why": "No size or line-number text printed adjacent to these nozzles; the 8\" callout at BO sizes the valve spool above it, not the nozzle.",
+      "location_hint_px": [
+        1860,
+        904
+      ]
+    }
   ],
-  "verification": "overlay rendered and visually checked: yes"
+  "verification": "overlay rendered and visually checked: yes - every nozzle mark on the sheet was read on gridded crops at 1.75x-5x, classified as process line / instrument tapping / level-bridle tap / manway / internal, and the resulting boxes and port markers were drawn onto the source raster and inspected."
 }

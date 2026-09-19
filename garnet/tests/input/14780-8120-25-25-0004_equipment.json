@@ -17,33 +17,206 @@
       "Service": "CUMENE-AMS WATER WASH",
       "Size": "1600mm x 7200mm (dia x length T/T)",
       "Evidence": "both (agree)",
-      "Left": 1713,
-      "Top": 902,
+      "Left": 1711,
+      "Top": 900,
       "Width": 179,
-      "Height": 803,
-      "Bounding_box_px": {"x_min": 1713, "y_min": 902, "x_max": 1892, "y_max": 1705},
-      "Bounding_box_norm": [0.3451, 0.2571, 0.3812, 0.4860],
+      "Height": 807,
+      "Bounding_box_px": {
+        "x_min": 1711,
+        "y_min": 900,
+        "x_max": 1890,
+        "y_max": 1707
+      },
+      "Bounding_box_norm": [
+        0.3448,
+        0.2565,
+        0.3808,
+        0.4865
+      ],
       "Score": 1.0,
       "Ports": [
-        {"mark": "U02", "side": "left", "point_px": {"x": 1713, "y": 1076}, "point_norm": [0.3451, 0.3067], "size": "4\"", "line_number": "4\"-CUL-25-004004-B1A2-NI"},
-        {"mark": "R02A", "side": "left", "point_px": {"x": 1713, "y": 1148}, "point_norm": [0.3451, 0.3272], "size": "2\"", "line_number": null},
-        {"mark": "R02B", "side": "left", "point_px": {"x": 1713, "y": 1176}, "point_norm": [0.3451, 0.3352], "size": "2\"", "line_number": null},
-        {"mark": "R02C", "side": "left", "point_px": {"x": 1713, "y": 1193}, "point_norm": [0.3451, 0.3400], "size": "2\"", "line_number": null},
-        {"mark": "J02A", "side": "left", "point_px": {"x": 1713, "y": 1460}, "point_norm": [0.3451, 0.4161], "size": "3\"", "line_number": "3\"-CUL-25-004001-B1A2-NI"},
-        {"mark": "J02B", "side": "left", "point_px": {"x": 1713, "y": 1550}, "point_norm": [0.3451, 0.4417], "size": null, "line_number": null},
-        {"mark": "S02", "side": "left", "point_px": {"x": 1713, "y": 1664}, "point_norm": [0.3451, 0.4743], "size": "2\"", "line_number": null},
-        {"mark": "O01", "side": "top", "point_px": {"x": 1855, "y": 905}, "point_norm": [0.3737, 0.2579], "size": null, "line_number": null},
-        {"mark": "Q02A", "side": "right", "point_px": {"x": 1892, "y": 1092}, "point_norm": [0.3812, 0.3112], "size": "2\"", "line_number": null},
-        {"mark": "L02A", "side": "right", "point_px": {"x": 1892, "y": 1123}, "point_norm": [0.3812, 0.3201], "size": "2\"", "line_number": null},
-        {"mark": "P02", "side": "right", "point_px": {"x": 1892, "y": 1244}, "point_norm": [0.3812, 0.3545], "size": "2\"", "line_number": null},
-        {"mark": "L02C", "side": "right", "point_px": {"x": 1892, "y": 1310}, "point_norm": [0.3812, 0.3733], "size": "2\"", "line_number": null},
-        {"mark": "L02B", "side": "right", "point_px": {"x": 1892, "y": 1360}, "point_norm": [0.3812, 0.3876], "size": "2\"", "line_number": null},
-        {"mark": "L02D", "side": "right", "point_px": {"x": 1892, "y": 1573}, "point_norm": [0.3812, 0.4483], "size": "2\"", "line_number": null},
-        {"mark": "Q02B", "side": "right", "point_px": {"x": 1892, "y": 1591}, "point_norm": [0.3812, 0.4534], "size": "2\"", "line_number": null},
-        {"mark": "W03", "side": "bottom", "point_px": {"x": 1800, "y": 1705}, "point_norm": [0.3627, 0.4860], "size": null, "line_number": null}
+        {
+          "mark": "M01",
+          "side": "top",
+          "point_px": {
+            "x": 1800,
+            "y": 900
+          },
+          "point_norm": [
+            0.3627,
+            0.2565
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": "O01",
+          "side": "top",
+          "point_px": {
+            "x": 1853,
+            "y": 911
+          },
+          "point_norm": [
+            0.3734,
+            0.2596
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": "U02",
+          "side": "left",
+          "point_px": {
+            "x": 1711,
+            "y": 1079
+          },
+          "point_norm": [
+            0.3448,
+            0.3075
+          ],
+          "size": "4\"",
+          "line_number": "4\"-CUL-25-004005-B1A2-NI"
+        },
+        {
+          "mark": "R02A",
+          "side": "left",
+          "point_px": {
+            "x": 1711,
+            "y": 1154
+          },
+          "point_norm": [
+            0.3448,
+            0.3289
+          ],
+          "size": "2\"",
+          "line_number": null
+        },
+        {
+          "mark": "R02B",
+          "side": "left",
+          "point_px": {
+            "x": 1711,
+            "y": 1177
+          },
+          "point_norm": [
+            0.3448,
+            0.3354
+          ],
+          "size": "2\"",
+          "line_number": null
+        },
+        {
+          "mark": "R02C",
+          "side": "left",
+          "point_px": {
+            "x": 1711,
+            "y": 1199
+          },
+          "point_norm": [
+            0.3448,
+            0.3417
+          ],
+          "size": "2\"",
+          "line_number": null
+        },
+        {
+          "mark": "P02",
+          "side": "right",
+          "point_px": {
+            "x": 1890,
+            "y": 1244
+          },
+          "point_norm": [
+            0.3808,
+            0.3545
+          ],
+          "size": "3\"",
+          "line_number": "3'-CUL-25-004003-B1A2-NI"
+        },
+        {
+          "mark": "J02A",
+          "side": "left",
+          "point_px": {
+            "x": 1711,
+            "y": 1461
+          },
+          "point_norm": [
+            0.3448,
+            0.4164
+          ],
+          "size": "3\"",
+          "line_number": "3\"-CUL-25-004001-B1A2-NI"
+        },
+        {
+          "mark": "J02B",
+          "side": "left",
+          "point_px": {
+            "x": 1711,
+            "y": 1578
+          },
+          "point_norm": [
+            0.3448,
+            0.4497
+          ],
+          "size": null,
+          "line_number": null
+        },
+        {
+          "mark": "S02",
+          "side": "left",
+          "point_px": {
+            "x": 1711,
+            "y": 1649
+          },
+          "point_norm": [
+            0.3448,
+            0.4699
+          ],
+          "size": "2\"",
+          "line_number": null
+        },
+        {
+          "mark": "W03",
+          "side": "bottom",
+          "point_px": {
+            "x": 1800,
+            "y": 1707
+          },
+          "point_norm": [
+            0.3627,
+            0.4865
+          ],
+          "size": null,
+          "line_number": null
+        }
       ]
     }
   ],
-  "unresolved": [],
-  "verification": "overlay rendered and visually checked: yes"
+  "unresolved": [
+    {
+      "what": "connections excluded from Ports on D-2501",
+      "why": "Q02A/Q02B are the top and bottom taps of the LT-0401 level-transmitter bridle; L02A/L02B/L02C/L02D are the LG-0404 A/B/C and D/E/F gauge-glass taps; B02 is the 24\" ID manway with no pipe; VB is an internal vortex breaker. All are excluded under the instrument-tapping / level-bridle / manway rules.",
+      "location_hint_px": [
+        1892,
+        1093
+      ]
+    },
+    {
+      "what": "line number and size at J02B, M01, O01, W03",
+      "why": "No size or line-number text is printed adjacent to these nozzles, and the runs pass valves or tees before reaching a label.",
+      "location_hint_px": [
+        1713,
+        1578
+      ]
+    },
+    {
+      "what": "R02A/R02B/R02C classification",
+      "why": "These three 2\" nozzles manifold into the TYPE B-PH sample connection SN-2521. A sample point is a process-line termination, not an instrument tapping, so they are kept as ports - flag if your convention treats sample connections as specialties.",
+      "location_hint_px": [
+        1713,
+        1177
+      ]
+    }
+  ],
+  "verification": "overlay rendered and visually checked: yes - every nozzle mark on the sheet was read on gridded crops at 1.75x-5x, classified as process line / instrument tapping / level-bridle tap / manway / internal, and the resulting boxes and port markers were drawn onto the source raster and inspected."
 }

@@ -1968,6 +1968,34 @@
       },
       "source_model": "ultralytics",
       "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+    },
+    {
+      "id": "obj_000150",
+      "class_name": "utility connection",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 793,
+        "y_min": 623,
+        "x_max": 855,
+        "y_max": 683
+      },
+      "source_model": "manual",
+      "source_weight": "",
+      "text": "25-0017"
+    },
+    {
+      "id": "obj_000151",
+      "class_name": "utility connection",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1994,
+        "y_min": 3164,
+        "x_max": 2054,
+        "y_max": 3223
+      },
+      "source_model": "manual",
+      "source_weight": "",
+      "text": "WW"
     }
   ]
 }
