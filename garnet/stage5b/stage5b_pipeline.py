@@ -7,6 +7,7 @@ and equipment-port preparation used by `PIDPipeline`.
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import os
@@ -18,6 +19,7 @@ import numpy as np
 
 from .port_projection import project_port_to_bbox_edge as _project_port_to_bbox_edge
 from .cv_pipe_tracer import CVPipeTracer
+from .merge_branches import merge_branch_runs
 
 try:
     import cv2  # type: ignore
@@ -1145,6 +1147,34 @@ class Stage5bPipelineMixin:
         if segments:
             return int(segments[0]["x1"]), int(segments[0]["y1"])
         return None
+
+    def _draw_merge_marks(self, overlay: np.ndarray, merge_report: dict) -> None:
+        """Mark what stage 5c changed, so the 5c overlay is self-explaining.
+
+        Absorbed runs are outlined ORANGE with the run that kept them; T-junction cuts
+        are outlined CYAN with the junction coordinate. Drawn over the branch overlay
+        so a reader can see, without the JSON, which runs 5c combined and which it cut.
+        """
+        import cv2 as _cv2
+
+        for m in merge_report.get("merged") or []:
+            x, y = m.get("terminal_at") or (None, None)
+            if x is None:
+                continue
+            _cv2.putText(overlay, f"MERGED<-{'+'.join(m['absorbed'])}",
+                         (int(x) + 12, int(y) + 26),
+                         _cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 140, 255), 2)
+            _cv2.circle(overlay, (int(x), int(y)), 20, (0, 140, 255), 3)
+        for t in merge_report.get("t_shape_terminations") or []:
+            jx, jy = t.get("cut_at") or (None, None)
+            if jx is None:
+                continue
+            _cv2.rectangle(overlay, (int(jx) - 16, int(jy) - 16),
+                           (int(jx) + 16, int(jy) + 16), (255, 255, 0), 3)
+            _cv2.putText(overlay, f"CUT {t['run']} ({t['previous_length_px']}->"
+                                  f"{t.get('length_px')}px)",
+                         (int(jx) + 18, int(jy) + 40),
+                         _cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
 
     def _draw_stage5b_result_paths(
         self,
@@ -3266,6 +3296,48 @@ class Stage5bPipelineMixin:
             },
         })
 
+        # ---- stage 5c: merge branch runs ----------------------------------
+        # Runs that join end-to-end are concatenated so a surviving run ends on a real
+        # terminate point; a run a T lands on is cut at that junction -- but ONLY where
+        # that run's own axis is closed there, so a line that carries on is not ended by
+        # another run merely happening to stop beside it.
+        #
+        # branch_results was already written above as the PRE-merge state (5b), and
+        # this call mutates it in place, so 5c's own file and overlay read the post-merge
+        # state. That keeps the two stages comparable rather than letting one overwrite
+        # the other. The snapshot below is only for the 5b OVERLAY, so the two images
+        # can be viewed side by side.
+        branch_results_before_merge = copy.deepcopy(branch_results)
+        merge_report = merge_branch_runs(branch_results, mask=pipe_mask, objects=objects)
+        self._save_json("stage5c_branch_merge", {
+            "summary": {
+                "runs_before": merge_report["runs_before"],
+                "runs_after": merge_report["runs_after"],
+                "merged": len(merge_report["merged"]),
+                "refused": len(merge_report["refused"]),
+                "same_origin": len(merge_report.get("same_origin") or []),
+                "joins": len(merge_report.get("joins") or []),
+                "join_kinds": (lambda ks: {k: ks.count(k)
+                                           for k in sorted(set(ks))})(
+                    [j.get("kind") for j in (merge_report.get("joins") or [])]),
+                "dropped_empty": len(merge_report.get("dropped_empty") or []),
+                "terminals_resolved": len(merge_report.get("terminals_resolved") or []),
+                "t_shape_joins": len(merge_report["t_shapes"]),
+                "t_shape_terminations": len(merge_report.get("t_shape_terminations") or []),
+            },
+            "merged": merge_report["merged"],
+            "refused": merge_report["refused"],
+            "same_origin": merge_report.get("same_origin") or [],
+            "joins": merge_report.get("joins") or [],
+            "dropped_empty": merge_report.get("dropped_empty") or [],
+            "terminals_resolved": merge_report.get("terminals_resolved") or [],
+            "t_shape_joins": [
+                {"arriving": a, "landed_on": b, "at": list(pt)}
+                for a, b, pt in merge_report["t_shapes"]
+            ],
+            "t_shape_terminations": merge_report.get("t_shape_terminations") or [],
+        })
+
         # Draw overlay
         overlay = image.copy()
         colors = {
@@ -3392,9 +3464,21 @@ class Stage5bPipelineMixin:
             self._save_img("stage5b_branch_candidates_overlay", branch_overlay)
         branch_trace_overlay = self._draw_stage5b_branch_trace_overlay(
             overlay,
-            branch_results,
+            branch_results_before_merge,
         )
         self._save_img("stage5b_branch_trace_overlay", branch_trace_overlay)
+
+        # ---- stage 5c overlay ---------------------------------------------
+        # Based on the SAME rendered overlay as 5b, then re-drawn from the POST-merge
+        # branch set, so the two files compare directly: a run absent from 5c was
+        # absorbed by a merge, and a run that ends earlier in 5c was cut at a T.
+        overlay_5c = overlay.copy()
+        overlay_5c = self._draw_stage5b_branch_trace_overlay(
+            overlay_5c,
+            branch_results,
+        )
+        self._draw_merge_marks(overlay_5c, merge_report)
+        self._save_img("stage5c_branch_merge_overlay", overlay_5c)
         if self.cfg.debug_artifacts:
             self._write_stage5b_individual_trace_images(
                 image,
