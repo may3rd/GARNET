@@ -1852,6 +1852,20 @@
       "source_model": "manual",
       "source_weight": "",
       "text": "WW"
+    },
+    {
+      "id": "obj_000141",
+      "class_name": "utility connection",
+      "confidence": 1.0,
+      "bbox": {
+        "x_min": 1063,
+        "y_min": 381,
+        "x_max": 1124,
+        "y_max": 442
+      },
+      "source_model": "manual",
+      "source_weight": "",
+      "text": "F"
     }
   ]
 }

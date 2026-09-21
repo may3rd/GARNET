@@ -416,11 +416,69 @@ def load_equipment_ports(indir: Path, stem: str) -> dict[str, list[dict]]:
 # ---------------------------------------------------------------------------
 
 
+def _shrink_text_box(mask: np.ndarray, x1: int, y1: int, x2: int, y2: int,
+                     min_shrink: int = 2, max_shrink: int = 8) -> tuple[int, int, int, int]:
+    """Shrink a text bbox edge inward while glyph ink remains near that edge.
+
+    For each of the four edges, walk inward from the bbox line and stop at the first
+    position where the band JUST inside still carries ink (the glyph strokes). Edges
+    with no nearby ink shrink by `min_shrink` only — there is nothing to protect, and
+    shrinking more would risk leaving glyph fragments. No edge ever advances past
+    `max_shrink`, so a mislabelled box cannot have its text pushed outside the blank.
+
+    Returns the shrunk box (left, top, right, bottom) ready for blank().
+    """
+    h, w = mask.shape[:2]
+    bx1, by1 = max(0, x1), max(0, y1)
+    bx2, by2 = min(w, x2), min(h, y2)
+    if bx2 <= bx1 or by2 <= by1:
+        return x1, y1, x2, y2
+
+    def band_ink(a: int, b: int, fixed_lo: int, fixed_hi: int,
+                 vertical: bool) -> int:
+        if vertical:
+            return int(mask[fixed_lo:fixed_hi, a:b].sum() // 255)
+        return int(mask[a:b, fixed_lo:fixed_hi].sum() // 255)
+
+    # LEFT edge: walk right from x1
+    s_left = min_shrink
+    for d in range(min_shrink + 1, max_shrink + 1):
+        if band_ink(min(w, x1 + d), min(w, x1 + d + 2), by1, by2, True) > 0:
+            s_left = d
+        else:
+            break
+    # RIGHT edge: walk left from x2
+    s_right = min_shrink
+    for d in range(min_shrink + 1, max_shrink + 1):
+        if band_ink(max(0, x2 - d - 2), max(0, x2 - d), by1, by2, True) > 0:
+            s_right = d
+        else:
+            break
+    # TOP edge: walk down from y1
+    s_top = min_shrink
+    for d in range(min_shrink + 1, max_shrink + 1):
+        if band_ink(min(h, y1 + d), min(h, y1 + d + 2), bx1, bx2, False) > 0:
+            s_top = d
+        else:
+            break
+    # BOTTOM edge: walk up from y2
+    s_bot = min_shrink
+    for d in range(min_shrink + 1, max_shrink + 1):
+        if band_ink(max(0, y2 - d - 2), max(0, y2 - d), bx1, bx2, False) > 0:
+            s_bot = d
+        else:
+            break
+
+    return (x1 + s_left, y1 + s_top, x2 - s_right, y2 - s_bot)
+
+
 def build_pipe_mask(image: np.ndarray, objects: list[dict], equipment: list[dict], *,
                     ocr_padding: int = 1, object_inset: int = 1, inline_inset: int = 12,
                     min_area: int = 16, blur_kernel: int = 5,
                     adaptive_block_size: int = 21, adaptive_c: int = 5,
-                    equipment_inset: int = 0) -> tuple[np.ndarray, dict]:
+                    equipment_inset: int = 0,
+                    text_shrink_min_px: int = 2, text_shrink_max_px: int = 8,
+                    ) -> tuple[np.ndarray, dict]:
     """Binarize, then erase text and symbol glyphs so only pipework remains.
 
     Text suppression comes from the fixtures alone now (no OCR stage): the merged object list
@@ -455,6 +513,7 @@ def build_pipe_mask(image: np.ndarray, objects: list[dict], equipment: list[dict
                                           "dimension", "process_label", "utility_label",
                                           "valve_tag", "equipment_tag", "unknown"}
     n_text = 0
+    n_shrunk = 0
     for obj in objects:
         cls = str(obj.get("class_name", "")).strip().lower()
         if cls in keep:
@@ -466,10 +525,30 @@ def build_pipe_mask(image: np.ndarray, objects: list[dict], equipment: list[dict
         if cls in inline:
             if inline_inset:
                 blank(x1 + inline_inset, y1 + inline_inset, x2 - inline_inset, y2 - inline_inset)
+        elif cls in text_classes:
+            # TEXT-AREA SHRINK: blank the text box SHRUNK inward, not padded
+            # outward. A line number or note often sits flush against the pipe it
+            # labels, and the detector's bbox is drawn around the INK, so its edge
+            # can land on or over the pipe stroke. Blanking bbox+pad then erodes the
+            # main pipe; blanking bbox-shrink cannot, because the blank retreats
+            # from the box edge toward the glyphs.
+            #
+            # The shrink must not leave glyph ink behind either: the mask is
+            # binarized BEFORE this step, so leftover glyph strokes become tracer
+            # food (measured: 802 glyph fragments adjacent to pipe on 0002A alone).
+            # So the shrink is adaptive — each edge retreats only as far as the
+            # ink near it allows, stopping at text_shrink_min and never advancing
+            # past text_shrink_max.
+            sx1, sy1, sx2, sy2 = _shrink_text_box(
+                mask, x1, y1, x2, y2,
+                min_shrink=text_shrink_min_px, max_shrink=text_shrink_max_px)
+            if (sx1, sy1, sx2, sy2) != (x1 - ocr_padding, y1 - ocr_padding,
+                                        x2 + ocr_padding, y2 + ocr_padding):
+                n_shrunk += 1
+            blank(sx1, sy1, sx2, sy2)
+            n_text += 1
         else:
             blank(x1 - ocr_padding, y1 - ocr_padding, x2 + ocr_padding, y2 + ocr_padding)
-            if cls in text_classes:
-                n_text += 1
 
     if equipment_inset > 0:
         for it in equipment:
@@ -493,6 +572,7 @@ def build_pipe_mask(image: np.ndarray, objects: list[dict], equipment: list[dict
         "pct_of_sheet": round(float((mask > 0).mean()) * 100, 2),
         "components_removed": removed,
         "text_boxes_suppressed": n_text,
+        "text_boxes_shrunk": n_shrunk,
         "binarize": {"blur_kernel": blur_kernel, "adaptive_block_size": adaptive_block_size,
                      "adaptive_c": adaptive_c, "min_component_area": min_area},
     }

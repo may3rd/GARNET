@@ -2277,11 +2277,14 @@ class Stage5bPipelineMixin:
                 iteration_summaries[-1]["stop_reason"] = "no_new_trace_sources"
                 break
 
-        self._suppress_redundant_branch_walks(all_branch_results)
+        self._suppress_redundant_branch_walks(all_branch_results,
+                                              base_results=base_results)
         self._suppress_degenerate_loop_walks(all_branch_results)
         return all_candidates, all_branch_results, iteration_summaries
 
-    def _suppress_redundant_branch_walks(self, branch_results: dict[str, dict]) -> int:
+    def _suppress_redundant_branch_walks(self, branch_results: dict[str, dict],
+                                         base_results: Optional[dict[str, dict]] = None,
+                                         ) -> int:
         """Drop a branch walk whose line another branch already covers in full.
 
         Orphan dots sit ON an existing line, so a leg launched from one often walks a
@@ -2336,11 +2339,24 @@ class Stage5bPipelineMixin:
         order = sorted(walked, key=lambda k: -sum(
             max(abs(s['x2'] - s['x1']), abs(s['y2'] - s['y1']))
             for s in walked[k]['segments']))
+        # A branch fully covered by a TRACE is redundant too: the trace owns the line
+        # and the branch adds nothing. Measured across all 9 sheets this matches
+        # exactly 2 walks (`0004A branch_000003` inside trace `obj_000139`, and
+        # `0009 branch_000008` inside `equip_p_2507a:port_02`), both the same 6px-thick
+        # drawn line walked on adjacent rows, which is why an exact-pixel test found
+        # 0 shared points and tol=3 below is what bridges it. Branch ids never appear
+        # in base_results, so a walk can never match itself here.
+        trace_donors: dict[str, list] = {}
+        for k, v in (base_results or {}).items():
+            if v.get("status") in ("ok", "traced") and (v.get("segments") or []):
+                trace_donors[str(k)] = seg_sig(v)
         suppressed = 0
         for i, wid in enumerate(order):
             if branch_results[wid].get("status") != "traced":
                 continue
             pts = points(walked[wid])
+            own_len = sum(max(abs(s['x2'] - s['x1']), abs(s['y2'] - s['y1']))
+                          for s in walked[wid]['segments'])
             for donor in order[:i]:                    # only longer walks
                 if branch_results[donor].get("status") != "traced":
                     continue
@@ -2350,6 +2366,22 @@ class Stage5bPipelineMixin:
                     branch_results[wid]["superseded_by"] = donor
                     suppressed += 1
                     break
+            else:
+                # No BRANCH covers it; a longer TRACE may still own the line. The
+                # donor must be at least as long as the walk so a genuine short stub
+                # into a junction is never dropped.
+                for tk, tsegs in trace_donors.items():
+                    tlen = sum(max(abs(x2 - x1), abs(y2 - y1))
+                               for x1, y1, x2, y2 in tsegs)
+                    if tlen + 5 < own_len:
+                        continue
+                    if covered_by(pts, tsegs) >= 0.98:
+                        branch_results[wid]["status"] = "skipped"
+                        branch_results[wid]["skip_reason"] = (
+                            "redundant_line_already_traced")
+                        branch_results[wid]["superseded_by"] = tk
+                        suppressed += 1
+                        break
         return suppressed
 
     def _align_stage5b_branch_node_terminals(
