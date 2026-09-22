@@ -1,31 +1,23 @@
 ---
 name: garnet-line-numbers
-description: Extract piping line-number text labels from a GARNET P&ID sheet as Contract C JSON, for import into the pipeline with --ai-line-numbers. Use for phrasings like "read the line numbers off this P&ID", "extract pipe line number text", "get line-number bounding boxes for this sheet", or "prep line-number JSON for GARNET". The default weight has no line-number class and YOLO never reads text — this is the source for it.
+description: Extract piping line-number text labels from a GARNET P&ID sheet as Contract C JSON, using a vision LLM. Use for phrasings like "read the line numbers off this P&ID", "extract pipe line number text", "get line-number bounding boxes for this sheet", or "prep line-number JSON for GARNET". The YOLO weight has no line-number class and never reads text — this is the source for it.
 ---
 
 # garnet-line-numbers
 
-Extracts every piping line-number label (e.g. `3"-CUL-25-002007-B1A2-NI`) from one P&ID
-sheet, as text with a bounding box, as Contract C JSON for `--ai-line-numbers`.
+Every piping line-number label (e.g. `3"-CUL-25-002007-B1A2-NI`) on one P&ID sheet, as text
+with a bounding box, in Contract C JSON.
 
-**Follow the prompt at `backend/garnet/OCR_prompts/pid_line_number_extraction_prompt.md` step
-by step.** It defines what counts as a line number (vs. instrument tags, equipment tags,
-page-connector numbers, size callouts — all out of scope) and the transcription rules. Do not
-re-derive them here.
+**This is LLM work, and there is no script for it.** Unlike equipment
+(`garnet/detect_equipment_bboxes.py`), line numbers have no automated extractor in the repo —
+you do it inline here, or delegate to the `garnet-line-number-extractor` agent.
 
-Full contract reference (Contract C, frame-reconciliation rules): `.claude/skills/garnet-digitize/reference/contracts.md`.
+**Follow `backend/garnet/OCR_prompts/pid_line_number_extraction_prompt.md` step by step.** It
+defines what counts as a line number (vs. instrument tags, equipment tags, page-connector
+numbers, size callouts — all out of scope) and the transcription rules. Do not re-derive them.
 
-## GARNET-specific constraints
-
-1. **Frame must match the job image.** `image_width`/`image_height` in your output are
-   compared exactly against the job's real pixel size; a mismatch is a hard error unless you
-   pass `--ai-align` (translation-only fit, needs the job's own `stage4_line_numbers.json` to
-   already exist and ≥4 confident text matches — see the reference doc). Extract from the exact
-   raster you will feed to `--image`.
-2. **Empty `Text` is skipped**, not imported as a placeholder. Don't emit a box with no
-   transcription — either read it or leave it out.
-3. Imported entries get id `line_number_ai_%06d` and `review_state: "ocr_confirmed"` — they are
-   trusted text, so only emit a string you are confident is printed exactly as transcribed.
+Full contract reference (Contract C, fixture staging, frame rules):
+`.claude/skills/garnet-digitize/reference/contracts.md`.
 
 ## Output shape
 
@@ -38,13 +30,45 @@ Full contract reference (Contract C, frame-reconciliation rules): `.claude/skill
 
 Pixel `xywh`, source raster frame (per the prompt's coordinate rules).
 
-## Feeding it back in
+## Constraints
+
+1. **Frame must match the raster you trace.** `image_width`/`image_height` are compared
+   against the real pixel size; on the backend route a mismatch is a hard error unless you pass
+   `--ai-align` (translation-only fit, needs `stage4_line_numbers.json` to exist and ≥4
+   confident text matches). Extract from the exact image you feed downstream.
+2. **Empty `Text` is skipped**, not imported as a placeholder. Either read it or leave it out.
+3. Backend-imported entries get id `line_number_ai_%06d` and `review_state: "ocr_confirmed"` —
+   they are treated as trusted text, so only emit a string you are confident is printed exactly
+   as transcribed.
+4. Line numbers matter twice: they suppress text from the pipe mask (so the walker doesn't
+   follow lettering) **and** they are the point of Stage 6 association. A missed vertical label
+   costs you both.
+
+## Feeding it downstream
+
+**`garnet/` route** — stage as a fixture under either accepted name, then trace:
 
 ```bash
-python -m garnet.pid_extractor --image <sheet> --out <dir> --ai-line-numbers <path.json> --stop-after 11
+cp <your.json> <indir>/<stem>_line_numbers.json     # or <stem>_line_number_boxes.json
+cd /Users/maetee/Code/GARNET
+.venv/bin/python -m garnet.stage5b.run --stem <stem> --indir <indir> --out output/<stem>
+.venv/bin/python -m garnet.stage5b.run_associations --stem <stem> --indir <indir>
+```
+
+Then check the association visually:
+`.venv/bin/python -m garnet.stage5b.inspect_line_numbers --stem <stem>` → open
+`inspection.html`. A label attaches to the path it is written **along**, not the nearest one,
+so the tile shows both the winner (green) and the closer loser (blue).
+
+**backend route:**
+
+```bash
+cd backend && ../.venv/bin/python -m garnet.pid_extractor \
+  --image <sheet> --out <dir> --ai-line-numbers <path.json> --stop-after 11
 ```
 
 ## Multi-sheet work
 
-For more than one sheet, delegate each sheet to the `garnet-line-number-extractor` agent in
-parallel rather than doing them serially in this conversation.
+Delegate each sheet to the `garnet-line-number-extractor` agent in parallel rather than doing
+them serially in one conversation — each agent handles exactly one sheet and views its own
+overlay.

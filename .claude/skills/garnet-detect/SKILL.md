@@ -5,25 +5,46 @@ description: Run YOLO+SAHI symbol detection on a GARNET P&ID raster to get the o
 
 # garnet-detect
 
-Runs GARNET's pipeline through Stage 4 (object detection + topology markers + line-number/
-instrument-tag fusion) and stops. No LLM, no tracing — pure YOLO+SAHI.
+YOLO+SAHI symbol detection on one P&ID raster. No LLM, no tracing.
 
-Full contract reference: `.claude/skills/garnet-digitize/reference/contracts.md`.
+Full contract reference: `.claude/skills/garnet-digitize/reference/contracts.md` — read its
+"Two trees" section first if you don't know which route you're on.
 
-## Command
+## Default route — `garnet/` standalone script
+
+Run from the repo root. Standalone: no pipeline, no OCR, no stage manifest.
+
+```bash
+cd /Users/maetee/Code/GARNET
+.venv/bin/python -m garnet.detect_objects --image <path-to-sheet-raster>
+```
+
+Writes `output/<stem>_objects.json` (Contract A) and `output/<stem>_objects_overlay.png` —
+**view the overlay** to sanity-check. `--out <path>` to place it elsewhere; stage it as
+`<indir>/<stem>_objects.json` if it feeds `garnet.stage5b.run`.
+
+Useful flags: `--weight <file>` (default `backend/yolo_weights/yolo26n_PPCL_640_20260227.pt`),
+`--image-size` (640), `--overlap-ratio` (0.2), `--conf-th` (0.8), `--device cpu|mps|cuda:0`,
+`--no-overlay`. `--help` for the rest.
+
+## Alternative route — backend pipeline, Stage 4
+
+Use only when you need a backend job output dir (stage manifest, tag fusion, then stages 5–11).
 
 ```bash
 cd /Users/maetee/Code/GARNET/backend
 /Users/maetee/Code/GARNET/.venv/bin/python -m garnet.pid_extractor \
-  --image <path-to-sheet-raster> \
-  --out <output-dir> \
-  --stop-after 4
+  --image <path-to-sheet-raster> --out <output-dir> --stop-after 4
 ```
 
-Optional: `--weight-file yolo_weights/<name>.pt` (default `yolo26n_PPCL_640_20260227.pt`),
-`--ocr-route easyocr|gemini|paddleocr|ocrmac` (default `ocrmac`).
+Optional: `--weight-file yolo_weights/<name>.pt`, `--ocr-route easyocr|gemini|paddleocr|ocrmac`
+(default `ocrmac`).
 
-## Why sheet-wide OCR runs even at `--stop-after 4`
+Extra outputs this route gives you that the script does not: `stage4_objects_summary.json`,
+`stage4_topology_markers.json` (arrow/node → flow_marker/junction_marker),
+`stage4_line_numbers.json`, `stage4_instrument_tags.json`.
+
+### Why sheet-wide OCR runs even at `--stop-after 4` (backend route only)
 
 Stage 2 runs before Stage 4 and cannot be skipped. Its **primary** job is not reading text —
 it is producing text bounding boxes so `stage5_pipe_mask` can erase text from the raster
@@ -41,42 +62,31 @@ So: OCR coverage must stay sheet-wide; OCR *quality* only has to be good enough 
 text. Do not "optimize" this by cropping to detected objects only — the mask needs boxes for
 text that has no detected object near it.
 
-### Detect-only Stage 2
+`--ocr-detect-only` (requires `--ocr-route easyocr`) runs CRAFT detection without the per-box
+CRNN recognition pass — same boxes, no transcription. All three orientation passes are kept,
+because a missed vertical line-number box means the mask fails to erase it. Every region comes
+back `text: ""`, `class: "unknown"`, `legibility: "illegible"`, which suppresses correctly
+(`pipe_mask_preserve_ocr_classes` is empty by default). Pair it with `--ai-line-numbers`.
 
-Because the mask only needs boxes, `--ocr-detect-only` (requires `--ocr-route easyocr`) runs
-CRAFT detection without the per-box CRNN recognition pass — same boxes, no transcription.
-All three orientation passes are kept, because a missed vertical line-number box means the
-mask fails to erase it. Every region comes back `text: ""`, `class: "unknown"`,
-`legibility: "illegible"`, which suppresses correctly (`pipe_mask_preserve_ocr_classes` is
-empty by default) and is only cosmetic in the Stage 2 exception report.
+The `garnet/` tracer solves the same problem differently: `garnet.stage5b.run --ocr` runs
+macOS Vision OCR on demand, and without it the staged line-number fixture supplies the boxes.
 
-Pair it with `--ai-line-numbers`, which replaces `stage4_line_numbers.json` wholesale.
-Instrument tags then fall through to `line_number_fusion`/`instrument_tag_fusion`'s
-per-box crop-OCR fallback (`_confirm_with_crop_ocr`, ocrmac, macOS-only).
+## Detection classes
 
-## Output
-
-`<output-dir>/stage4_objects.json` — Contract A (see reference). Also written:
-`stage4_objects_summary.json`, `stage4_objects_overlay.png` (view this to sanity-check),
-`stage4_topology_markers.json` (arrow/node → flow_marker/junction_marker), `stage4_line_numbers.json`,
-`stage4_instrument_tags.json`.
-
-Detection classes come from the weight file, not a YAML — the default weight currently produces:
-`arrow, check valve, connection, control valve, gate valve, globe valve, instrument dcs,
-instrument logic, instrument tag, node, page connection, pressure relief valve, reducer,
-sampling point, spectacle blind, strainer, utility connection`.
+From the weight file, not a YAML. The default weight currently produces: `arrow, check valve,
+connection, control valve, gate valve, globe valve, instrument dcs, instrument logic,
+instrument tag, node, page connection, pressure relief valve, reducer, sampling point,
+spectacle blind, strainer, utility connection`.
 
 ## Failure modes
 
 - **Model not found**: check `backend/yolo_weights/` for the `.pt`/`.onnx` file you named.
-- **CUDA OOM**: pass a smaller image or run from an environment with `device="cpu"` (pipeline
-  default device handling; no separate flag here).
-- Detected objects do **not** include major equipment or read line-number text — that requires
-  the `garnet-equipment-bbox` / `garnet-line-numbers` skills and `--ai-equipment` /
-  `--ai-line-numbers`.
+- **CUDA OOM**: `--device cpu` (script route) or a smaller image.
+- Detected objects do **not** include major equipment or read line-number text — that needs
+  `garnet-equipment-bbox` and `garnet-line-numbers`.
 
 ## Do not confuse with `/api/detect`
 
 `POST /api/detect` (legacy HTTP path) returns a different flat schema (`CategoryID, ObjectID,
-Left, Top, Width, Height, Score, Text`, xywh). This skill's output is the pipeline schema
-(Contract A, xyxy) only — do not mix the two when writing downstream code or JSON.
+Left, Top, Width, Height, Score, Text`, xywh). This skill's output is Contract A (xyxy) —
+do not mix the two when writing downstream code or JSON.

@@ -1,11 +1,42 @@
 # GARNET pipeline contracts — shared reference
 
 Single source of truth for all `garnet-*` skills. Every other SKILL.md links here instead of
-repeating this. Verified against `backend/garnet/pid_extractor.py` and `backend/garnet/ai_import.py`.
+repeating this.
 
-Runner: `/Users/maetee/Code/GARNET/.venv/bin/python`, cwd = `/Users/maetee/Code/GARNET/backend`.
+## Two trees — read this first
 
-## CLI
+| | `garnet/` (repo root) | `backend/garnet/` |
+|---|---|---|
+| Status | **Current extraction work** | Legacy pipeline behind the FastAPI service |
+| Runner cwd | repo root, `.venv/bin/python` | `backend/`, `../.venv/bin/python` |
+| Inputs | **fixture files by filename convention** in `--indir` | `--image` + explicit `--ai-equipment` / `--ai-line-numbers` paths |
+| Reaches | detection → LLM extraction → tracing → Stage 6 associations → review gate | all stages 1–11 |
+| Graph / line list | **not implemented** | `stage7b_graph_v1.json`, `stage10_line_list.json` |
+
+Everything below marked *(backend)* describes `backend/garnet/pid_extractor.py` and
+`backend/garnet/ai_import.py` only. Contracts A/B/C are shared by both trees; the way each
+tree *ingests* them differs.
+
+## garnet/ fixture staging (the step people miss)
+
+`garnet.stage5b.run`, `garnet.trace_pipes`, `garnet.stage5b.run_associations`,
+`garnet.stage5b.review_gate` and `garnet.stage5b.inspect_line_numbers` all take `--stem` /
+`--indir`, **never `--image`**. To trace a new sheet, stage one directory with the raster and
+the three JSONs under the names `garnet/stage5b/host.py:load_fixtures` accepts:
+
+```
+<indir>/<stem>.jpg                        the raster
+<indir>/<stem>_objects.json               Contract A  (garnet.detect_objects)
+<indir>/<stem>_equipment_bboxes.json      Contract B  (garnet.detect_equipment_bboxes)
+   or <stem>_equipment.json
+<indir>/<stem>_line_number_boxes.json     Contract C  (LLM skill/agent — no script)
+   or <stem>_line_numbers.json
+```
+
+`garnet/tests/input/` is the worked example. Equipment `Ports` are read from a separate
+`ai_equipment_ports.json`, not from the bbox file.
+
+## CLI *(backend)*
 
 ```bash
 python -m garnet.pid_extractor --image <path> --out <dir> \
@@ -20,7 +51,7 @@ python -m garnet.pid_extractor --image <path> --out <dir> \
 Resume is automatic: re-running with the same `--out` and a matching input-image/config hash
 picks up after the last completed stage (`PIDPipeline.run(resume=True)`).
 
-## Stage table
+## Stage table *(backend)*
 
 | # | Stage | Key output artifacts |
 |---|---|---|
@@ -38,7 +69,10 @@ picks up after the last completed stage (`PIDPipeline.run(resume=True)`).
 
 Every stage also updates `stage_manifest.json` in `--out`.
 
-## Contract A — `stage4_objects.json` (YOLO detection, pipeline schema)
+## Contract A — object JSON (YOLO detection)
+
+Produced by `garnet.detect_objects` (`output/<stem>_objects.json`) or by the backend's
+Stage 4 (`stage4_objects.json`). Same schema.
 
 ```json
 {"image_id": "input.png", "pass_type": "sheet", "objects": [
@@ -60,7 +94,10 @@ Every stage also updates `stage_manifest.json` in `--out`.
 schema: `Index, Object, CategoryID, ObjectID, Left, Top, Width, Height, Score, Text` (xywh).
 Pipeline skills use Contract A only — never mix the two schemas.
 
-## Contract B — equipment bbox JSON (input to `--ai-equipment`)
+## Contract B — equipment bbox JSON
+
+Produced by `garnet.detect_equipment_bboxes` (vision LLM). Consumed by `garnet/` as a staged
+fixture, or by the backend via `--ai-equipment`.
 
 ```json
 {"source_drawing": "...",
@@ -90,7 +127,10 @@ Pipeline skills use Contract A only — never mix the two schemas.
 - Importing equipment **replaces the entire equipment bucket** in `stage4_objects.json` — every
   existing object whose `class_name` is in `EQUIPMENT_LABELS` is dropped first.
 
-## Contract C — line-number JSON (input to `--ai-line-numbers`)
+## Contract C — line-number JSON
+
+Produced by the `garnet-line-numbers` skill / `garnet-line-number-extractor` agent (there is no
+script). Consumed by `garnet/` as a staged fixture, or by the backend via `--ai-line-numbers`.
 
 ```json
 {"id": "Test-00002", "objects": [
@@ -103,7 +143,7 @@ Pipeline skills use Contract A only — never mix the two schemas.
 - Pixel xywh, source raster frame. Empty `Text` → skipped.
 - Imported ids are `line_number_ai_%06d`, `review_state: "ocr_confirmed"`.
 
-## Frame reconciliation (`ai_import.fit_transform`) — the #1 failure mode
+## Frame reconciliation (`ai_import.fit_transform`) — the #1 failure mode *(backend)*
 
 Declared frame = `coordinate_frame.{width_px,height_px}` (equipment) or `image_width`/
 `image_height` (line numbers), compared against the job image's real pixel size.
@@ -136,7 +176,13 @@ Declared frame = `coordinate_frame.{width_px,height_px}` (equipment) or `image_w
 - **Branches**: up to 5 fixed-point iterations discovering perpendicular side-runs ≥25px off
   known traces, each traced as `branch_%06d`, successful ones seeding the next iteration.
 
-### Tunables (`PipelineConfig`)
+### Tunables
+
+*(backend)* set via `PipelineConfig` — no CLI flags. On the `garnet/` route the branch knobs are
+real CLI flags instead: `--branch-iterations`, `--branch-min-run-px`, `--branch-sample-px`,
+`--max-branches` on `garnet.stage5b.run` / `garnet.trace_pipes`.
+
+#### `PipelineConfig` defaults
 
 | Field | Default |
 |---|---|
@@ -163,7 +209,7 @@ Declared frame = `coordinate_frame.{width_px,height_px}` (equipment) or `image_w
 | Tee legs missed | raise `trace_branch_max_iterations`, or lower `trace_branch_min_run_px` |
 | A symbol swallows the pipe (trace can't get through) | check `pipe_mask_inline_object_inset` |
 
-## Graph output
+## Graph output *(backend only — `garnet/` does not assemble a graph)*
 
 `stage7_graph.json` — `schema_version: "stage7_trace_graph_v1"`. Keys: `nodes, edges, equipment,
 ports, line_groups, review_queue, metadata`. Node types: `equipment_port, page_connection,

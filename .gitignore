@@ -165,11 +165,10 @@ cython_debug/
 */.DS_Store
 .DS_Store
 .ruff_cache/
-.claude/*
-!.claude/skills/
-!.claude/agents/
+.claude/
 .tmp-mpl/
 output/
+.kilo/
 
 # Backend ignores
 backend/__pycache__/
@@ -199,7 +198,6 @@ frontend/dist
 # External
 DeepLSD/
 PTTEP/
-
 
 # Generated design-canvas payloads (seeded from the .dc.html sources)
 design/**/garnet-digitizer.html

@@ -4,17 +4,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-GARNET (GCME AI-Recognition Network for Engineering Technology) is an AI-powered tool for automating symbol detection, classification, and connectivity analysis in Piping and Instrumentation Diagrams (P&IDs). It combines YOLOv11 object detection with graph-based analytics to transform P&ID workflows.
+GARNET (GCME AI-Recognition Network for Engineering Technology) is an AI-powered tool for automating symbol detection, classification, and connectivity analysis in Piping and Instrumentation Diagrams (P&IDs). It combines YOLO object detection, vision-LLM extraction, and geometric pipe tracing.
+
+## ⚠️ Two extraction trees — pick one before you edit
+
+| | `garnet/` (repo root) | `backend/garnet/` |
+| --- | --- | --- |
+| Status | **Current work.** New extraction development goes here. | Legacy pipeline behind the FastAPI service. Still runs. |
+| Run from | **repo root**, `.venv/bin/python` | `backend/`, `../.venv/bin/python` |
+| Inputs | staged fixture files, picked up by filename from `--indir` | `--image` + explicit `--ai-equipment` / `--ai-line-numbers` |
+| Reaches | detection → LLM extraction → tracing → review gate → Stage 6 | all stages 1–11 |
+| Graph / line list | **not implemented** | `stage7b_graph_v1.json`, `stage10_line_list.json` |
+
+"Always run backend commands from `backend/`" applies to `backend/` only. `garnet/` runs from
+the repo root. See `AGENTS.md` and `.claude/skills/garnet-digitize/reference/contracts.md`.
 
 **Tech Stack:**
 
-- **Backend**: FastAPI + Python (YOLOv11, SAHI, EasyOCR/PaddleOCR/Gemini OCR, NetworkX, OpenCV)
+- **Extraction (`garnet/`)**: Python (Ultralytics YOLO + SAHI, vision LLM via ollama-cloud, OpenCV, macOS Vision OCR)
+- **Backend API**: FastAPI + Python (YOLO, SAHI, EasyOCR/PaddleOCR/Gemini OCR, NetworkX, OpenCV)
 - **Frontend**: React 18 + TypeScript + Vite + Zustand (state management) + Radix UI + Tailwind CSS + Konva (canvas) + **Bun (package manager)**
-- **AI Models**: Ultralytics YOLOv11, EasyOCR, PaddleOCR (RapidOCR), Gemini via OpenRouter, DeepLSD (line detection)
 
 ## Repository Layout
-
-The backend and garnet module live under `backend/`. Always run backend commands from the `backend/` directory.
 
 ```
 /GARNET
@@ -129,20 +140,83 @@ The backend and garnet module live under `backend/`. Always run backend commands
 │   ├── package.json                # Bun dependencies
 │   ├── vite.config.ts              # Vite config (proxies /api and /runs to :8090)
 │   └── tailwind.config.ts
-├── DeepLSD/                        # Line detection submodule
+├── garnet/                         # CURRENT extraction tree (run from repo root)
+│   ├── detect_objects.py           # YOLO+SAHI symbols -> <stem>_objects.json + overlay
+│   ├── detect_equipment_bboxes.py  # Vision LLM equipment boxes + nozzles (Contract B)
+│   ├── trace_pipes.py              # Self-contained pipe tracer (fixture-driven)
+│   ├── run_stage5b.py              # Runs the tracer against a backend job dir
+│   ├── draw_boxes.py               # Box-only overlays for the three fixture types
+│   ├── run_test.sh                 # Clear output/ and re-run stage 5b over all fixture sheets
+│   ├── stage5b/                    # Backend-free Stage 5b — DIVERGED from backend, deliberately
+│   │   ├── run.py                  # CLI: fixtures -> mask -> host -> tracer
+│   │   ├── host.py                 # Stage5bHost + load_fixtures (filename conventions)
+│   │   ├── cv_pipe_tracer.py       # The CV walker
+│   │   ├── stage5b_pipeline.py     # Port/branch orchestration
+│   │   ├── review_gate.py          # Cleans up traced network (R1 residual -> vision model)
+│   │   ├── run_associations.py     # Stage 6: line numbers/valves/tags/arrows -> traces
+│   │   ├── inspect_line_numbers.py # Visual review of Stage 6 assignment (inspection.html)
+│   │   ├── ocrmac_sahi.py          # macOS Vision OCR with SAHI tiling
+│   │   └── review_rules.md         # Review-gate rules and thresholds
+│   └── tests/
+│       ├── input/                  # Fixture sheets + their objects/equipment/line-number JSON
+│       └── test_*.py               # unittest
 ├── design/                         # Design references and assets
 ├── docs/                           # Project plans and documentation
+├── output/                         # garnet/ run artifacts (gitignored)
 ├── AGENTS.md                       # Root agent instructions (cross-module guidance)
 ├── README.md                       # Project README
-├── MASTER_PLAN.md                  # P&ID digitizing architecture roadmap
 ├── GEMINI.md                       # Gemini integration notes
 ├── .env.example                    # Root environment template
-└── punch_list.md                   # Development punch list
+└── TODO.md
 ```
 
 ## Development Commands
 
-All backend commands must be run from the `backend/` directory.
+`garnet/` runs from the repo root. `backend/` commands must be run from `backend/`.
+
+### Extraction (`garnet/`) — current
+
+```bash
+cd /Users/maetee/Code/GARNET
+
+# 1. symbols (YOLO+SAHI)
+.venv/bin/python -m garnet.detect_objects --image garnet/tests/input/<stem>.jpg \
+    --out garnet/tests/input/<stem>_objects.json
+
+# 2a. equipment boxes + nozzles (vision LLM, ollama-cloud; creds $OLLAMA_API_KEY or ~/.hermes/.env)
+.venv/bin/python -m garnet.detect_equipment_bboxes --image garnet/tests/input/<stem>.jpg \
+    --out garnet/tests/input/<stem>_equipment_bboxes.json
+
+# 2b. line numbers: NO script. Use the garnet-line-numbers skill / garnet-line-number-extractor
+#     agent, write to garnet/tests/input/<stem>_line_numbers.json
+
+# 3. trace
+.venv/bin/python -m garnet.stage5b.run --stem <stem> --indir garnet/tests/input --out output/<stem>
+
+# 4. review gate (calls a vision model on the residual; --no-llm / --dry-run to skip)
+.venv/bin/python -m garnet.stage5b.review_gate --stem <stem> --dir output/<stem>
+
+# 5. Stage 6 associations
+.venv/bin/python -m garnet.stage5b.run_associations --stem <stem> \
+    --indir garnet/tests/input --dir output/<stem>
+
+# every fixture sheet, into a cleared output/
+bash garnet/run_test.sh
+
+# checks
+.venv/bin/python -m py_compile garnet/*.py garnet/stage5b/*.py
+.venv/bin/python -m unittest discover -s garnet/tests -p "test_*.py"
+```
+
+**Steps 3–5 take `--stem`/`--indir`, not `--image`.** Stage the raster and the three JSONs in
+one directory under the names `garnet/stage5b/host.py:load_fixtures` accepts:
+`<stem>.jpg`, `<stem>_objects.json`, `<stem>_equipment_bboxes.json` | `<stem>_equipment.json`,
+`<stem>_line_number_boxes.json` | `<stem>_line_numbers.json`. `garnet/tests/input/` is the
+worked example.
+
+**Do not resync `garnet/stage5b/` to `backend/garnet/path_tracer/`.** It has deliberately
+diverged and carries fixes that exist only there — `garnet/stage5b/__init__.py` lists them.
+Port fixes *out* of `garnet/`, never *in*.
 
 ### Backend
 
@@ -329,7 +403,7 @@ The pipeline in `garnet/pid_extractor.py` orchestrates a multi-stage rebuild:
 | 2     | OCR Discovery      | Tiled OCR via EasyOCR/Gemini/PaddleOCR route                 | `stage2_ocr_results.json`, text regions                                   |
 | 4     | Object Detection   | YOLOv11 + SAHI symbol detection                              | `stage4_objects.json`, `stage4_objects_overlay.png`, topology markers     |
 | 5     | Pipe Mask          | Provisional pipe segmentation from binary + suppression      | `stage5_pipe_mask.png`, `stage5_pipe_mask_overlay.png`                    |
-| 5b    | Geometric Lines    | DeepLSD line detection or inpaint-based line extraction      | Line geometry for topology                                                |
+| 5b    | Geometric Lines    | Inpaint-based line extraction / CV pipe tracing              | Line geometry for topology                                                |
 | 6     | Morphological Seal | Seal gaps in pipe mask                                       | `stage6_pipe_seal.png`                                                    |
 | 7     | Skeleton           | 1-pixel centerline skeleton from pipe mask                   | `stage7_pipe_skeleton.png`                                                |
 | 8     | Node Detection     | Endpoint/junction detection on skeleton (8-neighbor degree)  | `stage8_pipe_nodes.json`                                                  |
@@ -346,6 +420,16 @@ The pipeline in `garnet/pid_extractor.py` orchestrates a multi-stage rebuild:
 
 ## Important Conventions
 
+### Extraction (`garnet/`)
+
+- **Run from the repo root** with `.venv/bin/python`, as `python -m garnet.<module>`. Never `cd garnet`.
+- **Three input sources, not interchangeable**: YOLO for symbols, vision LLM for equipment boxes (`detect_equipment_bboxes.py`), vision LLM via skill/agent for line-number text. YOLO detects neither equipment nor text — that is why they arrive as separate JSON files.
+- **No line-number script exists.** Don't go looking for `garnet/detect_line_numbers.py`; that extraction is agent work driven by `backend/garnet/OCR_prompts/pid_line_number_extraction_prompt.md`.
+- **Two modules make network calls**: `detect_equipment_bboxes.py` (always) and `stage5b/review_gate.py` (R1 residual only; `--no-llm` / `--dry-run` to avoid). Everything else is local CV.
+- **`Equipment_type` vocabulary gate**: a value outside `EQUIPMENT_LABELS` (after the synonym map in `host.py:_equipment_as_objects`) is **silently dropped**. A sheet can run with `equipment : 0`, trace nothing, and exit 0. Check the count in the log.
+- **Frame must match**: extract the LLM JSON from the exact raster you trace.
+- **Do not resync `garnet/stage5b/` to the backend original.** The divergence is intentional.
+
 ### Backend
 
 - **Run from `backend/`**: All backend commands expect `backend/` as the working directory so relative paths for weights, outputs, and datasets resolve correctly.
@@ -357,6 +441,7 @@ The pipeline in `garnet/pid_extractor.py` orchestrates a multi-stage rebuild:
 - **Model caching**: Use the cached model infrastructure in `api.py`; never load models directly.
 - **Logging**: Use the configured `logger` (writes to `garnet.log`).
 - **Nested AGENTS.md**: Follow `backend/garnet/AGENTS.md` for pipeline-specific conventions and `AGENTS.md` for cross-module rules.
+- **This is the legacy tree.** New extraction work belongs in the top-level `garnet/`; change `backend/garnet/` when the API or the graph/line-list stages (7–11) need it.
 
 ### Frontend
 
@@ -381,7 +466,14 @@ The pipeline in `garnet/pid_extractor.py` orchestrates a multi-stage rebuild:
 
 ## Testing
 
-Tests use Python's `unittest` framework and live in `backend/tests/` (44+ test files).
+Both trees use `unittest`. `garnet/tests/` (current) and `backend/tests/` (44+ files, legacy).
+
+```bash
+# garnet/ — from the repo root
+cd /Users/maetee/Code/GARNET
+.venv/bin/python -m unittest discover -s garnet/tests -p "test_*.py" -v
+.venv/bin/python -m py_compile garnet/*.py garnet/stage5b/*.py
+```
 
 ```bash
 cd backend
@@ -414,6 +506,7 @@ Frontend has no test framework configured — verify with `bun run lint` and `bu
 - React DevTools for component tree and Zustand store inspection
 - Pipeline debug: use `run_debug.sh` for verbose stage output
 - Compile-check backend: `python -m py_compile api.py garnet/*.py garnet/utils/*.py`
+- `garnet/` tracing debug: `--debug-artifacts` on `garnet.stage5b.run` writes per-trace images and branch-candidate iteration overlays; `garnet.stage5b.inspect_line_numbers` renders a clickable `inspection.html` for Stage 6 line-number assignments; `garnet.draw_boxes` renders box-only overlays of the three fixture types
 
 **Common issues:**
 
@@ -421,11 +514,15 @@ Frontend has no test framework configured — verify with `bun run lint` and `bu
 - **OCR fails**: Ensure EasyOCR is installed and cached reader initializes (check `OCR_GPU` setting)
 - **Frontend proxy error**: Backend must be running on port 8090
 - **CUDA OOM**: Reduce `image_size` or set `device="cpu"`
-- **Import errors**: Always run from `backend/` directory
+- **Import errors**: run `backend/` code from `backend/`, and `garnet/` code from the repo root
+- **`garnet/` sheet traces nothing**: the fixture JSONs weren't staged under an accepted filename, or every `Equipment_type` fell outside the vocabulary — both exit 0 silently
+- **`detect_equipment_bboxes` auth failure**: needs `$OLLAMA_API_KEY` or `~/.hermes/.env`
 - **Gemini OCR fails**: Verify `OPENROUTER_API_KEY` is set in `.env`
 
 ## Key Design Decisions
 
+0. **Extraction moved out of the backend** into the top-level `garnet/`, fixture-driven and backend-free, so the tracer can be iterated without the API, the stage manifest, or a full pipeline run. The vendored Stage 5b copy is allowed to diverge from `backend/garnet/path_tracer/`; fixes flow out, never in.
+0b. **LLM for equipment and line numbers, YOLO for symbols.** YOLO detects no major equipment and reads no text, and training classes for both was worse value than asking a vision model. Equipment is a script (`garnet/detect_equipment_bboxes.py`); line numbers are agent work against a prompt. Both produce plain JSON, so a human can correct them before tracing.
 1. **Two API paths**: Legacy `/api/detect` for simple detection + pipeline job API for staged P&ID rebuild. Keep concerns separate.
 2. **Staged pipeline with artifacts**: Every stage writes inspectable outputs + manifest. Enables progressive review and debugging.
 3. **SAHI for large images**: Slicing Aided Hyper Inference handles P&IDs that can exceed 30k×20k pixels.
