@@ -22,6 +22,7 @@ import colorsys
 import hashlib
 import json
 import sys
+import threading
 from collections import Counter
 from pathlib import Path
 
@@ -38,6 +39,39 @@ def _resolve(path: str) -> Path:
     return repo_candidate if repo_candidate.exists() else candidate
 
 
+_MODEL_SLOT: dict = {"key": None, "model": None}
+_MODEL_LOCK = threading.Lock()
+
+
+def load_model(weight_path: "Path", *, image_size: int, device: str | None, conf_th: float):
+    """SAHI detection model for this weight, kept across calls (a YOLO load costs seconds).
+
+    ONE slot, not an lru_cache: the cache key would otherwise include every knob a caller can
+    turn and pin a full model per combination. `confidence_threshold` is set per call instead
+    of keyed on, because it is a filter the model applies, not part of its construction.
+
+    Caller MUST hold `_MODEL_LOCK` — both the slot swap and the confidence_threshold write
+    mutate shared state, so a concurrent caller would otherwise predict with the other
+    request's threshold, or against a model swapped out mid-inference.
+    """
+    from sahi import AutoDetectionModel
+
+    key = (str(weight_path), image_size, device)
+    if _MODEL_SLOT["key"] != key:
+        kwargs: dict = {
+            "model_type": "ultralytics",
+            "model_path": str(weight_path),
+            "confidence_threshold": conf_th,
+            "image_size": image_size,
+        }
+        if device:
+            kwargs["device"] = device
+        _MODEL_SLOT.update(key=key, model=AutoDetectionModel.from_pretrained(**kwargs))
+    model = _MODEL_SLOT["model"]
+    model.confidence_threshold = conf_th
+    return model
+
+
 def detect(
     image_path: Path,
     *,
@@ -52,7 +86,6 @@ def detect(
 ) -> tuple[dict, "object"]:
     """Run sliced detection. Returns (payload, image_bgr)."""
     import cv2
-    from sahi import AutoDetectionModel
     from sahi.predict import get_sliced_prediction
 
     image_bgr = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
@@ -61,31 +94,25 @@ def detect(
     height, width = image_bgr.shape[:2]
 
     model_type = "ultralytics"
-    kwargs: dict = {
-        "model_type": model_type,
-        "model_path": str(weight_path),
-        "confidence_threshold": conf_th,
-        "image_size": image_size,
-    }
-    if device:
-        kwargs["device"] = device
-    model = AutoDetectionModel.from_pretrained(**kwargs)
-
-    result = get_sliced_prediction(
-        image=cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB),
-        detection_model=model,
-        slice_height=image_size,
-        slice_width=image_size,
-        overlap_height_ratio=overlap_ratio,
-        overlap_width_ratio=overlap_ratio,
-        postprocess_type=postprocess_type,
-        postprocess_match_metric=postprocess_match_metric,
-        postprocess_match_threshold=postprocess_match_threshold,
-        # SAHI silently swaps the postprocess to NMS/IOU below conf 0.1, which would make the
-        # recorded postprocess fields a lie; keep whatever the caller asked for.
-        force_postprocess_type=True,
-        verbose=0,
-    )
+    # Held across inference, not just the load: the model is shared and its threshold is set
+    # per call. Detection is serialised as a result, which is what a single-model server wants.
+    with _MODEL_LOCK:
+        model = load_model(weight_path, image_size=image_size, device=device, conf_th=conf_th)
+        result = get_sliced_prediction(
+            image=cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB),
+            detection_model=model,
+            slice_height=image_size,
+            slice_width=image_size,
+            overlap_height_ratio=overlap_ratio,
+            overlap_width_ratio=overlap_ratio,
+            postprocess_type=postprocess_type,
+            postprocess_match_metric=postprocess_match_metric,
+            postprocess_match_threshold=postprocess_match_threshold,
+            # SAHI silently swaps the postprocess to NMS/IOU below conf 0.1, which would make
+            # the recorded postprocess fields a lie; keep whatever the caller asked for.
+            force_postprocess_type=True,
+            verbose=0,
+        )
 
     objects = []
     for idx, det in enumerate(result.object_prediction_list, start=1):
@@ -94,6 +121,7 @@ def detect(
             {
                 "id": f"obj_{idx:06d}",
                 "class_name": det.category.name,
+                "class_id": int(det.category.id),
                 "confidence": round(float(det.score.value), 4),
                 "bbox": {
                     "x_min": int(x_min),

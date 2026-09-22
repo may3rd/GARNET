@@ -16,18 +16,37 @@ From the **repo root**, with the root venv:
 sheets. Checks: `.venv/bin/python -m py_compile garnet/*.py garnet/stage5b/*.py`, then
 `.venv/bin/python -m unittest discover -s garnet/tests -p "test_*.py"`.
 
+The frontend API:
+
+```bash
+.venv/bin/python garnet/main.py
+```
+
+It serves detection only, on **8090** — the same port `backend/api.py` uses, so the frontend
+needs no proxy change, but only one of the two may run at a time. The pipeline/review/export
+views 404 against this app.
+
+`text_OCR=true` runs `garnet/ocr_objects.py` over the text-bearing boxes only — instrument tag,
+instrument dcs, instrument logic, line number, page connection, utility connection — and writes
+what it reads into each row's `Text`. Engine is EasyOCR with the backend's crop preprocessing
+and allowlist; macOS Vision (the Stage 2 engine in this tree) dropped letters on tag crops. Do
+not confuse this with `garnet.stage5b.run --ocr`, which is sheet-wide text DISCOVERY for mask
+suppression, not reading known boxes.
+
 ## What is here
 
 | File | Status |
 | --- | --- |
 | `stage5b/` | The live pipeline: mask → trace → 5c merge → review gate → Stage 6. See its `__init__.py` docstring for the module map and the divergence record. |
 | `detect_objects.py` | YOLO + SAHI symbols → objects JSON. Standalone, no pipeline. |
+| `api.py` | FastAPI service for the React frontend — **detection path only** (detect + `text_OCR`). Mirrors `backend/api.py`'s `/api/detect` + `/api/results/*` shapes; no pipeline, review or export routes. Binds **8090**, the same port as `backend/api.py` — run one or the other. Started with `garnet/main.py`. |
 | `detect_equipment_bboxes.py` | Vision LLM (ollama-cloud, creds in `~/.hermes/.env`) → Contract B equipment + nozzles. YOLO detects no equipment; this is the only source. |
 | `trace_pipes.py` | Separate self-contained tracer — borrows the walking algorithm only, shares no code with `stage5b/`. Fixes made in `stage5b/` do **not** reach it. |
 | `draw_boxes.py` | Box-only overlays for checking a fixture JSON against its raster. |
 | `run_stage5b.py` | **Backend route, not this tree.** It imports `garnet.pid_extractor` / `garnet.ai_import`, i.e. `backend/garnet/`, so it must run from `backend/` and it drives the backend tracer copy, which is behind. |
 | `tests/input/` | Nine sheet fixtures (`14780-8120-25-25-*`) — raster + objects + equipment + line numbers. |
-| `tests/` | `test_detect_objects.py`, `test_stage5b_dashed_start.py`, `test_stage5b_occupancy.py`. |
+| `ocr_objects.py` | Reads the text inside detected boxes (EasyOCR, one crop each). Tall `line number` / `page connection` crops rotate **clockwise**; anti-clockwise reads `3"-CUL-25-002010-B2A2-` back as `IN-ZV28-OLOZOO-SZ-I3-` — reversed, but still plausible enough to ship. |
+| `tests/` | `test_detect_objects.py`, `test_stage5b_dashed_start.py`, `test_stage5b_occupancy.py`, `test_api.py`. |
 
 There is **no line-number extraction script.** Equipment has one; line numbers come from the
 `garnet-line-numbers` skill / `garnet-line-number-extractor` agent, driven by
