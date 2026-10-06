@@ -26,6 +26,8 @@ type Assoc = Omit<Obj, 'bbox'> & {
   status: 'accepted' | 'rejected'
 }
 type Port = { mark?: string | null; size?: string; line_number?: string | null; side?: string; point_px: [number, number] }
+// Line numbers live in their own list; Objects never shows, draws or reclasses to them.
+const isLineNumber = (cls: string) => normalizeClass(cls) === 'line number'
 type Equipment = {
   Index: number
   Tag?: string
@@ -402,13 +404,13 @@ export function GarnetResults() {
           })),
           ...added,
           // Line numbers have their own list (Gate 1 tab, Gate 3); the tracer takes them from there.
-        ].filter((o) => normalizeClass(o.class_name) !== 'line number'),
+        ].filter((o) => !isLineNumber(o.class_name)),
       },
     [data, moved, added, reclassed]
   )
   const onDraw = (bbox: BBox) => {
     const cls = addClass.trim()
-    if (!cls) return
+    if (!cls || isLineNumber(cls)) return
     nextNew.current += 1
     const id = `new_${nextNew.current}`
     setAdded((a) => [...a, { id, class_name: cls, confidence: 1, bbox }])
@@ -422,6 +424,7 @@ export function GarnetResults() {
   }
   /** Class edits: a drawn box changes in place; an existing one records an override (cleared when reverted). */
   const onReclass = (id: string, cls: string) => {
+    if (isLineNumber(cls)) return
     if (added.some((o) => o.id === id)) {
       setAdded((a) => a.map((o) => (o.id === id ? { ...o, class_name: cls } : o)))
       return
@@ -782,7 +785,7 @@ export function GarnetResults() {
                 size="sm"
                 variant={addMode ? 'primary' : 'secondary'}
                 aria-pressed={addMode}
-                isDisabled={!addClass.trim()}
+                isDisabled={!addClass.trim() || isLineNumber(addClass)}
                 onPress={() => setAddMode((m) => !m)}
               >
                 <Plus size={14} />
@@ -804,7 +807,7 @@ export function GarnetResults() {
                 </datalist>
               </label>
               <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-                Select a box to drag it or pull its corners.
+                {isLineNumber(addClass) ? 'Line numbers go in the Line numbers list, not Objects.' : 'Select a box to drag it or pull its corners.'}
               </span>
               {selected && selected in moved && (
                 <Button
