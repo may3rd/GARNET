@@ -959,6 +959,13 @@ function Overlay({
   const host = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<View>({ s: 0, x: 0, y: 0 })
   const drag = useRef<{ px: number; py: number; moved: boolean; mode: DragMode } | null>(null)
+  // Touch pinch: live pointers, and the last two-finger span/midpoint.
+  const touches = useRef(new Map<number, { x: number; y: number }>())
+  const pinch = useRef<{ dist: number; mx: number; my: number } | null>(null)
+  const pinchState = () => {
+    const [a, b] = [...touches.current.values()]
+    return { dist: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }
+  }
   // Geometry being dragged right now; committed to the parent on pointer-up only.
   const [live, setLive] = useState<{ id: string; bbox: BBox } | null>(null)
   // Stroke in progress (draw/erase), and the brush position for the erase cursor.
@@ -1063,13 +1070,47 @@ function Overlay({
   useEffect(() => {
     const el = host.current
     if (!el) return
+    // Scroll pans; Ctrl/Cmd + scroll zooms. A trackpad pinch arrives as wheel + ctrlKey in
+    // Chrome/Firefox/Edge, so it lands in the zoom branch with no special case.
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
+      // Line/page deltas (some mice, Firefox) -> pixels.
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientHeight : 1
+      const dx = e.deltaX * unit
+      const dy = e.deltaY * unit
+      if (e.ctrlKey || e.metaKey) {
+        const r = el.getBoundingClientRect()
+        // Clamp so a mouse notch (~100) is one comfortable step and a pinch (~1-10) is smooth.
+        const step = Math.max(-50, Math.min(50, dy))
+        zoomAt(Math.exp(-step * 0.005), e.clientX - r.left, e.clientY - r.top)
+        return
+      }
+      fitted.current = false
+      // Shift + mouse wheel scrolls sideways on platforms that don't already swap the axes.
+      const [px, py] = e.shiftKey && dx === 0 ? [dy, 0] : [dx, dy]
+      setView((v) => ({ ...v, x: v.x - px, y: v.y - py }))
+    }
+    // Safari reports trackpad pinch as gesture events, not wheel+ctrl.
+    let gestureScale = 1
+    const onGestureStart = (e: Event) => {
+      e.preventDefault()
+      gestureScale = 1
+    }
+    const onGestureChange = (e: Event) => {
+      e.preventDefault()
+      const g = e as Event & { scale: number; clientX: number; clientY: number }
       const r = el.getBoundingClientRect()
-      zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top)
+      zoomAt(g.scale / gestureScale, g.clientX - r.left, g.clientY - r.top)
+      gestureScale = g.scale
     }
     el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
+    el.addEventListener('gesturestart', onGestureStart)
+    el.addEventListener('gesturechange', onGestureChange)
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('gesturestart', onGestureStart)
+      el.removeEventListener('gesturechange', onGestureChange)
+    }
   }) // re-bind each render so zoomAt sees current data
 
   // Jump to the selected object: centre it, zoomed so it fills ~1/4 of the shorter side.
@@ -1122,11 +1163,37 @@ function Overlay({
           background: 'var(--surface-2, #f4f4f5)',
         }}
         onPointerDown={(e) => {
+          if (e.pointerType === 'touch') {
+            touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+            if (touches.current.size === 2) {
+              // Second finger: this is a pinch, not a draw/drag. Drop whatever the first started.
+              drag.current = null
+              setStroke2(null)
+              setLive(null)
+              pinch.current = pinchState()
+              e.currentTarget.setPointerCapture(e.pointerId)
+              return
+            }
+          }
           const mode = startMode(toImg(e, e.currentTarget))
           drag.current = { px: e.clientX, py: e.clientY, moved: false, mode }
           e.currentTarget.setPointerCapture(e.pointerId)
         }}
         onPointerMove={(e) => {
+          if (e.pointerType === 'touch' && touches.current.has(e.pointerId)) {
+            touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+            if (pinch.current && touches.current.size === 2) {
+              const now = pinchState()
+              const r = e.currentTarget.getBoundingClientRect()
+              const prev = pinch.current
+              fitted.current = false
+              // Pan with the midpoint, then zoom about it.
+              setView((v) => ({ ...v, x: v.x + now.mx - prev.mx, y: v.y + now.my - prev.my }))
+              if (prev.dist > 0) zoomAt(now.dist / prev.dist, now.mx - r.left, now.my - r.top)
+              pinch.current = now
+              return
+            }
+          }
           if (stroking) setHover(toImg(e, e.currentTarget))
           const d = drag.current
           if (!d) return
@@ -1151,7 +1218,21 @@ function Overlay({
           setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }))
         }}
         onPointerLeave={() => setHover(null)}
+        onPointerCancel={(e) => {
+          touches.current.delete(e.pointerId)
+          pinch.current = null
+          drag.current = null
+        }}
         onPointerUp={(e) => {
+          if (e.pointerType === 'touch') {
+            touches.current.delete(e.pointerId)
+            if (pinch.current) {
+              // End of a pinch: the remaining finger must not turn into a click or a stroke.
+              if (touches.current.size < 2) pinch.current = null
+              drag.current = null
+              return
+            }
+          }
           const d = drag.current
           drag.current = null
           if (d?.mode.kind === 'stroke') {
