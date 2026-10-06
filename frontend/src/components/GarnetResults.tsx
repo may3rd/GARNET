@@ -203,6 +203,8 @@ type Box = {
   lines?: Segment[]
   /** Rejected at a gate: drawn grey and dashed. */
   dim?: boolean
+  /** Never dragged or resized, even on an editable canvas. */
+  fixed?: boolean
   /** Region to frame when this box is selected, if wider than the box (label + its trace). */
   focus?: BBox
 }
@@ -476,8 +478,7 @@ export function GarnetResults() {
   const traceOf = (a: Assoc) => reassigned[a.id] ?? a.trace_id
   const onMove = (id: string, bbox: BBox) => {
     if (added.some((o) => o.id === id)) setAdded((a) => a.map((o) => (o.id === id ? { ...o, bbox } : o)))
-    // Only drawn line numbers move; the API refuses geometry edits on existing ones.
-    else if (tab !== 'inputLineNumbers') setMoved((m) => ({ ...m, [id]: bbox }))
+    else setMoved((m) => ({ ...m, [id]: bbox }))
   }
 
   // Traces as the reviewer currently sees them: erased geometry applied, drawn traces appended.
@@ -643,7 +644,7 @@ export function GarnetResults() {
       case 'inputLineNumbers':
         return view.inputLineNumbers
           .filter((o) => o.bbox)
-          .map((o) => ({ id: o.id, bbox: o.bbox, color: `hsl(${hue(o.class_name)} 80% 45%)`, dim: rejected.has(o.id), label: (draft[o.id] ?? o.text) || undefined }))
+          .map((o) => ({ id: o.id, bbox: o.bbox, color: `hsl(${hue(o.class_name)} 80% 45%)`, dim: rejected.has(o.id), label: (draft[o.id] ?? o.text) || undefined, fixed: !o.id.startsWith('new_') }))
       case 'traces':
         return traces.map((t) => ({
           id: t.id,
@@ -1071,7 +1072,7 @@ function Overlay({
   })
   const startMode = (pt: { x: number; y: number }): DragMode => {
     if (stroking) return { kind: 'stroke', pts: [[pt.x, pt.y]] }
-    const sel = editable ? boxes.find((b) => b.id === selected && !b.lines) : undefined
+    const sel = editable ? boxes.find((b) => b.id === selected && !b.lines && !b.fixed) : undefined
     if (sel) {
       const b = sel.bbox
       const tol = 10 / view.s
@@ -1487,7 +1488,7 @@ function Overlay({
               )}
               {editable &&
                 (() => {
-                  const b = boxes.find((x) => x.id === selected && !x.lines)
+                  const b = boxes.find((x) => x.id === selected && !x.lines && !x.fixed)
                   if (!b) return null
                   const g = live?.id === b.id ? live.bbox : b.bbox
                   const k = 8 / view.s
