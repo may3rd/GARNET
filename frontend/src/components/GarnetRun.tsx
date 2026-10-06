@@ -1,7 +1,7 @@
 import { Button } from '@heroui/react'
 import { useEffect, useRef, useState } from 'react'
 import { CheckCircle2, Container, FolderOpen, Layers, Hash, History, Play, RotateCcw, Save, Shapes, Upload, X } from 'lucide-react'
-import { Card, PageHeader, SectionHeader, Tag, Toggle } from '@/components/ui/primitives'
+import { Card, PageHeader, SectionHeader, SelectField, Tag, Toggle } from '@/components/ui/primitives'
 import type { GarnetGate, GarnetInputs, GarnetStepStatus } from '@/lib/api'
 import { useRunStore, type Sheet } from '@/stores/runStore'
 
@@ -198,6 +198,11 @@ export function GarnetRun() {
   const sheets = useRunStore((s) => s.sheets).filter((s) => s.task === 'garnet')
   const config = useRunStore((s) => s.config)
   const setConfig = useRunStore((s) => s.setConfig)
+  const weightFiles = useRunStore((s) => s.weightFiles)
+  const loadWeightFiles = useRunStore((s) => s.loadWeightFiles)
+  useEffect(() => {
+    void loadWeightFiles()
+  }, [loadWeightFiles])
   const setScreen = useRunStore((s) => s.setScreen)
   const loadGarnetBundle = useRunStore((s) => s.loadGarnetBundle)
   const runGarnetFor = useRunStore((s) => s.runGarnetFor)
@@ -278,6 +283,13 @@ export function GarnetRun() {
       />
       {loadError && <Card padding={14} style={{ color: 'var(--danger)', fontSize: 13 }}>{`Could not load: ${loadError}`}</Card>}
       <Card padding={20} className="flex flex-col gap-3">
+        {/* Same store field and options as the extraction picker on the Task screen. */}
+        <SelectField
+          label="Detection weights (unused for sheets with an objects JSON)"
+          value={config.weightFile}
+          options={[{ key: '', label: 'Server default' }, ...weightFiles.map((w) => ({ key: w, label: w.replace(/^.*\//, '') }))]}
+          onChange={(weightFile) => setConfig({ weightFile })}
+        />
         <Toggle
           label="Review gate calls the vision model"
           description="Off passes --no-llm: the residual is kept, nothing leaves this machine."
@@ -438,7 +450,8 @@ function GateTimeline({ sheet, busy }: { sheet: Sheet; busy: boolean }) {
   const selectSheet = useRunStore((s) => s.selectSheet)
   const setScreen = useRunStore((s) => s.setScreen)
   const job = sheet.garnet!
-  const resting = job.status === 'awaiting_gate' || job.status === 'completed'
+  // A failed job can still go back to a gate it already passed.
+  const resting = job.status === 'awaiting_gate' || job.status === 'completed' || job.status === 'failed'
   const done = job.status === 'completed'
 
   const go = async (gate: GarnetGate) => {
