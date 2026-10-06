@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@heroui/react'
-import { ArrowLeft, Minus, Plus } from 'lucide-react'
+import { ArrowLeft, Maximize, Minus, Plus } from 'lucide-react'
 import { Card, PageHeader, Tag } from '@/components/ui/primitives'
 import type { GarnetJob } from '@/lib/api'
 import { useRunStore } from '@/stores/runStore'
@@ -242,7 +242,14 @@ function tabCount(d: Data, t: Tab) {
   return { objects: d.objects.length, lineNumbers: d.lineNumbers.length, equipment: d.equipment.length, instruments: d.instruments.length }[t]
 }
 
-/** Raster with an SVG box layer in image pixels; zoom is a width scale, pan is native scroll. */
+/** Fit-to-view scale for the raster in a viewport of size `vw`×`vh`. */
+const fitScale = (d: Data, vw: number, vh: number) => Math.min(vw / d.width, vh / d.height)
+type View = { s: number; x: number; y: number }
+
+/**
+ * Raster + SVG box layer under one CSS transform, in image pixels.
+ * Wheel zooms about the cursor, drag pans, selecting an object zooms to it.
+ */
 function Overlay({
   data,
   boxes,
@@ -254,75 +261,187 @@ function Overlay({
   selected: string | null
   onSelect: (id: string | null) => void
 }) {
-  const [zoom, setZoom] = useState(1)
-  const scroller = useRef<HTMLDivElement>(null)
-  const stroke = Math.max(2, data.width / 1500)
+  const host = useRef<HTMLDivElement>(null)
+  const [view, setView] = useState<View>({ s: 0, x: 0, y: 0 })
+  const drag = useRef<{ px: number; py: number; moved: boolean } | null>(null)
 
-  // Bring a box picked from the table into view.
+  const size = () => {
+    const r = host.current?.getBoundingClientRect()
+    return { w: r?.width ?? 1, h: r?.height ?? 1 }
+  }
+  const fit = () => {
+    const { w, h } = size()
+    const s = fitScale(data, w, h)
+    setView({ s, x: (w - data.width * s) / 2, y: (h - data.height * s) / 2 })
+  }
+  const minScale = () => {
+    const { w, h } = size()
+    return fitScale(data, w, h) / 2
+  }
+  /** Zoom by `k` keeping screen point (cx, cy) fixed. */
+  const zoomAt = (k: number, cx: number, cy: number) =>
+    setView((v) => {
+      const s = Math.min(8, Math.max(minScale(), v.s * k))
+      const r = s / v.s
+      return { s, x: cx - (cx - v.x) * r, y: cy - (cy - v.y) * r }
+    })
+  const zoomCenter = (k: number) => {
+    const { w, h } = size()
+    zoomAt(k, w / 2, h / 2)
+  }
+
+  // Fit on load and whenever the sheet changes.
+  useEffect(fit, [data]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Wheel must be a non-passive native listener, or preventDefault is ignored and the page scrolls.
   useEffect(() => {
-    const el = selected ? scroller.current?.querySelector(`[data-box="${CSS.escape(selected)}"]`) : null
-    el?.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' })
-  }, [selected])
+    const el = host.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const r = el.getBoundingClientRect()
+      zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top)
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }) // re-bind each render so zoomAt sees current data
+
+  // Jump to the selected object: centre it, zoomed so it fills ~1/4 of the shorter side.
+  useEffect(() => {
+    const b = boxes.find((x) => x.id === selected)
+    if (!b) return
+    const { w, h } = size()
+    const bw = Math.max(b.bbox.x_max - b.bbox.x_min, 1)
+    const bh = Math.max(b.bbox.y_max - b.bbox.y_min, 1)
+    const s = Math.min(4, Math.max(fitScale(data, w, h), Math.min(w / bw, h / bh) / 4))
+    const cx = (b.bbox.x_min + b.bbox.x_max) / 2
+    const cy = (b.bbox.y_min + b.bbox.y_max) / 2
+    setView({ s, x: w / 2 - cx * s, y: h / 2 - cy * s })
+  }, [selected]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const stroke = Math.max(1, 2 / (view.s || 1))
 
   return (
     <Card padding={0} className="relative flex min-h-[320px] min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="absolute right-2 top-2 z-10 flex gap-1">
-        <Button isIconOnly size="sm" variant="secondary" aria-label="Zoom out" onPress={() => setZoom((z) => Math.max(1, z / 1.5))}>
+      <div
+        className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-lg p-1"
+        style={{ background: 'var(--surface)', boxShadow: '0 1px 4px rgba(0,0,0,.15)' }}
+      >
+        <Button isIconOnly size="sm" variant="ghost" aria-label="Zoom out" onPress={() => zoomCenter(1 / 1.4)}>
           <Minus size={14} />
         </Button>
-        <Button isIconOnly size="sm" variant="secondary" aria-label="Zoom in" onPress={() => setZoom((z) => Math.min(12, z * 1.5))}>
+        <span className="mono" style={{ fontSize: 11, minWidth: 44, textAlign: 'center' }}>
+          {Math.round(view.s * 100)}%
+        </span>
+        <Button isIconOnly size="sm" variant="ghost" aria-label="Zoom in" onPress={() => zoomCenter(1.4)}>
           <Plus size={14} />
         </Button>
+        <Button isIconOnly size="sm" variant="ghost" aria-label="Fit to view" onPress={fit}>
+          <Maximize size={14} />
+        </Button>
+        <Button isIconOnly size="sm" variant="ghost" aria-label="Actual size" onPress={() => zoomCenter(1 / view.s)}>
+          <span style={{ fontSize: 10, fontWeight: 600 }}>1:1</span>
+        </Button>
       </div>
-      <div ref={scroller} className="min-h-0 flex-1 overflow-auto">
-        <div className="relative" style={{ width: `${zoom * 100}%` }}>
-          <img src={data.imageUrl} alt="sheet" className="block w-full" draggable={false} />
-          <svg
-            viewBox={`0 0 ${data.width} ${data.height}`}
-            className="absolute inset-0 h-full w-full"
-            onClick={() => onSelect(null)}
+      <div
+        ref={host}
+        className="relative min-h-0 flex-1 overflow-hidden"
+        style={{ cursor: drag.current ? 'grabbing' : 'grab', touchAction: 'none', background: 'var(--surface-2, #f4f4f5)' }}
+        onPointerDown={(e) => {
+          drag.current = { px: e.clientX, py: e.clientY, moved: false }
+          e.currentTarget.setPointerCapture(e.pointerId)
+        }}
+        onPointerMove={(e) => {
+          const d = drag.current
+          if (!d) return
+          const dx = e.clientX - d.px
+          const dy = e.clientY - d.py
+          if (!d.moved && Math.hypot(dx, dy) < 3) return
+          d.moved = true
+          d.px = e.clientX
+          d.py = e.clientY
+          setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }))
+        }}
+        onPointerUp={(e) => {
+          const d = drag.current
+          drag.current = null
+          if (d?.moved) return
+          // A click, not a drag: hit-test the box under the pointer (smallest wins).
+          const r = e.currentTarget.getBoundingClientRect()
+          const ix = (e.clientX - r.left - view.x) / view.s
+          const iy = (e.clientY - r.top - view.y) / view.s
+          const hit = boxes
+            .filter((b) => ix >= b.bbox.x_min && ix <= b.bbox.x_max && iy >= b.bbox.y_min && iy <= b.bbox.y_max)
+            .sort((a, b) => area(a.bbox) - area(b.bbox))[0]
+          onSelect(hit ? hit.id : null)
+        }}
+      >
+        {view.s > 0 && (
+          <div
+            className="absolute left-0 top-0"
+            style={{
+              width: data.width,
+              height: data.height,
+              transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})`,
+              transformOrigin: '0 0',
+            }}
           >
-            {boxes.map((b) => {
-              const on = b.id === selected
-              const { x_min, y_min, x_max, y_max } = b.bbox
-              return (
-                <g key={b.id} data-box={b.id} onClick={(e) => { e.stopPropagation(); onSelect(b.id) }} style={{ cursor: 'pointer' }}>
-                  <rect
-                    x={x_min}
-                    y={y_min}
-                    width={x_max - x_min}
-                    height={y_max - y_min}
-                    fill={on ? b.color : 'transparent'}
-                    fillOpacity={on ? 0.25 : 0}
-                    stroke={b.color}
-                    strokeWidth={on ? stroke * 2 : stroke}
-                    pointerEvents="all"
-                  >
-                    <title>{b.label ?? b.id}</title>
-                  </rect>
-                  {b.points?.map((p) => (
-                    <g key={`${p.label}-${p.x}-${p.y}`}>
-                      <circle cx={p.x} cy={p.y} r={stroke * 3} fill={b.color} />
-                      {on && (
-                        <text x={p.x + stroke * 4} y={p.y - stroke * 4} fontSize={stroke * 10} fill={b.color}>
-                          {p.label}
-                        </text>
-                      )}
-                    </g>
-                  ))}
-                </g>
-              )
-            })}
-          </svg>
-        </div>
+            <img src={data.imageUrl} alt="sheet" width={data.width} height={data.height} draggable={false} className="block select-none" />
+            <svg viewBox={`0 0 ${data.width} ${data.height}`} className="pointer-events-none absolute inset-0" width={data.width} height={data.height}>
+              {boxes.map((b) => {
+                const on = b.id === selected
+                const { x_min, y_min, x_max, y_max } = b.bbox
+                return (
+                  <g key={b.id}>
+                    {on && (
+                      <rect
+                        x={x_min - stroke * 6}
+                        y={y_min - stroke * 6}
+                        width={x_max - x_min + stroke * 12}
+                        height={y_max - y_min + stroke * 12}
+                        fill="none"
+                        stroke={SELECTED}
+                        strokeOpacity={0.35}
+                        strokeWidth={stroke * 6}
+                      />
+                    )}
+                    <rect
+                      x={x_min}
+                      y={y_min}
+                      width={x_max - x_min}
+                      height={y_max - y_min}
+                      fill={on ? SELECTED : 'none'}
+                      fillOpacity={0.15}
+                      stroke={on ? SELECTED : b.color}
+                      strokeWidth={on ? stroke * 2.5 : stroke}
+                    />
+                    {b.points?.map((p) => (
+                      <g key={`${p.label}-${p.x}-${p.y}`}>
+                        <circle cx={p.x} cy={p.y} r={stroke * 3} fill={b.color} />
+                        {on && (
+                          <text x={p.x + stroke * 4} y={p.y - stroke * 4} fontSize={stroke * 9} fill={b.color}>
+                            {p.label}
+                          </text>
+                        )}
+                      </g>
+                    ))}
+                  </g>
+                )
+              })}
+            </svg>
+          </div>
+        )}
       </div>
     </Card>
   )
 }
 
+const SELECTED = 'hsl(212 100% 48%)'
+const area = (b: BBox) => (b.x_max - b.x_min) * (b.y_max - b.y_min)
+
 const th: React.CSSProperties = { textAlign: 'left', padding: '6px 8px', fontWeight: 500, color: 'var(--muted)', position: 'sticky', top: 0, background: 'var(--surface)' }
 const td: React.CSSProperties = { padding: '5px 8px', whiteSpace: 'nowrap', borderTop: '1px solid var(--separator)', verticalAlign: 'top' }
-const rowStyle = (on: boolean): React.CSSProperties => ({ cursor: 'pointer', background: on ? 'var(--accent-soft, rgba(59,130,246,.12))' : undefined })
+const rowStyle = (on: boolean): React.CSSProperties => ({ cursor: 'pointer', background: on ? 'rgba(59,130,246,.18)' : undefined, boxShadow: on ? 'inset 3px 0 0 hsl(212 100% 48%)' : undefined })
 const bboxText = (b: BBox) => `${b.x_min},${b.y_min} → ${b.x_max},${b.y_max}`
 
 function ObjectsTable({
