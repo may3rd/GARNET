@@ -379,6 +379,8 @@ STEM = "sheet"
 # ponytail: in-memory job table, lost on restart; persist job.json if jobs must outlive the server
 JOBS: dict[str, dict] = {}
 JOBS_LOCK = threading.Lock()
+PROCS: dict[str, subprocess.Popen] = {}  # job id -> the step subprocess running now (for Stop)
+RESTING = ("awaiting_gate", "paused", "completed", "failed")
 # Accepted upload name -> the fixture filename `host.load_fixtures` reads.
 JSON_INPUTS = {
     "objects_json": f"{STEM}_objects.json",
@@ -465,12 +467,19 @@ def _run_job_inner(job_id: str, start: int = 0) -> None:
     for i, step in enumerate(job["steps"]):
         if i < start:
             continue
+        # Stop and Pause land between steps (a running subprocess is also killed by Stop).
+        if job.pop("stop_requested", False):
+            job.update(status="failed", error="stopped by user")
+            return
+        if job.pop("pause_requested", False):
+            job.update(status="paused", resume_at=i)
+            return
         if step.get("gate_after") == 1:
             _write_gate1_line_numbers(JOBS_DIR / job_id)
         if step["status"] == "skipped":
             gate = step.get("gate_after")
             if gate and job["pause_at_gates"]:
-                job["status"], job["gate"], job["resume_at"] = "awaiting_gate", gate, i + 1
+                _rest_at_gate(job, gate, i + 1)
                 return
             continue
         step["status"] = "running"
@@ -482,21 +491,34 @@ def _run_job_inner(job_id: str, start: int = 0) -> None:
                 logger.exception("job %s: %s", job_id, step["name"])
                 step["log"], returncode = f"{type(exc).__name__}: {exc}", 1
         else:
-            proc = subprocess.run(step["cmd"], cwd=REPO_ROOT, capture_output=True, text=True)
-            step["log"] = (proc.stdout + proc.stderr)[-4000:]
+            proc = subprocess.Popen(step["cmd"], cwd=REPO_ROOT, text=True,
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            PROCS[job_id] = proc
+            try:
+                stdout, stderr = proc.communicate()
+            finally:
+                PROCS.pop(job_id, None)
+            step["log"] = (stdout + stderr)[-4000:]
             returncode = proc.returncode
         if returncode != 0:
             step["status"] = "failed"
             job["status"] = "failed"
-            job["error"] = f"{step['name']} exited {returncode}"
+            stopped = job.pop("stop_requested", False)
+            job["error"] = f"stopped by user during {step['name']}" if stopped else f"{step['name']} exited {returncode}"
             logger.error("job %s: %s failed\n%s", job_id, step["name"], step["log"])
             return
         step["status"] = "completed"
         gate = step.get("gate_after")
         if gate and job["pause_at_gates"]:
-            job["status"], job["gate"], job["resume_at"] = "awaiting_gate", gate, i + 1
+            _rest_at_gate(job, gate, i + 1)
             return
+    job.pop("pause_requested", None)
     job["status"] = "completed"
+
+
+def _rest_at_gate(job: dict, gate: int, resume_at: int) -> None:
+    job.pop("pause_requested", None)  # a gate is already a pause
+    job.update(status="awaiting_gate", gate=gate, resume_at=resume_at)
 
 
 def _job_view(job_id: str) -> dict:
@@ -1337,6 +1359,22 @@ def api_garnet_edits(job_id: str, payload: EditsRequest) -> dict:
 
 # What each reopen supersedes. Gate 1 discards the whole trace; Gate 2 everything from Stage 6
 # on; Gate 3 only the review overlay (regenerated from Stage 6 as produced).
+def _archiver(job_dir: Path, label: str):
+    """A new `history/NNN_<label>` folder, and a `stash(rel)` that moves a job file into it."""
+    hist = job_dir / "history"
+    hist.mkdir(exist_ok=True)
+    archive = hist / f"{len(list(hist.iterdir())) + 1:03d}_{label}"
+    archive.mkdir()
+
+    def stash(rel: str) -> None:
+        src = job_dir / rel
+        if src.exists():
+            dst = archive / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(src), str(dst))
+    return archive, stash
+
+
 _REOPEN_FILES = {
     1: ["out"],
     2: ["out/gate2", "out/stage6_trace_associations.json", "out/stage6_trace_association_summary.json",
@@ -1356,8 +1394,8 @@ def _read_history(job_dir: Path) -> list[dict]:
         if not line.strip():
             continue
         r = json.loads(line)
-        if r.get("event") == "reopen":
-            out.append({"event": "reopen", "gate": r["gate"], "at": r["at"], "archive": r.get("archive")})
+        if r.get("event") in ("reopen", "restart"):
+            out.append({"event": r["event"], "gate": r.get("gate"), "at": r["at"], "archive": r.get("archive")})
         else:
             counts = {k: len(v) for k, v in r.items() if isinstance(v, (list, dict)) and v}
             out.append({"event": "confirm", "gate": r["gate"], "at": r.get("confirmed_at"), "changes": counts})
@@ -1376,7 +1414,7 @@ def api_garnet_reopen(job_id: str, payload: ReopenRequest) -> dict:
         if job is None:
             raise HTTPException(status_code=404, detail="Job not found")
         # A failed job can go back to any gate it got past; the "reached" check below decides.
-        if job["status"] not in ("awaiting_gate", "completed", "failed"):
+        if job["status"] not in RESTING:
             raise HTTPException(status_code=409, detail=f"Job is {job['status']}; wait for it to rest")
         steps = job["steps"]
         boundary = next(i for i, st in enumerate(steps) if st.get("gate_after") == gate)
@@ -1387,18 +1425,7 @@ def api_garnet_reopen(job_id: str, payload: ReopenRequest) -> dict:
             raise HTTPException(status_code=409, detail=f"Already at Gate {gate}")
 
         job_dir = JOBS_DIR / job_id
-        hist = job_dir / "history"
-        hist.mkdir(exist_ok=True)
-        archive = hist / f"{len(list(hist.iterdir())) + 1:03d}_reopen_gate{gate}"
-        archive.mkdir()
-
-        def stash(rel: str) -> None:
-            src = job_dir / rel
-            if src.exists():
-                dst = archive / rel
-                dst.parent.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(src), str(dst))
-
+        archive, stash = _archiver(job_dir, f"reopen_gate{gate}")
         for rel in _REOPEN_FILES[gate]:
             stash(rel)
         # Edits are text corrections over Stage 6; they belong to the review being discarded.
@@ -1438,6 +1465,94 @@ def api_garnet_reopen(job_id: str, payload: ReopenRequest) -> dict:
     logger.info("garnet job %s: reopened Gate %d (archived to %s)", job_id, gate, archive.name)
     return _job_view(job_id)
 
+
+
+def _running_job(job_id: str) -> dict:
+    job = JOBS.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job["status"] not in ("queued", "running"):
+        raise HTTPException(status_code=409, detail=f"Job is {job['status']}, not running")
+    return job
+
+
+@app.post("/api/garnet/jobs/{job_id}/stop")
+def api_garnet_stop(job_id: str) -> dict:
+    """Kill the running step; the job ends `failed` ("stopped by user"), so Reopen/Restart apply.
+
+    ponytail: in-process steps (ocr_instruments, associations) cannot be killed; Stop lands
+    when they finish. Move them into subprocesses if that wait ever matters.
+    """
+    with JOBS_LOCK:
+        job = _running_job(job_id)
+        job["stop_requested"] = True
+        proc = PROCS.get(job_id)
+        if proc is not None:
+            proc.kill()
+    return _job_view(job_id)
+
+
+@app.post("/api/garnet/jobs/{job_id}/pause")
+def api_garnet_pause(job_id: str) -> dict:
+    """Rest after the step running now finishes (status `paused`); resume with /resume."""
+    with JOBS_LOCK:
+        _running_job(job_id)["pause_requested"] = True
+    return _job_view(job_id)
+
+
+@app.post("/api/garnet/jobs/{job_id}/resume")
+def api_garnet_resume(job_id: str) -> dict:
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Job not found")
+        if job["status"] != "paused":
+            raise HTTPException(status_code=409, detail=f"Job is {job['status']}, not paused")
+        job.update(status="queued", error=None)
+        _persist(job_id)
+    threading.Thread(target=_run_job, args=(job_id, job["resume_at"]), daemon=True).start()
+    return _job_view(job_id)
+
+
+@app.post("/api/garnet/jobs/{job_id}/restart")
+def api_garnet_restart(job_id: str) -> dict:
+    """Run the sheet again on the same inputs. A confirmed Gate 1 is kept (its edits are the
+    inputs), so the run restarts at the trace; otherwise it restarts at step 0. Outputs and
+    later gate decisions are archived under history/. Reopen Gate 1 is the clean start.
+    """
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Job not found")
+        if job["status"] not in RESTING:
+            raise HTTPException(status_code=409, detail=f"Job is {job['status']}; stop or pause it first")
+        job_dir, steps = JOBS_DIR / job_id, job["steps"]
+        gates = _read_gates(job_dir)
+        keep_gate1 = "1" in gates
+        start = next(i for i, st in enumerate(steps) if st.get("gate_after") == 1) + 1 if keep_gate1 else 0
+        archive, stash = _archiver(job_dir, "restart")
+        stash("out")
+        stash("edits.json")
+        if not keep_gate1 and steps[0]["status"] != "skipped":
+            stash(f"input/{STEM}_objects.source.json")  # OCR must read the fresh detection
+        (job_dir / "out").mkdir(exist_ok=True)
+        _MASKS.pop(str(job_dir), None)
+        (archive / "gates.json").write_text(json.dumps(gates, indent=2, ensure_ascii=False))
+        kept = {k: v for k, v in gates.items() if keep_gate1 and k == "1"}
+        (job_dir / "gates.json").write_text(json.dumps(kept, indent=2, ensure_ascii=False))
+        with (job_dir / "gates_history.jsonl").open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"event": "restart", "gate": 1 if keep_gate1 else None, "at": _now(),
+                                 "archive": str(archive.relative_to(job_dir))}) + "\n")
+        for st in steps[start:]:
+            if st["status"] != "skipped":
+                st["status"], st["log"] = "pending", ""
+        job.update(status="queued", gate=None, error=None)
+        for k in ("stop_requested", "pause_requested"):
+            job.pop(k, None)
+        _persist(job_id)
+    threading.Thread(target=_run_job, args=(job_id, start), daemon=True).start()
+    logger.info("garnet job %s: restarted at step %d (archived to %s)", job_id, start, archive.name)
+    return _job_view(job_id)
 
 
 # --- Save / load a job as one zip ----------------------------------------------------------

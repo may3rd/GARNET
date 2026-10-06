@@ -345,6 +345,53 @@ class TestGarnetJobs(unittest.TestCase):
         self.assertEqual(client.get(f"/runs/jobs/{jid}/input/sheet_line_numbers.pre_gate1.json").status_code, 404)
         self.assertEqual(get("input/gate1_line_numbers.json")["objects"], ln0)
 
+    def test_stop_restart_pause_resume(self):
+        import sys
+        from garnet import api
+        client = TestClient(app)
+        files = {
+            "file_input": ("s.jpg", (INPUT / f"{STEM}.jpg").read_bytes(), "image/jpeg"),
+            "objects_json": ("o.json", (INPUT / f"{STEM}_objects.json").read_bytes()),
+            "equipment_json": ("e.json", (INPUT / f"{STEM}_equipment_bboxes.json").read_bytes()),
+            "line_numbers_json": ("l.json", (INPUT / f"{STEM}_line_numbers.json").read_bytes()),
+        }
+        jid = client.post("/api/garnet/jobs", files=files, data={"ocr_instruments": "false"}).json()["id"]
+        url = f"/api/garnet/jobs/{jid}"
+
+        def wait():
+            j = client.get(url).json()
+            deadline = time.time() + 600
+            while j["status"] in ("queued", "running") and time.time() < deadline:
+                time.sleep(0.5)
+                j = client.get(url).json()
+            return j
+        self.assertEqual(wait()["gate"], 1)
+        for action in ("stop", "pause", "resume"):  # nothing is running, nothing is paused
+            self.assertEqual(client.post(f"{url}/{action}").status_code, 409)
+
+        # Stop kills the running step's subprocess, not just the flag.
+        trace = next(st for st in api.JOBS[jid]["steps"] if st["name"] == "trace")
+        real, trace["cmd"] = trace["cmd"], [sys.executable, "-c", "import time; time.sleep(300)"]
+        self.assertEqual(client.post(f"{url}/gates/1", json={}).status_code, 200)
+        deadline = time.time() + 60
+        while jid not in api.PROCS and time.time() < deadline:
+            time.sleep(0.2)
+        t0 = time.time()
+        self.assertEqual(client.post(f"{url}/stop").status_code, 200)
+        job = wait()
+        self.assertLess(time.time() - t0, 30)
+        self.assertEqual((job["status"], job["error"]), ("failed", "stopped by user during trace"))
+
+        # Restart keeps the confirmed Gate 1 and reruns from the trace; Pause rests it between steps.
+        trace["cmd"] = real
+        job = client.post(f"{url}/restart").json()
+        self.assertEqual((job["gates_confirmed"], job["history"][-1]["event"], job["history"][-1]["gate"]),
+                         ([1], "restart", 1))
+        self.assertEqual(client.post(f"{url}/pause").status_code, 200)
+        self.assertEqual(wait()["status"], "paused")
+        self.assertEqual(client.post(f"{url}/resume").status_code, 200)
+        self.assertEqual((wait()["status"], client.get(url).json()["gate"]), ("awaiting_gate", 2))
+
     def test_report_and_bundle_round_trip(self):
         import io, zipfile
         client = TestClient(app)
