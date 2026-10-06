@@ -108,7 +108,8 @@ export function GarnetMerge() {
         subtitle={data ? `${data.sheets.length} sheets · ${data.summary.lines} line numbers · ${data.summary.multi_sheet} span more than one sheet` : 'Line numbers linked across sheets'}
         actions={
           <>
-            {jobIds.length > 0 && (
+            {/* Only offer export once this selection merged cleanly; a failed merge would download its error text. */}
+            {jobIds.length > 0 && data && !loading && !error && (
               <>
                 <a href={mergeUrl(jobIds, 'json')} download="garnet_multi_sheet_test_systems.json" style={{ ...linkStyle, background: 'var(--accent)', color: 'var(--accent-foreground)' }}>
                   <Download size={14} /> Export JSON

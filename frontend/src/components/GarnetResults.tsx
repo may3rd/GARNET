@@ -608,7 +608,7 @@ export function GarnetResults() {
       case 'inputLineNumbers':
         return view.inputLineNumbers
           .filter((o) => o.bbox)
-          .map((o) => ({ id: o.id, bbox: o.bbox, color: `hsl(${hue(o.class_name)} 80% 45%)`, label: o.text || undefined }))
+          .map((o) => ({ id: o.id, bbox: o.bbox, color: `hsl(${hue(o.class_name)} 80% 45%)`, dim: rejected.has(o.id), label: o.text || undefined }))
       case 'traces':
         return traces.map((t) => ({
           id: t.id,
@@ -873,7 +873,7 @@ export function GarnetResults() {
                 onReclass={gate === 1 ? onReclass : undefined}
                 classEdited={(id) => id in reclassed} hidden={hidden} setHidden={setHidden} selected={selected} onSelect={setSelected} />
             )}
-            {tab === 'inputLineNumbers' && <InputLineNumbersTable rows={view!.inputLineNumbers} selected={selected} onSelect={setSelected} />}
+            {tab === 'inputLineNumbers' && <InputLineNumbersTable rows={view!.inputLineNumbers} rejected={rejected} selected={selected} onSelect={setSelected} />}
             {tab === 'lineNumbers' && (
               <AssocTable
                 edits={edits}
@@ -1465,7 +1465,7 @@ const rowStyle = (on: boolean): React.CSSProperties => ({ cursor: 'pointer', bac
 const bboxText = (b: BBox) => `${b.x_min},${b.y_min} → ${b.x_max},${b.y_max}`
 
 /** Read-only: Gate 1 edits only write the objects file, so changes here would never reach the tracer. */
-function InputLineNumbersTable({ rows, selected, onSelect }: { rows: Obj[]; selected: string | null; onSelect: (id: string) => void }) {
+function InputLineNumbersTable({ rows, rejected, selected, onSelect }: { rows: Obj[]; rejected: Set<string>; selected: string | null; onSelect: (id: string) => void }) {
   return (
     <div style={{ fontSize: 12 }}>
       <div className="p-3" style={{ color: 'var(--muted)' }}>
@@ -1479,7 +1479,7 @@ function InputLineNumbersTable({ rows, selected, onSelect }: { rows: Obj[]; sele
         </thead>
         <tbody>
           {rows.map((o) => (
-            <tr key={o.id} style={rowStyle(o.id === selected)} onClick={() => onSelect(o.id)}>
+            <tr key={o.id} style={{ ...rowStyle(o.id === selected), ...(rejected.has(o.id) ? REJECTED_ROW : {}) }} onClick={() => onSelect(o.id)}>
               <td style={td} className="mono">{o.id}</td>
               <td style={td} className="mono">{o.text || '—'}</td>
               <td style={td} className="mono">{o.bbox ? bboxText(o.bbox) : '—'}</td>
