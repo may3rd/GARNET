@@ -652,6 +652,8 @@ export type GarnetGateDecision = {
   moved?: Record<string, GarnetBox>
   /** Gate 1: object id -> corrected class. */
   reclassed?: Record<string, string>
+  /** Gate 3: line-number id -> trace id it belongs on (implies accepted). */
+  reassigned?: Record<string, string>
   edits?: Record<string, string>
   decisions?: Record<string, 'accepted' | 'rejected'>
 }

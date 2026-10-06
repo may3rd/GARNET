@@ -43,6 +43,8 @@ type Data = {
   lineNumbers: Assoc[]
   instruments: Assoc[]
   tracesWithoutLineNumber: string[]
+  /** Traces Stage 6 associated against (Gate 2 rejections excluded): the valid reassign targets. */
+  stage6TraceIds: Set<string>
 }
 type Tab = 'objects' | 'traces' | 'lineNumbers' | 'equipment' | 'instruments'
 const TABS: { key: Tab; label: string }[] = [
@@ -94,6 +96,7 @@ async function loadData(job: GarnetJob): Promise<Data> {
     json<{
       associations: Record<string, { accepted: Obj[]; rejected: Obj[] }>
       unresolved: { traces_without_line_number: string[] }
+      trace_edges: { trace_id: string }[]
     }>(job, 'out/stage6_trace_associations.json'),
     json<Record<string, { terminal_type?: string; segments?: Segment[] }>>(job, 'out/stage5b_trace_results.json'),
     json<{ branches: Record<string, { terminal_type?: string; segments?: Segment[] }> }>(job, branchFile),
@@ -125,6 +128,7 @@ async function loadData(job: GarnetJob): Promise<Data> {
     lineNumbers: assoc('line_numbers'),
     instruments: assoc('instrument_tags'),
     tracesWithoutLineNumber: stage6?.unresolved.traces_without_line_number ?? [],
+    stage6TraceIds: new Set((stage6?.trace_edges ?? []).map((e) => e.trace_id)),
   }
 }
 
@@ -176,6 +180,9 @@ export function GarnetResults() {
   // Gate 1 geometry drafts: new geometry for existing ids, and boxes drawn here (ids `new_N`).
   const [moved, setMoved] = useState<Record<string, BBox>>({})
   const [reclassed, setReclassed] = useState<Record<string, string>>({})
+  // Gate 3: line number -> trace it belongs on; `picking` arms the next canvas click.
+  const [reassigned, setReassigned] = useState<Record<string, string>>({})
+  const [picking, setPicking] = useState(false)
   const [added, setAdded] = useState<Obj[]>([])
   const [addMode, setAddMode] = useState(false)
   const [addClass, setAddClass] = useState('instrument tag')
@@ -207,6 +214,7 @@ export function GarnetResults() {
         added: gate === 1 ? added.map((o) => ({ class_name: o.class_name, bbox: o.bbox, text: draft[o.id] ?? '' })) : [],
         moved: gate === 1 ? Object.fromEntries(Object.entries(moved).filter(([id]) => !isNew(id))) : {},
         reclassed: gate === 1 ? reclassed : {},
+        reassigned: gate === 3 ? reassigned : {},
         decisions: gate === 3 ? decisions : {},
       })
       setScreen('garnet')
@@ -256,6 +264,8 @@ export function GarnetResults() {
     setDecisions({})
     setMoved({})
     setReclassed({})
+    setReassigned({})
+    setPicking(false)
     setAdded([])
     setAddMode(false)
     setSelected(null)
@@ -309,6 +319,35 @@ export function GarnetResults() {
       return cls === original ? rest : { ...rest, [id]: cls }
     })
   }
+  /** Point a line number at another trace; picking its own system trace clears the override. */
+  const reassign = (id: string, traceId: string) => {
+    const original = data?.lineNumbers.find((a) => a.id === id)?.trace_id
+    setReassigned((r) => {
+      const { [id]: _, ...rest } = r
+      return traceId === original ? rest : { ...rest, [id]: traceId }
+    })
+    // Reassigning means "this label is right, on that pipe": a reject verdict would contradict it.
+    if (traceId !== original)
+      setDecisions((d) => {
+        const { [id]: _, ...rest } = d
+        return rest
+      })
+  }
+  /** Canvas selection; while picking, a click on a pipe completes the reassignment instead. */
+  const onCanvasSelect = (id: string | null) => {
+    if (picking) {
+      if (id?.startsWith('trace:') && selected) reassign(selected, id.slice('trace:'.length))
+      setPicking(false)
+      return
+    }
+    setSelected(id)
+  }
+  const onUnassignSilently = (id: string) =>
+    setReassigned((r) => {
+      const { [id]: _, ...rest } = r
+      return rest
+    })
+  const traceOf = (a: Assoc) => reassigned[a.id] ?? a.trace_id
   const onMove = (id: string, bbox: BBox) => {
     if (added.some((o) => o.id === id)) setAdded((a) => a.map((o) => (o.id === id ? { ...o, bbox } : o)))
     else setMoved((m) => ({ ...m, [id]: bbox }))
@@ -319,14 +358,16 @@ export function GarnetResults() {
   const highlight = useMemo(() => {
     if (!data || (tab !== 'lineNumbers' && tab !== 'instruments')) return null
     const a = (tab === 'lineNumbers' ? data.lineNumbers : data.instruments).find((x) => x.id === selected)
-    const t = a?.trace_id ? traceById.get(a.trace_id) : undefined
-    return t ? { segments: t.segments, point: a!.projected_xy } : null
-  }, [data, tab, selected, traceById])
+    const tid = a ? traceOf(a) : null
+    const t = tid ? traceById.get(tid) : undefined
+    // A reassigned label has no projected point on its new trace; don't show the old one.
+    return t ? { segments: t.segments, point: a && reassigned[a.id] ? undefined : a!.projected_xy } : null
+  }, [data, tab, selected, traceById, reassigned]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const boxes: Box[] = useMemo(() => {
     if (!data || !view) return []
     const statusColor = (a: Assoc) =>
-      (decisions[a.id] ?? a.status) === 'accepted' ? 'hsl(140 70% 40%)' : 'hsl(30 95% 50%)'
+      (reassigned[a.id] ? 'accepted' : (decisions[a.id] ?? a.status)) === 'accepted' ? 'hsl(140 70% 40%)' : 'hsl(30 95% 50%)'
     switch (tab) {
       case 'objects':
         return view.objects
@@ -348,8 +389,9 @@ export function GarnetResults() {
         }))
       case 'lineNumbers':
       case 'instruments':
-        return (tab === 'lineNumbers' ? data.lineNumbers : data.instruments).map((a) => {
-          const t = a.trace_id ? traceById.get(a.trace_id) : undefined
+        return (tab === 'lineNumbers' ? data.lineNumbers : data.instruments).map((a): Box => {
+          const tid = traceOf(a)
+          const t = tid ? traceById.get(tid) : undefined
           return {
             id: a.id,
             bbox: a.bbox,
@@ -357,7 +399,14 @@ export function GarnetResults() {
             label: edits.textOf(a.id, a.text) || undefined,
             focus: t ? union(a.bbox, t.bbox) : undefined,
           }
-        })
+        }).concat(
+          // While picking, every eligible pipe is a click target.
+          picking && tab === 'lineNumbers'
+            ? data.traces
+                .filter((t) => data.stage6TraceIds.has(t.id))
+                .map((t) => ({ id: `trace:${t.id}`, bbox: t.bbox, color: 'hsl(265 80% 55%)', lines: t.segments }))
+            : []
+        )
       case 'equipment':
         return data.equipment.map((e) => ({
           id: String(e.Index),
@@ -367,7 +416,7 @@ export function GarnetResults() {
           points: (e.Ports ?? []).map((p) => ({ x: p.point_px[0], y: p.point_px[1], label: p.mark })),
         }))
     }
-  }, [data, view, tab, hidden, draft, saved, rejected, decisions, traceById]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, view, tab, hidden, draft, saved, rejected, decisions, traceById, reassigned, picking]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!job) {
     return (
@@ -440,7 +489,7 @@ export function GarnetResults() {
           <span style={{ fontSize: 13, color: 'var(--muted)' }}>{GATE_COPY[gate].hint}</span>
           <span className="mono" style={{ fontSize: 12, marginLeft: 'auto' }}>
             {gate === 3
-              ? `${Object.keys(decisions).length} verdict(s) · ${Object.keys(draft).length} text fix(es)`
+              ? `${Object.keys(decisions).length} verdict(s) · ${Object.keys(reassigned).length} reassigned · ${Object.keys(draft).length} text fix(es)`
               : `${rejected.size} rejected${
                   gate === 1
                     ? ` · ${added.length} added · ${Object.keys(moved).length} moved · ${Object.keys(reclassed).length} reclassed · ${Object.keys(draft).length} text fix(es)`
@@ -527,7 +576,7 @@ export function GarnetResults() {
             data={data}
             boxes={boxes}
             selected={selected}
-            onSelect={setSelected}
+            onSelect={onCanvasSelect}
             editable={gate === 1 && tab === 'objects'}
             addMode={addMode}
             onDraw={onDraw}
@@ -544,14 +593,20 @@ export function GarnetResults() {
               <AssocTable
                 edits={edits}
                 decisions={decisions}
+                reassigned={reassigned}
+                picking={picking}
+                onPick={gate === 3 ? () => setPicking((x) => !x) : undefined}
+                onUnassign={gate === 3 ? (id) => reassign(id, data.lineNumbers.find((a) => a.id === id)?.trace_id ?? '') : undefined}
                 onDecide={
                   gate === 3
-                    ? (id, v, system) =>
+                    ? (id, v, system) => {
+                        if (v === 'rejected') onUnassignSilently(id)
                         setDecisions((d) => {
                           // Matching the system's verdict is not an override: drop it.
                           const { [id]: _, ...rest } = d
                           return v === system ? rest : { ...rest, [id]: v }
                         })
+                      }
                     : undefined
                 }
                 rows={data.lineNumbers}
@@ -805,9 +860,19 @@ function Overlay({
           const r = e.currentTarget.getBoundingClientRect()
           const ix = (e.clientX - r.left - view.x) / view.s
           const iy = (e.clientY - r.top - view.y) / view.s
-          const hit = boxes
-            .filter((b) => ix >= b.bbox.x_min && ix <= b.bbox.x_max && iy >= b.bbox.y_min && iy <= b.bbox.y_max)
-            .sort((a, b) => area(a.bbox) - area(b.bbox))[0]
+          // Polylines hit by distance to the drawn line (nearest wins); rectangles by
+          // containment (smallest wins). A pipe near the pointer beats the box it runs through.
+          const tol = 8 / view.s
+          const lineHit = boxes
+            .filter((b) => b.lines)
+            .map((b) => ({ b, d: Math.min(...b.lines!.map((g) => segDist(ix, iy, g))) }))
+            .filter((x) => x.d <= tol)
+            .sort((a, b) => a.d - b.d)[0]?.b
+          const hit =
+            lineHit ??
+            boxes
+              .filter((b) => !b.lines && ix >= b.bbox.x_min && ix <= b.bbox.x_max && iy >= b.bbox.y_min && iy <= b.bbox.y_max)
+              .sort((a, b) => area(a.bbox) - area(b.bbox))[0]
           onSelect(hit ? hit.id : null)
         }}
       >
@@ -935,6 +1000,14 @@ function Overlay({
 
 const SELECTED = 'hsl(212 100% 48%)'
 const TRACE_HIGHLIGHT = 'hsl(330 95% 50%)'
+/** Distance from point (x, y) to segment g, in image pixels. */
+function segDist(x: number, y: number, g: Segment) {
+  const dx = g.x2 - g.x1
+  const dy = g.y2 - g.y1
+  const len2 = dx * dx + dy * dy
+  const t = len2 ? Math.max(0, Math.min(1, ((x - g.x1) * dx + (y - g.y1) * dy) / len2)) : 0
+  return Math.hypot(x - (g.x1 + t * dx), y - (g.y1 + t * dy))
+}
 const area = (b: BBox) => (b.x_max - b.x_min) * (b.y_max - b.y_min)
 
 const th: React.CSSProperties = { textAlign: 'left', padding: '6px 8px', fontWeight: 500, color: 'var(--muted)', position: 'sticky', top: 0, background: 'var(--surface)' }
@@ -1027,6 +1100,10 @@ function ObjectsTable({
 function AssocTable({
   edits,
   decisions,
+  reassigned = {},
+  picking = false,
+  onPick,
+  onUnassign,
   onDecide,
   rows,
   selected,
@@ -1036,6 +1113,11 @@ function AssocTable({
 }: {
   edits: Edits
   decisions: Record<string, 'accepted' | 'rejected'>
+  reassigned?: Record<string, string>
+  picking?: boolean
+  /** Gate 3: arm/disarm picking a trace on the canvas for the selected row. */
+  onPick?: () => void
+  onUnassign?: (id: string) => void
   /** Present at Gate 3: each row gets accept / reject buttons. */
   onDecide?: (id: string, verdict: 'accepted' | 'rejected', system: 'accepted' | 'rejected') => void
   rows: Assoc[]
@@ -1044,7 +1126,8 @@ function AssocTable({
   showClass?: boolean
   footer?: string
 }) {
-  const accepted = rows.filter((r) => (decisions[r.id] ?? r.status) === 'accepted').length
+  const eff = (r: Assoc) => (reassigned[r.id] ? 'accepted' : (decisions[r.id] ?? r.status))
+  const accepted = rows.filter((r) => eff(r) === 'accepted').length
   return (
     <div style={{ fontSize: 12 }}>
       <div className="flex gap-2 p-3">
@@ -1068,7 +1151,7 @@ function AssocTable({
                 {onDecide ? (
                   <span className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                     {(['accepted', 'rejected'] as const).map((v) => {
-                      const current = (decisions[r.id] ?? r.status) === v
+                      const current = eff(r) === v
                       return (
                         <button
                           key={v}
@@ -1091,7 +1174,22 @@ function AssocTable({
               </td>
               <TextCell edits={edits} id={r.id} original={r.text} on={r.id === selected} />
               {showClass && <td style={td}>{r.class_name}</td>}
-              <td style={td} className="mono">{r.trace_id ?? '—'}</td>
+              <td style={td} className="mono" title={reassigned[r.id] ? `system: ${r.trace_id ?? 'none'}` : undefined}>
+                {reassigned[r.id] ?? r.trace_id ?? '—'}
+                {reassigned[r.id] && <span style={{ color: 'var(--accent)', marginLeft: 6 }}>●</span>}
+                {onPick && r.id === selected && (
+                  <span className="ml-2 inline-flex gap-1" onClick={(e) => e.stopPropagation()}>
+                    <button type="button" aria-pressed={picking} onClick={onPick} style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer' }}>
+                      <Tag tone={picking ? 'accent' : 'outline'}>{picking ? 'click a pipe…' : 'reassign'}</Tag>
+                    </button>
+                    {reassigned[r.id] && onUnassign && (
+                      <button type="button" onClick={() => onUnassign(r.id)} style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer' }}>
+                        <Tag>undo</Tag>
+                      </button>
+                    )}
+                  </span>
+                )}
+              </td>
               <td style={td} className="mono">{r.distance_px}</td>
             </tr>
           ))}

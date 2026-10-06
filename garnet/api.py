@@ -650,7 +650,9 @@ def _write_reviewed(job_dir: Path) -> None:
     """Stage 6 + text edits + Gate 3 line-number decisions -> out/reviewed_associations.json."""
     stage6 = json.loads((job_dir / "out" / "stage6_trace_associations.json").read_text())
     edits = _read_edits(job_dir)
-    decisions = _read_gates(job_dir).get("3", {}).get("decisions", {})
+    gate3 = _read_gates(job_dir).get("3", {})
+    decisions = gate3.get("decisions", {})
+    reassigned = gate3.get("reassigned", {})
     for name, group in stage6["associations"].items():
         for status in ("accepted", "rejected"):
             for item in group.get(status, []):
@@ -666,15 +668,42 @@ def _write_reviewed(job_dir: Path) -> None:
         group["accepted"], group["rejected"] = [], []
         for st, it in items:
             verdict = decisions.get(it.get("id"))
+            target = reassigned.get(it.get("id"))
+            if target and target != it.get("trace_id"):
+                # Keep what the system chose; drop geometry that described the old trace.
+                it["system_assignment"] = {k: it.get(k) for k in (
+                    "trace_id", "trace_kind", "segment_index", "projected_xy", "distance_px", "t",
+                    "trace_distance_px", "reason")}
+                it["trace_id"] = target
+                for k in ("trace_kind", "segment_index", "projected_xy", "distance_px", "t", "trace_distance_px", "reason"):
+                    it.pop(k, None)
+                it["trace_assignment"] = "human"
+                verdict = "accepted"
             if verdict:
                 it["system_status"] = st
                 it["review_state"] = verdict
                 it["review_source"] = "human"
                 st = "accepted" if verdict == "accepted" else "rejected"
             group[st].append(it)
+    # Derived list: recompute so it agrees with the reviewed assignments.
+    labelled = {it["trace_id"] for it in stage6["associations"]["line_numbers"]["accepted"] if it.get("trace_id")}
+    stage6["unresolved"]["traces_without_line_number"] = sorted(
+        {e["trace_id"] for e in stage6["trace_edges"]} - labelled)
     stage6["edits_version"] = edits["version"]
     stage6["gate3_confirmed"] = "3" in _read_gates(job_dir)
     (job_dir / "out" / "reviewed_associations.json").write_text(json.dumps(stage6, indent=2, ensure_ascii=False))
+
+
+def _check_reassign(job_dir: Path, reassigned: dict[str, str], decisions: dict[str, str]) -> None:
+    """Keys must be line numbers Stage 6 saw; targets must be traces Stage 6 actually used
+    (Gate 2 rejections are gone from trace_edges); and reassign + reject is a contradiction."""
+    stage6 = json.loads((job_dir / "out" / "stage6_trace_associations.json").read_text())
+    group = stage6["associations"]["line_numbers"]
+    _check_ids(reassigned, {it["id"] for st in ("accepted", "rejected") for it in group.get(st, [])})
+    _check_ids(reassigned.values(), {e["trace_id"] for e in stage6["trace_edges"]})
+    clash = sorted(k for k in reassigned if decisions.get(k) == "rejected")
+    if clash:
+        raise HTTPException(status_code=400, detail=f"Reassigned and rejected at once: {clash[:10]}")
 
 
 def _check_boxes(job_dir: Path, boxes: list[Box]) -> None:
@@ -791,6 +820,8 @@ class GateRequest(BaseModel):
     reclassed: dict[str, str] = {}
     # Gates 1 and 3: object id -> corrected text.
     edits: dict[str, str] = {}
+    # Gate 3: line-number id -> trace id it belongs on instead (implies accepted).
+    reassigned: dict[str, str] = {}
     # Gate 3: line-number id -> "accepted" | "rejected".
     decisions: dict[str, str] = {}
 
@@ -810,6 +841,10 @@ def api_garnet_gate(job_id: str, gate: int, payload: GateRequest) -> dict:
         else:
             _check_ids([*payload.rejected, *payload.edits, *payload.decisions, *payload.moved, *payload.reclassed],
                        _known_ids(job_dir))
+        if gate == 3 and payload.reassigned:
+            _check_reassign(job_dir, payload.reassigned, payload.decisions)
+        elif payload.reassigned:
+            raise HTTPException(status_code=400, detail="Line numbers can be reassigned at Gate 3 only")
         if gate != 1 and (payload.added or payload.moved or payload.reclassed):
             raise HTTPException(status_code=400, detail="Boxes can be added, moved or reclassed at Gate 1 only")
         if any(not c.strip() for c in payload.reclassed.values()):

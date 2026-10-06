@@ -123,7 +123,13 @@ class TestGarnetJobs(unittest.TestCase):
         self.assertNotIn(dropped_trace, {e["trace_id"] for e in stage6["trace_edges"]})
         self.assertIn(dropped_trace, get("out/stage5b_trace_results.json"))  # original untouched
         ln = stage6["associations"]["line_numbers"]["accepted"][0]["id"]
-        r = client.post(f"/api/garnet/jobs/{jid}/gates/3", json={"decisions": {ln: "rejected"}, "edits": {ln: "X-1"}})
+        moved_ln = stage6["associations"]["line_numbers"]["accepted"][1]
+        target = next(e["trace_id"] for e in stage6["trace_edges"] if e["trace_id"] != moved_ln["trace_id"])
+        for bad in ({"reassigned": {moved_ln["id"]: dropped_trace}},             # rejected at Gate 2
+                    {"reassigned": {moved_ln["id"]: target}, "decisions": {moved_ln["id"]: "rejected"}}):
+            self.assertEqual(client.post(f"/api/garnet/jobs/{jid}/gates/3", json=bad).status_code, 400)
+        r = client.post(f"/api/garnet/jobs/{jid}/gates/3", json={
+            "decisions": {ln: "rejected"}, "edits": {ln: "X-1"}, "reassigned": {moved_ln["id"]: target}})
         self.assertEqual(r.status_code, 200, r.text)
 
         job = wait()
@@ -131,6 +137,12 @@ class TestGarnetJobs(unittest.TestCase):
         reviewed = get("out/reviewed_associations.json")["associations"]["line_numbers"]
         item = next(i for i in reviewed["rejected"] if i["id"] == ln)
         self.assertEqual((item["review_source"], item["system_status"], item["text"]), ("human", "accepted", "X-1"))
+        re_item = next(i for i in reviewed["accepted"] if i["id"] == moved_ln["id"])
+        self.assertEqual((re_item["trace_id"], re_item["trace_assignment"], re_item["system_assignment"]["trace_id"]),
+                         (target, "human", moved_ln["trace_id"]))
+        self.assertNotIn("projected_xy", re_item)
+        unresolved = get("out/reviewed_associations.json")["unresolved"]["traces_without_line_number"]
+        self.assertNotIn(target, unresolved)
         self.assertEqual(set(get("gates.json")), {"1", "2", "3"})
 
     def test_bad_json_rejected_before_staging(self):
