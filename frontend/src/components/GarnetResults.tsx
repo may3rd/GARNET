@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@heroui/react'
-import { ArrowLeft, Brush, Download, Eraser, Magnet, Maximize, Minus, MousePointer2, PanelRightClose, PanelRightOpen, Plus, Redo2, Undo2 } from 'lucide-react'
+import { ArrowLeft, Brush, Download, Eraser, Link2, Magnet, Maximize, Minus, MousePointer2, PanelRightClose, PanelRightOpen, Plus, Redo2, Undo2 } from 'lucide-react'
 import { Card, PageHeader, Tag } from '@/components/ui/primitives'
 import { snapGarnetTrace, type GarnetGate, type GarnetJob } from '@/lib/api'
+import { densify, eraseSegments, mergeDrawn, orthogonal, rdp, segDist, type Pt, type Segment } from '@/lib/traceGeometry'
 import { useRunStore } from '@/stores/runStore'
 
 /**
@@ -49,7 +50,6 @@ type TestSystems = {
   conflicts: { trace_id: string; line_numbers: string[] }[]
   unassigned_traces: string[]
 }
-type Segment = { x1: number; y1: number; x2: number; y2: number; length_px?: number }
 type Trace = {
   id: string
   kind: 'port' | 'branch' | 'manual'
@@ -96,97 +96,6 @@ const GATE_COPY: Record<GarnetGate, { title: string; hint: string }> = {
   1: { title: 'Gate 1 · Objects', hint: 'Reject false detections and fix tag text. Rejected objects are not traced.' },
   2: { title: 'Gate 2 · Traces', hint: 'Reject traces that follow the wrong pipe. Stage 6 runs without them.' },
   3: { title: 'Gate 3 · Line numbers', hint: 'Accept or reject each line-number attachment and fix text.' },
-}
-
-type Pt = [number, number]
-
-/** Ramer-Douglas-Peucker: drop points within `eps` of the line through their neighbours. */
-function rdp(pts: Pt[], eps: number): Pt[] {
-  if (pts.length < 3) return pts
-  const [a, b] = [pts[0], pts[pts.length - 1]]
-  let idx = 0
-  let max = 0
-  for (let i = 1; i < pts.length - 1; i++) {
-    const d = segDist(pts[i][0], pts[i][1], { x1: a[0], y1: a[1], x2: b[0], y2: b[1] })
-    if (d > max) [max, idx] = [d, i]
-  }
-  return max > eps ? [...rdp(pts.slice(0, idx + 1), eps).slice(0, -1), ...rdp(pts.slice(idx), eps)] : [a, b]
-}
-
-/** Freehand -> horizontal/vertical runs. Each leg follows its dominant axis; collinear legs merge. */
-function orthogonal(pts: Pt[]): Pt[] {
-  const out: Pt[] = [[Math.round(pts[0][0]), Math.round(pts[0][1])]]
-  for (const p of pts.slice(1)) {
-    const cur = out[out.length - 1]
-    const q: Pt = Math.abs(p[0] - cur[0]) >= Math.abs(p[1] - cur[1]) ? [Math.round(p[0]), cur[1]] : [cur[0], Math.round(p[1])]
-    if (q[0] === cur[0] && q[1] === cur[1]) continue
-    const prev = out[out.length - 2]
-    const sameAxis = prev && ((prev[1] === cur[1] && cur[1] === q[1]) || (prev[0] === cur[0] && cur[0] === q[0]))
-    if (sameAxis) out[out.length - 1] = q
-    else out.push(q)
-  }
-  return out
-}
-
-/** Interpolate a stroke so consecutive points are at most `step` apart (brush coverage has no gaps). */
-function densify(pts: Pt[], step: number): Pt[] {
-  const out: Pt[] = [pts[0]]
-  for (let i = 1; i < pts.length; i++) {
-    const [ax, ay] = pts[i - 1]
-    const [bx, by] = pts[i]
-    const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / step))
-    for (let k = 1; k <= n; k++) out.push([ax + ((bx - ax) * k) / n, ay + ((by - ay) * k) / n])
-  }
-  return out
-}
-
-/**
- * Cut away the parts of `segs` within `r` of any brush point. Works on each segment's own axis:
- * every brush point blanks the chord where its circle crosses the segment; what is left (>= 3 px)
- * survives as new segments. Returns null when nothing was touched.
- */
-function eraseSegments(segs: Segment[], brush: Pt[], r: number): Segment[] | null {
-  let touched = false
-  const out: Segment[] = []
-  for (const g of segs) {
-    const L = Math.hypot(g.x2 - g.x1, g.y2 - g.y1)
-    if (L === 0) continue
-    const ux = (g.x2 - g.x1) / L
-    const uy = (g.y2 - g.y1) / L
-    const cut: [number, number][] = []
-    for (const [px, py] of brush) {
-      const t = (px - g.x1) * ux + (py - g.y1) * uy
-      const d = Math.abs((px - g.x1) * uy - (py - g.y1) * ux)
-      if (d > r) continue
-      const half = Math.sqrt(r * r - d * d)
-      const lo = Math.max(0, t - half)
-      const hi = Math.min(L, t + half)
-      if (hi > lo) cut.push([lo, hi])
-    }
-    if (cut.length === 0) {
-      out.push(g)
-      continue
-    }
-    touched = true
-    cut.sort((a, b) => a[0] - b[0])
-    let at = 0
-    const keep: [number, number][] = []
-    for (const [lo, hi] of cut) {
-      if (lo > at) keep.push([at, lo])
-      at = Math.max(at, hi)
-    }
-    if (at < L) keep.push([at, L])
-    for (const [a, b] of keep) {
-      if (b - a < 3) continue
-      out.push({
-        x1: Math.round(g.x1 + ux * a),
-        y1: Math.round(g.y1 + uy * a),
-        x2: Math.round(g.x1 + ux * b),
-        y2: Math.round(g.y1 + uy * b),
-      })
-    }
-  }
-  return touched ? out : null
 }
 
 function segBox(segments: Segment[]): BBox {
@@ -329,6 +238,9 @@ export function GarnetResults() {
   const [brushPx, setBrushPx] = useState(14)
   const [orthoOn, setOrthoOn] = useState(true)
   const [snapOn, setSnapOn] = useState(true)
+  const [mergeOn, setMergeOn] = useState(true)
+  // One line saying what the last stroke joined, so a merge is never silent.
+  const [strokeNote, setStrokeNote] = useState<string | null>(null)
   const [busyStroke, setBusyStroke] = useState(false)
   const nextDrawn = useRef(0)
   const [picking, setPicking] = useState(false)
@@ -577,17 +489,32 @@ export function GarnetResults() {
     try {
       const res = await snapGarnetTrace(job.id, pts, snapOn)
       if (res.segments.length === 0) return
+      // Rejected traces are not join targets: the reviewer has already said they are wrong.
+      const targets = mergeOn ? traces.filter((t) => !rejected.has(t.id)) : []
+      const m = mergeDrawn(res.segments, targets, 12 * screenToImage)
+      if (m.kind === 'extend') {
+        const isDrawn = te.drawn.some((t) => t.id === m.traceId)
+        pushEdits(
+          isDrawn
+            ? { ...te, drawn: te.drawn.map((t) => (t.id === m.traceId ? { ...t, segments: m.segments, bbox: segBox(m.segments) } : t)) }
+            : { ...te, modified: { ...te.modified, [m.traceId]: m.segments } }
+        )
+        setSelected(m.traceId)
+        setStrokeNote(`Extended ${m.traceId}${m.joinedTo ? `, tee into ${m.joinedTo}` : ''}`)
+        return
+      }
       nextDrawn.current += 1
       const t: Trace = {
         id: `draw_${nextDrawn.current}`,
         kind: 'manual',
         terminal_type: 'manual',
-        segments: res.segments,
-        bbox: segBox(res.segments),
+        segments: m.segments,
+        bbox: segBox(m.segments),
         coverage: res.coverage,
       }
       pushEdits({ ...te, drawn: [...te.drawn, t] })
       setSelected(t.id)
+      setStrokeNote(m.joinedTo.length ? `New trace ${t.id}, tee into ${m.joinedTo.join(' and ')}` : `New trace ${t.id} (not connected)`)
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -795,6 +722,9 @@ export function GarnetResults() {
               setOrthoOn={setOrthoOn}
               snapOn={snapOn}
               setSnapOn={setSnapOn}
+              mergeOn={mergeOn}
+              setMergeOn={setMergeOn}
+              note={strokeNote}
               canUndo={history.at > 0}
               canRedo={history.at < history.stack.length - 1}
               undo={undo}
@@ -1412,14 +1342,6 @@ function Overlay({
 
 const SELECTED = 'hsl(212 100% 48%)'
 const TRACE_HIGHLIGHT = 'hsl(330 95% 50%)'
-/** Distance from point (x, y) to segment g, in image pixels. */
-function segDist(x: number, y: number, g: Segment) {
-  const dx = g.x2 - g.x1
-  const dy = g.y2 - g.y1
-  const len2 = dx * dx + dy * dy
-  const t = len2 ? Math.max(0, Math.min(1, ((x - g.x1) * dx + (y - g.y1) * dy) / len2)) : 0
-  return Math.hypot(x - (g.x1 + t * dx), y - (g.y1 + t * dy))
-}
 const area = (b: BBox) => (b.x_max - b.x_min) * (b.y_max - b.y_min)
 
 const th: React.CSSProperties = { textAlign: 'left', padding: '6px 8px', fontWeight: 500, color: 'var(--muted)', position: 'sticky', top: 0, background: 'var(--surface)' }
@@ -1919,6 +1841,9 @@ function TraceToolbar(p: {
   setOrthoOn: (b: boolean) => void
   snapOn: boolean
   setSnapOn: (b: boolean) => void
+  mergeOn: boolean
+  setMergeOn: (b: boolean) => void
+  note: string | null
   canUndo: boolean
   canRedo: boolean
   undo: () => void
@@ -1963,8 +1888,12 @@ function TraceToolbar(p: {
           <button type="button" aria-pressed={p.snapOn} onClick={() => p.setSnapOn(!p.snapOn)} style={chip(p.snapOn)} title="Slide each run onto the nearest pipe (pipe mask, ±12 px)">
             <Magnet size={14} /> Snap to pipe
           </button>
+          <button type="button" aria-pressed={p.mergeOn} onClick={() => p.setMergeOn(!p.mergeOn)} style={chip(p.mergeOn)} title="Join the stroke to a trace whose end or body it starts/ends on (12 px)">
+            <Link2 size={14} /> Merge
+          </button>
         </>
       )}
+      {p.note && p.tool === 'draw' && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{p.note}</span>}
       {p.tool === 'erase' && (
         <label className="inline-flex items-center gap-2" style={{ fontSize: 12 }} title="[ and ] to resize">
           Brush
