@@ -163,22 +163,38 @@ export function GarnetResults() {
   // Gate decisions, cleared whenever the job moves on.
   const [rejected, setRejected] = useState<Set<string>>(new Set())
   const [decisions, setDecisions] = useState<Record<string, 'accepted' | 'rejected'>>({})
+  // Gate 1 geometry drafts: new geometry for existing ids, and boxes drawn here (ids `new_N`).
+  const [moved, setMoved] = useState<Record<string, BBox>>({})
+  const [added, setAdded] = useState<Obj[]>([])
+  const [addMode, setAddMode] = useState(false)
+  const [addClass, setAddClass] = useState('instrument tag')
+  const nextNew = useRef(0)
   const confirmGarnetGate = useRunStore((s) => s.confirmGarnetGate)
-  const toggleReject = (id: string) =>
+  const toggleReject = (id: string) => {
+    // A box drawn in this session has nothing upstream to reject: just remove it.
+    if (added.some((o) => o.id === id)) {
+      setAdded((a) => a.filter((o) => o.id !== id))
+      setSelected(null)
+      return
+    }
     setRejected((r) => {
       const next = new Set(r)
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
     })
+  }
   const confirm = async () => {
     if (!sheet || !gate) return
     setSaving(true)
     setSaveError(null)
     try {
+      const isNew = (id: string) => id.startsWith('new_')
       await confirmGarnetGate(sheet.id, gate, {
         rejected: gate === 3 ? [] : [...rejected],
-        edits: gate === 2 ? {} : draft,
+        edits: gate === 2 ? {} : Object.fromEntries(Object.entries(draft).filter(([id]) => !isNew(id))),
+        added: gate === 1 ? added.map((o) => ({ class_name: o.class_name, bbox: o.bbox, text: draft[o.id] ?? '' })) : [],
+        moved: gate === 1 ? Object.fromEntries(Object.entries(moved).filter(([id]) => !isNew(id))) : {},
         decisions: gate === 3 ? decisions : {},
       })
       setScreen('garnet')
@@ -226,6 +242,9 @@ export function GarnetResults() {
     setDraft({})
     setRejected(new Set())
     setDecisions({})
+    setMoved({})
+    setAdded([])
+    setAddMode(false)
     setSelected(null)
     setTab(gate ? GATE_TABS[gate][0] : 'objects')
     loadData(job)
@@ -236,15 +255,48 @@ export function GarnetResults() {
     }
   }, [job?.id, job?.status, job?.gate]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const view: Data | null = useMemo(
+    () =>
+      data && {
+        ...data,
+        objects: [...data.objects.map((o) => (moved[o.id] ? { ...o, bbox: moved[o.id] } : o)), ...added],
+      },
+    [data, moved, added]
+  )
+  const onDraw = (bbox: BBox) => {
+    const cls = addClass.trim()
+    if (!cls) return
+    nextNew.current += 1
+    const id = `new_${nextNew.current}`
+    setAdded((a) => [...a, { id, class_name: cls, confidence: 1, bbox }])
+    setHidden((h) => {
+      const next = new Set(h)
+      next.delete(cls)
+      return next
+    })
+    setAddMode(false)
+    setSelected(id)
+  }
+  const onMove = (id: string, bbox: BBox) => {
+    if (added.some((o) => o.id === id)) setAdded((a) => a.map((o) => (o.id === id ? { ...o, bbox } : o)))
+    else setMoved((m) => ({ ...m, [id]: bbox }))
+  }
+
   const boxes: Box[] = useMemo(() => {
-    if (!data) return []
+    if (!data || !view) return []
     const statusColor = (a: Assoc) =>
       (decisions[a.id] ?? a.status) === 'accepted' ? 'hsl(140 70% 40%)' : 'hsl(30 95% 50%)'
     switch (tab) {
       case 'objects':
-        return data.objects
+        return view.objects
           .filter((o) => !hidden.has(o.class_name))
-          .map((o) => ({ id: o.id, bbox: o.bbox, color: `hsl(${hue(o.class_name)} 80% 45%)`, dim: rejected.has(o.id) }))
+          .map((o) => ({
+            id: o.id,
+            bbox: o.bbox,
+            color: `hsl(${hue(o.class_name)} 80% 45%)`,
+            dim: rejected.has(o.id),
+            label: edits.textOf(o.id, o.text) || undefined,
+          }))
       case 'traces':
         return data.traces.map((t) => ({
           id: t.id,
@@ -266,7 +318,7 @@ export function GarnetResults() {
           points: (e.Ports ?? []).map((p) => ({ x: p.point_px[0], y: p.point_px[1], label: p.mark })),
         }))
     }
-  }, [data, tab, hidden, draft, saved, rejected, decisions]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, view, tab, hidden, draft, saved, rejected, decisions]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!job) {
     return (
@@ -340,8 +392,58 @@ export function GarnetResults() {
           <span className="mono" style={{ fontSize: 12, marginLeft: 'auto' }}>
             {gate === 3
               ? `${Object.keys(decisions).length} verdict(s) · ${Object.keys(draft).length} text fix(es)`
-              : `${rejected.size} rejected${gate === 1 ? ` · ${Object.keys(draft).length} text fix(es)` : ''}`}
+              : `${rejected.size} rejected${
+                  gate === 1
+                    ? ` · ${added.length} added · ${Object.keys(moved).length} moved · ${Object.keys(draft).length} text fix(es)`
+                    : ''
+                }`}
           </span>
+          {gate === 1 && tab === 'objects' && (
+            <div className="flex w-full items-center gap-2">
+              <Button
+                size="sm"
+                variant={addMode ? 'primary' : 'secondary'}
+                aria-pressed={addMode}
+                isDisabled={!addClass.trim()}
+                onPress={() => setAddMode((m) => !m)}
+              >
+                <Plus size={14} />
+                {addMode ? 'Drag on the drawing…' : 'Add box'}
+              </Button>
+              <label className="flex items-center gap-1.5" style={{ fontSize: 12 }}>
+                class
+                {/* Suggestions are this sheet's own classes; free text is allowed for a class it lacks. */}
+                <input
+                  list="garnet-classes"
+                  value={addClass}
+                  onChange={(e) => setAddClass(e.target.value)}
+                  style={{ height: 28, padding: '0 6px', border: '1px solid var(--border)', borderRadius: 4, background: 'var(--surface)' }}
+                />
+                <datalist id="garnet-classes">
+                  {[...new Set(data?.objects.map((o) => o.class_name) ?? [])].sort().map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              </label>
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                Select a box to drag it or pull its corners.
+              </span>
+              {selected && selected in moved && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onPress={() =>
+                    setMoved((m) => {
+                      const { [selected]: _, ...rest } = m
+                      return rest
+                    })
+                  }
+                >
+                  Reset box
+                </Button>
+              )}
+            </div>
+          )}
         </Card>
       )}
 
@@ -360,7 +462,7 @@ export function GarnetResults() {
           >
             <Tag tone={tab === t.key ? 'accent' : 'outline'}>
               {t.label}
-              {data && ` · ${tabCount(data, t.key)}`}
+              {view && ` · ${tabCount(view, t.key)}`}
             </Tag>
           </button>
         ))}
@@ -372,10 +474,19 @@ export function GarnetResults() {
 
       {data && (
         <div className="flex min-h-0 flex-1 gap-3 max-lg:flex-col">
-          <Overlay data={data} boxes={boxes} selected={selected} onSelect={setSelected} />
+          <Overlay
+            data={data}
+            boxes={boxes}
+            selected={selected}
+            onSelect={setSelected}
+            editable={gate === 1 && tab === 'objects'}
+            addMode={addMode}
+            onDraw={onDraw}
+            onMove={onMove}
+          />
           <Card padding={0} className="min-h-0 overflow-auto lg:w-[460px]">
             {tab === 'objects' && (
-              <ObjectsTable edits={edits} rejectable={gate === 1} rejected={rejected} onReject={toggleReject} data={data} hidden={hidden} setHidden={setHidden} selected={selected} onSelect={setSelected} />
+              <ObjectsTable edits={edits} rejectable={gate === 1} rejected={rejected} onReject={toggleReject} data={view!} geometryEdited={(id) => id in moved || id.startsWith('new_')} hidden={hidden} setHidden={setHidden} selected={selected} onSelect={setSelected} />
             )}
             {tab === 'lineNumbers' && (
               <AssocTable
@@ -428,20 +539,89 @@ type View = { s: number; x: number; y: number }
  * Raster + SVG box layer under one CSS transform, in image pixels.
  * Wheel zooms about the cursor, drag pans, selecting an object zooms to it.
  */
+type Corner = 'nw' | 'ne' | 'sw' | 'se'
+/** What a pointer drag is doing. Pan is the default; the rest exist only in edit mode. */
+type DragMode =
+  | { kind: 'pan' }
+  | { kind: 'draw'; x0: number; y0: number }
+  | { kind: 'move'; id: string; x0: number; y0: number; start: BBox }
+  | { kind: 'resize'; id: string; corner: Corner; start: BBox }
+
 function Overlay({
   data,
   boxes,
   selected,
   onSelect,
+  editable = false,
+  addMode = false,
+  onDraw,
+  onMove,
 }: {
   data: Data
   boxes: Box[]
   selected: string | null
   onSelect: (id: string | null) => void
+  /** Gate 1: the selected box can be dragged and resized. */
+  editable?: boolean
+  /** Next drag on empty canvas draws a new box instead of panning. */
+  addMode?: boolean
+  onDraw?: (bbox: BBox) => void
+  onMove?: (id: string, bbox: BBox) => void
 }) {
   const host = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<View>({ s: 0, x: 0, y: 0 })
-  const drag = useRef<{ px: number; py: number; moved: boolean } | null>(null)
+  const drag = useRef<{ px: number; py: number; moved: boolean; mode: DragMode } | null>(null)
+  // Geometry being dragged right now; committed to the parent on pointer-up only.
+  const [live, setLive] = useState<{ id: string; bbox: BBox } | null>(null)
+
+  /** Screen event -> image pixel, clamped to the raster. */
+  const toImg = (e: React.PointerEvent, el: HTMLElement) => {
+    const r = el.getBoundingClientRect()
+    const x = (e.clientX - r.left - view.x) / view.s
+    const y = (e.clientY - r.top - view.y) / view.s
+    return { x: Math.min(data.width, Math.max(0, x)), y: Math.min(data.height, Math.max(0, y)) }
+  }
+  const norm = (x0: number, y0: number, x1: number, y1: number): BBox => ({
+    x_min: Math.round(Math.min(x0, x1)),
+    y_min: Math.round(Math.min(y0, y1)),
+    x_max: Math.round(Math.max(x0, x1)),
+    y_max: Math.round(Math.max(y0, y1)),
+  })
+  const startMode = (pt: { x: number; y: number }): DragMode => {
+    const sel = editable ? boxes.find((b) => b.id === selected && !b.lines) : undefined
+    if (sel) {
+      const b = sel.bbox
+      const tol = 10 / view.s
+      const corners: [Corner, number, number][] = [
+        ['nw', b.x_min, b.y_min], ['ne', b.x_max, b.y_min], ['sw', b.x_min, b.y_max], ['se', b.x_max, b.y_max],
+      ]
+      const hit = corners.find(([, cx, cy]) => Math.abs(pt.x - cx) <= tol && Math.abs(pt.y - cy) <= tol)
+      if (hit) return { kind: 'resize', id: sel.id, corner: hit[0], start: b }
+      if (pt.x >= b.x_min && pt.x <= b.x_max && pt.y >= b.y_min && pt.y <= b.y_max)
+        return { kind: 'move', id: sel.id, x0: pt.x, y0: pt.y, start: b }
+    }
+    if (editable && addMode) return { kind: 'draw', x0: pt.x, y0: pt.y }
+    return { kind: 'pan' }
+  }
+  const dragBox = (mode: DragMode, pt: { x: number; y: number }): { id: string; bbox: BBox } | null => {
+    if (mode.kind === 'draw') return { id: '__draw__', bbox: norm(mode.x0, mode.y0, pt.x, pt.y) }
+    if (mode.kind === 'move') {
+      const b = mode.start
+      const w = b.x_max - b.x_min
+      const h = b.y_max - b.y_min
+      // Keep the whole box on the raster while moving.
+      const x = Math.min(data.width - w, Math.max(0, b.x_min + pt.x - mode.x0))
+      const y = Math.min(data.height - h, Math.max(0, b.y_min + pt.y - mode.y0))
+      return { id: mode.id, bbox: norm(x, y, x + w, y + h) }
+    }
+    if (mode.kind === 'resize') {
+      const b = mode.start
+      const ax = mode.corner.endsWith('w') ? b.x_max : b.x_min // fixed corner opposite the handle
+      const ay = mode.corner.startsWith('n') ? b.y_max : b.y_min
+      return { id: mode.id, bbox: norm(ax, ay, pt.x, pt.y) }
+    }
+    return null
+  }
 
   const size = () => {
     const r = host.current?.getBoundingClientRect()
@@ -524,9 +704,14 @@ function Overlay({
       <div
         ref={host}
         className="relative min-h-0 flex-1 overflow-hidden"
-        style={{ cursor: drag.current ? 'grabbing' : 'grab', touchAction: 'none', background: 'var(--surface-2, #f4f4f5)' }}
+        style={{
+          cursor: editable && addMode ? 'crosshair' : drag.current ? 'grabbing' : 'grab',
+          touchAction: 'none',
+          background: 'var(--surface-2, #f4f4f5)',
+        }}
         onPointerDown={(e) => {
-          drag.current = { px: e.clientX, py: e.clientY, moved: false }
+          const mode = startMode(toImg(e, e.currentTarget))
+          drag.current = { px: e.clientX, py: e.clientY, moved: false, mode }
           e.currentTarget.setPointerCapture(e.pointerId)
         }}
         onPointerMove={(e) => {
@@ -536,6 +721,10 @@ function Overlay({
           const dy = e.clientY - d.py
           if (!d.moved && Math.hypot(dx, dy) < 3) return
           d.moved = true
+          if (d.mode.kind !== 'pan') {
+            setLive(dragBox(d.mode, toImg(e, e.currentTarget)))
+            return
+          }
           d.px = e.clientX
           d.py = e.clientY
           setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }))
@@ -543,6 +732,16 @@ function Overlay({
         onPointerUp={(e) => {
           const d = drag.current
           drag.current = null
+          const done = d && d.moved && d.mode.kind !== 'pan' ? dragBox(d.mode, toImg(e, e.currentTarget)) : null
+          setLive(null)
+          if (done) {
+            const { bbox } = done
+            // A slip of the mouse is not a box: need a few image pixels each way.
+            if (bbox.x_max - bbox.x_min < 4 || bbox.y_max - bbox.y_min < 4) return
+            if (d!.mode.kind === 'draw') onDraw?.(bbox)
+            else onMove?.(done.id, bbox)
+            return
+          }
           if (d?.moved) return
           // A click, not a drag: hit-test the box under the pointer (smallest wins).
           const r = e.currentTarget.getBoundingClientRect()
@@ -568,7 +767,7 @@ function Overlay({
             <svg viewBox={`0 0 ${data.width} ${data.height}`} className="pointer-events-none absolute inset-0" width={data.width} height={data.height}>
               {boxes.map((b) => {
                 const on = b.id === selected
-                const { x_min, y_min, x_max, y_max } = b.bbox
+                const { x_min, y_min, x_max, y_max } = live?.id === b.id ? live.bbox : b.bbox
                 return (
                   <g key={b.id}>
                     {on && !b.lines && (
@@ -623,6 +822,31 @@ function Overlay({
                   </g>
                 )
               })}
+              {live?.id === '__draw__' && (
+                <rect
+                  x={live.bbox.x_min}
+                  y={live.bbox.y_min}
+                  width={live.bbox.x_max - live.bbox.x_min}
+                  height={live.bbox.y_max - live.bbox.y_min}
+                  fill={SELECTED}
+                  fillOpacity={0.12}
+                  stroke={SELECTED}
+                  strokeWidth={stroke * 2}
+                  strokeDasharray={`${stroke * 5} ${stroke * 3}`}
+                />
+              )}
+              {editable &&
+                (() => {
+                  const b = boxes.find((x) => x.id === selected && !x.lines)
+                  if (!b) return null
+                  const g = live?.id === b.id ? live.bbox : b.bbox
+                  const k = 8 / view.s
+                  return (
+                    [[g.x_min, g.y_min], [g.x_max, g.y_min], [g.x_min, g.y_max], [g.x_max, g.y_max]] as const
+                  ).map(([cx, cy], i) => (
+                    <rect key={i} x={cx - k / 2} y={cy - k / 2} width={k} height={k} fill="white" stroke={SELECTED} strokeWidth={stroke * 1.5} />
+                  ))
+                })()}
             </svg>
           </div>
         )}
@@ -641,6 +865,7 @@ const bboxText = (b: BBox) => `${b.x_min},${b.y_min} → ${b.x_max},${b.y_max}`
 
 function ObjectsTable({
   edits,
+  geometryEdited,
   rejectable,
   rejected,
   onReject,
@@ -651,6 +876,7 @@ function ObjectsTable({
   onSelect,
 }: {
   edits: Edits
+  geometryEdited?: (id: string) => boolean
   rejectable: boolean
   rejected: Set<string>
   onReject: (id: string) => void
@@ -695,7 +921,10 @@ function ObjectsTable({
               <td style={td}>{o.class_name}</td>
               <td style={td} className="mono">{o.confidence ?? '—'}</td>
               <TextCell edits={edits} id={o.id} original={o.text} on={o.id === selected} />
-              <td style={td} className="mono">{bboxText(o.bbox)}</td>
+              <td style={td} className="mono">
+                {bboxText(o.bbox)}
+                {geometryEdited?.(o.id) && <span style={{ color: 'var(--accent)', marginLeft: 6 }}>●</span>}
+              </td>
             </tr>
           ))}
         </tbody>

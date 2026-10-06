@@ -89,7 +89,14 @@ class TestGarnetJobs(unittest.TestCase):
         objs = get("input/sheet_objects.json")["objects"]
         drop = next(o["id"] for o in objs if o["class_name"] == "gate valve")
         tag = next(o["id"] for o in objs if o["class_name"] == "instrument tag")
-        r = client.post(f"/api/garnet/jobs/{jid}/gates/1", json={"rejected": [drop], "edits": {tag: "TI 0001"}})
+        moved = next(o for o in objs if o["class_name"] == "check valve")
+        new_box = {k: moved["bbox"][k] + 2 for k in ("x_min", "y_min", "x_max", "y_max")}
+        added = {"class_name": "instrument tag", "text": "PI 0999",
+                 "bbox": {"x_min": 10, "y_min": 10, "x_max": 60, "y_max": 60}}
+        off = {"class_name": "gate valve", "bbox": {"x_min": 10, "y_min": 10, "x_max": 10, "y_max": 99999}}
+        self.assertEqual(client.post(f"/api/garnet/jobs/{jid}/gates/1", json={"added": [off]}).status_code, 400)
+        r = client.post(f"/api/garnet/jobs/{jid}/gates/1", json={
+            "rejected": [drop], "edits": {tag: "TI 0001"}, "added": [added], "moved": {moved["id"]: new_box}})
         self.assertEqual(r.status_code, 200, r.text)
 
         job = wait()
@@ -97,6 +104,10 @@ class TestGarnetJobs(unittest.TestCase):
         staged = {o["id"]: o for o in get("input/sheet_objects.json")["objects"]}
         self.assertNotIn(drop, staged)
         self.assertEqual(staged[tag]["text"], "TI 0001")
+        self.assertEqual((staged[moved["id"]]["bbox"], staged[moved["id"]]["bbox_original"]), (new_box, moved["bbox"]))
+        human = staged["human_000001"]
+        self.assertEqual((human["class_name"], human["text"], human["source"]), ("instrument tag", "PI 0999", "human"))
+        self.assertIn("human_000001", {o["id"] for o in get("out/stage4_objects.json")["objects"]})
         self.assertIn(drop, {o["id"] for o in get("input/sheet_objects.pre_gate1.json")["objects"]})
         traces = get("out/stage5b_trace_results.json")
         dropped_trace = next(iter(traces))

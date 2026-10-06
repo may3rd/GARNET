@@ -677,8 +677,22 @@ def _write_reviewed(job_dir: Path) -> None:
     (job_dir / "out" / "reviewed_associations.json").write_text(json.dumps(stage6, indent=2, ensure_ascii=False))
 
 
-def _apply_gate1(job_dir: Path, rejected: list[str], edits: dict[str, str]) -> None:
-    """Rejected objects leave the staged file; edited text replaces it. The pre-gate file is kept."""
+def _check_boxes(job_dir: Path, boxes: list[Box]) -> None:
+    """A reviewer's box must have area and lie on the raster; anything else is a UI bug."""
+    h, w = cv2.imread(str(job_dir / "input" / f"{STEM}.jpg"), cv2.IMREAD_GRAYSCALE).shape[:2]
+    for b in boxes:
+        if not (0 <= b.x_min < b.x_max <= w and 0 <= b.y_min < b.y_max <= h):
+            raise HTTPException(status_code=400, detail=f"Box {b.model_dump()} is empty or off the {w}x{h} raster")
+
+
+def _apply_gate1(job_dir: Path, rejected: list[str], edits: dict[str, str],
+                 added: list[AddedObject] = (), moved: dict[str, Box] | None = None) -> None:
+    """Gate 1 onto the staged objects: drop rejected, retext, re-box moved, append added.
+
+    The pre-gate file is kept. Moved boxes carry `bbox_original`; added ones get `human_NNNNNN`
+    ids and `source: "human"`, so a reviewer's box is never mistaken for a detection.
+    """
+    moved = moved or {}
     path = job_dir / "input" / JSON_INPUTS["objects_json"]
     keep = job_dir / "input" / f"{STEM}_objects.pre_gate1.json"
     if not keep.exists():
@@ -693,6 +707,16 @@ def _apply_gate1(job_dir: Path, rejected: list[str], edits: dict[str, str]) -> N
             obj["text_original"] = obj.get("text", "")
             obj["text"] = edits[obj["id"]]
             obj["text_source"] = "human_edit"
+        if obj["id"] in moved:
+            obj["bbox_original"] = obj["bbox"]
+            obj["bbox"] = moved[obj["id"]].model_dump()
+            obj["bbox_source"] = "human_edit"
+        objects.append(obj)
+    for n, a in enumerate(added, start=1):
+        obj = {"id": f"human_{n:06d}", "class_name": a.class_name, "confidence": 1.0,
+               "bbox": a.bbox.model_dump(), "source": "human"}
+        if a.text:
+            obj["text"], obj["text_source"] = a.text, "human_edit"
         objects.append(obj)
     payload["objects"] = objects
     path.write_text(json.dumps(payload))
@@ -738,9 +762,25 @@ def _trace_ids(job_dir: Path) -> set[str]:
     return ids
 
 
+class Box(BaseModel):
+    x_min: int
+    y_min: int
+    x_max: int
+    y_max: int
+
+
+class AddedObject(BaseModel):
+    class_name: str = Field(min_length=1)
+    bbox: Box
+    text: str = ""
+
+
 class GateRequest(BaseModel):
     # Gate 1: object ids to drop before tracing. Gate 2: trace ids to drop before Stage 6.
     rejected: list[str] = []
+    # Gate 1 only: boxes a reviewer drew, and new geometry for existing ids.
+    added: list[AddedObject] = []
+    moved: dict[str, Box] = {}
     # Gates 1 and 3: object id -> corrected text.
     edits: dict[str, str] = {}
     # Gate 3: line-number id -> "accepted" | "rejected".
@@ -760,7 +800,11 @@ def api_garnet_gate(job_id: str, gate: int, payload: GateRequest) -> dict:
         if gate == 2:
             _check_ids(payload.rejected, _trace_ids(job_dir))
         else:
-            _check_ids([*payload.rejected, *payload.edits, *payload.decisions], _known_ids(job_dir))
+            _check_ids([*payload.rejected, *payload.edits, *payload.decisions, *payload.moved], _known_ids(job_dir))
+        if gate != 1 and (payload.added or payload.moved):
+            raise HTTPException(status_code=400, detail="Boxes can be added or moved at Gate 1 only")
+        if gate == 1:
+            _check_boxes(job_dir, [a.bbox for a in payload.added] + list(payload.moved.values()))
         bad = {v for v in payload.decisions.values()} - {"accepted", "rejected"}
         if bad:
             raise HTTPException(status_code=400, detail=f"decisions must be accepted/rejected, got {sorted(bad)}")
@@ -769,7 +813,7 @@ def api_garnet_gate(job_id: str, gate: int, payload: GateRequest) -> dict:
 
         _record_gate(job_dir, gate, payload.model_dump())
         if gate == 1:
-            _apply_gate1(job_dir, payload.rejected, payload.edits)
+            _apply_gate1(job_dir, payload.rejected, payload.edits, payload.added, payload.moved)
         if gate == 3:
             if payload.edits:
                 _append_edits(job_dir, {**_read_edits(job_dir)["edits"], **payload.edits})

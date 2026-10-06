@@ -643,8 +643,13 @@ export async function exportResultsToExcel(
 export type GarnetGate = 1 | 2 | 3
 
 /** What a gate confirm sends. Gate 1/2: ids to drop. Gate 1/3: text fixes. Gate 3: line-number verdicts. */
+export type GarnetBox = { x_min: number; y_min: number; x_max: number; y_max: number }
+
 export type GarnetGateDecision = {
   rejected?: string[]
+  /** Gate 1: reviewer-drawn boxes, and new geometry for existing object ids. */
+  added?: { class_name: string; bbox: GarnetBox; text: string }[]
+  moved?: Record<string, GarnetBox>
   edits?: Record<string, string>
   decisions?: Record<string, 'accepted' | 'rejected'>
 }
