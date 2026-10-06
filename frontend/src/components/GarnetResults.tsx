@@ -13,7 +13,9 @@ import { useRunStore } from '@/stores/runStore'
 
 type BBox = { x_min: number; y_min: number; x_max: number; y_max: number }
 type Obj = { id: string; class_name: string; confidence?: number; bbox: BBox; text?: string }
-type Assoc = Obj & {
+type Assoc = Omit<Obj, 'bbox'> & {
+  /** Absent when Stage 6 could not place the label (missing_bbox, no_trace_edges). */
+  bbox?: BBox
   trace_id: string | null
   projected_xy?: [number, number]
   distance_px: number
@@ -605,7 +607,10 @@ export function GarnetResults() {
         }))
       case 'lineNumbers':
       case 'instruments':
-        return (tab === 'lineNumbers' ? data.lineNumbers : data.instruments).map((a): Box => {
+        // Bbox-less labels stay in the side list for review but have nothing to draw.
+        return (tab === 'lineNumbers' ? data.lineNumbers : data.instruments)
+          .filter((a): a is Assoc & { bbox: BBox } => !!a.bbox)
+          .map((a): Box => {
           const tid = traceOf(a)
           const t = tid ? traceById.get(tid) : undefined
           return {

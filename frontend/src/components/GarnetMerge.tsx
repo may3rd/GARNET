@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@heroui/react'
 import { ArrowLeft, Download, FileText, RefreshCw } from 'lucide-react'
 import { Card, PageHeader, Tag } from '@/components/ui/primitives'
@@ -45,19 +45,24 @@ export function GarnetMerge() {
   const [filter, setFilter] = useState<Filter>('all')
   const [open, setOpen] = useState<string | null>(null)
 
+  // Only the latest request may write state; a slow reply for an older sheet set is dropped.
+  const req = useRef(0)
   const load = async () => {
+    const id = ++req.current
     if (jobIds.length === 0) {
       setData(null)
+      setLoading(false)
       return
     }
     setLoading(true)
     setError(null)
     try {
-      setData(await getMergedTestSystems(jobIds))
+      const d = await getMergedTestSystems(jobIds)
+      if (id === req.current) setData(d)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      if (id === req.current) setError(e instanceof Error ? e.message : String(e))
     } finally {
-      setLoading(false)
+      if (id === req.current) setLoading(false)
     }
   }
   const key = jobIds.join(',')
@@ -66,7 +71,12 @@ export function GarnetMerge() {
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const flagged = (x: MergedLine) =>
-    x.continuation_missing || x.similar_to.length > 0 || x.conflict || x.suggested_continuations.length > 0
+    x.continuation_missing ||
+    x.similar_to.length > 0 ||
+    x.conflict ||
+    x.suggested_continuations.length > 0 ||
+    // The backend clears continuation_missing once any link exists, so check the links' own status.
+    x.connector_links.some((l) => LINK_LABEL[l.status].tone === 'warning')
   const rows = useMemo(
     () => (data?.lines ?? []).filter((x) => (filter === 'multi' ? x.sheet_count > 1 : filter === 'flagged' ? flagged(x) : true)),
     [data, filter]
@@ -201,6 +211,13 @@ export function GarnetMerge() {
                   <tr
                     key={x.line_number}
                     onClick={() => setOpen(isOpen ? null : x.line_number)}
+                    tabIndex={0}
+                    aria-expanded={isOpen}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return
+                      e.preventDefault()
+                      setOpen(isOpen ? null : x.line_number)
+                    }}
                     style={{ cursor: 'pointer', background: isOpen ? 'rgba(59,130,246,.08)' : undefined }}
                   >
                     <td style={td} className="mono">
