@@ -2,6 +2,7 @@
 
 # Lessons
 
+- Do not assign a UI click failure to a confirmation dialog without reproducing the click path; verify the rendered event and API request first.
 - The **active** P&ID extraction work is the top-level `garnet/` package, not `backend/garnet/`. Run it from the **repo root** with `.venv/bin/python`. `backend/garnet/` is the older pipeline behind the FastAPI service; it still runs, but new extraction work goes in `garnet/`.
 - From `backend/`, use the root virtualenv as `../.venv/bin/python` or its absolute path, never `.venv/bin/python`.
 - Inspect the on-disk target before choosing an exact patch marker; injected instructions may include content absent from the file.

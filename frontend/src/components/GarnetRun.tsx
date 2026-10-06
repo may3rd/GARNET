@@ -489,8 +489,6 @@ function GateTimeline({ sheet, busy }: { sheet: Sheet; busy: boolean }) {
   const done = job.status === 'completed'
 
   const go = async (gate: GarnetGate) => {
-    const later = gate === 1 ? 'the trace, Stage 6 and every review after detection' : gate === 2 ? 'Stage 6 and the Gate 3 review' : 'the Gate 3 review and text edits'
-    if (!window.confirm(`Go back to Gate ${gate} · ${GATE_NAMES[gate]}?\n\nThis discards ${later}. Nothing is deleted: it is archived in the job's history folder.`)) return
     // On failure stay here: the run screen is where sheet.error is shown.
     if (!(await reopen(sheet.id, gate))) return
     selectSheet(sheet.id)
