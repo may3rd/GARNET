@@ -3338,6 +3338,28 @@ class Stage5bPipelineMixin:
             "t_shape_terminations": merge_report.get("t_shape_terminations") or [],
         })
 
+        # Stage 5c's CORRECTED geometry, as a walk set a downstream stage can consume.
+        # `stage5b_branch_trace_results.json` is deliberately the pre-merge record (so
+        # the 5b and 5c overlays can be compared), but Stage 6 must associate against
+        # the merged runs -- otherwise it attaches evidence to a fragment that 5c has
+        # already absorbed, and one line is represented by two edges.
+        self._save_json("stage5c_branch_trace_results", {
+            "branches": branch_results,
+            "iterations": branch_iterations,
+            "summary": {
+                "total": len(branch_results),
+                "traced": len([r for r in branch_results.values()
+                               if r.get("status") == "traced"]),
+                "merged": len([r for r in branch_results.values()
+                               if r.get("status") == "merged"]),
+                "empty": len([r for r in branch_results.values()
+                              if r.get("status") == "empty"]),
+                "skipped": len([r for r in branch_results.values()
+                                if r.get("status") == "skipped"]),
+                "iteration_count": len(branch_iterations),
+            },
+        })
+
         # Draw overlay
         overlay = image.copy()
         colors = {

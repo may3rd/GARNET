@@ -93,10 +93,23 @@ def main(argv: list[str] | None = None) -> int:
 
     object_payload = _load(sdir / "stage4_objects.json", "stage 4 objects")
     trace_payload = _load(sdir / "stage5b_trace_results.json", "stage 5b traces")
-    branch_payload = json.loads((sdir / "stage5b_branch_trace_results.json").read_text()) \
-        if (sdir / "stage5b_branch_trace_results.json").is_file() else {"branches": {}}
+    # Branch geometry: prefer Stage 5c's CORRECTED walk set. 5c merges fragments that
+    # join end-to-end and re-names their terminals, so associating against the pre-merge
+    # file attaches evidence to a run 5c has already absorbed and represents one line as
+    # two edges. `stage5b_branch_trace_results.json` is kept as the pre-merge record for
+    # comparing the 5b and 5c overlays, so it is the fallback, not the source.
+    branch_src, branch_payload = None, {"branches": {}}
+    for name in ("stage5c_branch_trace_results.json", "stage5b_branch_trace_results.json"):
+        p = sdir / name
+        if p.is_file():
+            branch_payload = json.loads(p.read_text())
+            branch_src = name
+            break
     ports_payload = json.loads((sdir / "stage5_connection_ports.json").read_text()) \
         if (sdir / "stage5_connection_ports.json").is_file() else {}
+    print(f"  branch geometry from: {branch_src or 'none'}"
+          + ("  (post-merge, stage 5c)" if branch_src and branch_src.startswith("stage5c")
+             else "  (pre-merge)" if branch_src else ""))
 
     # Line numbers live in the merged object list (no OCR stage, no separate artifact).
     objects = object_payload.get("objects", [])
@@ -121,6 +134,7 @@ def main(argv: list[str] | None = None) -> int:
         line_numbers=line_numbers,
         instrument_tags=instrument_tags,
         image_bgr=image,
+        branch_source=branch_src,
         **{k: getattr(args, k) for k in DEFAULTS},
     )
 
@@ -140,7 +154,7 @@ def main(argv: list[str] | None = None) -> int:
     acc, rej = s["accepted_counts"], s["rejected_counts"]
     print(f"\n  edges: {s['trace_edge_count']} "
           f"({s['port_trace_count']} port, {s['branch_trace_count']} branch), "
-          f"{s['skipped_branch_count']} skipped")
+          f"{s['skipped_branch_count']} skipped, {s['merged_branch_count']} merged")
     print("  accepted:", dict(sorted(acc.items())))
     print("  rejected:", dict(sorted(rej.items())))
     print(f"  traces without a line number: {s['trace_without_line_number_count']}")
