@@ -189,7 +189,7 @@ export function TaskFork() {
               style={{ height: ctlH, borderRadius: 'var(--r-btn)' }}
               onPress={onContinue}
             >
-              Continue to run
+              {task === 'garnet' ? 'Continue to inputs' : 'Continue to run'}
               <ArrowRight size={16} strokeWidth={1.5} />
             </Button>
           </>

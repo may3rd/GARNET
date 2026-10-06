@@ -82,7 +82,11 @@ function SheetCard({ sheet }: { sheet: Sheet }) {
     <Card padding={20} className="flex flex-col gap-3.5">
       <SectionHeader
         title={sheet.label}
-        description={job ? `job ${job.id.slice(0, 8)}… · ${job.status}` : 'Not started'}
+        description={
+          job
+            ? `job ${job.id.slice(0, 8)}… · ${job.status}`
+            : 'Waiting for input — attach any JSON you have, then Run. Missing objects / equipment JSON is produced by YOLO / the LLM.'
+        }
         actions={
           <div className="flex gap-2">
           {job?.status === 'awaiting_gate' && !busy && (

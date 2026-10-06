@@ -303,10 +303,9 @@ export const useRunStore = create<RunState>((set, get) => ({
           await get().runDetectionFor(sheet.id)
           return
         }
-        if (sheet.task === 'garnet') {
-          if (!sheet.garnet) await get().runGarnetFor(sheet.id)
-          return
-        }
+        // GARNET sheets wait: the user attaches their JSON on the GARNET screen and presses Run.
+        // Starting here would run YOLO / the equipment LLM before they had the chance.
+        if (sheet.task === 'garnet') return
         patchSheet(set, sheet.id, {
           error: null,
           progress: { step: 'Creating job…', percent: 5 },
