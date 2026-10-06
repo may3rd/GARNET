@@ -1,6 +1,6 @@
 import { Button } from '@heroui/react'
 import { useEffect, useRef, useState } from 'react'
-import { CheckCircle2, Container, FolderOpen, Layers, Hash, History, Play, RotateCcw, Save, Shapes, Upload, X } from 'lucide-react'
+import { CheckCircle2, Container, FolderOpen, Layers, Hash, History, Pause, Play, RotateCcw, Save, Shapes, Square, Upload, X } from 'lucide-react'
 import { Card, PageHeader, SectionHeader, SelectField, Tag, Toggle } from '@/components/ui/primitives'
 import type { GarnetGate, GarnetInputs, GarnetStepStatus } from '@/lib/api'
 import { useRunStore, type Sheet } from '@/stores/runStore'
@@ -324,10 +324,13 @@ export function GarnetRun() {
 
 function SheetCard({ sheet }: { sheet: Sheet }) {
   const runGarnetFor = useRunStore((s) => s.runGarnetFor)
+  const control = useRunStore((s) => s.controlGarnetJob)
   const selectSheet = useRunStore((s) => s.selectSheet)
   const setScreen = useRunStore((s) => s.setScreen)
   const job = sheet.garnet
   const busy = sheet.progress !== null
+  const live = job?.status === 'queued' || job?.status === 'running'
+  const resting = job?.status === 'awaiting_gate' || job?.status === 'paused' || job?.status === 'completed' || job?.status === 'failed'
   const overlays = job?.artifacts.filter((a) => a.name.startsWith('out/') && a.name.endsWith('.png')) ?? []
   const jsons = job?.artifacts.filter((a) => a.name.startsWith('out/') && a.name.endsWith('.json')) ?? []
 
@@ -342,6 +345,37 @@ function SheetCard({ sheet }: { sheet: Sheet }) {
         }
         actions={
           <div className="flex gap-2">
+          {live && (
+            <>
+              <Button variant="secondary" style={{ height: 32, borderRadius: 'var(--r-btn)' }} onPress={() => void control(sheet.id, 'pause')}>
+                <Pause size={14} /> Pause
+              </Button>
+              <Button
+                variant="danger"
+                style={{ height: 32, borderRadius: 'var(--r-btn)' }}
+                onPress={() => window.confirm('Stop this run now? The running step is killed; you can Restart or Reopen afterwards.') && void control(sheet.id, 'stop')}
+              >
+                <Square size={14} /> Stop
+              </Button>
+            </>
+          )}
+          {job?.status === 'paused' && !busy && (
+            <Button variant="primary" style={{ height: 32, borderRadius: 'var(--r-btn)' }} onPress={() => void control(sheet.id, 'resume')}>
+              <Play size={14} /> Resume
+            </Button>
+          )}
+          {resting && !busy && (
+            <Button
+              variant="secondary"
+              style={{ height: 32, borderRadius: 'var(--r-btn)' }}
+              onPress={() =>
+                window.confirm('Restart this run on the same inputs? Confirmed Gate 1 edits are kept; later outputs and gate decisions are archived.') &&
+                void control(sheet.id, 'restart')
+              }
+            >
+              <RotateCcw size={14} /> Restart
+            </Button>
+          )}
           {job?.status === 'awaiting_gate' && !busy && (
             <Button
               variant="primary"
@@ -354,7 +388,7 @@ function SheetCard({ sheet }: { sheet: Sheet }) {
               Review Gate {job.gate}
             </Button>
           )}
-          {job && (job.status === 'completed' || job.status === 'awaiting_gate' || job.status === 'failed') && !busy && (
+          {resting && !busy && (
             // The whole job folder as a zip: reload it later with "Load saved result".
             <a
               href={`/api/garnet/jobs/${job.id}/bundle`}
@@ -451,7 +485,7 @@ function GateTimeline({ sheet, busy }: { sheet: Sheet; busy: boolean }) {
   const setScreen = useRunStore((s) => s.setScreen)
   const job = sheet.garnet!
   // A failed job can still go back to a gate it already passed.
-  const resting = job.status === 'awaiting_gate' || job.status === 'completed' || job.status === 'failed'
+  const resting = job.status === 'awaiting_gate' || job.status === 'paused' || job.status === 'completed' || job.status === 'failed'
   const done = job.status === 'completed'
 
   const go = async (gate: GarnetGate) => {

@@ -8,6 +8,7 @@ import {
   loadGarnetBundle as loadGarnetBundleApi,
   confirmGarnetGate as confirmGarnetGateApi,
   reopenGarnetGate as reopenGarnetGateApi,
+  controlGarnetJob as controlGarnetJobApi,
   type GarnetGate,
   type GarnetGateDecision,
   saveGarnetEdits as saveGarnetEditsApi,
@@ -129,6 +130,7 @@ type RunState = {
   /** Go back to `gate` (1 = reset to start). Later work is archived by the server. */
   /** Resolves false when the reopen failed; the reason is on `sheet.error`. */
   reopenGarnetGate: (sheetId: string, gate: GarnetGate) => Promise<boolean>
+  controlGarnetJob: (sheetId: string, action: 'stop' | 'pause' | 'resume' | 'restart') => Promise<void>
   /** Load a saved .zip as a new GARNET sheet, resting where it was saved. Throws on a bad bundle. */
   loadGarnetBundle: (file: File) => Promise<void>
   /** Object edits persist to the server's in-memory result store. */
@@ -490,6 +492,19 @@ export const useRunStore = create<RunState>((set, get) => ({
     }
   },
 
+  controlGarnetJob: async (sheetId, action) => {
+    const job = get().sheets.find((s) => s.id === sheetId)?.garnet
+    if (!job) return
+    // Stop and pause land on the poll already following the job; resume and restart start a new one.
+    const follows = action === 'resume' || action === 'restart'
+    try {
+      const next = await controlGarnetJobApi(job.id, action)
+      if (follows) await pollGarnet(set, get, sheetId, next)
+    } catch (error) {
+      patchSheet(set, sheetId, { error: error instanceof Error ? error.message : `${action} failed`, ...(follows ? { progress: null } : {}) })
+    }
+  },
+
   saveGarnetEdits: async (sheetId, edits) => {
     const job = get().sheets.find((s) => s.id === sheetId)?.garnet
     if (!job) return
@@ -607,7 +622,7 @@ async function pollGarnet(set: SetFn, get: () => RunState, sheetId: string, firs
       garnet: job,
       progress: { step: running?.name ?? job.status, percent: (100 * done) / job.steps.length },
     })
-    if (job.status === 'completed' || job.status === 'failed' || job.status === 'awaiting_gate') break
+    if (job.status === 'completed' || job.status === 'failed' || job.status === 'awaiting_gate' || job.status === 'paused') break
     // Stop polling a sheet that was removed mid-run.
     if (!get().sheets.some((s) => s.id === sheetId)) return
     await new Promise((resolve) => window.setTimeout(resolve, 1000))

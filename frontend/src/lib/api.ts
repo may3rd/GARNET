@@ -690,7 +690,7 @@ export type GarnetStepStatus = 'pending' | 'running' | 'completed' | 'failed' | 
 
 export type GarnetJob = {
   id: string
-  status: 'queued' | 'running' | 'awaiting_gate' | 'completed' | 'failed'
+  status: 'queued' | 'running' | 'paused' | 'awaiting_gate' | 'completed' | 'failed'
   /** Gate the job is parked on while `awaiting_gate`. */
   gate: GarnetGate | null
   error: string | null
@@ -708,6 +708,13 @@ export type GarnetJob = {
 export type GarnetHistoryEvent =
   | { event: 'confirm'; gate: GarnetGate; at: string; changes: Record<string, number> }
   | { event: 'reopen'; gate: GarnetGate; at: string; archive?: string }
+  /** gate 1 = confirmed Gate 1 edits kept; null = rerun from detection. */
+  | { event: 'restart'; gate: 1 | null; at: string; archive?: string }
+
+/** Run controls: stop kills the running step (job ends failed), pause rests after it, restart reruns the same inputs. 409 on a wrong state. */
+export async function controlGarnetJob(jobId: string, action: 'stop' | 'pause' | 'resume' | 'restart'): Promise<GarnetJob> {
+  return requestJson<GarnetJob>(`/api/garnet/jobs/${jobId}/${action}`, { method: 'POST' })
+}
 
 /** Park the job back at `gate`; everything after it is archived server-side, never deleted. */
 export async function reopenGarnetGate(jobId: string, gate: GarnetGate): Promise<GarnetJob> {
