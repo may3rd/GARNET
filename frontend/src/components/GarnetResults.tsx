@@ -74,23 +74,26 @@ type Data = {
   objects: Obj[]
   equipment: Equipment[]
   lineNumbers: Assoc[]
+  /** input/gate1_line_numbers.json: line numbers as the tracer will get them, uploaded text merged in. */
+  inputLineNumbers: Obj[]
   instruments: Assoc[]
   tracesWithoutLineNumber: string[]
   /** Traces Stage 6 associated against (Gate 2 rejections excluded): the valid reassign targets. */
   stage6TraceIds: Set<string>
 }
-type Tab = 'testSystems' | 'objects' | 'traces' | 'lineNumbers' | 'equipment' | 'instruments'
+type Tab = 'testSystems' | 'objects' | 'traces' | 'lineNumbers' | 'inputLineNumbers' | 'equipment' | 'instruments'
 const TABS: { key: Tab; label: string }[] = [
   { key: 'testSystems', label: 'Test systems' },
   { key: 'objects', label: 'Objects' },
   { key: 'traces', label: 'Traces' },
   { key: 'lineNumbers', label: 'Line numbers' },
+  { key: 'inputLineNumbers', label: 'Line numbers (input)' },
   { key: 'equipment', label: 'Equipment' },
   { key: 'instruments', label: 'Instrument tags' },
 ]
 /** What each gate reviews. The first tab opens by default. */
 const GATE_TABS: Record<GarnetGate, Tab[]> = {
-  1: ['objects', 'equipment'],
+  1: ['objects', 'inputLineNumbers', 'equipment'],
   2: ['traces', 'objects', 'equipment'],
   3: ['lineNumbers', 'instruments', 'traces', 'testSystems'],
 }
@@ -127,7 +130,7 @@ async function loadData(job: GarnetJob): Promise<Data> {
   const branchFile = url(job, `${dir}/stage5c_branch_trace_results.json`)
     ? `${dir}/stage5c_branch_trace_results.json`
     : `${dir}/stage5b_branch_trace_results.json`
-  const [objects, equipment, stage6, portTraces, branches, testSystems] = await Promise.all([
+  const [objects, equipment, stage6, portTraces, branches, testSystems, inputLineNumbers] = await Promise.all([
     json<{ objects: Obj[] }>(job, objectsFile),
     json<{ objects: Equipment[] }>(job, 'input/sheet_equipment_bboxes.json'),
     json<{
@@ -138,6 +141,7 @@ async function loadData(job: GarnetJob): Promise<Data> {
     json<Record<string, { terminal_type?: string; segments?: Segment[]; mask_coverage?: number }>>(job, `${dir}/stage5b_trace_results.json`),
     json<{ branches: Record<string, { terminal_type?: string; segments?: Segment[] }> }>(job, branchFile),
     json<TestSystems>(job, 'out/test_systems.json'),
+    json<{ objects: Obj[] }>(job, 'input/gate1_line_numbers.json'),
   ])
   const traces: Trace[] = [
     ...Object.entries(portTraces ?? {}).map(([id, t]) => ({
@@ -171,6 +175,7 @@ async function loadData(job: GarnetJob): Promise<Data> {
     objects: objects?.objects ?? [],
     equipment: equipment?.objects ?? [],
     lineNumbers: assoc('line_numbers'),
+    inputLineNumbers: inputLineNumbers?.objects ?? [],
     instruments: assoc('instrument_tags'),
     tracesWithoutLineNumber: stage6?.unresolved.traces_without_line_number ?? [],
     stage6TraceIds: new Set((stage6?.trace_edges ?? []).map((e) => e.trace_id)),
@@ -217,7 +222,10 @@ export function GarnetResults() {
   const job = sheet?.garnet ?? null
 
   const gate = job?.status === 'awaiting_gate' ? job.gate : null
-  const tabs = gate ? TABS.filter((t) => GATE_TABS[gate].includes(t.key)) : TABS
+  // Jobs saved before gate1_line_numbers.json existed don't have it; hide the tab rather than show it empty.
+  const tabs = (gate ? TABS.filter((t) => GATE_TABS[gate].includes(t.key)) : TABS).filter(
+    (t) => t.key !== 'inputLineNumbers' || (job && url(job, 'input/gate1_line_numbers.json'))
+  )
   const [tab, setTab] = useState<Tab>('objects')
   // Gate decisions, cleared whenever the job moves on.
   const [rejected, setRejected] = useState<Set<string>>(new Set())
@@ -597,6 +605,10 @@ export function GarnetResults() {
             dim: rejected.has(o.id),
             label: edits.textOf(o.id, o.text) || undefined,
           }))
+      case 'inputLineNumbers':
+        return view.inputLineNumbers
+          .filter((o) => o.bbox)
+          .map((o) => ({ id: o.id, bbox: o.bbox, color: `hsl(${hue(o.class_name)} 80% 45%)`, label: o.text || undefined }))
       case 'traces':
         return traces.map((t) => ({
           id: t.id,
@@ -861,6 +873,7 @@ export function GarnetResults() {
                 onReclass={gate === 1 ? onReclass : undefined}
                 classEdited={(id) => id in reclassed} hidden={hidden} setHidden={setHidden} selected={selected} onSelect={setSelected} />
             )}
+            {tab === 'inputLineNumbers' && <InputLineNumbersTable rows={view!.inputLineNumbers} selected={selected} onSelect={setSelected} />}
             {tab === 'lineNumbers' && (
               <AssocTable
                 edits={edits}
@@ -923,7 +936,7 @@ export function GarnetResults() {
 }
 
 function tabCount(d: Data, t: Tab) {
-  return { testSystems: d.testSystems?.systems.length ?? 0, objects: d.objects.length, traces: d.traces.length, lineNumbers: d.lineNumbers.length, equipment: d.equipment.length, instruments: d.instruments.length }[t]
+  return { testSystems: d.testSystems?.systems.length ?? 0, objects: d.objects.length, traces: d.traces.length, lineNumbers: d.lineNumbers.length, inputLineNumbers: d.inputLineNumbers.length, equipment: d.equipment.length, instruments: d.instruments.length }[t]
 }
 
 /** Fit-to-view scale for the raster in a viewport of size `vw`×`vh`. */
@@ -1450,6 +1463,33 @@ const th: React.CSSProperties = { textAlign: 'left', padding: '6px 8px', fontWei
 const td: React.CSSProperties = { padding: '5px 8px', whiteSpace: 'nowrap', borderTop: '1px solid var(--separator)', verticalAlign: 'top' }
 const rowStyle = (on: boolean): React.CSSProperties => ({ cursor: 'pointer', background: on ? 'rgba(59,130,246,.18)' : undefined, boxShadow: on ? 'inset 3px 0 0 hsl(212 100% 48%)' : undefined })
 const bboxText = (b: BBox) => `${b.x_min},${b.y_min} → ${b.x_max},${b.y_max}`
+
+/** Read-only: Gate 1 edits only write the objects file, so changes here would never reach the tracer. */
+function InputLineNumbersTable({ rows, selected, onSelect }: { rows: Obj[]; selected: string | null; onSelect: (id: string) => void }) {
+  return (
+    <div style={{ fontSize: 12 }}>
+      <div className="p-3" style={{ color: 'var(--muted)' }}>
+        The line numbers the tracer will use, with the uploaded text merged onto detector boxes. Read-only here; fix text at Gate 3.
+      </div>
+      <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            <th style={th}>id</th><th style={th}>text</th><th style={th}>bbox</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((o) => (
+            <tr key={o.id} style={rowStyle(o.id === selected)} onClick={() => onSelect(o.id)}>
+              <td style={td} className="mono">{o.id}</td>
+              <td style={td} className="mono">{o.text || '—'}</td>
+              <td style={td} className="mono">{o.bbox ? bboxText(o.bbox) : '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
 
 function ObjectsTable({
   edits,
