@@ -640,11 +640,30 @@ export async function exportResultsToExcel(
 
 // --- garnet/ extraction path (garnet/api.py) --------------------------------
 
+export type GarnetGate = 1 | 2 | 3
+
+/** What a gate confirm sends. Gate 1/2: ids to drop. Gate 1/3: text fixes. Gate 3: line-number verdicts. */
+export type GarnetGateDecision = {
+  rejected?: string[]
+  edits?: Record<string, string>
+  decisions?: Record<string, 'accepted' | 'rejected'>
+}
+
+export async function confirmGarnetGate(jobId: string, gate: GarnetGate, body: GarnetGateDecision): Promise<GarnetJob> {
+  return requestJson<GarnetJob>(`/api/garnet/jobs/${jobId}/gates/${gate}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+
 export type GarnetStepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
 
 export type GarnetJob = {
   id: string
-  status: 'queued' | 'running' | 'completed' | 'failed'
+  status: 'queued' | 'running' | 'awaiting_gate' | 'completed' | 'failed'
+  /** Gate the job is parked on while `awaiting_gate`. */
+  gate: GarnetGate | null
   error: string | null
   steps: { name: string; status: GarnetStepStatus; note: string; log: string }[]
   artifacts: { name: string; url: string }[]
@@ -658,7 +677,7 @@ export type GarnetInputs = { objects?: File; equipment?: File; lineNumbers?: Fil
 export async function startGarnetJob(
   file: File,
   inputs: GarnetInputs,
-  options: { reviewLlm: boolean; ocrInstruments: boolean; weightFile: string }
+  options: { reviewLlm: boolean; ocrInstruments: boolean; pauseAtGates: boolean; weightFile: string }
 ): Promise<GarnetJob> {
   const form = new FormData()
   form.append('file_input', file)
@@ -667,6 +686,7 @@ export async function startGarnetJob(
   if (inputs.lineNumbers) form.append('line_numbers_json', inputs.lineNumbers)
   form.append('review_llm', String(options.reviewLlm))
   form.append('ocr_instruments', String(options.ocrInstruments))
+  form.append('pause_at_gates', String(options.pauseAtGates))
   form.append('weight_file', options.weightFile)
   return requestJson<GarnetJob>('/api/garnet/jobs', { method: 'POST', body: form }, DEFAULT_TIMEOUT)
 }

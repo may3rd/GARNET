@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@heroui/react'
 import { ArrowLeft, Maximize, Minus, Plus } from 'lucide-react'
 import { Card, PageHeader, Tag } from '@/components/ui/primitives'
-import type { GarnetJob } from '@/lib/api'
+import type { GarnetGate, GarnetJob } from '@/lib/api'
 import { useRunStore } from '@/stores/runStore'
 
 /**
@@ -30,7 +30,10 @@ type Equipment = {
   Bounding_box_px: BBox
   Ports?: Port[]
 }
+type Segment = { x1: number; y1: number; x2: number; y2: number; length_px?: number }
+type Trace = { id: string; kind: 'port' | 'branch'; terminal_type?: string; segments: Segment[]; bbox: BBox }
 type Data = {
+  traces: Trace[]
   imageUrl: string
   width: number
   height: number
@@ -40,13 +43,31 @@ type Data = {
   instruments: Assoc[]
   tracesWithoutLineNumber: string[]
 }
-type Tab = 'objects' | 'lineNumbers' | 'equipment' | 'instruments'
+type Tab = 'objects' | 'traces' | 'lineNumbers' | 'equipment' | 'instruments'
 const TABS: { key: Tab; label: string }[] = [
   { key: 'objects', label: 'Objects' },
+  { key: 'traces', label: 'Traces' },
   { key: 'lineNumbers', label: 'Line numbers' },
   { key: 'equipment', label: 'Equipment' },
   { key: 'instruments', label: 'Instrument tags' },
 ]
+/** What each gate reviews. The first tab opens by default. */
+const GATE_TABS: Record<GarnetGate, Tab[]> = {
+  1: ['objects', 'equipment'],
+  2: ['traces', 'objects', 'equipment'],
+  3: ['lineNumbers', 'instruments', 'traces'],
+}
+const GATE_COPY: Record<GarnetGate, { title: string; hint: string }> = {
+  1: { title: 'Gate 1 · Objects', hint: 'Reject false detections and fix tag text. Rejected objects are not traced.' },
+  2: { title: 'Gate 2 · Traces', hint: 'Reject traces that follow the wrong pipe. Stage 6 runs without them.' },
+  3: { title: 'Gate 3 · Line numbers', hint: 'Accept or reject each line-number attachment and fix text.' },
+}
+
+function segBox(segments: Segment[]): BBox {
+  const xs = segments.flatMap((g) => [g.x1, g.x2])
+  const ys = segments.flatMap((g) => [g.y1, g.y2])
+  return { x_min: Math.min(...xs), y_min: Math.min(...ys), x_max: Math.max(...xs), y_max: Math.max(...ys) }
+}
 
 const url = (job: GarnetJob, name: string) => job.artifacts.find((a) => a.name === name)?.url
 async function json<T>(job: GarnetJob, name: string): Promise<T | null> {
@@ -60,14 +81,28 @@ async function json<T>(job: GarnetJob, name: string): Promise<T | null> {
 async function loadData(job: GarnetJob): Promise<Data> {
   const imageUrl = url(job, 'input/sheet.jpg')
   if (!imageUrl) throw new Error('input/sheet.jpg missing from the job')
-  const [objects, equipment, stage6] = await Promise.all([
-    json<{ objects: Obj[] }>(job, 'out/stage4_objects.json'),
+  // stage 4 exists only after trace; before that (Gate 1) the staged objects are the source.
+  const objectsFile = url(job, 'out/stage4_objects.json') ? 'out/stage4_objects.json' : 'input/sheet_objects.json'
+  // Branch geometry: 5c (post-merge) first, the same preference Stage 6 uses.
+  const branchFile = url(job, 'out/stage5c_branch_trace_results.json')
+    ? 'out/stage5c_branch_trace_results.json'
+    : 'out/stage5b_branch_trace_results.json'
+  const [objects, equipment, stage6, portTraces, branches] = await Promise.all([
+    json<{ objects: Obj[] }>(job, objectsFile),
     json<{ objects: Equipment[] }>(job, 'input/sheet_equipment_bboxes.json'),
     json<{
       associations: Record<string, { accepted: Obj[]; rejected: Obj[] }>
       unresolved: { traces_without_line_number: string[] }
     }>(job, 'out/stage6_trace_associations.json'),
+    json<Record<string, { terminal_type?: string; segments?: Segment[] }>>(job, 'out/stage5b_trace_results.json'),
+    json<{ branches: Record<string, { terminal_type?: string; segments?: Segment[] }> }>(job, branchFile),
   ])
+  const traces: Trace[] = [
+    ...Object.entries(portTraces ?? {}).map(([id, t]) => ({ id, kind: 'port' as const, ...t })),
+    ...Object.entries(branches?.branches ?? {}).map(([id, t]) => ({ id, kind: 'branch' as const, ...t })),
+  ]
+    .filter((t) => t.segments && t.segments.length > 0)
+    .map((t) => ({ id: t.id, kind: t.kind, terminal_type: t.terminal_type, segments: t.segments!, bbox: segBox(t.segments!) }))
   const img = new Image()
   img.src = imageUrl
   await img.decode()
@@ -80,6 +115,7 @@ async function loadData(job: GarnetJob): Promise<Data> {
     ]
   }
   return {
+    traces,
     imageUrl,
     width: img.naturalWidth,
     height: img.naturalHeight,
@@ -98,18 +134,60 @@ function hue(s: string) {
   return h
 }
 
-type Box = { id: string; bbox: BBox; color: string; label?: string; points?: { x: number; y: number; label: string }[] }
+type Box = {
+  id: string
+  bbox: BBox
+  color: string
+  label?: string
+  points?: { x: number; y: number; label: string }[]
+  /** Polyline drawn instead of the rectangle (traces); bbox stays for hit-test and jump. */
+  lines?: Segment[]
+  /** Rejected at a gate: drawn grey and dashed. */
+  dim?: boolean
+}
 
 export function GarnetResults() {
   const sheets = useRunStore((s) => s.sheets)
   const selectedSheetId = useRunStore((s) => s.selectedSheetId)
   const selectSheet = useRunStore((s) => s.selectSheet)
   const setScreen = useRunStore((s) => s.setScreen)
-  const done = sheets.filter((s) => s.task === 'garnet' && s.garnet?.status === 'completed')
+  const done = sheets.filter(
+    (s) => s.task === 'garnet' && (s.garnet?.status === 'completed' || s.garnet?.status === 'awaiting_gate')
+  )
   const sheet = done.find((s) => s.id === selectedSheetId) ?? done[0]
   const job = sheet?.garnet ?? null
 
+  const gate = job?.status === 'awaiting_gate' ? job.gate : null
+  const tabs = gate ? TABS.filter((t) => GATE_TABS[gate].includes(t.key)) : TABS
   const [tab, setTab] = useState<Tab>('objects')
+  // Gate decisions, cleared whenever the job moves on.
+  const [rejected, setRejected] = useState<Set<string>>(new Set())
+  const [decisions, setDecisions] = useState<Record<string, 'accepted' | 'rejected'>>({})
+  const confirmGarnetGate = useRunStore((s) => s.confirmGarnetGate)
+  const toggleReject = (id: string) =>
+    setRejected((r) => {
+      const next = new Set(r)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  const confirm = async () => {
+    if (!sheet || !gate) return
+    setSaving(true)
+    setSaveError(null)
+    try {
+      await confirmGarnetGate(sheet.id, gate, {
+        rejected: gate === 3 ? [] : [...rejected],
+        edits: gate === 2 ? {} : draft,
+        decisions: gate === 3 ? decisions : {},
+      })
+      setScreen('garnet')
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSaving(false)
+    }
+  }
   const [data, setData] = useState<Data | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
@@ -146,22 +224,35 @@ export function GarnetResults() {
     setData(null)
     setError(null)
     setDraft({})
+    setRejected(new Set())
+    setDecisions({})
+    setSelected(null)
+    setTab(gate ? GATE_TABS[gate][0] : 'objects')
     loadData(job)
       .then((d) => live && setData(d))
       .catch((e) => live && setError(e instanceof Error ? e.message : String(e)))
     return () => {
       live = false
     }
-  }, [job?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [job?.id, job?.status, job?.gate]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const boxes: Box[] = useMemo(() => {
     if (!data) return []
-    const statusColor = (a: Assoc) => (a.status === 'accepted' ? 'hsl(140 70% 40%)' : 'hsl(30 95% 50%)')
+    const statusColor = (a: Assoc) =>
+      (decisions[a.id] ?? a.status) === 'accepted' ? 'hsl(140 70% 40%)' : 'hsl(30 95% 50%)'
     switch (tab) {
       case 'objects':
         return data.objects
           .filter((o) => !hidden.has(o.class_name))
-          .map((o) => ({ id: o.id, bbox: o.bbox, color: `hsl(${hue(o.class_name)} 80% 45%)` }))
+          .map((o) => ({ id: o.id, bbox: o.bbox, color: `hsl(${hue(o.class_name)} 80% 45%)`, dim: rejected.has(o.id) }))
+      case 'traces':
+        return data.traces.map((t) => ({
+          id: t.id,
+          bbox: t.bbox,
+          color: t.kind === 'port' ? 'hsl(165 85% 32%)' : 'hsl(320 75% 45%)',
+          lines: t.segments,
+          dim: rejected.has(t.id),
+        }))
       case 'lineNumbers':
         return data.lineNumbers.map((a) => ({ id: a.id, bbox: a.bbox, color: statusColor(a), label: edits.textOf(a.id, a.text) || undefined }))
       case 'instruments':
@@ -175,7 +266,7 @@ export function GarnetResults() {
           points: (e.Ports ?? []).map((p) => ({ x: p.point_px[0], y: p.point_px[1], label: p.mark })),
         }))
     }
-  }, [data, tab, hidden, draft, saved]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, tab, hidden, draft, saved, rejected, decisions]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!job) {
     return (
@@ -188,7 +279,7 @@ export function GarnetResults() {
   return (
     <div className="flex h-full flex-col gap-3 p-6">
       <PageHeader
-        title="GARNET results"
+        title={gate ? `GARNET review · Gate ${gate}` : 'GARNET results'}
         subtitle={`${sheet.label} · job ${job.id.slice(0, 8)}…`}
         actions={
           <>
@@ -208,6 +299,17 @@ export function GarnetResults() {
                 ))}
               </select>
             )}
+            {gate ? (
+              <Button
+                variant="primary"
+                style={{ height: 36, borderRadius: 'var(--r-btn)' }}
+                isDisabled={saving || !data}
+                onPress={() => void confirm()}
+              >
+                {saving ? 'Confirming…' : `Confirm Gate ${gate} & continue`}
+              </Button>
+            ) : (
+              <>
             {dirty && (
               <Button variant="ghost" style={{ height: 36, borderRadius: 'var(--r-btn)' }} isDisabled={saving} onPress={() => setDraft({})}>
                 Discard
@@ -221,6 +323,8 @@ export function GarnetResults() {
             >
               {saving ? 'Saving…' : dirty ? 'Save edits' : 'Saved'}
             </Button>
+              </>
+            )}
             <Button variant="ghost" style={{ height: 36, borderRadius: 'var(--r-btn)' }} onPress={() => setScreen('garnet')}>
               <ArrowLeft size={16} strokeWidth={1.5} />
               Back to run
@@ -229,8 +333,20 @@ export function GarnetResults() {
         }
       />
 
+      {gate && (
+        <Card padding={14} className="flex flex-wrap items-center gap-3">
+          <Tag tone="warning">{GATE_COPY[gate].title}</Tag>
+          <span style={{ fontSize: 13, color: 'var(--muted)' }}>{GATE_COPY[gate].hint}</span>
+          <span className="mono" style={{ fontSize: 12, marginLeft: 'auto' }}>
+            {gate === 3
+              ? `${Object.keys(decisions).length} verdict(s) · ${Object.keys(draft).length} text fix(es)`
+              : `${rejected.size} rejected${gate === 1 ? ` · ${Object.keys(draft).length} text fix(es)` : ''}`}
+          </span>
+        </Card>
+      )}
+
       <div className="flex flex-wrap gap-2" role="tablist">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.key}
             type="button"
@@ -259,18 +375,39 @@ export function GarnetResults() {
           <Overlay data={data} boxes={boxes} selected={selected} onSelect={setSelected} />
           <Card padding={0} className="min-h-0 overflow-auto lg:w-[460px]">
             {tab === 'objects' && (
-              <ObjectsTable edits={edits} data={data} hidden={hidden} setHidden={setHidden} selected={selected} onSelect={setSelected} />
+              <ObjectsTable edits={edits} rejectable={gate === 1} rejected={rejected} onReject={toggleReject} data={data} hidden={hidden} setHidden={setHidden} selected={selected} onSelect={setSelected} />
             )}
             {tab === 'lineNumbers' && (
               <AssocTable
                 edits={edits}
+                decisions={decisions}
+                onDecide={
+                  gate === 3
+                    ? (id, v, system) =>
+                        setDecisions((d) => {
+                          // Matching the system's verdict is not an override: drop it.
+                          const { [id]: _, ...rest } = d
+                          return v === system ? rest : { ...rest, [id]: v }
+                        })
+                    : undefined
+                }
                 rows={data.lineNumbers}
                 selected={selected}
                 onSelect={setSelected}
                 footer={`${data.tracesWithoutLineNumber.length} trace(s) without a line number: ${data.tracesWithoutLineNumber.join(', ') || '—'}`}
               />
             )}
-            {tab === 'instruments' && <AssocTable edits={edits} rows={data.instruments} selected={selected} onSelect={setSelected} showClass />}
+            {tab === 'instruments' && <AssocTable edits={edits} decisions={{}} rows={data.instruments} selected={selected} onSelect={setSelected} showClass />}
+            {tab === 'traces' && (
+              <TracesTable
+                rows={data.traces}
+                rejectable={gate === 2}
+                rejected={rejected}
+                onReject={toggleReject}
+                selected={selected}
+                onSelect={setSelected}
+              />
+            )}
             {tab === 'equipment' && <EquipmentTable rows={data.equipment} selected={selected} onSelect={setSelected} />}
           </Card>
         </div>
@@ -280,7 +417,7 @@ export function GarnetResults() {
 }
 
 function tabCount(d: Data, t: Tab) {
-  return { objects: d.objects.length, lineNumbers: d.lineNumbers.length, equipment: d.equipment.length, instruments: d.instruments.length }[t]
+  return { objects: d.objects.length, traces: d.traces.length, lineNumbers: d.lineNumbers.length, equipment: d.equipment.length, instruments: d.instruments.length }[t]
 }
 
 /** Fit-to-view scale for the raster in a viewport of size `vw`×`vh`. */
@@ -434,7 +571,7 @@ function Overlay({
                 const { x_min, y_min, x_max, y_max } = b.bbox
                 return (
                   <g key={b.id}>
-                    {on && (
+                    {on && !b.lines && (
                       <rect
                         x={x_min - stroke * 6}
                         y={y_min - stroke * 6}
@@ -446,16 +583,33 @@ function Overlay({
                         strokeWidth={stroke * 6}
                       />
                     )}
-                    <rect
-                      x={x_min}
-                      y={y_min}
-                      width={x_max - x_min}
-                      height={y_max - y_min}
-                      fill={on ? SELECTED : 'none'}
-                      fillOpacity={0.15}
-                      stroke={on ? SELECTED : b.color}
-                      strokeWidth={on ? stroke * 2.5 : stroke}
-                    />
+                    {b.lines ? (
+                      b.lines.map((g, k) => (
+                        <line
+                          key={k}
+                          x1={g.x1}
+                          y1={g.y1}
+                          x2={g.x2}
+                          y2={g.y2}
+                          stroke={on ? SELECTED : b.dim ? 'hsl(0 0% 55%)' : b.color}
+                          strokeWidth={on ? stroke * 4 : stroke * 1.5}
+                          strokeDasharray={b.dim ? `${stroke * 6} ${stroke * 4}` : undefined}
+                          strokeLinecap="round"
+                        />
+                      ))
+                    ) : (
+                      <rect
+                        x={x_min}
+                        y={y_min}
+                        width={x_max - x_min}
+                        height={y_max - y_min}
+                        fill={on ? SELECTED : 'none'}
+                        fillOpacity={0.15}
+                        stroke={on ? SELECTED : b.dim ? 'hsl(0 0% 55%)' : b.color}
+                        strokeWidth={on ? stroke * 2.5 : stroke}
+                        strokeDasharray={b.dim ? `${stroke * 4} ${stroke * 3}` : undefined}
+                      />
+                    )}
                     {b.points?.map((p) => (
                       <g key={`${p.label}-${p.x}-${p.y}`}>
                         <circle cx={p.x} cy={p.y} r={stroke * 3} fill={b.color} />
@@ -487,6 +641,9 @@ const bboxText = (b: BBox) => `${b.x_min},${b.y_min} → ${b.x_max},${b.y_max}`
 
 function ObjectsTable({
   edits,
+  rejectable,
+  rejected,
+  onReject,
   data,
   hidden,
   setHidden,
@@ -494,6 +651,9 @@ function ObjectsTable({
   onSelect,
 }: {
   edits: Edits
+  rejectable: boolean
+  rejected: Set<string>
+  onReject: (id: string) => void
   data: Data
   hidden: Set<string>
   setHidden: (s: Set<string>) => void
@@ -522,11 +682,15 @@ function ObjectsTable({
       </div>
       <table className="w-full" style={{ borderCollapse: 'collapse' }}>
         <thead>
-          <tr><th style={th}>id</th><th style={th}>class</th><th style={th}>conf</th><th style={th}>text</th><th style={th}>bbox</th></tr>
+          <tr>
+            {rejectable && <th style={th} />}
+            <th style={th}>id</th><th style={th}>class</th><th style={th}>conf</th><th style={th}>text</th><th style={th}>bbox</th>
+          </tr>
         </thead>
         <tbody>
           {data.objects.filter((o) => !hidden.has(o.class_name)).map((o) => (
-            <tr key={o.id} style={rowStyle(o.id === selected)} onClick={() => onSelect(o.id)}>
+            <tr key={o.id} style={{ ...rowStyle(o.id === selected), ...(rejected.has(o.id) ? REJECTED_ROW : {}) }} onClick={() => onSelect(o.id)}>
+              {rejectable && <RejectCell on={rejected.has(o.id)} onToggle={() => onReject(o.id)} />}
               <td style={td} className="mono">{o.id}</td>
               <td style={td}>{o.class_name}</td>
               <td style={td} className="mono">{o.confidence ?? '—'}</td>
@@ -542,6 +706,8 @@ function ObjectsTable({
 
 function AssocTable({
   edits,
+  decisions,
+  onDecide,
   rows,
   selected,
   onSelect,
@@ -549,13 +715,16 @@ function AssocTable({
   footer,
 }: {
   edits: Edits
+  decisions: Record<string, 'accepted' | 'rejected'>
+  /** Present at Gate 3: each row gets accept / reject buttons. */
+  onDecide?: (id: string, verdict: 'accepted' | 'rejected', system: 'accepted' | 'rejected') => void
   rows: Assoc[]
   selected: string | null
   onSelect: (id: string) => void
   showClass?: boolean
   footer?: string
 }) {
-  const accepted = rows.filter((r) => r.status === 'accepted').length
+  const accepted = rows.filter((r) => (decisions[r.id] ?? r.status) === 'accepted').length
   return (
     <div style={{ fontSize: 12 }}>
       <div className="flex gap-2 p-3">
@@ -565,27 +734,45 @@ function AssocTable({
       <table className="w-full" style={{ borderCollapse: 'collapse' }}>
         <thead>
           <tr>
+            <th style={th}>status</th>
             <th style={th}>text</th>
             {showClass && <th style={th}>class</th>}
             <th style={th}>trace</th>
             <th style={th}>dist px</th>
-            <th style={th}>status</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.id} style={rowStyle(r.id === selected)} onClick={() => onSelect(r.id)}>
-              <TextCell edits={edits} id={r.id} original={r.text} on={r.id === selected} />
-              {showClass && <td style={td}>{r.class_name}</td>}
-              <td style={td} className="mono">{r.trace_id ?? '—'}</td>
-              <td style={td} className="mono">{r.distance_px}</td>
               <td style={td}>
-                {r.status === 'accepted' ? (
+                {onDecide ? (
+                  <span className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                    {(['accepted', 'rejected'] as const).map((v) => {
+                      const current = (decisions[r.id] ?? r.status) === v
+                      return (
+                        <button
+                          key={v}
+                          type="button"
+                          aria-pressed={current}
+                          onClick={() => onDecide(r.id, v, r.status)}
+                          style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer', opacity: current ? 1 : 0.35 }}
+                        >
+                          <Tag tone={v === 'accepted' ? 'success' : 'warning'}>{v === 'accepted' ? 'accept' : 'reject'}</Tag>
+                        </button>
+                      )
+                    })}
+                    {decisions[r.id] && <span style={{ color: 'var(--accent)' }} title={`system: ${r.status}${r.reason ? ` (${r.reason})` : ''}`}>●</span>}
+                  </span>
+                ) : (decisions[r.id] ?? r.status) === 'accepted' ? (
                   <Tag tone="success">attached</Tag>
                 ) : (
                   <span title={`max ${r.max_distance_px ?? '?'} px`}><Tag tone="warning">{r.reason ?? 'rejected'}</Tag></span>
                 )}
               </td>
+              <TextCell edits={edits} id={r.id} original={r.text} on={r.id === selected} />
+              {showClass && <td style={td}>{r.class_name}</td>}
+              <td style={td} className="mono">{r.trace_id ?? '—'}</td>
+              <td style={td} className="mono">{r.distance_px}</td>
             </tr>
           ))}
         </tbody>
@@ -685,5 +872,68 @@ function TextCell({ edits, id, original, on }: { edits: Edits; id: string; origi
         <span style={{ color: 'var(--muted)' }}>{`(no text) ${id}`}</span>
       )}
     </td>
+  )
+}
+
+const REJECTED_ROW: React.CSSProperties = { textDecoration: 'line-through', color: 'var(--muted)' }
+
+function RejectCell({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <td style={td} onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        aria-pressed={on}
+        onClick={onToggle}
+        style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer', textDecoration: 'none' }}
+      >
+        <Tag tone={on ? 'warning' : 'outline'}>{on ? 'restore' : 'reject'}</Tag>
+      </button>
+    </td>
+  )
+}
+
+function TracesTable({
+  rows,
+  rejectable,
+  rejected,
+  onReject,
+  selected,
+  onSelect,
+}: {
+  rows: Trace[]
+  rejectable: boolean
+  rejected: Set<string>
+  onReject: (id: string) => void
+  selected: string | null
+  onSelect: (id: string) => void
+}) {
+  return (
+    <div style={{ fontSize: 12 }}>
+      <div className="flex gap-2 p-3">
+        <Tag dot="hsl(165 85% 32%)">{`${rows.filter((r) => r.kind === 'port').length} port`}</Tag>
+        <Tag dot="hsl(320 75% 45%)">{`${rows.filter((r) => r.kind === 'branch').length} branch`}</Tag>
+        {rejected.size > 0 && <Tag tone="warning">{`${[...rejected].filter((id) => rows.some((r) => r.id === id)).length} rejected`}</Tag>}
+      </div>
+      <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            {rejectable && <th style={th} />}
+            <th style={th}>trace</th><th style={th}>kind</th><th style={th}>terminal</th><th style={th}>segments</th><th style={th}>length px</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((t) => (
+            <tr key={t.id} style={{ ...rowStyle(t.id === selected), ...(rejected.has(t.id) ? REJECTED_ROW : {}) }} onClick={() => onSelect(t.id)}>
+              {rejectable && <RejectCell on={rejected.has(t.id)} onToggle={() => onReject(t.id)} />}
+              <td style={td} className="mono">{t.id}</td>
+              <td style={td}>{t.kind}</td>
+              <td style={td}>{t.terminal_type ?? '—'}</td>
+              <td style={td} className="mono">{t.segments.length}</td>
+              <td style={td} className="mono">{t.segments.reduce((n, g) => n + (g.length_px ?? 0), 0)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }

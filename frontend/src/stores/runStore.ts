@@ -5,6 +5,9 @@ import {
   deleteResultObject,
   extractPdfPages,
   getGarnetJob,
+  confirmGarnetGate as confirmGarnetGateApi,
+  type GarnetGate,
+  type GarnetGateDecision,
   saveGarnetEdits as saveGarnetEditsApi,
   getPipelineJob,
   getWeightFiles,
@@ -119,6 +122,8 @@ type RunState = {
   runGarnetFor: (sheetId: string) => Promise<void>
   /** Replace the job's saved text edits; throws so the caller can keep the draft. */
   saveGarnetEdits: (sheetId: string, edits: Record<string, string>) => Promise<void>
+  /** Confirm the gate a garnet job is parked on, then follow it to its next rest. */
+  confirmGarnetGate: (sheetId: string, gate: GarnetGate, decision: GarnetGateDecision) => Promise<void>
   /** Object edits persist to the server's in-memory result store. */
   updateObject: (sheetId: string, obj: DetectedObject) => Promise<void>
   deleteObject: (sheetId: string, obj: DetectedObject) => Promise<void>
@@ -417,32 +422,27 @@ export const useRunStore = create<RunState>((set, get) => ({
     const { config } = get()
     patchSheet(set, sheetId, { error: null, progress: { step: 'Uploading…', percent: 5 } })
     try {
-      let job = await startGarnetJob(sheet.file, sheet.garnetInputs, {
+      const job = await startGarnetJob(sheet.file, sheet.garnetInputs, {
         reviewLlm: config.reviewLlm,
         ocrInstruments: config.ocrInstruments,
+        pauseAtGates: config.pauseAtEveryGate,
         weightFile: config.weightFile,
       })
-      for (;;) {
-        const done = job.steps.filter((s) => s.status !== 'pending' && s.status !== 'running').length
-        const running = job.steps.find((s) => s.status === 'running')
-        patchSheet(set, sheetId, {
-          garnet: job,
-          progress: { step: running?.name ?? job.status, percent: (100 * done) / job.steps.length },
-        })
-        if (job.status === 'completed' || job.status === 'failed') break
-        // Stop polling a sheet that was removed mid-run.
-        if (!get().sheets.some((s) => s.id === sheetId)) return
-        await new Promise((resolve) => window.setTimeout(resolve, 1000))
-        // ponytail: one failed poll ends the watch; retry with backoff if the server flaps
-        job = await getGarnetJob(job.id)
-      }
-      patchSheet(set, sheetId, { progress: null, error: job.status === 'failed' ? job.error : null })
+      await pollGarnet(set, get, sheetId, job)
     } catch (error) {
-      patchSheet(set, sheetId, {
-        progress: null,
-        error: error instanceof Error ? error.message : 'GARNET run failed',
-      })
+      patchSheet(set, sheetId, { progress: null, error: error instanceof Error ? error.message : 'GARNET run failed' })
     }
+  },
+
+  confirmGarnetGate: async (sheetId, gate, decision) => {
+    const job = get().sheets.find((s) => s.id === sheetId)?.garnet
+    if (!job) return
+    // Throws on a rejected confirm so the gate screen keeps the reviewer's decisions.
+    const next = await confirmGarnetGateApi(job.id, gate, decision)
+    patchSheet(set, sheetId, { error: null })
+    void pollGarnet(set, get, sheetId, next).catch((error) =>
+      patchSheet(set, sheetId, { progress: null, error: error instanceof Error ? error.message : 'GARNET run failed' })
+    )
   },
 
   saveGarnetEdits: async (sheetId, edits) => {
@@ -550,4 +550,24 @@ async function pollUntilRest(set: SetFn, sheetId: string, jobId: string) {
 
     await new Promise((resolve) => window.setTimeout(resolve, 400))
   }
+}
+
+/** Follow a garnet job until it rests: completed, failed, or parked at a gate. */
+async function pollGarnet(set: SetFn, get: () => RunState, sheetId: string, first: GarnetJob) {
+  let job = first
+  for (;;) {
+    const done = job.steps.filter((s) => s.status !== 'pending' && s.status !== 'running').length
+    const running = job.steps.find((s) => s.status === 'running')
+    patchSheet(set, sheetId, {
+      garnet: job,
+      progress: { step: running?.name ?? job.status, percent: (100 * done) / job.steps.length },
+    })
+    if (job.status === 'completed' || job.status === 'failed' || job.status === 'awaiting_gate') break
+    // Stop polling a sheet that was removed mid-run.
+    if (!get().sheets.some((s) => s.id === sheetId)) return
+    await new Promise((resolve) => window.setTimeout(resolve, 1000))
+    // ponytail: one failed poll ends the watch; retry with backoff if the server flaps
+    job = await getGarnetJob(job.id)
+  }
+  patchSheet(set, sheetId, { progress: null, error: job.status === 'failed' ? job.error : null })
 }

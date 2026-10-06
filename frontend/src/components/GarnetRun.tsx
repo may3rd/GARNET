@@ -50,6 +50,12 @@ export function GarnetRun() {
           checked={config.ocrInstruments}
           onChange={(ocrInstruments) => setConfig({ ocrInstruments })}
         />
+        <Toggle
+          label="Pause at every gate"
+          description="Gate 1 objects, Gate 2 traces, Gate 3 line numbers. Off runs straight through."
+          checked={config.pauseAtEveryGate}
+          onChange={(pauseAtEveryGate) => setConfig({ pauseAtEveryGate })}
+        />
       </Card>
       {sheets.length === 0 ? (
         <Card padding={20}>
@@ -79,6 +85,18 @@ function SheetCard({ sheet }: { sheet: Sheet }) {
         description={job ? `job ${job.id.slice(0, 8)}… · ${job.status}` : 'Not started'}
         actions={
           <div className="flex gap-2">
+          {job?.status === 'awaiting_gate' && !busy && (
+            <Button
+              variant="primary"
+              style={{ height: 32, borderRadius: 'var(--r-btn)' }}
+              onPress={() => {
+                selectSheet(sheet.id)
+                setScreen('garnetResults')
+              }}
+            >
+              Review Gate {job.gate}
+            </Button>
+          )}
           {job?.status === 'completed' && !busy && (
             <Button
               variant="secondary"
@@ -92,7 +110,7 @@ function SheetCard({ sheet }: { sheet: Sheet }) {
             </Button>
           )}
           <Button
-            variant="primary"
+            variant={job?.status === 'awaiting_gate' ? 'secondary' : 'primary'}
             isDisabled={busy}
             style={{ height: 32, borderRadius: 'var(--r-btn)' }}
             onPress={() => void runGarnetFor(sheet.id)}

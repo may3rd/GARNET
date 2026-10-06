@@ -20,7 +20,7 @@ class TestGarnetJobs(unittest.TestCase):
             "equipment_json": ("e.json", (INPUT / f"{STEM}_equipment_bboxes.json").read_bytes()),
             "line_numbers_json": ("l.json", (INPUT / f"{STEM}_line_numbers.json").read_bytes()),
         }
-        r = client.post("/api/garnet/jobs", files=files)
+        r = client.post("/api/garnet/jobs", files=files, data={"pause_at_gates": "false"})
         self.assertEqual(r.status_code, 200, r.text)
         job = r.json()
         status = {s["name"]: s["status"] for s in job["steps"]}
@@ -59,6 +59,65 @@ class TestGarnetJobs(unittest.TestCase):
         client.put(f"/api/garnet/jobs/{jid}/edits", json={"edits": {}})
         history = client.get(f"/runs/jobs/{jid}/edits_history.jsonl").text.strip().splitlines()
         self.assertEqual(len(history), 2)
+
+    def test_gates_park_apply_and_resume(self):
+        client = TestClient(app)
+        files = {
+            "file_input": ("s.jpg", (INPUT / f"{STEM}.jpg").read_bytes(), "image/jpeg"),
+            "objects_json": ("o.json", (INPUT / f"{STEM}_objects.json").read_bytes()),
+            "equipment_json": ("e.json", (INPUT / f"{STEM}_equipment_bboxes.json").read_bytes()),
+            "line_numbers_json": ("l.json", (INPUT / f"{STEM}_line_numbers.json").read_bytes()),
+        }
+        # OCR off: this test is about gate mechanics, and it keeps the run fast.
+        job = client.post("/api/garnet/jobs", files=files, data={"ocr_instruments": "false"}).json()
+        jid = job["id"]
+
+        def wait():
+            j = client.get(f"/api/garnet/jobs/{jid}").json()
+            deadline = time.time() + 600
+            while j["status"] in ("queued", "running") and time.time() < deadline:
+                time.sleep(1)
+                j = client.get(f"/api/garnet/jobs/{jid}").json()
+            return j
+
+        def get(rel):
+            return client.get(f"/runs/jobs/{jid}/{rel}").json()
+
+        job = wait()
+        self.assertEqual((job["status"], job["gate"]), ("awaiting_gate", 1))
+        self.assertEqual(client.post(f"/api/garnet/jobs/{jid}/gates/2", json={}).status_code, 409)
+        objs = get("input/sheet_objects.json")["objects"]
+        drop = next(o["id"] for o in objs if o["class_name"] == "gate valve")
+        tag = next(o["id"] for o in objs if o["class_name"] == "instrument tag")
+        r = client.post(f"/api/garnet/jobs/{jid}/gates/1", json={"rejected": [drop], "edits": {tag: "TI 0001"}})
+        self.assertEqual(r.status_code, 200, r.text)
+
+        job = wait()
+        self.assertEqual((job["status"], job["gate"]), ("awaiting_gate", 2))
+        staged = {o["id"]: o for o in get("input/sheet_objects.json")["objects"]}
+        self.assertNotIn(drop, staged)
+        self.assertEqual(staged[tag]["text"], "TI 0001")
+        self.assertIn(drop, {o["id"] for o in get("input/sheet_objects.pre_gate1.json")["objects"]})
+        traces = get("out/stage5b_trace_results.json")
+        dropped_trace = next(iter(traces))
+        self.assertEqual(client.post(f"/api/garnet/jobs/{jid}/gates/2", json={"rejected": ["nope"]}).status_code, 400)
+        self.assertEqual(client.post(f"/api/garnet/jobs/{jid}/gates/2", json={"rejected": [dropped_trace]}).status_code, 200)
+
+        job = wait()
+        self.assertEqual((job["status"], job["gate"]), ("awaiting_gate", 3))
+        stage6 = get("out/stage6_trace_associations.json")
+        self.assertNotIn(dropped_trace, {e["trace_id"] for e in stage6["trace_edges"]})
+        self.assertIn(dropped_trace, get("out/stage5b_trace_results.json"))  # original untouched
+        ln = stage6["associations"]["line_numbers"]["accepted"][0]["id"]
+        r = client.post(f"/api/garnet/jobs/{jid}/gates/3", json={"decisions": {ln: "rejected"}, "edits": {ln: "X-1"}})
+        self.assertEqual(r.status_code, 200, r.text)
+
+        job = wait()
+        self.assertEqual(job["status"], "completed")
+        reviewed = get("out/reviewed_associations.json")["associations"]["line_numbers"]
+        item = next(i for i in reviewed["rejected"] if i["id"] == ln)
+        self.assertEqual((item["review_source"], item["system_status"], item["text"]), ("human", "accepted", "X-1"))
+        self.assertEqual(set(get("gates.json")), {"1", "2", "3"})
 
     def test_bad_json_rejected_before_staging(self):
         client = TestClient(app)

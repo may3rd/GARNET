@@ -400,14 +400,16 @@ def _plan(job_dir: Path, have: set[str], review_llm: bool, weight: Path, ocr_ins
          "note": "uploaded" if "line_numbers_json" in have else "not provided — traces stay unlabelled"},
         {"name": "ocr_instruments", "skipped": not ocr_instruments, "cmd": None,
          "fn": lambda: _ocr_instruments(indir),
-         "note": "" if ocr_instruments else "off"},
+         "note": "" if ocr_instruments else "off", "gate_after": 1},
         {"name": "trace", "skipped": False,
          "cmd": py + ["garnet.stage5b.run", "--stem", STEM, "--indir", str(indir), "--out", str(out)]},
         {"name": "review_gate", "skipped": False,
          "cmd": py + ["garnet.stage5b.review_gate", "--stem", STEM, "--indir", str(indir), "--dir", str(out)]
-         + ([] if review_llm else ["--no-llm"])},
-        {"name": "associations", "skipped": False,
-         "cmd": py + ["garnet.stage5b.run_associations", "--stem", STEM, "--indir", str(indir), "--dir", str(out)]},
+         + ([] if review_llm else ["--no-llm"]), "gate_after": 2},
+        # Stage 6 reads a gate-2 view of the trace files (rejected traces removed), never the
+        # 5b/5c originals edited in place.
+        {"name": "associations", "skipped": False, "cmd": None,
+         "fn": lambda: _run_associations(job_dir), "gate_after": 3},
     ]
     for s in steps:
         s["status"] = "skipped" if s["skipped"] else "pending"
@@ -416,11 +418,17 @@ def _plan(job_dir: Path, have: set[str], review_llm: bool, weight: Path, ocr_ins
     return steps
 
 
-def _run_job(job_id: str) -> None:
+def _run_job(job_id: str, start: int = 0) -> None:
     job = JOBS[job_id]
-    job["status"] = "running"
-    for step in job["steps"]:
+    job["status"], job["gate"] = "running", None
+    for i, step in enumerate(job["steps"]):
+        if i < start:
+            continue
         if step["status"] == "skipped":
+            gate = step.get("gate_after")
+            if gate and job["pause_at_gates"]:
+                job["status"], job["gate"], job["resume_at"] = "awaiting_gate", gate, i + 1
+                return
             continue
         step["status"] = "running"
         if step.get("fn"):
@@ -441,6 +449,10 @@ def _run_job(job_id: str) -> None:
             logger.error("job %s: %s failed\n%s", job_id, step["name"], step["log"])
             return
         step["status"] = "completed"
+        gate = step.get("gate_after")
+        if gate and job["pause_at_gates"]:
+            job["status"], job["gate"], job["resume_at"] = "awaiting_gate", gate, i + 1
+            return
     job["status"] = "completed"
 
 
@@ -453,6 +465,7 @@ def _job_view(job_id: str) -> dict:
     return {
         "id": job_id,
         "status": job["status"],
+        "gate": job.get("gate"),
         "error": job.get("error"),
         "steps": [{k: s[k] for k in ("name", "status", "note", "log")} for s in job["steps"]],
         "edits": _read_edits(job_dir)["edits"],
@@ -471,6 +484,7 @@ def api_garnet_job(
     line_numbers_json: UploadFile | None = File(None),
     review_llm: bool = Form(False),
     ocr_instruments: bool = Form(True),
+    pause_at_gates: bool = Form(True),
     weight_file: str = Form(""),
 ) -> dict:
     """Stage one sheet plus any supplied JSON, then run the garnet/ chain in a background thread."""
@@ -521,7 +535,7 @@ def api_garnet_job(
         (indir / JSON_INPUTS[key]).write_text(json.dumps(payload))
 
     with JOBS_LOCK:
-        JOBS[job_id] = {"status": "queued", "steps": _plan(job_dir, set(parsed), review_llm, weight, ocr_instruments)}
+        JOBS[job_id] = {"status": "queued", "pause_at_gates": pause_at_gates, "steps": _plan(job_dir, set(parsed), review_llm, weight, ocr_instruments)}
     threading.Thread(target=_run_job, args=(job_id,), daemon=True).start()
     logger.info("garnet job %s: uploaded=%s review_llm=%s", job_id, sorted(parsed), review_llm)
     return _job_view(job_id)
@@ -585,6 +599,186 @@ def _read_edits(job_dir: Path) -> dict:
     return json.loads(p.read_text()) if p.is_file() else {"version": 0, "edits": {}}
 
 
+def _now() -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%S%z")
+
+
+def _known_ids(job_dir: Path) -> set[str]:
+    """Every object id a review may name: staged objects, stage 4 objects, Stage 6 items."""
+    known: set[str] = set()
+    for rel in (f"input/{JSON_INPUTS['objects_json']}", "out/stage4_objects.json"):
+        path = job_dir / rel
+        if path.is_file():
+            known |= {o["id"] for o in json.loads(path.read_text())["objects"] if "id" in o}
+    stage6 = job_dir / "out" / "stage6_trace_associations.json"
+    if stage6.is_file():
+        for group in json.loads(stage6.read_text())["associations"].values():
+            for status in ("accepted", "rejected"):
+                known |= {item["id"] for item in group.get(status, []) if "id" in item}
+    return known
+
+
+def _check_ids(ids, known: set[str]) -> None:
+    unknown = sorted(set(ids) - known)
+    if unknown:
+        raise HTTPException(status_code=400, detail=f"Unknown id(s): {unknown[:10]}")
+
+
+def _append_edits(job_dir: Path, edits: dict[str, str]) -> None:
+    prev = _read_edits(job_dir)
+    record = {"version": prev["version"] + 1, "saved_at": _now(), "edits": edits}
+    (job_dir / "edits.json").write_text(json.dumps(record, indent=2, ensure_ascii=False))
+    with (job_dir / "edits_history.jsonl").open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def _read_gates(job_dir: Path) -> dict:
+    p = job_dir / "gates.json"
+    return json.loads(p.read_text()) if p.is_file() else {}
+
+
+def _record_gate(job_dir: Path, gate: int, decision: dict) -> None:
+    gates = _read_gates(job_dir)
+    record = {"gate": gate, "confirmed_at": _now(), **decision}
+    gates[str(gate)] = record
+    (job_dir / "gates.json").write_text(json.dumps(gates, indent=2, ensure_ascii=False))
+    with (job_dir / "gates_history.jsonl").open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def _write_reviewed(job_dir: Path) -> None:
+    """Stage 6 + text edits + Gate 3 line-number decisions -> out/reviewed_associations.json."""
+    stage6 = json.loads((job_dir / "out" / "stage6_trace_associations.json").read_text())
+    edits = _read_edits(job_dir)
+    decisions = _read_gates(job_dir).get("3", {}).get("decisions", {})
+    for name, group in stage6["associations"].items():
+        for status in ("accepted", "rejected"):
+            for item in group.get(status, []):
+                if item.get("id") in edits["edits"]:
+                    item["text_original"] = item.get("text", "")
+                    item["text"] = edits["edits"][item["id"]]
+                    item["normalized_text"] = item["text"]
+                    item["text_source"] = "human_edit"
+        if name != "line_numbers":
+            continue
+        # A human decision moves an item between the lists; the system's verdict is kept.
+        items = [(st, it) for st in ("accepted", "rejected") for it in group.get(st, [])]
+        group["accepted"], group["rejected"] = [], []
+        for st, it in items:
+            verdict = decisions.get(it.get("id"))
+            if verdict:
+                it["system_status"] = st
+                it["review_state"] = verdict
+                it["review_source"] = "human"
+                st = "accepted" if verdict == "accepted" else "rejected"
+            group[st].append(it)
+    stage6["edits_version"] = edits["version"]
+    stage6["gate3_confirmed"] = "3" in _read_gates(job_dir)
+    (job_dir / "out" / "reviewed_associations.json").write_text(json.dumps(stage6, indent=2, ensure_ascii=False))
+
+
+def _apply_gate1(job_dir: Path, rejected: list[str], edits: dict[str, str]) -> None:
+    """Rejected objects leave the staged file; edited text replaces it. The pre-gate file is kept."""
+    path = job_dir / "input" / JSON_INPUTS["objects_json"]
+    keep = job_dir / "input" / f"{STEM}_objects.pre_gate1.json"
+    if not keep.exists():
+        keep.write_text(path.read_text())
+    payload = json.loads(keep.read_text())
+    drop = set(rejected)
+    objects = []
+    for obj in payload["objects"]:
+        if obj["id"] in drop:
+            continue
+        if obj["id"] in edits:
+            obj["text_original"] = obj.get("text", "")
+            obj["text"] = edits[obj["id"]]
+            obj["text_source"] = "human_edit"
+        objects.append(obj)
+    payload["objects"] = objects
+    path.write_text(json.dumps(payload))
+
+
+TRACE_FILES = ("stage5b_trace_results.json", "stage5c_branch_trace_results.json",
+               "stage5b_branch_trace_results.json")
+
+
+def _run_associations(job_dir: Path) -> str:
+    """Stage 6 against out/gate2/: copies of the trace inputs minus Gate 2's rejected traces."""
+    out, view = job_dir / "out", job_dir / "out" / "gate2"
+    view.mkdir(exist_ok=True)
+    rejected = set(_read_gates(job_dir).get("2", {}).get("rejected", []))
+    for name in ("stage4_objects.json", "stage5_connection_ports.json", *TRACE_FILES):
+        src = out / name
+        if not src.is_file():
+            continue
+        payload = json.loads(src.read_text())
+        if name == "stage5b_trace_results.json":
+            payload = {k: v for k, v in payload.items() if k not in rejected}
+        elif name in TRACE_FILES:
+            payload["branches"] = {k: v for k, v in payload["branches"].items() if k not in rejected}
+        (view / name).write_text(json.dumps(payload))
+    cmd = [sys.executable, "-m", "garnet.stage5b.run_associations", "--stem", STEM,
+           "--indir", str(job_dir / "input"), "--dir", str(view), "--out", str(out)]
+    proc = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True)
+    log = (proc.stdout + proc.stderr)[-4000:]
+    if proc.returncode != 0:
+        raise RuntimeError(f"run_associations exited {proc.returncode}\n{log}")
+    _write_reviewed(job_dir)
+    return f"{len(rejected)} trace(s) rejected at Gate 2\n{log}"
+
+
+def _trace_ids(job_dir: Path) -> set[str]:
+    out = job_dir / "out"
+    ids: set[str] = set()
+    for name in TRACE_FILES:
+        p = out / name
+        if p.is_file():
+            payload = json.loads(p.read_text())
+            ids |= set(payload if name == "stage5b_trace_results.json" else payload.get("branches", {}))
+    return ids
+
+
+class GateRequest(BaseModel):
+    # Gate 1: object ids to drop before tracing. Gate 2: trace ids to drop before Stage 6.
+    rejected: list[str] = []
+    # Gates 1 and 3: object id -> corrected text.
+    edits: dict[str, str] = {}
+    # Gate 3: line-number id -> "accepted" | "rejected".
+    decisions: dict[str, str] = {}
+
+
+@app.post("/api/garnet/jobs/{job_id}/gates/{gate}")
+def api_garnet_gate(job_id: str, gate: int, payload: GateRequest) -> dict:
+    """Confirm the gate the job is parked on, apply its decisions, and resume."""
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Job not found")
+        if job["status"] != "awaiting_gate" or job.get("gate") != gate:
+            raise HTTPException(status_code=409, detail=f"Job is not waiting at Gate {gate}")
+        job_dir = JOBS_DIR / job_id
+        if gate == 2:
+            _check_ids(payload.rejected, _trace_ids(job_dir))
+        else:
+            _check_ids([*payload.rejected, *payload.edits, *payload.decisions], _known_ids(job_dir))
+        bad = {v for v in payload.decisions.values()} - {"accepted", "rejected"}
+        if bad:
+            raise HTTPException(status_code=400, detail=f"decisions must be accepted/rejected, got {sorted(bad)}")
+        if gate == 2 and payload.edits:
+            raise HTTPException(status_code=400, detail="Gate 2 takes trace rejections only")
+
+        _record_gate(job_dir, gate, payload.model_dump())
+        if gate == 1:
+            _apply_gate1(job_dir, payload.rejected, payload.edits)
+        if gate == 3:
+            if payload.edits:
+                _append_edits(job_dir, {**_read_edits(job_dir)["edits"], **payload.edits})
+            _write_reviewed(job_dir)
+        job["status"] = "running"
+    threading.Thread(target=_run_job, args=(job_id, job["resume_at"]), daemon=True).start()
+    return _job_view(job_id)
+
+
 @app.put("/api/garnet/jobs/{job_id}/edits")
 def api_garnet_edits(job_id: str, payload: EditsRequest) -> dict:
     with JOBS_LOCK:
@@ -594,39 +788,7 @@ def api_garnet_edits(job_id: str, payload: EditsRequest) -> dict:
         if job["status"] != "completed":
             raise HTTPException(status_code=409, detail="Job has not completed")
         job_dir = JOBS_DIR / job_id
-        stage6_path = job_dir / "out" / "stage6_trace_associations.json"
-        stage6 = json.loads(stage6_path.read_text())
-
-        known = {
-            item["id"]
-            for group in stage6["associations"].values()
-            for status in ("accepted", "rejected")
-            for item in group.get(status, [])
-            if "id" in item
-        }
-        objects = json.loads((job_dir / "out" / "stage4_objects.json").read_text())["objects"]
-        known |= {o["id"] for o in objects}
-        unknown = sorted(set(payload.edits) - known)
-        if unknown:
-            raise HTTPException(status_code=400, detail=f"Unknown object id(s): {unknown[:10]}")
-
-        prev = _read_edits(job_dir)
-        record = {"version": prev["version"] + 1,
-                  "saved_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-                  "edits": payload.edits}
-        (job_dir / "edits.json").write_text(json.dumps(record, indent=2, ensure_ascii=False))
-        with (job_dir / "edits_history.jsonl").open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(record, ensure_ascii=False) + "\n")
-
-        for group in stage6["associations"].values():
-            for status in ("accepted", "rejected"):
-                for item in group.get(status, []):
-                    if item.get("id") in payload.edits:
-                        item["text_original"] = item.get("text", "")
-                        item["text"] = payload.edits[item["id"]]
-                        item["normalized_text"] = item["text"]
-                        item["text_source"] = "human_edit"
-        stage6["edits_version"] = record["version"]
-        (job_dir / "out" / "reviewed_associations.json").write_text(
-            json.dumps(stage6, indent=2, ensure_ascii=False))
+        _check_ids(payload.edits, _known_ids(job_dir))
+        _append_edits(job_dir, payload.edits)
+        _write_reviewed(job_dir)
     return _job_view(job_id)
