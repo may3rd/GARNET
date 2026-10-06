@@ -183,6 +183,34 @@ class TestGarnetJobs(unittest.TestCase):
         self.assertNotIn(target, unresolved)
         self.assertEqual(set(get("gates.json")), {"1", "2", "3"})
 
+        # Reopen Gate 2 from a completed job: Stage 6 onward is archived, not deleted.
+        r = client.post(f"/api/garnet/jobs/{jid}/reopen", json={"gate": 2})
+        self.assertEqual(r.status_code, 200, r.text)
+        job = r.json()
+        self.assertEqual((job["status"], job["gate"], job["gates_confirmed"]), ("awaiting_gate", 2, [1]))
+        names = {a["name"] for a in job["artifacts"]}
+        self.assertNotIn("out/stage6_trace_associations.json", names)
+        self.assertIn("history/001_reopen_gate2/out/stage6_trace_associations.json", names)
+        self.assertIn("out/stage5b_trace_results.json", names)  # the trace itself is kept
+        self.assertEqual(client.post(f"/api/garnet/jobs/{jid}/reopen", json={"gate": 2}).status_code, 409)
+        self.assertEqual(client.post(f"/api/garnet/jobs/{jid}/gates/2", json={}).status_code, 200)
+        job = wait()
+        self.assertEqual((job["status"], job["gate"]), ("awaiting_gate", 3))
+        stage6 = get("out/stage6_trace_associations.json")
+        self.assertIn(dropped_trace, {e["trace_id"] for e in stage6["trace_edges"]})  # Gate 2 redone with no rejections
+
+        # Reset to start: Gate 1 undone in the staged objects, whole trace archived.
+        job = client.post(f"/api/garnet/jobs/{jid}/reopen", json={"gate": 1}).json()
+        self.assertEqual((job["status"], job["gate"], job["gates_confirmed"]), ("awaiting_gate", 1, []))
+        staged = {o["id"]: o for o in get("input/sheet_objects.json")["objects"]}
+        self.assertIn(drop, staged)
+        self.assertNotIn("human_000001", staged)
+        self.assertFalse(any(a["name"].startswith("out/") for a in job["artifacts"]))
+        self.assertEqual([h["event"] for h in job["history"]], ["confirm", "confirm", "confirm", "reopen", "confirm", "reopen"])
+        self.assertEqual(client.post(f"/api/garnet/jobs/{jid}/gates/1", json={}).status_code, 200)
+        job = wait()
+        self.assertEqual((job["status"], job["gate"]), ("awaiting_gate", 2))
+
     def test_bad_json_rejected_before_staging(self):
         client = TestClient(app)
         files = {

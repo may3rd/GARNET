@@ -6,6 +6,7 @@ import {
   extractPdfPages,
   getGarnetJob,
   confirmGarnetGate as confirmGarnetGateApi,
+  reopenGarnetGate as reopenGarnetGateApi,
   type GarnetGate,
   type GarnetGateDecision,
   saveGarnetEdits as saveGarnetEditsApi,
@@ -124,6 +125,8 @@ type RunState = {
   saveGarnetEdits: (sheetId: string, edits: Record<string, string>) => Promise<void>
   /** Confirm the gate a garnet job is parked on, then follow it to its next rest. */
   confirmGarnetGate: (sheetId: string, gate: GarnetGate, decision: GarnetGateDecision) => Promise<void>
+  /** Go back to `gate` (1 = reset to start). Later work is archived by the server. */
+  reopenGarnetGate: (sheetId: string, gate: GarnetGate) => Promise<void>
   /** Object edits persist to the server's in-memory result store. */
   updateObject: (sheetId: string, obj: DetectedObject) => Promise<void>
   deleteObject: (sheetId: string, obj: DetectedObject) => Promise<void>
@@ -442,6 +445,16 @@ export const useRunStore = create<RunState>((set, get) => ({
     void pollGarnet(set, get, sheetId, next).catch((error) =>
       patchSheet(set, sheetId, { progress: null, error: error instanceof Error ? error.message : 'GARNET run failed' })
     )
+  },
+
+  reopenGarnetGate: async (sheetId, gate) => {
+    const job = get().sheets.find((s) => s.id === sheetId)?.garnet
+    if (!job) return
+    try {
+      patchSheet(set, sheetId, { garnet: await reopenGarnetGateApi(job.id, gate), error: null })
+    } catch (error) {
+      patchSheet(set, sheetId, { error: error instanceof Error ? error.message : 'Reopen failed' })
+    }
   },
 
   saveGarnetEdits: async (sheetId, edits) => {

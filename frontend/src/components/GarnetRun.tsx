@@ -1,8 +1,8 @@
 import { Button } from '@heroui/react'
 import { useEffect, useRef, useState } from 'react'
-import { CheckCircle2, Container, Hash, Play, Shapes, Upload, X } from 'lucide-react'
+import { CheckCircle2, Container, Hash, History, Play, RotateCcw, Shapes, Upload, X } from 'lucide-react'
 import { Card, PageHeader, SectionHeader, Tag, Toggle } from '@/components/ui/primitives'
-import type { GarnetInputs, GarnetStepStatus } from '@/lib/api'
+import type { GarnetGate, GarnetInputs, GarnetStepStatus } from '@/lib/api'
 import { useRunStore, type Sheet } from '@/stores/runStore'
 
 const STEP_TONE: Record<GarnetStepStatus, 'success' | 'warning' | 'accent' | 'outline'> = {
@@ -301,6 +301,8 @@ function SheetCard({ sheet }: { sheet: Sheet }) {
 
       <JsonInputs sheet={sheet} disabled={busy} />
 
+      {job && <GateTimeline sheet={sheet} busy={busy} />}
+
       {sheet.error && <div style={{ fontSize: 13, color: 'var(--danger)' }}>{sheet.error}</div>}
 
       {job && (
@@ -342,5 +344,108 @@ function SheetCard({ sheet }: { sheet: Sheet }) {
         </div>
       )}
     </Card>
+  )
+}
+
+const GATE_NAMES: Record<GarnetGate, string> = { 1: 'Objects', 2: 'Traces', 3: 'Line numbers' }
+
+/**
+ * Gate 1 -> Gate 2 -> Gate 3 -> Done. A confirmed gate can be reopened: the job parks there
+ * again and everything produced after it is archived by the server (history/), not deleted.
+ */
+function GateTimeline({ sheet, busy }: { sheet: Sheet; busy: boolean }) {
+  const reopen = useRunStore((s) => s.reopenGarnetGate)
+  const selectSheet = useRunStore((s) => s.selectSheet)
+  const setScreen = useRunStore((s) => s.setScreen)
+  const job = sheet.garnet!
+  const resting = job.status === 'awaiting_gate' || job.status === 'completed'
+  const done = job.status === 'completed'
+
+  const go = async (gate: GarnetGate) => {
+    const later = gate === 1 ? 'the trace, Stage 6 and every review after detection' : gate === 2 ? 'Stage 6 and the Gate 3 review' : 'the Gate 3 review and text edits'
+    if (!window.confirm(`Go back to Gate ${gate} · ${GATE_NAMES[gate]}?\n\nThis discards ${later}. Nothing is deleted: it is archived in the job's history folder.`)) return
+    await reopen(sheet.id, gate)
+    selectSheet(sheet.id)
+    setScreen('garnetResults')
+  }
+
+  const node = (gate: GarnetGate) => {
+    const confirmed = job.gates_confirmed.includes(gate)
+    const current = job.status === 'awaiting_gate' && job.gate === gate
+    // Passed = the run is beyond this gate, reviewed or not (a run with gates off passes all three).
+    const passed = confirmed || done || (job.status === 'awaiting_gate' && (job.gate ?? 0) > gate)
+    const at = [...job.history].reverse().find((h) => h.event === 'confirm' && h.gate === gate)?.at
+    const tone = current ? 'var(--accent)' : confirmed ? 'hsl(140 60% 38%)' : passed ? 'hsl(38 90% 45%)' : 'var(--border)'
+    return (
+      <div key={gate} className="flex min-w-[150px] flex-1 flex-col gap-1.5" style={{ padding: '10px 12px', borderRadius: 10, boxShadow: `inset 0 0 0 ${current ? 2 : 1}px ${tone}` }}>
+        <div className="flex items-center gap-2" style={{ fontSize: 13, fontWeight: 600 }}>
+          <span className="flex items-center justify-center" style={{ width: 20, height: 20, borderRadius: 999, fontSize: 11, color: 'white', background: current || passed ? tone : 'var(--muted)' }}>
+            {confirmed && !current ? '✓' : gate}
+          </span>
+          {`Gate ${gate} · ${GATE_NAMES[gate]}`}
+        </div>
+        <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+          {current
+            ? 'Waiting for review'
+            : confirmed
+              ? `Confirmed ${at ? new Date(at).toLocaleString() : ''}`
+              : passed
+                ? 'Passed without review'
+                : 'Not reached'}
+        </div>
+        {passed && !current && resting && !busy && (
+          <button type="button" onClick={() => void go(gate)} style={{ alignSelf: 'flex-start', border: 0, background: 'transparent', padding: 0, cursor: 'pointer' }}>
+            <Tag>↶ Reopen</Tag>
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-stretch gap-2">
+        {([1, 2, 3] as GarnetGate[]).map(node)}
+        <div
+          className="flex min-w-[110px] flex-col justify-center gap-1"
+          style={{ padding: '10px 12px', borderRadius: 10, boxShadow: `inset 0 0 0 1px ${done ? 'hsl(140 60% 38%)' : 'var(--border)'}` }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 600, color: done ? 'hsl(140 60% 35%)' : undefined }}>{done ? '✓ Done' : 'Done'}</div>
+          <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{done ? 'Test systems ready' : '—'}</div>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        {resting && !busy && (job.gates_confirmed.length > 0 || done) && (
+          <button
+            type="button"
+            onClick={() => void go(1)}
+            className="inline-flex items-center gap-1.5"
+            style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer', fontSize: 12, color: 'hsl(0 70% 45%)' }}
+          >
+            <RotateCcw size={13} /> Reset to start
+          </button>
+        )}
+        {job.history.length > 0 && (
+          <details style={{ fontSize: 12 }}>
+            <summary className="inline-flex cursor-pointer items-center gap-1.5" style={{ color: 'var(--muted)' }}>
+              <History size={13} /> History ({job.history.length})
+            </summary>
+            <ol className="mt-1.5 flex flex-col gap-1" style={{ paddingLeft: 18 }}>
+              {job.history.map((h, i) => (
+                <li key={i} className="mono" style={{ listStyle: 'decimal' }}>
+                  {new Date(h.at).toLocaleString()} · {h.event === 'confirm' ? `confirmed Gate ${h.gate}` : `reopened Gate ${h.gate}`}
+                  {h.event === 'confirm' && Object.keys(h.changes).length > 0 && (
+                    <span style={{ color: 'var(--muted)' }}>
+                      {' '}({Object.entries(h.changes).map(([k, n]) => `${n} ${k}`).join(', ')})
+                    </span>
+                  )}
+                  {h.event === 'reopen' && h.archive && <span style={{ color: 'var(--muted)' }}> → {h.archive}</span>}
+                </li>
+              ))}
+            </ol>
+          </details>
+        )}
+      </div>
+    </div>
   )
 }

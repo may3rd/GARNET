@@ -696,6 +696,22 @@ export type GarnetJob = {
   artifacts: { name: string; url: string }[]
   /** Saved text corrections, object id -> text. Applied over Stage 6; never rewrite it. */
   edits: Record<string, string>
+  gates_confirmed: number[]
+  /** Gate confirmations and reopens, oldest first. */
+  history: GarnetHistoryEvent[]
+}
+
+export type GarnetHistoryEvent =
+  | { event: 'confirm'; gate: GarnetGate; at: string; changes: Record<string, number> }
+  | { event: 'reopen'; gate: GarnetGate; at: string; archive?: string }
+
+/** Park the job back at `gate`; everything after it is archived server-side, never deleted. */
+export async function reopenGarnetGate(jobId: string, gate: GarnetGate): Promise<GarnetJob> {
+  return requestJson<GarnetJob>(`/api/garnet/jobs/${jobId}/reopen`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ gate }),
+  })
 }
 
 /** Fixture JSONs the user already has. Any one supplied skips its ML step. */

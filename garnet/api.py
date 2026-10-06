@@ -363,6 +363,7 @@ async def api_delete_object(result_id: str, obj_index: int) -> dict:
 # --------------------------------------------------------------------------------------------
 
 import json  # noqa: E402
+import shutil  # noqa: E402
 import subprocess  # noqa: E402
 import time  # noqa: E402
 import sys  # noqa: E402
@@ -469,6 +470,8 @@ def _job_view(job_id: str) -> dict:
         "error": job.get("error"),
         "steps": [{k: s[k] for k in ("name", "status", "note", "log")} for s in job["steps"]],
         "edits": _read_edits(job_dir)["edits"],
+        "gates_confirmed": sorted(int(k) for k in _read_gates(job_dir)),
+        "history": _read_history(job_dir),
         "artifacts": [
             {"name": str(p.relative_to(job_dir)), "url": f"/runs/jobs/{job_id}/{p.relative_to(job_dir)}"}
             for p in files
@@ -1124,4 +1127,105 @@ def api_garnet_edits(job_id: str, payload: EditsRequest) -> dict:
         _check_ids(payload.edits, _known_ids(job_dir))
         _append_edits(job_dir, payload.edits)
         _write_reviewed(job_dir)
+    return _job_view(job_id)
+
+
+# --- Reopen a gate ----------------------------------------------------------------------------
+# Going back is never destructive: everything the later stages produced is MOVED to
+# history/<n>_reopen_gate<N>/ and the event is appended to gates_history.jsonl. The job is then
+# parked at Gate N exactly as it was before that gate was confirmed.
+
+# What each reopen supersedes. Gate 1 discards the whole trace; Gate 2 everything from Stage 6
+# on; Gate 3 only the review overlay (regenerated from Stage 6 as produced).
+_REOPEN_FILES = {
+    1: ["out"],
+    2: ["out/gate2", "out/stage6_trace_associations.json", "out/stage6_trace_association_summary.json",
+        "out/stage6_line_number_review.json", "out/stage6_line_number_review_summary.json",
+        "out/stage6_trace_association_overlay.png", "out/reviewed_associations.json", "out/test_systems.json"],
+    3: ["out/reviewed_associations.json", "out/test_systems.json"],
+}
+
+
+def _read_history(job_dir: Path) -> list[dict]:
+    """Gate confirmations and reopens, oldest first, summarised for the UI."""
+    p = job_dir / "gates_history.jsonl"
+    if not p.is_file():
+        return []
+    out = []
+    for line in p.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        r = json.loads(line)
+        if r.get("event") == "reopen":
+            out.append({"event": "reopen", "gate": r["gate"], "at": r["at"], "archive": r.get("archive")})
+        else:
+            counts = {k: len(v) for k, v in r.items() if isinstance(v, (list, dict)) and v}
+            out.append({"event": "confirm", "gate": r["gate"], "at": r.get("confirmed_at"), "changes": counts})
+    return out
+
+
+class ReopenRequest(BaseModel):
+    gate: int = Field(ge=1, le=3)
+
+
+@app.post("/api/garnet/jobs/{job_id}/reopen")
+def api_garnet_reopen(job_id: str, payload: ReopenRequest) -> dict:
+    gate = payload.gate
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Job not found")
+        if job["status"] not in ("awaiting_gate", "completed"):
+            raise HTTPException(status_code=409, detail=f"Job is {job['status']}; wait for it to rest")
+        steps = job["steps"]
+        boundary = next(i for i, st in enumerate(steps) if st.get("gate_after") == gate)
+        reached = all(st["status"] in ("completed", "skipped") for st in steps[: boundary + 1])
+        if not reached:
+            raise HTTPException(status_code=409, detail=f"Gate {gate} has not been reached")
+        if job["status"] == "awaiting_gate" and job.get("gate") == gate:
+            raise HTTPException(status_code=409, detail=f"Already at Gate {gate}")
+
+        job_dir = JOBS_DIR / job_id
+        hist = job_dir / "history"
+        hist.mkdir(exist_ok=True)
+        archive = hist / f"{len(list(hist.iterdir())) + 1:03d}_reopen_gate{gate}"
+        archive.mkdir()
+
+        def stash(rel: str) -> None:
+            src = job_dir / rel
+            if src.exists():
+                dst = archive / rel
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(src), str(dst))
+
+        for rel in _REOPEN_FILES[gate]:
+            stash(rel)
+        # Edits are text corrections over Stage 6; they belong to the review being discarded.
+        stash("edits.json")
+        if gate == 1:
+            # Undo Gate 1's write to the staged objects: the pre-gate copy becomes current again.
+            pre = job_dir / "input" / f"{STEM}_objects.pre_gate1.json"
+            if pre.is_file():
+                stash(f"input/{JSON_INPUTS['objects_json']}")
+                shutil.move(str(pre), str(job_dir / "input" / JSON_INPUTS["objects_json"]))
+            _MASKS.pop(str(job_dir), None)
+            (job_dir / "out").mkdir(exist_ok=True)
+
+        gates = _read_gates(job_dir)
+        (archive / "gates.json").write_text(json.dumps(gates, indent=2, ensure_ascii=False))
+        kept = {k: v for k, v in gates.items() if int(k) < gate}
+        (job_dir / "gates.json").write_text(json.dumps(kept, indent=2, ensure_ascii=False))
+        with (job_dir / "gates_history.jsonl").open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"event": "reopen", "gate": gate, "at": _now(),
+                                 "archive": str(archive.relative_to(job_dir))}) + "\n")
+
+        if gate == 3:
+            _write_reviewed(job_dir)  # Stage 6 as produced, minus the discarded Gate 3 review
+
+        for st in steps[boundary + 1:]:
+            if st["status"] != "skipped":
+                st["status"], st["log"] = "pending", ""
+        # Reopening means the reviewer wants the gates back, even on a run that went straight through.
+        job.update(status="awaiting_gate", gate=gate, resume_at=boundary + 1, pause_at_gates=True, error=None)
+    logger.info("garnet job %s: reopened Gate %d (archived to %s)", job_id, gate, archive.name)
     return _job_view(job_id)
