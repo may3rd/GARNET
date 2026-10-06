@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@heroui/react'
-import { ArrowLeft, Brush, Download, Eraser, Magnet, Maximize, Minus, MousePointer2, Plus, Redo2, Undo2 } from 'lucide-react'
+import { ArrowLeft, Brush, Download, Eraser, Magnet, Maximize, Minus, MousePointer2, PanelRightClose, PanelRightOpen, Plus, Redo2, Undo2 } from 'lucide-react'
 import { Card, PageHeader, Tag } from '@/components/ui/primitives'
 import { snapGarnetTrace, type GarnetGate, type GarnetJob } from '@/lib/api'
 import { useRunStore } from '@/stores/runStore'
@@ -384,6 +384,30 @@ export function GarnetResults() {
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   const [hidden, setHidden] = useState<Set<string>>(new Set())
+  // List panel collapsed -> drawing full width. A per-viewer convenience, so browser storage.
+  const [listHidden, setListHidden] = useState(() => {
+    try {
+      return localStorage.getItem('garnet.listHidden') === '1'
+    } catch {
+      return false
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem('garnet.listHidden', listHidden ? '1' : '0')
+    } catch {
+      // storage blocked: the toggle still works for this session
+    }
+  }, [listHidden])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable) return
+      if (e.key === '\\' && !e.metaKey && !e.ctrlKey) setListHidden((h) => !h)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   const saveGarnetEdits = useRunStore((s) => s.saveGarnetEdits)
   const saved = job?.edits ?? {}
   // Unsaved corrections, layered over `saved`. Reset when the sheet changes.
@@ -827,6 +851,7 @@ export function GarnetResults() {
         </Card>
       )}
 
+      <div className="flex flex-wrap items-center gap-2">
       <div className="flex flex-wrap gap-2" role="tablist">
         {tabs.map((t) => (
           <button
@@ -846,6 +871,30 @@ export function GarnetResults() {
             </Tag>
           </button>
         ))}
+      </div>
+        <button
+          type="button"
+          aria-pressed={listHidden}
+          title={listHidden ? 'Show the list (\\)' : 'Hide the list — drawing full width (\\)'}
+          onClick={() => setListHidden((h) => !h)}
+          className="inline-flex items-center gap-1.5"
+          style={{
+            marginLeft: 'auto',
+            height: 28,
+            padding: '0 10px',
+            border: 0,
+            borderRadius: 6,
+            cursor: 'pointer',
+            fontSize: 12,
+            fontWeight: 500,
+            background: listHidden ? 'var(--accent)' : 'transparent',
+            color: listHidden ? 'var(--accent-foreground)' : 'inherit',
+            boxShadow: listHidden ? undefined : 'inset 0 0 0 1px var(--border)',
+          }}
+        >
+          {listHidden ? <PanelRightOpen size={14} /> : <PanelRightClose size={14} />}
+          {listHidden ? 'Show list' : 'Full width'}
+        </button>
       </div>
 
       {saveError && <Card padding={16} style={{ color: 'var(--danger)' }}>{`Edits not saved: ${saveError}`}</Card>}
@@ -868,7 +917,7 @@ export function GarnetResults() {
             brushPx={brushPx}
             onStroke={gate === 2 && tab === 'traces' ? (k, pts, sc) => void onStroke(k, pts, sc) : undefined}
           />
-          <Card padding={0} className="min-h-0 overflow-auto lg:w-[460px]">
+          {!listHidden && <Card padding={0} className="min-h-0 overflow-auto lg:w-[460px]">
             {tab === 'objects' && (
               <ObjectsTable edits={edits} rejectable={gate === 1} rejected={rejected} onReject={toggleReject} data={view!} geometryEdited={(id) => id in moved || id.startsWith('new_')}
                 onReclass={gate === 1 ? onReclass : undefined}
@@ -915,7 +964,7 @@ export function GarnetResults() {
               />
             )}
             {tab === 'equipment' && <EquipmentTable rows={data.equipment} selected={selected} onSelect={setSelected} />}
-          </Card>
+          </Card>}
         </div>
       )}
     </div>
@@ -1041,22 +1090,37 @@ function Overlay({
     const r = host.current?.getBoundingClientRect()
     return { w: r?.width ?? 1, h: r?.height ?? 1 }
   }
+  // True while the view is the untouched fit; any zoom/pan/jump clears it.
+  const fitted = useRef(false)
   const fit = () => {
     const { w, h } = size()
     const s = fitScale(data, w, h)
     setView({ s, x: (w - data.width * s) / 2, y: (h - data.height * s) / 2 })
+    fitted.current = true
   }
+  // Panel hidden/shown or window resized: refit, but only if the reviewer hasn't moved the view.
+  useEffect(() => {
+    const el = host.current
+    if (!el) return
+    const ro = new ResizeObserver(() => {
+      if (fitted.current) fit()
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
   const minScale = () => {
     const { w, h } = size()
     return fitScale(data, w, h) / 2
   }
   /** Zoom by `k` keeping screen point (cx, cy) fixed. */
-  const zoomAt = (k: number, cx: number, cy: number) =>
+  const zoomAt = (k: number, cx: number, cy: number) => {
+    fitted.current = false
     setView((v) => {
       const s = Math.min(8, Math.max(minScale(), v.s * k))
       const r = s / v.s
       return { s, x: cx - (cx - v.x) * r, y: cy - (cy - v.y) * r }
     })
+  }
   const zoomCenter = (k: number) => {
     const { w, h } = size()
     zoomAt(k, w / 2, h / 2)
@@ -1091,6 +1155,7 @@ function Overlay({
     const s = Math.min(4, Math.max(fitScale(data, w, h), want))
     const cx = (f.x_min + f.x_max) / 2
     const cy = (f.y_min + f.y_max) / 2
+    fitted.current = false
     setView({ s, x: w / 2 - cx * s, y: h / 2 - cy * s })
   }, [selected]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1152,6 +1217,7 @@ function Overlay({
           }
           d.px = e.clientX
           d.py = e.clientY
+          fitted.current = false
           setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }))
         }}
         onPointerLeave={() => setHover(null)}
