@@ -577,11 +577,16 @@ def api_garnet_job_status(job_id: str) -> dict:
     return _job_view(job_id)
 
 
+# Classes whose box text the OCR step reads. Connectors carry the drawing they continue on,
+# which is what links sheets. (Step keeps its historical name `ocr_instruments` so saved bundles
+# still load.)
 INSTRUMENT_CLASSES = {"instrument tag", "instrument dcs", "instrument logic"}
+CONNECTOR_CLASSES = {"page connection", "utility connection"}
+OCR_CLASSES = INSTRUMENT_CLASSES | CONNECTOR_CLASSES
 
 
 def _ocr_instruments(indir: Path) -> str:
-    """Fill `text` on instrument objects that have none, by EasyOCR on their crop.
+    """Fill `text` on instrument and connector objects that have none, by EasyOCR on their crop.
 
     The objects file as it arrived (upload or YOLO) is kept as `.source.json`; the staged file
     the tracer reads gets the text plus `text_source: "easyocr"`. Existing text is never
@@ -598,7 +603,7 @@ def _ocr_instruments(indir: Path) -> str:
 
     rows, owners = [], []
     for obj in payload["objects"]:
-        if obj.get("class_name") not in INSTRUMENT_CLASSES or str(obj.get("text") or "").strip():
+        if obj.get("class_name") not in OCR_CLASSES or str(obj.get("text") or "").strip():
             continue
         bb = obj["bbox"]
         rows.append({"Index": obj["id"], "Object": obj["class_name"], "Text": "",
@@ -611,7 +616,7 @@ def _ocr_instruments(indir: Path) -> str:
             obj["text"] = row["Text"]
             obj["text_source"] = "easyocr"
     path.write_text(json.dumps(payload))
-    return f"read {read} of {len(rows)} instrument objects without text"
+    return f"read {read} of {len(rows)} instrument / connector objects without text"
 
 
 # --- Text edits ------------------------------------------------------------------------------
@@ -736,6 +741,30 @@ TEST_SYSTEMS_VERSION = 1
 BOUNDARY_TYPES = {"page connection", "utility connection", "equipment"}
 
 
+def _connectors(objects: dict, edges: dict, systems: dict, text_of) -> list[dict]:
+    """Every page / utility connector on the sheet: its text (as reviewed), the traces that start or
+    end on it, and the line numbers of those traces. Connectors no trace reached are listed too."""
+    lns_on: dict[str, set[str]] = {}
+    for key, sysm in systems.items():
+        if not sysm["no_text"]:
+            for tid in sysm["trace_ids"]:
+                lns_on.setdefault(tid, set()).add(key)
+    touching: dict[str, list[tuple[str, str]]] = {}
+    for tid, e in edges.items():
+        for role, oid in (("source", e.get("source_obj_id")), ("terminal", e.get("terminal_obj_id"))):
+            if oid:
+                touching.setdefault(oid, []).append((tid, role))
+    out = []
+    for oid, o in sorted(objects.items()):
+        if o.get("class_name") not in CONNECTOR_CLASSES:
+            continue
+        hits = sorted(touching.get(oid, []))
+        out.append({"id": oid, "type": o["class_name"], "text": text_of(oid), "bbox": o.get("bbox"),
+                    "traces": [{"trace_id": t, "role": r} for t, r in hits],
+                    "line_numbers": sorted({ln for t, _ in hits for ln in lns_on.get(t, ())})})
+    return out
+
+
 def _write_test_systems(job_dir: Path, reviewed: dict) -> None:
     """One test system per line number: the traces carrying it and everything on them.
 
@@ -760,6 +789,13 @@ def _write_test_systems(job_dir: Path, reviewed: dict) -> None:
         return by
 
     inline, instruments, arrows = on_trace("inline_objects"), on_trace("instrument_tags"), on_trace("flow_arrows")
+    # Object text as reviewed: stage 4 text, overridden by any saved text edit.
+    s4 = out / "stage4_objects.json"
+    objects = {o["id"]: o for o in json.loads(s4.read_text())["objects"]} if s4.is_file() else {}
+    text_edits = _read_edits(job_dir)["edits"]
+
+    def text_of(oid: str) -> str:
+        return text_edits.get(oid, str((objects.get(oid) or {}).get("text") or "").strip())
 
     systems: dict[str, dict] = {}
     labels_on: dict[str, set[str]] = {}
@@ -810,7 +846,8 @@ def _write_test_systems(job_dir: Path, reviewed: dict) -> None:
                 if str(oid).startswith("equip_"):
                     members["equipment"].setdefault(oid, equipment_row(oid, tid, role, edge))
                 elif otype in BOUNDARY_TYPES:
-                    members["boundaries"].setdefault(oid, {"id": oid, "type": otype, "trace_id": tid, "role": role})
+                    members["boundaries"].setdefault(oid, {"id": oid, "type": otype, "trace_id": tid, "role": role,
+                                                           "text": text_of(oid)})
         result.append({
             "line_number": key,
             "no_text": sysm["no_text"],
@@ -833,6 +870,7 @@ def _write_test_systems(job_dir: Path, reviewed: dict) -> None:
         "systems": result,
         "conflicts": [{"trace_id": t, "line_numbers": k} for t, k in sorted(conflicts.items())],
         "unassigned_traces": sorted(set(edges) - {t for v in systems.values() for t in v["trace_ids"]}),
+        "connectors": _connectors(objects, edges, systems, text_of),
     }
     (out / "test_systems.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False))
 
@@ -1463,9 +1501,95 @@ def _norm_line(key: str) -> str:
     return "".join(key.split()).casefold().strip("-")
 
 
+import re  # noqa: E402
+
+# A drawing reference as P&ID connectors write it, e.g. 25-0003 or 25-0002A.
+DRAWING_REF = re.compile(r"\b(\d{2}-\d{4}[A-Z]?)\b")
+
+
+def _sheet_ref(name: str) -> str | None:
+    """`14780-8120-25-25-0003.jpg` -> `25-0003`: the form other sheets' connectors use."""
+    m = re.search(r"(\d{2}-\d{4}[A-Z]?)$", Path(name).stem.upper())
+    return m.group(1) if m else None
+
+
+def _series_slip(ref: str, loaded: str) -> bool:
+    """Same drawing number, different series prefix: `26-0003` vs `25-0003`. That is an OCR slip in
+    the two-digit series. A different NUMBER (25-0002 vs 25-0003) is a different drawing, so it is
+    never suggested — those are simply sheets that are not loaded."""
+    return ref[3:] == loaded[3:] and ref[:2] != loaded[:2]
+
+
+def _connector_links(sheets: list[dict], conns: dict[str, list[dict]]) -> list[dict]:
+    """Pair off-page connectors between loaded sheets.
+
+    A connector points at sheet B when its text contains B's drawing reference. For each pair of
+    sheets (A, B), A's connectors pointing at B are paired with B's pointing at A:
+      1. by a shared line number on the traces behind them  -> matched_by_line_number
+      2. then, if exactly one is left on each side           -> matched_by_elimination, or
+                                                                line_number_differs if both carry one
+      3. anything left                                       -> ambiguous / no_counterpart
+    A reference no loaded sheet has                         -> target_not_loaded (+ possible_target
+                                                                when only its series prefix differs)
+    Nothing is inferred into the data; this only reports.
+    """
+    ref_of = {s["job_id"]: s["ref"] for s in sheets if s.get("ref")}
+    by_ref = {r: j for j, r in ref_of.items()}
+    sheet_name = {s["job_id"]: s["sheet"] for s in sheets}
+
+    def side(jid: str, c: dict) -> dict:
+        return {"job_id": jid, "sheet": sheet_name[jid], "connector": c["id"], "type": c["type"], "text": c["text"],
+                "line_numbers": c["line_numbers"], "trace_ids": [t["trace_id"] for t in c["traces"]]}
+
+    links: list[dict] = []
+    pointing: dict[tuple[str, str], list[dict]] = {}
+    for jid, cs in conns.items():
+        for c in cs:
+            refs = DRAWING_REF.findall(c["text"].upper())
+            if not refs:
+                continue
+            for ref in dict.fromkeys(refs):
+                target = by_ref.get(ref)
+                if target and target != jid:
+                    pointing.setdefault((jid, target), []).append(c)
+                elif not target and c["type"] == "page connection":
+                    near = sorted(r for r in by_ref if by_ref[r] != jid and _series_slip(ref, r))
+                    links.append({"status": "target_not_loaded", "ref": ref, "from": side(jid, c), "to": None,
+                                  "possible_target": [sheet_name[by_ref[r]] for r in near]})
+
+    done = set()
+    for (a, b) in sorted(pointing):
+        if (b, a) in done:
+            continue
+        done.add((a, b))
+        rem_a = sorted(pointing.get((a, b), []), key=lambda c: c["id"])
+        rem_b = sorted(pointing.get((b, a), []), key=lambda c: c["id"])
+        for ca in list(rem_a):
+            cb = next((cb for cb in rem_b if set(ca["line_numbers"]) & set(cb["line_numbers"])), None)
+            if cb:
+                links.append({"status": "matched_by_line_number", "from": side(a, ca), "to": side(b, cb),
+                              "line_numbers": sorted(set(ca["line_numbers"]) & set(cb["line_numbers"]))})
+                rem_a.remove(ca)
+                rem_b.remove(cb)
+        if len(rem_a) == 1 and len(rem_b) == 1:
+            ca, cb = rem_a.pop(), rem_b.pop()
+            differs = bool(ca["line_numbers"]) and bool(cb["line_numbers"])
+            links.append({"status": "line_number_differs" if differs else "matched_by_elimination",
+                          "from": side(a, ca), "to": side(b, cb)})
+        for jid, other, rem, rem_other in ((a, b, rem_a, rem_b), (b, a, rem_b, rem_a)):
+            for c in rem:
+                links.append({"status": "ambiguous" if rem_other else "no_counterpart", "from": side(jid, c), "to": None,
+                              "candidates": [x["id"] for x in rem_other], "toward": sheet_name[other]})
+    order = {"matched_by_line_number": 0, "matched_by_elimination": 1, "line_number_differs": 2,
+             "ambiguous": 3, "no_counterpart": 4, "target_not_loaded": 5}
+    links.sort(key=lambda l: (order[l["status"]], l["from"]["sheet"], l["from"]["connector"]))
+    return links
+
+
 def _merged(job_ids: list[str]) -> dict:
     sheets, skipped = [], []
     per_line: dict[str, list[dict]] = {}
+    conns: dict[str, list[dict]] = {}
     for jid in job_ids:
         job = JOBS.get(jid)
         if job is None:
@@ -1478,7 +1602,8 @@ def _merged(job_ids: list[str]) -> dict:
         ts = json.loads(ts_path.read_text())
         name = job.get("source_name") or jid[:8]
         sheets.append({"job_id": jid, "sheet": name, "status": job["status"], "gate": job.get("gate"),
-                       "gate3_confirmed": bool(ts.get("gate3_confirmed"))})
+                       "gate3_confirmed": bool(ts.get("gate3_confirmed")), "ref": _sheet_ref(name)})
+        conns[jid] = ts.get("connectors", [])
         for sysm in ts["systems"]:
             # A textless label names nothing that could match another sheet: keep it sheet-local.
             key = f"(no text) {name}:{sysm['labels'][0]['id']}" if sysm["no_text"] else sysm["line_number"]
@@ -1498,6 +1623,22 @@ def _merged(job_ids: list[str]) -> dict:
                 "boundaries": dict(sorted(bnd.items())),
                 "conflict": sysm["has_conflict"], "no_text": sysm["no_text"],
             })
+
+    links = _connector_links(sheets, conns)
+    # Per line number: the connector links that touch it, and suggestions where the far side of a
+    # paired connector carries no line number ("probably continues this line").
+    link_by_line: dict[str, list[dict]] = {}
+    suggestions: dict[str, list[dict]] = {}
+    for lk in links:
+        if lk["to"] is None:
+            continue
+        for near, far in ((lk["from"], lk["to"]), (lk["to"], lk["from"])):
+            for ln in near["line_numbers"]:
+                link_by_line.setdefault(ln, []).append(lk)
+                if not far["line_numbers"] and far["trace_ids"]:
+                    suggestions.setdefault(ln, []).append({"sheet": far["sheet"], "job_id": far["job_id"],
+                                                           "connector": far["connector"], "trace_ids": far["trace_ids"],
+                                                           "via": lk["status"]})
 
     groups: dict[str, set[str]] = {}
     for key in per_line:
@@ -1522,7 +1663,16 @@ def _merged(job_ids: list[str]) -> dict:
             "continuation_missing": offpage and len({e["job_id"] for e in entries}) == 1 and not entries[0]["no_text"],
             "conflict": any(e["conflict"] for e in entries),
             "similar_to": [] if entries[0]["no_text"] else sorted(groups[_norm_line(key)] - {key}),
+            "connector_links": [{"status": lk["status"], "from": f"{lk['from']['sheet']}:{lk['from']['connector']}",
+                                 "to": f"{lk['to']['sheet']}:{lk['to']['connector']}"}
+                                for lk in {id(l): l for l in link_by_line.get(key, [])}.values()],
+            # Unlabelled sections on another sheet joined to this line through a paired connector.
+            "suggested_continuations": suggestions.get(key, []),
         })
+        # Any paired connector means the line does continue on a loaded sheet — even when the far
+        # side's line number differs; that is its own flag (connector_links status), not "missing".
+        if link_by_line.get(key):
+            lines[-1]["continuation_missing"] = False
     return {
         "version": MERGE_VERSION,
         "generated_at": _now(),
@@ -1530,7 +1680,11 @@ def _merged(job_ids: list[str]) -> dict:
         "sheets": sheets,
         "skipped_sheets": skipped,
         "lines": lines,
+        "connector_links": links,
         "summary": {"lines": len(lines),
+                    "connector_links": {st: sum(1 for l in links if l["status"] == st) for st in (
+                        "matched_by_line_number", "matched_by_elimination", "line_number_differs",
+                        "ambiguous", "no_counterpart", "target_not_loaded")},
                     "multi_sheet": sum(1 for x in lines if x["sheet_count"] > 1),
                     "continuation_missing": sum(1 for x in lines if x["continuation_missing"]),
                     "similar": sum(1 for x in lines if x["similar_to"]),
@@ -1569,6 +1723,10 @@ def _merged_text(m: dict) -> str:
         line("-" * W)
         if x["similar_to"]:
             line(f"  ** similar text, NOT linked: {' | '.join(x['similar_to'])}")
+        for lk in x["connector_links"]:
+            line(f"  via connector: {lk['from']} <-> {lk['to']}  ({lk['status']})")
+        for sg in x["suggested_continuations"]:
+            line(f"  ?? probably continues on {sg['sheet']}: {', '.join(sg['trace_ids'])} (via {sg['connector']}, no line number there)")
         t = x["totals"]
         line(f"  Sheets {x['sheet_count']} | sections {t['pipe_sections']} | instruments {t['instruments']} | inline {t['inline_objects']}")
         line(f"  Equipment: {', '.join(t['equipment']) or '-'}")
@@ -1581,6 +1739,24 @@ def _merged_text(m: dict) -> str:
             if e["boundaries"]:
                 line(f"      boundaries  {', '.join(f'{c} x{k}' for c, k in e['boundaries'].items())}")
         line("")
+    line("=" * W)
+    line("OFF-PAGE CONNECTOR LINKS")
+    line("-" * W)
+    for lk in m["connector_links"]:
+        f = lk["from"]
+        a = f"{f['sheet']}:{f['connector']} \"{f['text']}\" [{', '.join(f['line_numbers']) or 'no line no.'}]"
+        if lk["to"]:
+            t = lk["to"]
+            b = f"{t['sheet']}:{t['connector']} \"{t['text']}\" [{', '.join(t['line_numbers']) or 'no line no.'}]"
+            line(f"  {lk['status'].upper():<24} {a}")
+            line(f"  {'':<24} <-> {b}")
+        else:
+            extra = (f" (ref {lk['ref']}" + (f", possibly {', '.join(lk['possible_target'])}" if lk.get("possible_target") else "") + ")") \
+                if lk["status"] == "target_not_loaded" else f" (toward {lk.get('toward')})"
+            line(f"  {lk['status'].upper():<24} {a}{extra}")
+    if not m["connector_links"]:
+        line("  none")
+    line("")
     line("=" * W)
     line("Source: each sheet's out/test_systems.json. Values are reproduced exactly as stored.")
     return "\n".join(x.rstrip() for x in out) + "\n"

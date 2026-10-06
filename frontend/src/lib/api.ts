@@ -779,6 +779,38 @@ export type MergedLine = {
   continuation_missing: boolean
   conflict: boolean
   similar_to: string[]
+  connector_links: { status: ConnectorLinkStatus; from: string; to: string }[]
+  /** Unlabelled sections on another sheet joined to this line through a paired connector. */
+  suggested_continuations: { sheet: string; job_id: string; connector: string; trace_ids: string[]; via: ConnectorLinkStatus }[]
+}
+
+export type ConnectorLinkStatus =
+  | 'matched_by_line_number'
+  | 'matched_by_elimination'
+  | 'line_number_differs'
+  | 'ambiguous'
+  | 'no_counterpart'
+  | 'target_not_loaded'
+
+export type ConnectorSide = {
+  job_id: string
+  sheet: string
+  connector: string
+  type: string
+  text: string
+  line_numbers: string[]
+  trace_ids: string[]
+}
+
+export type ConnectorLink = {
+  status: ConnectorLinkStatus
+  from: ConnectorSide
+  to: ConnectorSide | null
+  line_numbers?: string[]
+  ref?: string
+  possible_target?: string[]
+  candidates?: string[]
+  toward?: string
 }
 
 export type MergedTestSystems = {
@@ -786,7 +818,15 @@ export type MergedTestSystems = {
   sheets: { job_id: string; sheet: string; status: string; gate: number | null; gate3_confirmed: boolean }[]
   skipped_sheets: { job_id: string; sheet?: string; reason: string }[]
   lines: MergedLine[]
-  summary: { lines: number; multi_sheet: number; continuation_missing: number; similar: number; conflict: number }
+  connector_links: ConnectorLink[]
+  summary: {
+    lines: number
+    multi_sheet: number
+    continuation_missing: number
+    similar: number
+    conflict: number
+    connector_links: Record<ConnectorLinkStatus, number>
+  }
 }
 
 export const mergeUrl = (jobIds: string[], ext: 'json' | 'txt') =>

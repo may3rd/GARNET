@@ -2,10 +2,19 @@ import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@heroui/react'
 import { ArrowLeft, Download, FileText, RefreshCw } from 'lucide-react'
 import { Card, PageHeader, Tag } from '@/components/ui/primitives'
-import { getMergedTestSystems, mergeUrl, type MergedLine, type MergedTestSystems } from '@/lib/api'
+import { getMergedTestSystems, mergeUrl, type ConnectorLink, type ConnectorLinkStatus, type MergedLine, type MergedTestSystems } from '@/lib/api'
 import { useRunStore } from '@/stores/runStore'
 
 type Filter = 'all' | 'multi' | 'flagged'
+
+const LINK_LABEL: Record<ConnectorLinkStatus, { text: string; tone: 'success' | 'warning' | 'outline'; hint: string }> = {
+  matched_by_line_number: { text: 'matched', tone: 'success', hint: 'Both connectors point at each other and carry the same line number' },
+  matched_by_elimination: { text: 'matched (only pair)', tone: 'warning', hint: 'The only pair left between these sheets; one side has no line number' },
+  line_number_differs: { text: 'line no. differs', tone: 'warning', hint: 'Paired, but the line numbers on the two sides are not the same' },
+  ambiguous: { text: 'ambiguous', tone: 'warning', hint: 'Several connectors point at the other sheet and could not be told apart' },
+  no_counterpart: { text: 'no counterpart', tone: 'warning', hint: 'The other sheet has no connector pointing back' },
+  target_not_loaded: { text: 'sheet not loaded', tone: 'outline', hint: 'The referenced drawing is not among the selected sheets' },
+}
 
 const th: React.CSSProperties = { textAlign: 'left', padding: '8px 10px', fontWeight: 500, color: 'var(--muted)', position: 'sticky', top: 0, background: 'var(--surface)', whiteSpace: 'nowrap' }
 const td: React.CSSProperties = { padding: '7px 10px', borderTop: '1px solid var(--separator)', verticalAlign: 'top' }
@@ -56,7 +65,8 @@ export function GarnetMerge() {
     void load()
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const flagged = (x: MergedLine) => x.continuation_missing || x.similar_to.length > 0 || x.conflict
+  const flagged = (x: MergedLine) =>
+    x.continuation_missing || x.similar_to.length > 0 || x.conflict || x.suggested_continuations.length > 0
   const rows = useMemo(
     () => (data?.lines ?? []).filter((x) => (filter === 'multi' ? x.sheet_count > 1 : filter === 'flagged' ? flagged(x) : true)),
     [data, filter]
@@ -222,6 +232,16 @@ export function GarnetMerge() {
                           </span>
                         )}
                         {x.conflict && <Tag tone="warning">conflict</Tag>}
+                        {x.connector_links.map((l) => (
+                          <span key={`${l.from}-${l.to}`} title={`${l.from} ↔ ${l.to}\n${LINK_LABEL[l.status].hint}`}>
+                            <Tag tone={LINK_LABEL[l.status].tone}>{`↔ ${LINK_LABEL[l.status].text}`}</Tag>
+                          </span>
+                        ))}
+                        {x.suggested_continuations.length > 0 && (
+                          <span title="A paired connector leads to sections with no line number on another sheet">
+                            <Tag tone="warning">continues unlabelled?</Tag>
+                          </span>
+                        )}
                       </span>
                     </td>
                   </tr>,
@@ -233,6 +253,16 @@ export function GarnetMerge() {
                             {`Similar text on other sheets, not linked: ${x.similar_to.join('  |  ')}. If it is the same line, correct the text at Gate 3 on that sheet.`}
                           </div>
                         )}
+                        {x.connector_links.map((l) => (
+                          <div key={`${l.from}-${l.to}`} className="mono" style={{ marginBottom: 4, fontSize: 12 }}>
+                            <Tag tone={LINK_LABEL[l.status].tone}>{LINK_LABEL[l.status].text}</Tag> {`${l.from}  ↔  ${l.to}`}
+                          </div>
+                        ))}
+                        {x.suggested_continuations.map((sg) => (
+                          <div key={`${sg.job_id}-${sg.connector}`} style={{ marginBottom: 4, fontSize: 12, color: 'hsl(30 90% 35%)' }}>
+                            {`Probably continues on ${sg.sheet}: ${sg.trace_ids.join(', ')} (via ${sg.connector}, which has no line number). Attach the label there at Gate 3 if so.`}
+                          </div>
+                        ))}
                         <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
                           {x.sheets.map((e) => (
                             <div key={e.job_id} className="flex flex-col gap-1" style={{ padding: 10, borderRadius: 8, boxShadow: 'inset 0 0 0 1px var(--border)' }}>
@@ -260,7 +290,57 @@ export function GarnetMerge() {
           </table>
         </Card>
       )}
+
+      {data && data.connector_links.length > 0 && <ConnectorPanel links={data.connector_links} onOpen={openSheet} />}
     </div>
+  )
+}
+
+function ConnectorPanel({ links, onOpen }: { links: ConnectorLink[]; onOpen: (jobId: string) => void }) {
+  const [showAll, setShowAll] = useState(false)
+  const shown = showAll ? links : links.filter((l) => l.status !== 'target_not_loaded')
+  const side = (s: ConnectorLink['from']) => (
+    <span className="mono">
+      <button type="button" onClick={() => onOpen(s.job_id)} style={chipBtn} title="Open this sheet">
+        <Tag>{s.sheet}</Tag>
+      </button>{' '}
+      {`${s.connector} "${s.text || '(no text)'}" `}
+      <span style={{ color: 'var(--muted)' }}>{s.line_numbers.join(', ') || 'no line no.'}</span>
+    </span>
+  )
+  return (
+    <Card padding={0} className="max-h-[36%] shrink-0 overflow-auto">
+      <div className="flex items-center gap-2 p-3" style={{ position: 'sticky', top: 0, background: 'var(--surface)' }}>
+        <span style={{ fontWeight: 600, fontSize: 13 }}>Off-page connector links</span>
+        <span style={{ fontSize: 12, color: 'var(--muted)' }}>A connector points at the sheet whose drawing number its text contains.</span>
+        <label className="inline-flex items-center gap-1.5" style={{ marginLeft: 'auto', fontSize: 12 }}>
+          <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
+          {`include ${links.filter((l) => l.status === 'target_not_loaded').length} to sheets not loaded`}
+        </label>
+      </div>
+      <table className="w-full" style={{ borderCollapse: 'collapse', fontSize: 12 }}>
+        <tbody>
+          {shown.map((l, i) => (
+            <tr key={i}>
+              <td style={{ ...td, width: 150 }}>
+                <span title={LINK_LABEL[l.status].hint}>
+                  <Tag tone={LINK_LABEL[l.status].tone}>{LINK_LABEL[l.status].text}</Tag>
+                </span>
+              </td>
+              <td style={td}>{side(l.from)}</td>
+              <td style={{ ...td, width: 24, color: 'var(--muted)' }}>↔</td>
+              <td style={td}>
+                {l.to
+                  ? side(l.to)
+                  : l.status === 'target_not_loaded'
+                    ? `ref ${l.ref}${l.possible_target?.length ? ` — possibly ${l.possible_target.join(', ')} (series misread?)` : ''}`
+                    : `toward ${l.toward}${l.candidates?.length ? `; candidates ${l.candidates.join(', ')}` : ''}`}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
   )
 }
 

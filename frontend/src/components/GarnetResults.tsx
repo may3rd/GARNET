@@ -42,7 +42,7 @@ type TestSystem = {
   equipment: { id: string; tag?: string; class_name?: string; trace_id: string; role: string }[]
   inline_objects: TsMember[]
   instruments: TsMember[]
-  boundaries: { id: string; type: string; trace_id: string; role: string }[]
+  boundaries: { id: string; type: string; trace_id: string; role: string; text?: string }[]
   flow_arrow_count: number
 }
 type TestSystems = {
@@ -1945,7 +1945,7 @@ function SystemDetail({ sysm }: { sysm: TestSystem }) {
       {section('Equipment', sysm.equipment.map((e) => line(e.id, e.tag ?? e.id, e.class_name, e.role, `via ${e.trace_id}`)))}
       {section('Inline objects', sysm.inline_objects.map((o) => line(o.id, o.id, o.class_name, o.text || undefined)))}
       {section('Instruments', sysm.instruments.map((o) => line(o.id, o.text || `(no text) ${o.id}`, o.class_name)))}
-      {section('Boundaries', sysm.boundaries.map((b) => line(b.id, b.id, b.type, b.role)))}
+      {section('Boundaries', sysm.boundaries.map((b) => line(b.id, b.id, b.type, b.role, b.text ? `"${b.text}"` : undefined)))}
       <div style={{ color: 'var(--muted)' }}>{`${sysm.flow_arrow_count} flow arrow(s) on these sections`}</div>
     </div>
   )

@@ -275,8 +275,9 @@ class TestGarnetJobs(unittest.TestCase):
                 "equipment_json": ("e.json", (INPUT / f"{stem}_{eq}.json").read_bytes()),
                 "line_numbers_json": ("l.json", (INPUT / f"{stem}_line_numbers.json").read_bytes()),
             }
+            # OCR on: connector text (the drawing each one continues on) is what pairs them.
             return client.post("/api/garnet/jobs", files=files,
-                               data={"pause_at_gates": "false", "ocr_instruments": "false"}).json()["id"]
+                               data={"pause_at_gates": "false", "ocr_instruments": "true"}).json()["id"]
 
         ids = [run(STEM, "equipment_bboxes"), run("14780-8120-25-25-0003", "equipment_bboxes")]
         deadline = time.time() + 900
@@ -303,6 +304,23 @@ class TestGarnetJobs(unittest.TestCase):
         txt = client.get("/api/garnet/merge/test_systems.txt", params={"jobs": ",".join(ids)}).text
         self.assertIn('4"-CUL-25-002007-B1A2-NI   <MULTI-SHEET', txt)
         self.assertEqual(client.get("/api/garnet/merge/test_systems.json").status_code, 400)
+
+        # Off-page connectors: 0002A's obj_000200 reads 25-0003, 0003's obj_000142 reads 25-0002A, and
+        # both sit on 4"-CUL-25-002007 -> a pair confirmed by line number.
+        a, b = f"{STEM}.jpg", "14780-8120-25-25-0003.jpg"
+        pairs = {(lk["from"]["sheet"], lk["from"]["connector"], lk["to"]["sheet"], lk["to"]["connector"]): lk
+                 for lk in m["connector_links"] if lk["to"]}
+        lk = pairs.get((a, "obj_000200", b, "obj_000142")) or pairs.get((b, "obj_000142", a, "obj_000200"))
+        self.assertIsNotNone(lk, m["connector_links"])
+        self.assertEqual(lk["status"], "matched_by_line_number")
+        self.assertEqual(lk["line_numbers"], ['4"-CUL-25-002007-B1A2-NI'])
+        self.assertIn({"status": "matched_by_line_number", "from": f"{lk['from']['sheet']}:{lk['from']['connector']}",
+                       "to": f"{lk['to']['sheet']}:{lk['to']['connector']}"}, shared["connector_links"])
+        self.assertFalse(shared["continuation_missing"])
+        # 26-0003 is one character off 25-0003: reported, pointed at, never linked.
+        stray = [lk for lk in m["connector_links"] if lk["status"] == "target_not_loaded" and lk["ref"] == "26-0003"]
+        self.assertTrue(stray and stray[0]["possible_target"] == [b], m["connector_links"])
+        self.assertIn("OFF-PAGE CONNECTOR LINKS", txt)
 
     def test_bad_json_rejected_before_staging(self):
         client = TestClient(app)

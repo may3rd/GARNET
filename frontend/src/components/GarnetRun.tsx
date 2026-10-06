@@ -285,8 +285,8 @@ export function GarnetRun() {
           onChange={(reviewLlm) => setConfig({ reviewLlm })}
         />
         <Toggle
-          label="OCR instrument tags"
-          description="EasyOCR on instrument bubbles that have no text. Existing text is never overwritten."
+          label="OCR instrument tags and off-page connectors"
+          description="EasyOCR on instrument bubbles and connectors that have no text. Connector text (e.g. 25-0003) is what links sheets. Existing text is never overwritten."
           checked={config.ocrInstruments}
           onChange={(ocrInstruments) => setConfig({ ocrInstruments })}
         />
