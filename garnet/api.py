@@ -692,6 +692,112 @@ def _write_reviewed(job_dir: Path) -> None:
     stage6["edits_version"] = edits["version"]
     stage6["gate3_confirmed"] = "3" in _read_gates(job_dir)
     (job_dir / "out" / "reviewed_associations.json").write_text(json.dumps(stage6, indent=2, ensure_ascii=False))
+    _write_test_systems(job_dir, stage6)
+
+
+TEST_SYSTEMS_VERSION = 1
+BOUNDARY_TYPES = {"page connection", "utility connection", "equipment"}
+
+
+def _write_test_systems(job_dir: Path, reviewed: dict) -> None:
+    """One test system per line number: the traces carrying it and everything on them.
+
+    Membership is DIRECT only: a trace belongs to a system when an accepted line number is
+    attached to it. Nothing is propagated across tees to unlabelled traces; those are listed in
+    `unassigned_traces` for review. A trace carrying two different line numbers is put in both
+    systems with `conflict: true` and listed under `conflicts` — never resolved by guessing.
+    Line-number text is used exactly as reviewed; a label with no text gets its own system keyed
+    `(no text) <id>` with `no_text: true`.
+    """
+    out = job_dir / "out"
+    eq_path = out / "stage3_equipment_bboxes.json"
+    equipment = {e["id"]: e for e in json.loads(eq_path.read_text()).get("equipment", [])} if eq_path.is_file() else {}
+    edges = {e["trace_id"]: e for e in reviewed["trace_edges"]}
+    assoc = reviewed["associations"]
+
+    def on_trace(group: str) -> dict[str, list[dict]]:
+        by: dict[str, list[dict]] = {}
+        for it in assoc.get(group, {}).get("accepted", []):
+            if it.get("trace_id"):
+                by.setdefault(it["trace_id"], []).append(it)
+        return by
+
+    inline, instruments, arrows = on_trace("inline_objects"), on_trace("instrument_tags"), on_trace("flow_arrows")
+
+    systems: dict[str, dict] = {}
+    labels_on: dict[str, set[str]] = {}
+    for ln in assoc["line_numbers"]["accepted"]:
+        text = str(ln.get("text") or "").strip()
+        key = text or f"(no text) {ln['id']}"
+        sysm = systems.setdefault(key, {"line_number": key, "no_text": not text, "labels": [], "trace_ids": set()})
+        sysm["labels"].append({"id": ln["id"], "bbox": ln.get("bbox"), "trace_id": ln.get("trace_id"),
+                               "review_source": ln.get("review_source"), "trace_assignment": ln.get("trace_assignment")})
+        if ln.get("trace_id") in edges:
+            sysm["trace_ids"].add(ln["trace_id"])
+            # A textless label cannot contradict a read one, so it never makes a conflict.
+            if text:
+                labels_on.setdefault(ln["trace_id"], set()).add(key)
+
+    conflicts = {t: sorted(keys) for t, keys in labels_on.items() if len(keys) > 1}
+
+    def obj_row(it: dict) -> dict:
+        return {"id": it.get("source_object_id") or it["id"], "class_name": it.get("class_name"),
+                "text": it.get("text", ""), "trace_id": it["trace_id"], "bbox": it.get("bbox")}
+
+    def equipment_row(eid: str, trace_id: str, role: str, edge: dict) -> dict:
+        e = equipment.get(eid, {})
+        port = edge.get("port") if role == "source" else None
+        return {"id": eid, "tag": e.get("tag"), "class_name": e.get("class_name"),
+                "trace_id": trace_id, "role": role, "port": port}
+
+    result = []
+    for key in sorted(systems):
+        sysm = systems[key]
+        traces, members = [], {"inline_objects": {}, "instruments": {}, "equipment": {}, "boundaries": {}}
+        n_arrows = 0
+        for tid in sorted(sysm["trace_ids"]):
+            edge = edges[tid]
+            traces.append({"trace_id": tid, "trace_kind": edge.get("trace_kind"),
+                           "source_obj_id": edge.get("source_obj_id"), "source_obj_type": edge.get("source_obj_type"),
+                           "terminal_type": edge.get("terminal_type"), "terminal_obj_id": edge.get("terminal_obj_id"),
+                           "conflict": tid in conflicts, "conflict_with": [k for k in conflicts.get(tid, []) if k != key]})
+            for it in inline.get(tid, []):
+                members["inline_objects"].setdefault(obj_row(it)["id"], obj_row(it))
+            for it in instruments.get(tid, []):
+                members["instruments"].setdefault(obj_row(it)["id"], obj_row(it))
+            n_arrows += len(arrows.get(tid, []))
+            for role, oid, otype in (("source", edge.get("source_obj_id"), edge.get("source_obj_type")),
+                                     ("terminal", edge.get("terminal_obj_id"), edge.get("terminal_type"))):
+                if not oid:
+                    continue
+                if str(oid).startswith("equip_"):
+                    members["equipment"].setdefault(oid, equipment_row(oid, tid, role, edge))
+                elif otype in BOUNDARY_TYPES:
+                    members["boundaries"].setdefault(oid, {"id": oid, "type": otype, "trace_id": tid, "role": role})
+        result.append({
+            "line_number": key,
+            "no_text": sysm["no_text"],
+            "labels": sysm["labels"],
+            "traces": traces,
+            "has_conflict": any(t["conflict"] for t in traces),
+            "equipment": sorted(members["equipment"].values(), key=lambda r: r["id"]),
+            "inline_objects": sorted(members["inline_objects"].values(), key=lambda r: r["id"]),
+            "instruments": sorted(members["instruments"].values(), key=lambda r: r["id"]),
+            "boundaries": sorted(members["boundaries"].values(), key=lambda r: r["id"]),
+            "flow_arrow_count": n_arrows,
+        })
+
+    payload = {
+        "version": TEST_SYSTEMS_VERSION,
+        "source": "reviewed_associations.json",
+        "edits_version": reviewed.get("edits_version"),
+        "gate3_confirmed": reviewed.get("gate3_confirmed"),
+        "rule": "direct: a trace belongs to the systems of the accepted line numbers attached to it",
+        "systems": result,
+        "conflicts": [{"trace_id": t, "line_numbers": k} for t, k in sorted(conflicts.items())],
+        "unassigned_traces": sorted(set(edges) - {t for v in systems.values() for t in v["trace_ids"]}),
+    }
+    (out / "test_systems.json").write_text(json.dumps(payload, indent=2, ensure_ascii=False))
 
 
 def _check_reassign(job_dir: Path, reassigned: dict[str, str], decisions: dict[str, str]) -> None:

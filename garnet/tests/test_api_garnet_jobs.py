@@ -34,6 +34,22 @@ class TestGarnetJobs(unittest.TestCase):
         self.assertEqual(job["status"], "completed", job)
         names = {a["name"] for a in job["artifacts"]}
         self.assertIn("out/stage6_trace_associations.json", names)
+
+        # Test systems: every accepted line number lands in a system; traces with two different
+        # read line numbers are flagged, not silently given to one.
+        ts = client.get(f"/runs/jobs/{job['id']}/out/test_systems.json").json()
+        reviewed = client.get(f"/runs/jobs/{job['id']}/out/reviewed_associations.json").json()
+        accepted = reviewed["associations"]["line_numbers"]["accepted"]
+        in_systems = {lab["id"] for sysm in ts["systems"] for lab in sysm["labels"]}
+        self.assertEqual(in_systems, {ln["id"] for ln in accepted})
+        conflict_traces = {c["trace_id"] for c in ts["conflicts"]}
+        self.assertIn("obj_000197", conflict_traces)  # 3"-CUL-25-002008 and 2"-NAS-25-003004 on one trace
+        for c in ts["conflicts"]:
+            self.assertGreaterEqual(len(c["line_numbers"]), 2)
+            self.assertFalse(any(k.startswith("(no text)") for k in c["line_numbers"]))
+        assigned = {t["trace_id"] for sysm in ts["systems"] for t in sysm["traces"]}
+        self.assertEqual(set(ts["unassigned_traces"]) & assigned, set())
+        self.assertEqual(set(ts["unassigned_traces"]) | assigned, {e["trace_id"] for e in reviewed["trace_edges"]})
         # Artifact URLs are served by the /runs static mount.
         overlay = next(a for a in job["artifacts"] if a["name"] == "out/stage5b_trace_overlay.png")
         self.assertEqual(client.get(overlay["url"]).status_code, 200)

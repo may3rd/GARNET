@@ -31,9 +31,30 @@ type Equipment = {
   Bounding_box_px: BBox
   Ports?: Port[]
 }
+type TsMember = { id: string; class_name?: string; text?: string; trace_id: string; bbox?: BBox }
+type TestSystem = {
+  line_number: string
+  no_text: boolean
+  labels: { id: string; bbox?: BBox; trace_id: string }[]
+  traces: { trace_id: string; trace_kind?: string; terminal_type?: string; conflict: boolean; conflict_with: string[] }[]
+  has_conflict: boolean
+  equipment: { id: string; tag?: string; class_name?: string; trace_id: string; role: string }[]
+  inline_objects: TsMember[]
+  instruments: TsMember[]
+  boundaries: { id: string; type: string; trace_id: string; role: string }[]
+  flow_arrow_count: number
+}
+type TestSystems = {
+  systems: TestSystem[]
+  conflicts: { trace_id: string; line_numbers: string[] }[]
+  unassigned_traces: string[]
+}
 type Segment = { x1: number; y1: number; x2: number; y2: number; length_px?: number }
 type Trace = { id: string; kind: 'port' | 'branch'; terminal_type?: string; segments: Segment[]; bbox: BBox }
 type Data = {
+  /** out/test_systems.json — present once Stage 6 has run. */
+  testSystems: TestSystems | null
+  testSystemsUrl?: string
   traces: Trace[]
   imageUrl: string
   width: number
@@ -46,8 +67,9 @@ type Data = {
   /** Traces Stage 6 associated against (Gate 2 rejections excluded): the valid reassign targets. */
   stage6TraceIds: Set<string>
 }
-type Tab = 'objects' | 'traces' | 'lineNumbers' | 'equipment' | 'instruments'
+type Tab = 'testSystems' | 'objects' | 'traces' | 'lineNumbers' | 'equipment' | 'instruments'
 const TABS: { key: Tab; label: string }[] = [
+  { key: 'testSystems', label: 'Test systems' },
   { key: 'objects', label: 'Objects' },
   { key: 'traces', label: 'Traces' },
   { key: 'lineNumbers', label: 'Line numbers' },
@@ -58,7 +80,7 @@ const TABS: { key: Tab; label: string }[] = [
 const GATE_TABS: Record<GarnetGate, Tab[]> = {
   1: ['objects', 'equipment'],
   2: ['traces', 'objects', 'equipment'],
-  3: ['lineNumbers', 'instruments', 'traces'],
+  3: ['lineNumbers', 'instruments', 'traces', 'testSystems'],
 }
 const GATE_COPY: Record<GarnetGate, { title: string; hint: string }> = {
   1: { title: 'Gate 1 · Objects', hint: 'Reject false detections and fix tag text. Rejected objects are not traced.' },
@@ -90,7 +112,7 @@ async function loadData(job: GarnetJob): Promise<Data> {
   const branchFile = url(job, 'out/stage5c_branch_trace_results.json')
     ? 'out/stage5c_branch_trace_results.json'
     : 'out/stage5b_branch_trace_results.json'
-  const [objects, equipment, stage6, portTraces, branches] = await Promise.all([
+  const [objects, equipment, stage6, portTraces, branches, testSystems] = await Promise.all([
     json<{ objects: Obj[] }>(job, objectsFile),
     json<{ objects: Equipment[] }>(job, 'input/sheet_equipment_bboxes.json'),
     json<{
@@ -100,6 +122,7 @@ async function loadData(job: GarnetJob): Promise<Data> {
     }>(job, 'out/stage6_trace_associations.json'),
     json<Record<string, { terminal_type?: string; segments?: Segment[] }>>(job, 'out/stage5b_trace_results.json'),
     json<{ branches: Record<string, { terminal_type?: string; segments?: Segment[] }> }>(job, branchFile),
+    json<TestSystems>(job, 'out/test_systems.json'),
   ])
   const traces: Trace[] = [
     ...Object.entries(portTraces ?? {}).map(([id, t]) => ({ id, kind: 'port' as const, ...t })),
@@ -119,6 +142,8 @@ async function loadData(job: GarnetJob): Promise<Data> {
     ]
   }
   return {
+    testSystems,
+    testSystemsUrl: url(job, 'out/test_systems.json'),
     traces,
     imageUrl,
     width: img.naturalWidth,
@@ -269,7 +294,7 @@ export function GarnetResults() {
     setAdded([])
     setAddMode(false)
     setSelected(null)
-    setTab(gate ? GATE_TABS[gate][0] : 'objects')
+    setTab(gate ? GATE_TABS[gate][0] : 'testSystems')
     loadData(job)
       .then((d) => live && setData(d))
       .catch((e) => live && setError(e instanceof Error ? e.message : String(e)))
@@ -335,6 +360,8 @@ export function GarnetResults() {
   }
   /** Canvas selection; while picking, a click on a pipe completes the reassignment instead. */
   const onCanvasSelect = (id: string | null) => {
+    // On the systems tab the canvas shows one system; clicks inside it must not drop the selection.
+    if (tab === 'testSystems') return
     if (picking) {
       if (id?.startsWith('trace:') && selected) reassign(selected, id.slice('trace:'.length))
       setPicking(false)
@@ -355,20 +382,45 @@ export function GarnetResults() {
 
   const traceById = useMemo(() => new Map((data?.traces ?? []).map((t) => [t.id, t])), [data])
   // The selected label's trace: shown on the line-number and instrument tabs.
+  const system = tab === 'testSystems' ? data?.testSystems?.systems.find((x) => x.line_number === selected) : undefined
   const highlight = useMemo(() => {
+    if (system) {
+      // Every pipe section of the system, as one highlight.
+      return { segments: system.traces.flatMap((t) => traceById.get(t.trace_id)?.segments ?? []) }
+    }
     if (!data || (tab !== 'lineNumbers' && tab !== 'instruments')) return null
     const a = (tab === 'lineNumbers' ? data.lineNumbers : data.instruments).find((x) => x.id === selected)
     const tid = a ? traceOf(a) : null
     const t = tid ? traceById.get(tid) : undefined
     // A reassigned label has no projected point on its new trace; don't show the old one.
     return t ? { segments: t.segments, point: a && reassigned[a.id] ? undefined : a!.projected_xy } : null
-  }, [data, tab, selected, traceById, reassigned]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, tab, selected, traceById, reassigned, system]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const boxes: Box[] = useMemo(() => {
     if (!data || !view) return []
     const statusColor = (a: Assoc) =>
       (reassigned[a.id] ? 'accepted' : (decisions[a.id] ?? a.status)) === 'accepted' ? 'hsl(140 70% 40%)' : 'hsl(30 95% 50%)'
     switch (tab) {
+      case 'testSystems': {
+        if (!system) return []
+        const boxesOf = (rows: { id: string; bbox?: BBox }[], color: string): Box[] =>
+          rows.filter((r) => r.bbox).map((r) => ({ id: `m:${r.id}`, bbox: r.bbox!, color }))
+        const eqTags = new Set(system.equipment.map((e) => e.tag).filter(Boolean))
+        const members = [
+          ...boxesOf(system.labels, 'hsl(140 70% 35%)'),
+          ...boxesOf(system.inline_objects, 'hsl(25 95% 50%)'),
+          ...boxesOf(system.instruments, 'hsl(212 100% 48%)'),
+          ...data.equipment
+            .filter((e) => e.Tag && eqTags.has(e.Tag))
+            .map((e) => ({ id: `m:eq:${e.Index}`, bbox: e.Bounding_box_px, color: 'hsl(265 70% 55%)', label: e.Tag })),
+        ]
+        const traceBoxes = system.traces.map((t) => traceById.get(t.trace_id)?.bbox).filter(Boolean) as BBox[]
+        const all = [...traceBoxes, ...members.map((m) => m.bbox)]
+        if (all.length === 0) return members
+        // Invisible anchor carrying the system's id, so selecting it frames the whole system.
+        const frame = all.reduce(union)
+        return [{ id: system.line_number, bbox: frame, color: 'transparent', focus: frame }, ...members]
+      }
       case 'objects':
         return view.objects
           .filter((o) => !hidden.has(o.class_name))
@@ -416,7 +468,7 @@ export function GarnetResults() {
           points: (e.Ports ?? []).map((p) => ({ x: p.point_px[0], y: p.point_px[1], label: p.mark })),
         }))
     }
-  }, [data, view, tab, hidden, draft, saved, rejected, decisions, traceById, reassigned, picking]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, view, tab, hidden, draft, saved, rejected, decisions, traceById, reassigned, picking, system]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!job) {
     return (
@@ -616,6 +668,9 @@ export function GarnetResults() {
               />
             )}
             {tab === 'instruments' && <AssocTable edits={edits} decisions={{}} rows={data.instruments} selected={selected} onSelect={setSelected} showClass />}
+            {tab === 'testSystems' && (
+              <TestSystemsPanel data={data} selected={selected} onSelect={setSelected} />
+            )}
             {tab === 'traces' && (
               <TracesTable
                 rows={data.traces}
@@ -635,7 +690,7 @@ export function GarnetResults() {
 }
 
 function tabCount(d: Data, t: Tab) {
-  return { objects: d.objects.length, traces: d.traces.length, lineNumbers: d.lineNumbers.length, equipment: d.equipment.length, instruments: d.instruments.length }[t]
+  return { testSystems: d.testSystems?.systems.length ?? 0, objects: d.objects.length, traces: d.traces.length, lineNumbers: d.lineNumbers.length, equipment: d.equipment.length, instruments: d.instruments.length }[t]
 }
 
 /** Fit-to-view scale for the raster in a viewport of size `vw`×`vh`. */
@@ -909,6 +964,8 @@ function Overlay({
                 </g>
               )}
               {boxes.map((b) => {
+                // A transparent box is a jump anchor only (a test system's frame): never drawn.
+                if (b.color === 'transparent') return null
                 const on = b.id === selected
                 const { x_min, y_min, x_max, y_max } = live?.id === b.id ? live.bbox : b.bbox
                 return (
@@ -1373,5 +1430,95 @@ function ClassInput({ id, value, onCommit }: { id: string; value: string; onComm
       onKeyDown={(e) => e.stopPropagation()}
       style={{ width: 160, font: 'inherit', padding: '2px 6px', border: '1px solid var(--accent)', borderRadius: 4, background: 'var(--surface)' }}
     />
+  )
+}
+
+function TestSystemsPanel({
+  data,
+  selected,
+  onSelect,
+}: {
+  data: Data
+  selected: string | null
+  onSelect: (key: string) => void
+}) {
+  const ts = data.testSystems
+  if (!ts) {
+    return <div className="p-3" style={{ fontSize: 12, color: 'var(--muted)' }}>Test systems are built after Stage 6 runs.</div>
+  }
+  const current = ts.systems.find((x) => x.line_number === selected)
+  const tags = (sysm: TestSystem) => [...new Set(sysm.equipment.map((e) => e.tag ?? e.id))].join(', ')
+  return (
+    <div style={{ fontSize: 12 }}>
+      <div className="flex flex-wrap items-center gap-2 p-3">
+        <Tag tone="accent">{`${ts.systems.length} systems`}</Tag>
+        {ts.conflicts.length > 0 && <Tag tone="warning">{`${ts.conflicts.length} conflicting trace(s)`}</Tag>}
+        <span title={ts.unassigned_traces.join(', ')}>
+          <Tag>{`${ts.unassigned_traces.length} trace(s) in no system`}</Tag>
+        </span>
+        {data.testSystemsUrl && (
+          <a href={data.testSystemsUrl} target="_blank" rel="noreferrer" className="mono" style={{ marginLeft: 'auto' }}>
+            test_systems.json
+          </a>
+        )}
+      </div>
+      <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            <th style={th}>line number</th>
+            <th style={th}>traces</th>
+            <th style={th}>equipment</th>
+            <th style={th}>inline</th>
+            <th style={th}>instr.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ts.systems.map((sysm) => (
+            <tr key={sysm.line_number} style={rowStyle(sysm.line_number === selected)} onClick={() => onSelect(sysm.line_number)}>
+              <td style={td} className="mono">
+                <span style={sysm.no_text ? { color: 'var(--muted)' } : undefined}>{sysm.line_number}</span>
+                {sysm.has_conflict && (
+                  <span title="A trace here also carries another line number" style={{ marginLeft: 6 }}>
+                    <Tag tone="warning">conflict</Tag>
+                  </span>
+                )}
+              </td>
+              <td style={td} className="mono">{sysm.traces.length}</td>
+              <td style={td} className="mono">{tags(sysm) || '—'}</td>
+              <td style={td} className="mono">{sysm.inline_objects.length}</td>
+              <td style={td} className="mono">{sysm.instruments.length}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {current && <SystemDetail sysm={current} />}
+    </div>
+  )
+}
+
+function SystemDetail({ sysm }: { sysm: TestSystem }) {
+  const section = (title: string, rows: React.ReactNode[]) => (
+    <div className="flex flex-col gap-1">
+      <div style={{ fontWeight: 600 }}>{`${title} · ${rows.length}`}</div>
+      {rows.length ? rows : <span style={{ color: 'var(--muted)' }}>—</span>}
+    </div>
+  )
+  const line = (key: string, ...cells: (string | undefined)[]) => (
+    <div key={key} className="mono" style={{ whiteSpace: 'nowrap' }}>
+      {cells.filter(Boolean).join('  ·  ')}
+    </div>
+  )
+  return (
+    <div className="flex flex-col gap-3 p-3" style={{ borderTop: '1px solid var(--separator)' }}>
+      <div className="mono" style={{ fontWeight: 600, fontSize: 13 }}>{sysm.line_number}</div>
+      {section('Pipe sections', sysm.traces.map((t) =>
+        line(t.trace_id, t.trace_id, t.trace_kind, t.terminal_type ? `→ ${t.terminal_type}` : undefined,
+          t.conflict ? `CONFLICT with ${t.conflict_with.join(', ')}` : undefined)))}
+      {section('Equipment', sysm.equipment.map((e) => line(e.id, e.tag ?? e.id, e.class_name, e.role, `via ${e.trace_id}`)))}
+      {section('Inline objects', sysm.inline_objects.map((o) => line(o.id, o.id, o.class_name, o.text || undefined)))}
+      {section('Instruments', sysm.instruments.map((o) => line(o.id, o.text || `(no text) ${o.id}`, o.class_name)))}
+      {section('Boundaries', sysm.boundaries.map((b) => line(b.id, b.id, b.type, b.role)))}
+      <div style={{ color: 'var(--muted)' }}>{`${sysm.flow_arrow_count} flow arrow(s) on these sections`}</div>
+    </div>
   )
 }
