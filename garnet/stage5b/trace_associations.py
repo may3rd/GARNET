@@ -633,6 +633,7 @@ def build_trace_associations(
     image_bgr: Any = None,
     flow_arrow_raster_confidence_threshold: float = 0.70,
     flow_arrow_raster_asymmetry_threshold: float = 0.15,
+    branch_source: str | None = "stage5b_branch_trace_results.json",
 ) -> dict[str, Any]:
     objects_by_id = {str(obj.get("id", "")): obj for obj in objects}
     edges = load_stage5b_trace_edges(trace_payload, branch_payload, objects_by_id)
@@ -809,10 +810,17 @@ def build_trace_associations(
         associations["terminals"]["accepted"].append(association)
         _add_attachment(edges_by_id, edge["trace_id"], "terminals", association)
 
+    # Stage 5c marks a run absorbed into another as "merged" (with merged_into). It is
+    # resolved, not skipped, so it gets its own list instead of inflating the skip count.
     skipped_branches = [
         {"id": branch_id, **branch}
         for branch_id, branch in branch_payload.get("branches", {}).items()
-        if branch.get("status") != "traced"
+        if branch.get("status") not in ("traced", "merged")
+    ]
+    merged_branches = [
+        {"id": branch_id, **branch}
+        for branch_id, branch in branch_payload.get("branches", {}).items()
+        if branch.get("status") == "merged"
     ]
     # Missing line numbers are unresolved evidence.  The former deterministic
     # HITL stand-in assigned an arbitrary accepted label to connector traces,
@@ -839,8 +847,10 @@ def build_trace_associations(
     payload = {
         "image_id": image_id,
         "trace_source": "stage5b",
+        "branch_source": branch_source,
         "trace_edges": edges,
         "associations": associations,
+        "merged_branches": merged_branches,
         "unresolved": {
             "skipped_branches": skipped_branches,
             "traces_without_line_number": traces_without_line_number,
@@ -854,7 +864,9 @@ def build_trace_associations(
         "trace_edge_count": len(edges),
         "port_trace_count": len([edge for edge in edges if edge.get("trace_kind") == "port"]),
         "branch_trace_count": len([edge for edge in edges if edge.get("trace_kind") == "branch"]),
+        "branch_source": branch_source,
         "skipped_branch_count": len(skipped_branches),
+        "merged_branch_count": len(merged_branches),
         "dead_end_trace_count": len(dead_end_traces),
         "trace_without_line_number_count": len(traces_without_line_number),
         "accepted_counts": {
