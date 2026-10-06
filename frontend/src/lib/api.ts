@@ -637,3 +637,37 @@ export async function exportResultsToExcel(
 
   return response.blob()
 }
+
+// --- garnet/ extraction path (garnet/api.py) --------------------------------
+
+export type GarnetStepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
+
+export type GarnetJob = {
+  id: string
+  status: 'queued' | 'running' | 'completed' | 'failed'
+  error: string | null
+  steps: { name: string; status: GarnetStepStatus; note: string; log: string }[]
+  artifacts: { name: string; url: string }[]
+}
+
+/** Fixture JSONs the user already has. Any one supplied skips its ML step. */
+export type GarnetInputs = { objects?: File; equipment?: File; lineNumbers?: File }
+
+export async function startGarnetJob(
+  file: File,
+  inputs: GarnetInputs,
+  options: { reviewLlm: boolean; weightFile: string }
+): Promise<GarnetJob> {
+  const form = new FormData()
+  form.append('file_input', file)
+  if (inputs.objects) form.append('objects_json', inputs.objects)
+  if (inputs.equipment) form.append('equipment_json', inputs.equipment)
+  if (inputs.lineNumbers) form.append('line_numbers_json', inputs.lineNumbers)
+  form.append('review_llm', String(options.reviewLlm))
+  form.append('weight_file', options.weightFile)
+  return requestJson<GarnetJob>('/api/garnet/jobs', { method: 'POST', body: form }, DEFAULT_TIMEOUT)
+}
+
+export async function getGarnetJob(jobId: string): Promise<GarnetJob> {
+  return requestJson<GarnetJob>(`/api/garnet/jobs/${jobId}`, undefined, PIPELINE_POLL_TIMEOUT)
+}

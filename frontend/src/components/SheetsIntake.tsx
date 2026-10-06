@@ -3,7 +3,7 @@ import { Button } from '@heroui/react'
 import { ArrowRight, Eye, FileUp, Trash2, Upload, X } from 'lucide-react'
 import { Card, PageHeader, SectionHeader, Tag } from '@/components/ui/primitives'
 import { controlHeight, useWidth } from '@/lib/responsive'
-import { useRunStore, type Sheet } from '@/stores/runStore'
+import { TASK_LABEL, useRunStore, type Sheet } from '@/stores/runStore'
 
 /** Column widths are the artboard's: 300/130/130/120/300/110/108. */
 const COLS = [
@@ -298,9 +298,9 @@ export function SheetsIntake() {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Tag tone="accent">
-                      {sheet.task === 'extraction' ? 'Extraction' : 'Detection'}
+                      {TASK_LABEL[sheet.task]}
                     </Tag>
-                    {sheet.task !== 'detection' && <Tag>{sheet.ocrRoute}</Tag>}
+                    {sheet.task === 'extraction' && <Tag>{sheet.ocrRoute}</Tag>}
                     <span className="mono" style={{ fontSize: 11.5, color: 'var(--muted)' }}>
                       {sheet.size ? `${sheet.size.width} × ${sheet.size.height}` : '—'}
                     </span>
@@ -381,12 +381,12 @@ export function SheetsIntake() {
                   </Cell>
                   <Cell width={130}>
                     <Tag tone="accent">
-                      {sheet.task === 'extraction' ? 'Extraction' : 'Detection'}
+                      {TASK_LABEL[sheet.task]}
                     </Tag>
                   </Cell>
                   <Cell width={120}>
                     <span style={{ fontSize: 13, color: 'var(--muted)' }}>
-                      {sheet.task === 'detection' ? '—' : sheet.ocrRoute}
+                      {sheet.task === 'extraction' ? sheet.ocrRoute : '—'}
                     </span>
                   </Cell>
                   <Cell width={300}>

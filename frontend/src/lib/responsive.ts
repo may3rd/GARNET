@@ -33,6 +33,7 @@ const AVAILABILITY: Record<Screen, Record<Width, Availability>> = {
   task: { phone: 'full', tablet: 'full', desktop: 'full' },
   detection: { phone: 'not-offered', tablet: 'read-only', desktop: 'full' },
   run: { phone: 'full', tablet: 'full', desktop: 'full' },
+  garnet: { phone: 'full', tablet: 'full', desktop: 'full' },
   // The review queue itself is a set of decisions, which a phone can make.
   // The per-gate drawing surfaces are stricter; they carry their own gate.
   review: { phone: 'full', tablet: 'full', desktop: 'full' },

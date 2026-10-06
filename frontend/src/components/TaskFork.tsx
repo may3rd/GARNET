@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Button } from '@heroui/react'
-import { ArrowLeft, ArrowRight, Check, ScanSearch, Workflow } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Route, ScanSearch, Workflow } from 'lucide-react'
 import {
   Card,
   IconTile,
@@ -164,7 +164,7 @@ export function TaskFork() {
   const onContinue = async () => {
     // Follow the chosen task: detection has its own results screen and never
     // goes through the run monitor, which is extraction's stage tracker.
-    setScreen(task === 'detection' ? 'detection' : 'run')
+    setScreen(task === 'detection' ? 'detection' : task === 'garnet' ? 'garnet' : 'run')
     void startRun()
   }
 
@@ -232,6 +232,24 @@ export function TaskFork() {
           ]}
           timing="~8 min per sheet + review"
           gates={{ label: '4 human gates', tone: 'warning' }}
+        />
+        <TaskCard
+          fixedHeight={!isPhone}
+          task="garnet"
+          selected={task === 'garnet'}
+          onSelect={() => setTask('garnet')}
+          icon={<Route size={20} strokeWidth={1.5} />}
+          title="GARNET trace"
+          endpoint="POST /api/garnet/jobs"
+          blurb="The current garnet/ chain: symbols, equipment and line numbers, then pipe tracing, the review gate and Stage 6 associations. Upload any JSON you already have to skip its ML step."
+          bullets={[
+            'Upload objects / equipment / line-number JSON per sheet',
+            'Uploaded JSON skips YOLO or the equipment LLM',
+            'Trace overlays and Stage 6 associations per sheet',
+            'No graph or line list — garnet/ does not build them yet',
+          ]}
+          timing="~15 s per sheet with JSON"
+          gates={{ label: 'no gates', tone: 'success' }}
         />
       </div>
 

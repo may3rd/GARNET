@@ -1,6 +1,7 @@
 import { AppShell } from '@/components/AppShell'
 import { SheetsIntake } from '@/components/SheetsIntake'
 import { TaskFork } from '@/components/TaskFork'
+import { GarnetRun } from '@/components/GarnetRun'
 import { DetectionResults } from '@/components/DetectionResults'
 import { ExportsView, NotBuilt, ReviewQueue, RunMonitor } from '@/components/screens'
 import { useRunStore } from '@/stores/runStore'
@@ -14,6 +15,7 @@ export default function App() {
       {screen === 'sheets' && <SheetsIntake />}
       {screen === 'task' && <TaskFork />}
       {screen === 'run' && <RunMonitor />}
+      {screen === 'garnet' && <GarnetRun />}
       {screen === 'review' && <ReviewQueue />}
       {screen === 'exports' && <ExportsView />}
       {screen === 'detection' && <DetectionResults />}

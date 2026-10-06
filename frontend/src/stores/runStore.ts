@@ -4,11 +4,15 @@ import {
   createResultObject,
   deleteResultObject,
   extractPdfPages,
+  getGarnetJob,
   getPipelineJob,
   getWeightFiles,
   getPipelineStageStatus,
   resumePipelineFromStage,
   runDetection as runDetectionApi,
+  startGarnetJob,
+  type GarnetInputs,
+  type GarnetJob,
   startPipelineJob,
   updateResultObject,
 } from '@/lib/api'
@@ -16,7 +20,14 @@ import { activeGate, firstLegStopAfter, GATES, humanStage, runPercent, type Gate
 import type { Screen } from '@/lib/nav'
 import type { DetectedObject, DetectionResult, OcrRoute, PipelineJob, PipelineStageManifest } from '@/types'
 
-export type TaskKind = 'detection' | 'extraction'
+/** `garnet` is the garnet/ chain (garnet/api.py); `extraction` is backend/'s pipeline. */
+export type TaskKind = 'detection' | 'extraction' | 'garnet'
+
+export const TASK_LABEL: Record<TaskKind, string> = {
+  detection: 'Detection',
+  extraction: 'Extraction',
+  garnet: 'GARNET trace',
+}
 
 /**
  * One sheet is one job. `POST /api/pipeline/jobs` takes a single file, so a
@@ -40,6 +51,9 @@ export type Sheet = {
   error: string | null
   /** Detection-task result. Held per sheet so each keeps its own boxes. */
   detection: DetectionResult | null
+  /** garnet task: JSONs the user supplied instead of running the ML step. */
+  garnetInputs: GarnetInputs
+  garnet: GarnetJob | null
 }
 
 export type RunConfig = {
@@ -59,6 +73,8 @@ export type RunConfig = {
   imageSize: number
   overlapRatio: number
   textOCR: boolean
+  /** garnet task: let the review gate call the vision model on the residual. */
+  reviewLlm: boolean
 }
 
 type RunState = {
@@ -95,6 +111,9 @@ type RunState = {
 
   /** Detection task: POST /api/detect for one sheet, or re-run it. */
   runDetectionFor: (sheetId: string) => Promise<void>
+  setGarnetInput: (sheetId: string, key: keyof GarnetInputs, file: File | undefined) => void
+  /** garnet task: POST /api/garnet/jobs for one sheet, then poll it to rest. */
+  runGarnetFor: (sheetId: string) => Promise<void>
   /** Object edits persist to the server's in-memory result store. */
   updateObject: (sheetId: string, obj: DetectedObject) => Promise<void>
   deleteObject: (sheetId: string, obj: DetectedObject) => Promise<void>
@@ -135,6 +154,8 @@ function makeSheet(file: File, label: string, task: TaskKind, ocrRoute: OcrRoute
     progress: null,
     error: null,
     detection: null,
+    garnetInputs: {},
+    garnet: null,
   }
 }
 
@@ -164,6 +185,7 @@ export const useRunStore = create<RunState>((set, get) => ({
     imageSize: 640,
     overlapRatio: 0.2,
     textOCR: false,
+    reviewLlm: false,
   },
   theme: 'default',
   isExtracting: false,
@@ -270,6 +292,10 @@ export const useRunStore = create<RunState>((set, get) => ({
           await get().runDetectionFor(sheet.id)
           return
         }
+        if (sheet.task === 'garnet') {
+          if (!sheet.garnet) await get().runGarnetFor(sheet.id)
+          return
+        }
         patchSheet(set, sheet.id, {
           error: null,
           progress: { step: 'Creating job…', percent: 5 },
@@ -368,6 +394,46 @@ export const useRunStore = create<RunState>((set, get) => ({
             : error instanceof Error
               ? error.message
               : 'Detection failed',
+      })
+    }
+  },
+
+  setGarnetInput: (sheetId, key, file) =>
+    set((state) => ({
+      sheets: state.sheets.map((s) =>
+        s.id === sheetId ? { ...s, garnetInputs: { ...s.garnetInputs, [key]: file } } : s
+      ),
+    })),
+
+  runGarnetFor: async (sheetId) => {
+    const sheet = get().sheets.find((s) => s.id === sheetId)
+    if (!sheet) return
+    const { config } = get()
+    patchSheet(set, sheetId, { error: null, progress: { step: 'Uploading…', percent: 5 } })
+    try {
+      let job = await startGarnetJob(sheet.file, sheet.garnetInputs, {
+        reviewLlm: config.reviewLlm,
+        weightFile: config.weightFile,
+      })
+      for (;;) {
+        const done = job.steps.filter((s) => s.status !== 'pending' && s.status !== 'running').length
+        const running = job.steps.find((s) => s.status === 'running')
+        patchSheet(set, sheetId, {
+          garnet: job,
+          progress: { step: running?.name ?? job.status, percent: (100 * done) / job.steps.length },
+        })
+        if (job.status === 'completed' || job.status === 'failed') break
+        // Stop polling a sheet that was removed mid-run.
+        if (!get().sheets.some((s) => s.id === sheetId)) return
+        await new Promise((resolve) => window.setTimeout(resolve, 1000))
+        // ponytail: one failed poll ends the watch; retry with backoff if the server flaps
+        job = await getGarnetJob(job.id)
+      }
+      patchSheet(set, sheetId, { progress: null, error: job.status === 'failed' ? job.error : null })
+    } catch (error) {
+      patchSheet(set, sheetId, {
+        progress: null,
+        error: error instanceof Error ? error.message : 'GARNET run failed',
       })
     }
   },

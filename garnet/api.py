@@ -352,3 +352,166 @@ async def api_delete_object(result_id: str, obj_index: int) -> dict:
         result["objects"] = remaining
         result["count"] = len(remaining)
         return {"status": "deleted"}
+
+
+# --------------------------------------------------------------------------------------------
+# garnet/ extraction path: stage fixtures -> (detect) -> trace -> review gate -> Stage 6.
+#
+# Each step runs as the same CLI the docs show, in a subprocess, so the API cannot drift from
+# what `python -m garnet.stage5b.run` does. Any of the three JSONs can be uploaded instead of
+# computed: an uploaded file wins and its ML step is skipped.
+# --------------------------------------------------------------------------------------------
+
+import json  # noqa: E402
+import subprocess  # noqa: E402
+import sys  # noqa: E402
+
+import cv2  # noqa: E402
+import numpy as np  # noqa: E402
+
+JOBS_DIR = RUNS_DIR / "jobs"
+STEM = "sheet"
+# ponytail: in-memory job table, lost on restart; persist job.json if jobs must outlive the server
+JOBS: dict[str, dict] = {}
+JOBS_LOCK = threading.Lock()
+# Accepted upload name -> the fixture filename `host.load_fixtures` reads.
+JSON_INPUTS = {
+    "objects_json": f"{STEM}_objects.json",
+    "equipment_json": f"{STEM}_equipment_bboxes.json",
+    "line_numbers_json": f"{STEM}_line_numbers.json",
+}
+
+
+def _plan(job_dir: Path, have: set[str], review_llm: bool, weight: Path) -> list[dict]:
+    """Ordered steps. Skipped ML steps stay in the list so the UI shows why they did not run."""
+    indir, out = job_dir / "input", job_dir / "out"
+    image = indir / f"{STEM}.jpg"
+    py = [sys.executable, "-m"]
+    steps = [
+        {"name": "detect_objects", "skipped": "objects_json" in have,
+         "cmd": py + ["garnet.detect_objects", "--image", str(image), "--weight", str(weight),
+                      "--out", str(indir / JSON_INPUTS["objects_json"])]},
+        {"name": "detect_equipment", "skipped": "equipment_json" in have,
+         "cmd": py + ["garnet.detect_equipment_bboxes", "--image", str(image),
+                      "--out", str(indir / JSON_INPUTS["equipment_json"])]},
+        # No line-number script exists (agent work); without an upload Stage 6 runs unlabelled.
+        {"name": "line_numbers", "skipped": True, "cmd": None,
+         "note": "uploaded" if "line_numbers_json" in have else "not provided — traces stay unlabelled"},
+        {"name": "trace", "skipped": False,
+         "cmd": py + ["garnet.stage5b.run", "--stem", STEM, "--indir", str(indir), "--out", str(out)]},
+        {"name": "review_gate", "skipped": False,
+         "cmd": py + ["garnet.stage5b.review_gate", "--stem", STEM, "--indir", str(indir), "--dir", str(out)]
+         + ([] if review_llm else ["--no-llm"])},
+        {"name": "associations", "skipped": False,
+         "cmd": py + ["garnet.stage5b.run_associations", "--stem", STEM, "--indir", str(indir), "--dir", str(out)]},
+    ]
+    for s in steps:
+        s["status"] = "skipped" if s["skipped"] else "pending"
+        s.setdefault("note", "uploaded" if s["skipped"] else "")
+        s["log"] = ""
+    return steps
+
+
+def _run_job(job_id: str) -> None:
+    job = JOBS[job_id]
+    job["status"] = "running"
+    for step in job["steps"]:
+        if step["status"] == "skipped":
+            continue
+        step["status"] = "running"
+        proc = subprocess.run(step["cmd"], cwd=REPO_ROOT, capture_output=True, text=True)
+        step["log"] = (proc.stdout + proc.stderr)[-4000:]
+        if proc.returncode != 0:
+            step["status"] = "failed"
+            job["status"] = "failed"
+            job["error"] = f"{step['name']} exited {proc.returncode}"
+            logger.error("job %s: %s failed\n%s", job_id, step["name"], step["log"])
+            return
+        step["status"] = "completed"
+    job["status"] = "completed"
+
+
+def _job_view(job_id: str) -> dict:
+    job = JOBS.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job_dir = JOBS_DIR / job_id
+    files = sorted(p for p in job_dir.rglob("*") if p.is_file()) if job_dir.is_dir() else []
+    return {
+        "id": job_id,
+        "status": job["status"],
+        "error": job.get("error"),
+        "steps": [{k: s[k] for k in ("name", "status", "note", "log")} for s in job["steps"]],
+        "artifacts": [
+            {"name": str(p.relative_to(job_dir)), "url": f"/runs/jobs/{job_id}/{p.relative_to(job_dir)}"}
+            for p in files
+        ],
+    }
+
+
+@app.post("/api/garnet/jobs")
+def api_garnet_job(
+    file_input: UploadFile = File(...),
+    objects_json: UploadFile | None = File(None),
+    equipment_json: UploadFile | None = File(None),
+    line_numbers_json: UploadFile | None = File(None),
+    review_llm: bool = Form(False),
+    weight_file: str = Form(""),
+) -> dict:
+    """Stage one sheet plus any supplied JSON, then run the garnet/ chain in a background thread."""
+    suffix = Path(file_input.filename or "").suffix.lower()
+    if suffix not in IMAGE_SUFFIXES:
+        raise HTTPException(status_code=400, detail=f"Unsupported image type '{suffix or file_input.filename}'")
+    raw = file_input.file.read()
+    if not raw or len(raw) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="Image empty or over the size limit")
+    image = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
+    if image is None:
+        raise HTTPException(status_code=400, detail="Invalid image file. Could not decode image.")
+
+    # Parse every JSON before writing anything: a malformed upload must fail the request, not
+    # surface minutes later as a tracer crash.
+    uploads = {"objects_json": objects_json, "equipment_json": equipment_json,
+               "line_numbers_json": line_numbers_json}
+    parsed: dict[str, dict] = {}
+    for key, up in uploads.items():
+        if up is None or not up.filename:
+            continue
+        try:
+            payload = json.loads(up.file.read())
+        except (ValueError, UnicodeDecodeError) as exc:
+            raise HTTPException(status_code=400, detail=f"{key}: not valid JSON ({exc})") from exc
+        if not isinstance(payload, dict) or not isinstance(payload.get("objects"), list):
+            raise HTTPException(status_code=400, detail=f"{key}: expected an object with an 'objects' list")
+        parsed[key] = payload
+
+    weight = Path(weight_file) if weight_file else Path(DEFAULT_WEIGHT)
+    if not weight.is_absolute():
+        weight = REPO_ROOT / weight
+    try:
+        weight.resolve().relative_to(WEIGHTS_DIR.resolve())
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"weight_file must live under {WEIGHTS_DIR.name}/")
+    if "objects_json" not in parsed and not weight.is_file():
+        raise HTTPException(status_code=400, detail=f"Weight file not found: {weight_file or DEFAULT_WEIGHT}")
+
+    job_id = uuid.uuid4().hex
+    job_dir = JOBS_DIR / job_id
+    indir = job_dir / "input"
+    indir.mkdir(parents=True)
+    # The tracer reads `<stem>.jpg` only. Re-encoding keeps the pixel frame, which is what the
+    # uploaded JSON coordinates are in. Max quality so the mask sees what the user uploaded.
+    cv2.imwrite(str(indir / f"{STEM}.jpg"), image, [cv2.IMWRITE_JPEG_QUALITY, 100])
+    for key, payload in parsed.items():
+        (indir / JSON_INPUTS[key]).write_text(json.dumps(payload))
+
+    with JOBS_LOCK:
+        JOBS[job_id] = {"status": "queued", "steps": _plan(job_dir, set(parsed), review_llm, weight)}
+    threading.Thread(target=_run_job, args=(job_id,), daemon=True).start()
+    logger.info("garnet job %s: uploaded=%s review_llm=%s", job_id, sorted(parsed), review_llm)
+    return _job_view(job_id)
+
+
+@app.get("/api/garnet/jobs/{job_id}")
+def api_garnet_job_status(job_id: str) -> dict:
+    return _job_view(job_id)
