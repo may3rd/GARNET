@@ -467,7 +467,10 @@ function GateTimeline({ sheet, busy }: { sheet: Sheet; busy: boolean }) {
     const confirmed = job.gates_confirmed.includes(gate)
     const current = job.status === 'awaiting_gate' && job.gate === gate
     // Passed = the run is beyond this gate, reviewed or not (a run with gates off passes all three).
-    const passed = confirmed || done || (job.status === 'awaiting_gate' && (job.gate ?? 0) > gate)
+    // Same rule as the API's reopen check: every step up to the gate's boundary completed or skipped.
+    const boundary = job.steps.findIndex((st) => st.gate_after === gate)
+    const reached = boundary >= 0 && job.steps.slice(0, boundary + 1).every((st) => st.status === 'completed' || st.status === 'skipped')
+    const passed = confirmed || done || reached || (job.status === 'awaiting_gate' && (job.gate ?? 0) > gate)
     const at = [...job.history].reverse().find((h) => h.event === 'confirm' && h.gate === gate)?.at
     const tone = current ? 'var(--accent)' : confirmed ? 'hsl(140 60% 38%)' : passed ? 'hsl(38 90% 45%)' : 'var(--border)'
     return (

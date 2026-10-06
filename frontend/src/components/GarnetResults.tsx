@@ -3,6 +3,7 @@ import { Button } from '@heroui/react'
 import { ArrowLeft, Brush, Download, Eraser, FileText, Link2, Magnet, Maximize, Minus, MousePointer2, PanelRightClose, PanelRightOpen, Plus, Redo2, Undo2 } from 'lucide-react'
 import { Card, PageHeader, Tag } from '@/components/ui/primitives'
 import { snapGarnetTrace, type GarnetGate, type GarnetJob } from '@/lib/api'
+import { normalizeClass } from '@/lib/detectionClasses'
 import { snapToEdge } from '@/lib/portSnap'
 import { densify, eraseSegments, mergeDrawn, orthogonal, rdp, segDist, strokeTangents, type Pt, type Segment } from '@/lib/traceGeometry'
 import { useRunStore } from '@/stores/runStore'
@@ -400,7 +401,8 @@ export function GarnetResults() {
             class_name: reclassed[o.id] ?? o.class_name,
           })),
           ...added,
-        ],
+          // Line numbers have their own list (Gate 1 tab, Gate 3); the tracer takes them from there.
+        ].filter((o) => normalizeClass(o.class_name) !== 'line number'),
       },
     [data, moved, added, reclassed]
   )
@@ -796,7 +798,7 @@ export function GarnetResults() {
                   style={{ height: 28, padding: '0 6px', border: '1px solid var(--border)', borderRadius: 4, background: 'var(--surface)' }}
                 />
                 <datalist id="garnet-classes">
-                  {[...new Set(data?.objects.map((o) => o.class_name) ?? [])].sort().map((c) => (
+                  {[...new Set(view?.objects.map((o) => o.class_name) ?? [])].sort().map((c) => (
                     <option key={c} value={c} />
                   ))}
                 </datalist>

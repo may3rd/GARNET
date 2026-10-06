@@ -694,7 +694,7 @@ export type GarnetJob = {
   /** Gate the job is parked on while `awaiting_gate`. */
   gate: GarnetGate | null
   error: string | null
-  steps: { name: string; status: GarnetStepStatus; note: string; log: string }[]
+  steps: { name: string; status: GarnetStepStatus; note: string; log: string; gate_after?: GarnetGate | null }[]
   artifacts: { name: string; url: string }[]
   /** Saved text corrections, object id -> text. Applied over Stage 6; never rewrite it. */
   edits: Record<string, string>
