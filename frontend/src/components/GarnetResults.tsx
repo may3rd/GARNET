@@ -14,6 +14,7 @@ type BBox = { x_min: number; y_min: number; x_max: number; y_max: number }
 type Obj = { id: string; class_name: string; confidence?: number; bbox: BBox; text?: string }
 type Assoc = Obj & {
   trace_id: string | null
+  projected_xy?: [number, number]
   distance_px: number
   reason?: string
   max_distance_px?: number
@@ -144,7 +145,16 @@ type Box = {
   lines?: Segment[]
   /** Rejected at a gate: drawn grey and dashed. */
   dim?: boolean
+  /** Region to frame when this box is selected, if wider than the box (label + its trace). */
+  focus?: BBox
 }
+
+const union = (a: BBox, b: BBox): BBox => ({
+  x_min: Math.min(a.x_min, b.x_min),
+  y_min: Math.min(a.y_min, b.y_min),
+  x_max: Math.max(a.x_max, b.x_max),
+  y_max: Math.max(a.y_max, b.y_max),
+})
 
 export function GarnetResults() {
   const sheets = useRunStore((s) => s.sheets)
@@ -165,6 +175,7 @@ export function GarnetResults() {
   const [decisions, setDecisions] = useState<Record<string, 'accepted' | 'rejected'>>({})
   // Gate 1 geometry drafts: new geometry for existing ids, and boxes drawn here (ids `new_N`).
   const [moved, setMoved] = useState<Record<string, BBox>>({})
+  const [reclassed, setReclassed] = useState<Record<string, string>>({})
   const [added, setAdded] = useState<Obj[]>([])
   const [addMode, setAddMode] = useState(false)
   const [addClass, setAddClass] = useState('instrument tag')
@@ -195,6 +206,7 @@ export function GarnetResults() {
         edits: gate === 2 ? {} : Object.fromEntries(Object.entries(draft).filter(([id]) => !isNew(id))),
         added: gate === 1 ? added.map((o) => ({ class_name: o.class_name, bbox: o.bbox, text: draft[o.id] ?? '' })) : [],
         moved: gate === 1 ? Object.fromEntries(Object.entries(moved).filter(([id]) => !isNew(id))) : {},
+        reclassed: gate === 1 ? reclassed : {},
         decisions: gate === 3 ? decisions : {},
       })
       setScreen('garnet')
@@ -243,6 +255,7 @@ export function GarnetResults() {
     setRejected(new Set())
     setDecisions({})
     setMoved({})
+    setReclassed({})
     setAdded([])
     setAddMode(false)
     setSelected(null)
@@ -259,9 +272,16 @@ export function GarnetResults() {
     () =>
       data && {
         ...data,
-        objects: [...data.objects.map((o) => (moved[o.id] ? { ...o, bbox: moved[o.id] } : o)), ...added],
+        objects: [
+          ...data.objects.map((o) => ({
+            ...o,
+            bbox: moved[o.id] ?? o.bbox,
+            class_name: reclassed[o.id] ?? o.class_name,
+          })),
+          ...added,
+        ],
       },
-    [data, moved, added]
+    [data, moved, added, reclassed]
   )
   const onDraw = (bbox: BBox) => {
     const cls = addClass.trim()
@@ -277,10 +297,31 @@ export function GarnetResults() {
     setAddMode(false)
     setSelected(id)
   }
+  /** Class edits: a drawn box changes in place; an existing one records an override (cleared when reverted). */
+  const onReclass = (id: string, cls: string) => {
+    if (added.some((o) => o.id === id)) {
+      setAdded((a) => a.map((o) => (o.id === id ? { ...o, class_name: cls } : o)))
+      return
+    }
+    const original = data?.objects.find((o) => o.id === id)?.class_name
+    setReclassed((r) => {
+      const { [id]: _, ...rest } = r
+      return cls === original ? rest : { ...rest, [id]: cls }
+    })
+  }
   const onMove = (id: string, bbox: BBox) => {
     if (added.some((o) => o.id === id)) setAdded((a) => a.map((o) => (o.id === id ? { ...o, bbox } : o)))
     else setMoved((m) => ({ ...m, [id]: bbox }))
   }
+
+  const traceById = useMemo(() => new Map((data?.traces ?? []).map((t) => [t.id, t])), [data])
+  // The selected label's trace: shown on the line-number and instrument tabs.
+  const highlight = useMemo(() => {
+    if (!data || (tab !== 'lineNumbers' && tab !== 'instruments')) return null
+    const a = (tab === 'lineNumbers' ? data.lineNumbers : data.instruments).find((x) => x.id === selected)
+    const t = a?.trace_id ? traceById.get(a.trace_id) : undefined
+    return t ? { segments: t.segments, point: a!.projected_xy } : null
+  }, [data, tab, selected, traceById])
 
   const boxes: Box[] = useMemo(() => {
     if (!data || !view) return []
@@ -306,9 +347,17 @@ export function GarnetResults() {
           dim: rejected.has(t.id),
         }))
       case 'lineNumbers':
-        return data.lineNumbers.map((a) => ({ id: a.id, bbox: a.bbox, color: statusColor(a), label: edits.textOf(a.id, a.text) || undefined }))
       case 'instruments':
-        return data.instruments.map((a) => ({ id: a.id, bbox: a.bbox, color: statusColor(a), label: edits.textOf(a.id, a.text) || undefined }))
+        return (tab === 'lineNumbers' ? data.lineNumbers : data.instruments).map((a) => {
+          const t = a.trace_id ? traceById.get(a.trace_id) : undefined
+          return {
+            id: a.id,
+            bbox: a.bbox,
+            color: statusColor(a),
+            label: edits.textOf(a.id, a.text) || undefined,
+            focus: t ? union(a.bbox, t.bbox) : undefined,
+          }
+        })
       case 'equipment':
         return data.equipment.map((e) => ({
           id: String(e.Index),
@@ -318,7 +367,7 @@ export function GarnetResults() {
           points: (e.Ports ?? []).map((p) => ({ x: p.point_px[0], y: p.point_px[1], label: p.mark })),
         }))
     }
-  }, [data, view, tab, hidden, draft, saved, rejected, decisions]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, view, tab, hidden, draft, saved, rejected, decisions, traceById]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!job) {
     return (
@@ -394,7 +443,7 @@ export function GarnetResults() {
               ? `${Object.keys(decisions).length} verdict(s) · ${Object.keys(draft).length} text fix(es)`
               : `${rejected.size} rejected${
                   gate === 1
-                    ? ` · ${added.length} added · ${Object.keys(moved).length} moved · ${Object.keys(draft).length} text fix(es)`
+                    ? ` · ${added.length} added · ${Object.keys(moved).length} moved · ${Object.keys(reclassed).length} reclassed · ${Object.keys(draft).length} text fix(es)`
                     : ''
                 }`}
           </span>
@@ -483,10 +532,13 @@ export function GarnetResults() {
             addMode={addMode}
             onDraw={onDraw}
             onMove={onMove}
+            highlight={highlight}
           />
           <Card padding={0} className="min-h-0 overflow-auto lg:w-[460px]">
             {tab === 'objects' && (
-              <ObjectsTable edits={edits} rejectable={gate === 1} rejected={rejected} onReject={toggleReject} data={view!} geometryEdited={(id) => id in moved || id.startsWith('new_')} hidden={hidden} setHidden={setHidden} selected={selected} onSelect={setSelected} />
+              <ObjectsTable edits={edits} rejectable={gate === 1} rejected={rejected} onReject={toggleReject} data={view!} geometryEdited={(id) => id in moved || id.startsWith('new_')}
+                onReclass={gate === 1 ? onReclass : undefined}
+                classEdited={(id) => id in reclassed} hidden={hidden} setHidden={setHidden} selected={selected} onSelect={setSelected} />
             )}
             {tab === 'lineNumbers' && (
               <AssocTable
@@ -556,6 +608,7 @@ function Overlay({
   addMode = false,
   onDraw,
   onMove,
+  highlight,
 }: {
   data: Data
   boxes: Box[]
@@ -567,6 +620,8 @@ function Overlay({
   addMode?: boolean
   onDraw?: (bbox: BBox) => void
   onMove?: (id: string, bbox: BBox) => void
+  /** Context drawn under the boxes: the trace a selected label attached to, and where. */
+  highlight?: { segments: Segment[]; point?: [number, number] } | null
 }) {
   const host = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<View>({ s: 0, x: 0, y: 0 })
@@ -669,11 +724,14 @@ function Overlay({
     const b = boxes.find((x) => x.id === selected)
     if (!b) return
     const { w, h } = size()
-    const bw = Math.max(b.bbox.x_max - b.bbox.x_min, 1)
-    const bh = Math.max(b.bbox.y_max - b.bbox.y_min, 1)
-    const s = Math.min(4, Math.max(fitScale(data, w, h), Math.min(w / bw, h / bh) / 4))
-    const cx = (b.bbox.x_min + b.bbox.x_max) / 2
-    const cy = (b.bbox.y_min + b.bbox.y_max) / 2
+    const f = b.focus ?? b.bbox
+    const bw = Math.max(f.x_max - f.x_min, 1)
+    const bh = Math.max(f.y_max - f.y_min, 1)
+    // A focus region is framed whole (with margin); a lone box fills ~1/4 of the view.
+    const want = b.focus ? Math.min(w / bw, h / bh) * 0.85 : Math.min(w / bw, h / bh) / 4
+    const s = Math.min(4, Math.max(fitScale(data, w, h), want))
+    const cx = (f.x_min + f.x_max) / 2
+    const cy = (f.y_min + f.y_max) / 2
     setView({ s, x: w / 2 - cx * s, y: h / 2 - cy * s })
   }, [selected]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -765,6 +823,26 @@ function Overlay({
           >
             <img src={data.imageUrl} alt="sheet" width={data.width} height={data.height} draggable={false} className="block select-none" />
             <svg viewBox={`0 0 ${data.width} ${data.height}`} className="pointer-events-none absolute inset-0" width={data.width} height={data.height}>
+              {highlight && (
+                <g>
+                  {highlight.segments.map((g, k) => (
+                    <line
+                      key={k}
+                      x1={g.x1}
+                      y1={g.y1}
+                      x2={g.x2}
+                      y2={g.y2}
+                      stroke={TRACE_HIGHLIGHT}
+                      strokeOpacity={0.85}
+                      strokeWidth={stroke * 5}
+                      strokeLinecap="round"
+                    />
+                  ))}
+                  {highlight.point && (
+                    <circle cx={highlight.point[0]} cy={highlight.point[1]} r={stroke * 7} fill="white" stroke={TRACE_HIGHLIGHT} strokeWidth={stroke * 3} />
+                  )}
+                </g>
+              )}
               {boxes.map((b) => {
                 const on = b.id === selected
                 const { x_min, y_min, x_max, y_max } = live?.id === b.id ? live.bbox : b.bbox
@@ -856,6 +934,7 @@ function Overlay({
 }
 
 const SELECTED = 'hsl(212 100% 48%)'
+const TRACE_HIGHLIGHT = 'hsl(330 95% 50%)'
 const area = (b: BBox) => (b.x_max - b.x_min) * (b.y_max - b.y_min)
 
 const th: React.CSSProperties = { textAlign: 'left', padding: '6px 8px', fontWeight: 500, color: 'var(--muted)', position: 'sticky', top: 0, background: 'var(--surface)' }
@@ -866,6 +945,8 @@ const bboxText = (b: BBox) => `${b.x_min},${b.y_min} → ${b.x_max},${b.y_max}`
 function ObjectsTable({
   edits,
   geometryEdited,
+  onReclass,
+  classEdited,
   rejectable,
   rejected,
   onReject,
@@ -877,6 +958,9 @@ function ObjectsTable({
 }: {
   edits: Edits
   geometryEdited?: (id: string) => boolean
+  /** Gate 1: the selected row's class becomes an input. */
+  onReclass?: (id: string, cls: string) => void
+  classEdited?: (id: string) => boolean
   rejectable: boolean
   rejected: Set<string>
   onReject: (id: string) => void
@@ -918,7 +1002,14 @@ function ObjectsTable({
             <tr key={o.id} style={{ ...rowStyle(o.id === selected), ...(rejected.has(o.id) ? REJECTED_ROW : {}) }} onClick={() => onSelect(o.id)}>
               {rejectable && <RejectCell on={rejected.has(o.id)} onToggle={() => onReject(o.id)} />}
               <td style={td} className="mono">{o.id}</td>
-              <td style={td}>{o.class_name}</td>
+              <td style={td}>
+                {onReclass && o.id === selected ? (
+                  <ClassInput id={o.id} value={o.class_name} onCommit={(cls) => onReclass(o.id, cls)} />
+                ) : (
+                  o.class_name
+                )}
+                {classEdited?.(o.id) && <span style={{ color: 'var(--accent)', marginLeft: 6 }}>●</span>}
+              </td>
               <td style={td} className="mono">{o.confidence ?? '—'}</td>
               <TextCell edits={edits} id={o.id} original={o.text} on={o.id === selected} />
               <td style={td} className="mono">
@@ -1164,5 +1255,25 @@ function TracesTable({
         </tbody>
       </table>
     </div>
+  )
+}
+
+/** Class field: free typing locally, commits only non-empty values (an object always has a class). */
+function ClassInput({ id, value, onCommit }: { id: string; value: string; onCommit: (cls: string) => void }) {
+  const [text, setText] = useState(value)
+  return (
+    <input
+      list="garnet-classes"
+      aria-label={`Class for ${id}`}
+      value={text}
+      onChange={(e) => {
+        setText(e.target.value)
+        if (e.target.value.trim()) onCommit(e.target.value.trim())
+      }}
+      onBlur={() => setText(value)}
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+      style={{ width: 160, font: 'inherit', padding: '2px 6px', border: '1px solid var(--accent)', borderRadius: 4, background: 'var(--surface)' }}
+    />
   )
 }

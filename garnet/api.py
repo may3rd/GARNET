@@ -686,13 +686,15 @@ def _check_boxes(job_dir: Path, boxes: list[Box]) -> None:
 
 
 def _apply_gate1(job_dir: Path, rejected: list[str], edits: dict[str, str],
-                 added: list[AddedObject] = (), moved: dict[str, Box] | None = None) -> None:
+                 added: list[AddedObject] = (), moved: dict[str, Box] | None = None,
+                 reclassed: dict[str, str] | None = None) -> None:
     """Gate 1 onto the staged objects: drop rejected, retext, re-box moved, append added.
 
     The pre-gate file is kept. Moved boxes carry `bbox_original`; added ones get `human_NNNNNN`
     ids and `source: "human"`, so a reviewer's box is never mistaken for a detection.
     """
     moved = moved or {}
+    reclassed = reclassed or {}
     path = job_dir / "input" / JSON_INPUTS["objects_json"]
     keep = job_dir / "input" / f"{STEM}_objects.pre_gate1.json"
     if not keep.exists():
@@ -707,6 +709,10 @@ def _apply_gate1(job_dir: Path, rejected: list[str], edits: dict[str, str],
             obj["text_original"] = obj.get("text", "")
             obj["text"] = edits[obj["id"]]
             obj["text_source"] = "human_edit"
+        if obj["id"] in reclassed and reclassed[obj["id"]].strip() != obj["class_name"]:
+            obj["class_name_original"] = obj["class_name"]
+            obj["class_name"] = reclassed[obj["id"]].strip()
+            obj["class_source"] = "human_edit"
         if obj["id"] in moved:
             obj["bbox_original"] = obj["bbox"]
             obj["bbox"] = moved[obj["id"]].model_dump()
@@ -781,6 +787,8 @@ class GateRequest(BaseModel):
     # Gate 1 only: boxes a reviewer drew, and new geometry for existing ids.
     added: list[AddedObject] = []
     moved: dict[str, Box] = {}
+    # Gate 1 only: object id -> corrected class.
+    reclassed: dict[str, str] = {}
     # Gates 1 and 3: object id -> corrected text.
     edits: dict[str, str] = {}
     # Gate 3: line-number id -> "accepted" | "rejected".
@@ -800,9 +808,12 @@ def api_garnet_gate(job_id: str, gate: int, payload: GateRequest) -> dict:
         if gate == 2:
             _check_ids(payload.rejected, _trace_ids(job_dir))
         else:
-            _check_ids([*payload.rejected, *payload.edits, *payload.decisions, *payload.moved], _known_ids(job_dir))
-        if gate != 1 and (payload.added or payload.moved):
-            raise HTTPException(status_code=400, detail="Boxes can be added or moved at Gate 1 only")
+            _check_ids([*payload.rejected, *payload.edits, *payload.decisions, *payload.moved, *payload.reclassed],
+                       _known_ids(job_dir))
+        if gate != 1 and (payload.added or payload.moved or payload.reclassed):
+            raise HTTPException(status_code=400, detail="Boxes can be added, moved or reclassed at Gate 1 only")
+        if any(not c.strip() for c in payload.reclassed.values()):
+            raise HTTPException(status_code=400, detail="reclassed: class names must be non-empty")
         if gate == 1:
             _check_boxes(job_dir, [a.bbox for a in payload.added] + list(payload.moved.values()))
         bad = {v for v in payload.decisions.values()} - {"accepted", "rejected"}
@@ -813,7 +824,7 @@ def api_garnet_gate(job_id: str, gate: int, payload: GateRequest) -> dict:
 
         _record_gate(job_dir, gate, payload.model_dump())
         if gate == 1:
-            _apply_gate1(job_dir, payload.rejected, payload.edits, payload.added, payload.moved)
+            _apply_gate1(job_dir, payload.rejected, payload.edits, payload.added, payload.moved, payload.reclassed)
         if gate == 3:
             if payload.edits:
                 _append_edits(job_dir, {**_read_edits(job_dir)["edits"], **payload.edits})

@@ -96,7 +96,8 @@ class TestGarnetJobs(unittest.TestCase):
         off = {"class_name": "gate valve", "bbox": {"x_min": 10, "y_min": 10, "x_max": 10, "y_max": 99999}}
         self.assertEqual(client.post(f"/api/garnet/jobs/{jid}/gates/1", json={"added": [off]}).status_code, 400)
         r = client.post(f"/api/garnet/jobs/{jid}/gates/1", json={
-            "rejected": [drop], "edits": {tag: "TI 0001"}, "added": [added], "moved": {moved["id"]: new_box}})
+            "rejected": [drop], "edits": {tag: "TI 0001"}, "added": [added], "moved": {moved["id"]: new_box},
+            "reclassed": {moved["id"]: "globe valve"}})
         self.assertEqual(r.status_code, 200, r.text)
 
         job = wait()
@@ -105,6 +106,8 @@ class TestGarnetJobs(unittest.TestCase):
         self.assertNotIn(drop, staged)
         self.assertEqual(staged[tag]["text"], "TI 0001")
         self.assertEqual((staged[moved["id"]]["bbox"], staged[moved["id"]]["bbox_original"]), (new_box, moved["bbox"]))
+        self.assertEqual((staged[moved["id"]]["class_name"], staged[moved["id"]]["class_name_original"]),
+                         ("globe valve", "check valve"))
         human = staged["human_000001"]
         self.assertEqual((human["class_name"], human["text"], human["source"]), ("instrument tag", "PI 0999", "human"))
         self.assertIn("human_000001", {o["id"] for o in get("out/stage4_objects.json")["objects"]})

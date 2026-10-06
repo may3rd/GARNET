@@ -650,6 +650,8 @@ export type GarnetGateDecision = {
   /** Gate 1: reviewer-drawn boxes, and new geometry for existing object ids. */
   added?: { class_name: string; bbox: GarnetBox; text: string }[]
   moved?: Record<string, GarnetBox>
+  /** Gate 1: object id -> corrected class. */
+  reclassed?: Record<string, string>
   edits?: Record<string, string>
   decisions?: Record<string, 'accepted' | 'rejected'>
 }
