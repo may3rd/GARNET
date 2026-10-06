@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@heroui/react'
-import { ArrowLeft, Maximize, Minus, Plus } from 'lucide-react'
+import { ArrowLeft, Download, Maximize, Minus, Plus } from 'lucide-react'
 import { Card, PageHeader, Tag } from '@/components/ui/primitives'
 import type { GarnetGate, GarnetJob } from '@/lib/api'
 import { useRunStore } from '@/stores/runStore'
@@ -669,7 +669,7 @@ export function GarnetResults() {
             )}
             {tab === 'instruments' && <AssocTable edits={edits} decisions={{}} rows={data.instruments} selected={selected} onSelect={setSelected} showClass />}
             {tab === 'testSystems' && (
-              <TestSystemsPanel data={data} selected={selected} onSelect={setSelected} />
+              <TestSystemsPanel data={data} sheetLabel={sheet.label} selected={selected} onSelect={setSelected} />
             )}
             {tab === 'traces' && (
               <TracesTable
@@ -1433,12 +1433,17 @@ function ClassInput({ id, value, onCommit }: { id: string; value: string; onComm
   )
 }
 
+/** Sheet label -> safe filename stem ("PDF-210 · p.2" -> "PDF-210_p.2"). */
+const fileStem = (label: string) => label.replace(/\.[a-z0-9]+$/i, '').replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '') || 'sheet'
+
 function TestSystemsPanel({
   data,
+  sheetLabel,
   selected,
   onSelect,
 }: {
   data: Data
+  sheetLabel: string
   selected: string | null
   onSelect: (key: string) => void
 }) {
@@ -1457,8 +1462,24 @@ function TestSystemsPanel({
           <Tag>{`${ts.unassigned_traces.length} trace(s) in no system`}</Tag>
         </span>
         {data.testSystemsUrl && (
-          <a href={data.testSystemsUrl} target="_blank" rel="noreferrer" className="mono" style={{ marginLeft: 'auto' }}>
-            test_systems.json
+          // The served file is the export: same bytes the backend wrote, no client-side rebuild.
+          <a
+            href={data.testSystemsUrl}
+            download={`${fileStem(sheetLabel)}_test_systems.json`}
+            className="inline-flex items-center gap-1.5"
+            style={{
+              marginLeft: 'auto',
+              height: 28,
+              padding: '0 10px',
+              borderRadius: 'var(--r-btn)',
+              background: 'var(--accent)',
+              color: 'var(--accent-foreground)',
+              fontWeight: 500,
+              textDecoration: 'none',
+            }}
+          >
+            <Download size={14} />
+            Export JSON
           </a>
         )}
       </div>
