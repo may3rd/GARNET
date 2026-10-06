@@ -505,7 +505,8 @@ def _job_view(job_id: str) -> dict:
         "gate": job.get("gate"),
         "source_name": job.get("source_name", ""),
         "error": job.get("error"),
-        "steps": [{k: s[k] for k in ("name", "status", "note", "log")} for s in job["steps"]],
+        "steps": [{**{k: s[k] for k in ("name", "status", "note", "log")}, "gate_after": s.get("gate_after")}
+                  for s in job["steps"]],
         "edits": _read_edits(job_dir)["edits"],
         "gates_confirmed": sorted(int(k) for k in _read_gates(job_dir)),
         "history": _read_history(job_dir),
@@ -1322,7 +1323,8 @@ def api_garnet_reopen(job_id: str, payload: ReopenRequest) -> dict:
         job = JOBS.get(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="Job not found")
-        if job["status"] not in ("awaiting_gate", "completed"):
+        # A failed job can go back to any gate it got past; the "reached" check below decides.
+        if job["status"] not in ("awaiting_gate", "completed", "failed"):
             raise HTTPException(status_code=409, detail=f"Job is {job['status']}; wait for it to rest")
         steps = job["steps"]
         boundary = next(i for i, st in enumerate(steps) if st.get("gate_after") == gate)

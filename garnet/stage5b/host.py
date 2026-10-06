@@ -6,7 +6,7 @@ This module replaces it with a self-contained `Stage5bHost`, so the whole tracer
 garnet/ alone.
 
 Inputs are the fixture JSONs already in garnet/tests/input (or any directory with the same
-shapes). Line-number boxes are MERGED into the object list — see `merge_line_numbers` — so a
+shapes). Line-number boxes are folded into the object list — see `merge_line_numbers` — so a
 separate line-number artifact is not needed.
 
 Outputs, written into --out:
@@ -107,21 +107,16 @@ class Stage5bConfig:
 
 
 def merge_line_numbers(objects: list[dict], line_numbers: list[dict]) -> list[dict]:
-    """Return `objects` with the line-number boxes folded in as `class_name: "line number"`.
+    """Return `objects` with the line numbers as `class_name: "line number"` rows.
 
-    The object list already carries its own `line number` detections, so this merges rather
-    than replaces:
-      * an object line-number box that OVERLAPS a fixture box keeps the fixture's `Text`
-        (the fixture is transcribed text; the detector only localises);
-      * a fixture box with no overlapping object box is ADDED, so no transcribed label is lost;
-      * object boxes already carrying `text` are left alone.
-    Matching is by centre containment — IoU between the two sources runs 0.26-0.74 on this
-    sheet because the detector's box is consistently a few px taller than the tight text box.
+    An uploaded line-number file is the MASTER list: every detector line-number box is
+    dropped and each uploaded label becomes one object with its own box and text, ids
+    `line_number_0001`... in upload order. The detector's boxes only localise; the upload is
+    transcribed, so mixing the two showed labels twice and left textless detector boxes
+    (18 of 26 on sheet 0002A) for the tracer to attach. With no usable upload the detector's
+    boxes stay as they are.
     """
-    merged = [dict(o) for o in objects]
-    ln_objs = [o for o in merged if str(o.get("class_name", "")).strip().lower() in LINE_NUMBER_CLASSES]
-    unmatched = []
-
+    labels = []
     for ln in line_numbers:
         text = str(ln.get("Text") or "").strip()
         if not text:
@@ -131,50 +126,21 @@ def merge_line_numbers(objects: list[dict], line_numbers: list[dict]) -> list[di
             w, h = int(ln["Width"]), int(ln["Height"])
         except (KeyError, TypeError, ValueError):
             continue
-        cx, cy = x + w / 2, y + h / 2
-        lx, ly = x, y
-        rx, ry = x + w, y + h
-        target = None
-        for o in ln_objs:
-            b = o.get("bbox") or {}
-            if not {"x_min", "y_min", "x_max", "y_max"}.issubset(b):
-                continue
-            ocx = (b["x_min"] + b["x_max"]) / 2
-            ocy = (b["y_min"] + b["y_max"]) / 2
-            # EITHER centre inside the other box. Testing one direction only misses
-            # partial detections: a detector box that localises the TAIL of a long
-            # label has its own centre inside the fixture box while the fixture's
-            # centre falls outside the detector box. On sheet 0002A that left the
-            # detector box for `3"-PL-25-002013-B1A2-NI` (118px wide, text=None)
-            # unmerged from the 328px fixture box naming the same string: the fixture
-            # centre (903) is outside the detector box (960-1078), but the detector
-            # centre (1019) is inside the fixture box (739-1067). Same label, both
-            # objects survived, and both attached to the same edge.
-            #
-            # Verified before shipping: across nine sheets, ZERO pairs would fuse two
-            # boxes naming DIFFERENT text, so the reverse test cannot mis-merge. It
-            # recovered 8 of the 26 textless line-number objects.
-            if (b["x_min"] <= cx <= b["x_max"] and b["y_min"] <= cy <= b["y_max"]) or \
-               (lx <= ocx <= rx and ly <= ocy <= ry):
-                target = o
-                break
-        if target is not None:
-            target["text"] = text
-            target["text_source"] = "line_number_boxes"
-        else:
-            unmatched.append({
-                "id": f"line_number_{len(unmatched) + 1:04d}",
-                "class_name": "line number",
-                "confidence": float(ln.get("Score", 1.0)),
-                "bbox": {"x_min": x, "y_min": y, "x_max": x + w, "y_max": y + h},
-                "text": text,
-                "text_source": "line_number_boxes",
-            })
-
-    merged.extend(unmatched)
-    log.info("line numbers: %d fixture labels, %d merged into objects, %d added",
-             len(line_numbers), len(line_numbers) - len(unmatched), len(unmatched))
-    return merged
+        labels.append({
+            "id": f"line_number_{len(labels) + 1:04d}",
+            "class_name": "line number",
+            "confidence": float(ln.get("Score", 1.0)),
+            "bbox": {"x_min": x, "y_min": y, "x_max": x + w, "y_max": y + h},
+            "text": text,
+            "text_source": "line_number_boxes",
+        })
+    if not labels:
+        return [dict(o) for o in objects]
+    kept = [dict(o) for o in objects
+            if str(o.get("class_name", "")).strip().lower() not in LINE_NUMBER_CLASSES]
+    log.info("line numbers: %d uploaded labels are the master list, %d detector boxes dropped",
+             len(labels), len(objects) - len(kept))
+    return kept + labels
 
 
 def merge_ocr_regions(objects: list[dict], ocr_regions: list[dict]) -> list[dict]:

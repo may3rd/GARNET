@@ -1,4 +1,5 @@
 """garnet/ job route: all three JSONs uploaded -> ML steps skipped, chain runs to Stage 6."""
+import json
 import time
 import unittest
 from pathlib import Path
@@ -101,8 +102,6 @@ class TestGarnetJobs(unittest.TestCase):
         self.assertEqual(wait()["gate"], 1)
         objs0, ln0, eq0 = (get("input/sheet_objects.json"), get("input/gate1_line_numbers.json"),
                            get("input/sheet_equipment_bboxes.json"))
-        ids = {o["id"] for o in objs0["objects"]}
-        drop = next(o["id"] for o in ln0["objects"] if o["id"] in ids)
         v = next(e for e in eq0["objects"] if e["Tag"] == "V-2501")
         ports = v["Ports"][1:] + [{"side": "left", "point_px": [v["Left"], v["Top"] + 300]}]
 
@@ -111,16 +110,19 @@ class TestGarnetJobs(unittest.TestCase):
         self.assertEqual(gate1({"ports": {"NOPE-1": ports}}).status_code, 400)
         self.assertEqual(gate1({"ports": {"V-2501": [{"side": "diagonal", "point_px": [1, 1]}]}}).status_code, 422)
         self.assertEqual(gate1({"ports": {"V-2501": [{"side": "top", "point_px": [-5, 1]}]}}).status_code, 400)
-        self.assertEqual(gate1({"rejected": [drop], "ports": {"V-2501": ports}}).status_code, 200)
+        self.assertEqual(gate1({"ports": {"V-2501": ports}}).status_code, 200)
         self.assertEqual(wait()["gate"], 2)
         edited = next(e for e in get("input/sheet_equipment_bboxes.json")["objects"] if e["Tag"] == "V-2501")
         self.assertEqual(([p["side"] for p in edited["Ports"]], edited["ports_source"]),
                          ([p["side"] for p in ports], "human_edit"))
-        self.assertNotEqual(get("input/gate1_line_numbers.json"), ln0)
 
-        # The API restarts: the job comes back from its job.json, and Reopen still works.
+        # The API restarts mid-run: the job comes back from its job.json as failed, and can
+        # still go back to a gate it got past.
+        saved = api.JOBS_DIR / jid / "job.json"
+        saved.write_text(saved.read_text().replace('"status": "awaiting_gate"', '"status": "running"', 1))
         api.JOBS.pop(jid)
         api._load_saved_jobs()
+        self.assertEqual(client.get(f"/api/garnet/jobs/{jid}").json()["status"], "failed")
         r = client.post(f"/api/garnet/jobs/{jid}/reopen", json={"gate": 1})
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual((r.json()["status"], r.json()["gate"]), ("awaiting_gate", 1))
@@ -157,6 +159,10 @@ class TestGarnetJobs(unittest.TestCase):
         is_ln = lambda o: o["class_name"].strip().lower() in ("line number", "line_number")  # noqa: E731
         gate1_ln = get("input/gate1_line_numbers.json")["objects"]
         self.assertTrue(gate1_ln and all(map(is_ln, gate1_ln)))
+        # The upload is the master list: only its labels, each with text, no detector boxes.
+        upload = json.loads((INPUT / f"{STEM}_line_numbers.json").read_text())["objects"]
+        self.assertEqual(sorted(o["text"] for o in gate1_ln),
+                         sorted(str(u["Text"]).strip() for u in upload if str(u.get("Text") or "").strip()))
         objs = get("input/sheet_objects.json")["objects"]
         drop = next(o["id"] for o in objs if o["class_name"] == "gate valve")
         tag = next(o["id"] for o in objs if o["class_name"] == "instrument tag")
