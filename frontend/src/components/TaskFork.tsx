@@ -253,6 +253,18 @@ export function TaskFork() {
         />
       </div>
 
+      {task === 'garnet' && (
+        <Card padding={20} className="flex flex-col gap-3.5">
+          <SectionHeader title="GARNET parameters" description="Used by the detection step; sheets with an uploaded objects JSON skip it." />
+          <SelectField
+            label="Detection weights"
+            value={config.weightFile}
+            options={[{ key: '', label: 'Server default' }, ...weightFiles.map((w) => ({ key: w, label: w.replace(/^.*\//, '') }))]}
+            onChange={(weightFile) => setConfig({ weightFile })}
+          />
+        </Card>
+      )}
+
       {task === 'extraction' && (
         <Card padding={20} className="flex flex-col gap-3.5">
           <SectionHeader
