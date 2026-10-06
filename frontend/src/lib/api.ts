@@ -648,6 +648,8 @@ export type GarnetJob = {
   error: string | null
   steps: { name: string; status: GarnetStepStatus; note: string; log: string }[]
   artifacts: { name: string; url: string }[]
+  /** Saved text corrections, object id -> text. Applied over Stage 6; never rewrite it. */
+  edits: Record<string, string>
 }
 
 /** Fixture JSONs the user already has. Any one supplied skips its ML step. */
@@ -656,7 +658,7 @@ export type GarnetInputs = { objects?: File; equipment?: File; lineNumbers?: Fil
 export async function startGarnetJob(
   file: File,
   inputs: GarnetInputs,
-  options: { reviewLlm: boolean; weightFile: string }
+  options: { reviewLlm: boolean; ocrInstruments: boolean; weightFile: string }
 ): Promise<GarnetJob> {
   const form = new FormData()
   form.append('file_input', file)
@@ -664,8 +666,17 @@ export async function startGarnetJob(
   if (inputs.equipment) form.append('equipment_json', inputs.equipment)
   if (inputs.lineNumbers) form.append('line_numbers_json', inputs.lineNumbers)
   form.append('review_llm', String(options.reviewLlm))
+  form.append('ocr_instruments', String(options.ocrInstruments))
   form.append('weight_file', options.weightFile)
   return requestJson<GarnetJob>('/api/garnet/jobs', { method: 'POST', body: form }, DEFAULT_TIMEOUT)
+}
+
+export async function saveGarnetEdits(jobId: string, edits: Record<string, string>): Promise<GarnetJob> {
+  return requestJson<GarnetJob>(`/api/garnet/jobs/${jobId}/edits`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ edits }),
+  })
 }
 
 export async function getGarnetJob(jobId: string): Promise<GarnetJob> {

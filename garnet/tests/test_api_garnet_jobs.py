@@ -38,6 +38,28 @@ class TestGarnetJobs(unittest.TestCase):
         overlay = next(a for a in job["artifacts"] if a["name"] == "out/stage5b_trace_overlay.png")
         self.assertEqual(client.get(overlay["url"]).status_code, 200)
 
+        # OCR filled instrument text in the staged copy; the arriving file is kept untouched.
+        names = {a["name"] for a in job["artifacts"]}
+        self.assertIn("input/sheet_objects.source.json", names)
+        status = {s["name"]: s["status"] for s in job["steps"]}
+        self.assertEqual(status["ocr_instruments"], "completed")
+
+        # Edits: an overlay on Stage 6, versioned, never a rewrite of the Stage 6 file.
+        jid = job["id"]
+        stage6_before = client.get(f"/runs/jobs/{jid}/out/stage6_trace_associations.json").json()
+        tag = stage6_before["associations"]["instrument_tags"]["accepted"][0]
+        r = client.put(f"/api/garnet/jobs/{jid}/edits", json={"edits": {tag["id"]: "TI 9999"}})
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json()["edits"], {tag["id"]: "TI 9999"})
+        reviewed = client.get(f"/runs/jobs/{jid}/out/reviewed_associations.json").json()
+        item = next(i for i in reviewed["associations"]["instrument_tags"]["accepted"] if i["id"] == tag["id"])
+        self.assertEqual((item["text"], item["text_original"], item["text_source"]), ("TI 9999", tag["text"], "human_edit"))
+        self.assertEqual(client.get(f"/runs/jobs/{jid}/out/stage6_trace_associations.json").json(), stage6_before)
+        self.assertEqual(client.put(f"/api/garnet/jobs/{jid}/edits", json={"edits": {"nope": "x"}}).status_code, 400)
+        client.put(f"/api/garnet/jobs/{jid}/edits", json={"edits": {}})
+        history = client.get(f"/runs/jobs/{jid}/edits_history.jsonl").text.strip().splitlines()
+        self.assertEqual(len(history), 2)
+
     def test_bad_json_rejected_before_staging(self):
         client = TestClient(app)
         files = {

@@ -364,6 +364,7 @@ async def api_delete_object(result_id: str, obj_index: int) -> dict:
 
 import json  # noqa: E402
 import subprocess  # noqa: E402
+import time  # noqa: E402
 import sys  # noqa: E402
 
 import cv2  # noqa: E402
@@ -382,7 +383,7 @@ JSON_INPUTS = {
 }
 
 
-def _plan(job_dir: Path, have: set[str], review_llm: bool, weight: Path) -> list[dict]:
+def _plan(job_dir: Path, have: set[str], review_llm: bool, weight: Path, ocr_instruments: bool) -> list[dict]:
     """Ordered steps. Skipped ML steps stay in the list so the UI shows why they did not run."""
     indir, out = job_dir / "input", job_dir / "out"
     image = indir / f"{STEM}.jpg"
@@ -397,6 +398,9 @@ def _plan(job_dir: Path, have: set[str], review_llm: bool, weight: Path) -> list
         # No line-number script exists (agent work); without an upload Stage 6 runs unlabelled.
         {"name": "line_numbers", "skipped": True, "cmd": None,
          "note": "uploaded" if "line_numbers_json" in have else "not provided — traces stay unlabelled"},
+        {"name": "ocr_instruments", "skipped": not ocr_instruments, "cmd": None,
+         "fn": lambda: _ocr_instruments(indir),
+         "note": "" if ocr_instruments else "off"},
         {"name": "trace", "skipped": False,
          "cmd": py + ["garnet.stage5b.run", "--stem", STEM, "--indir", str(indir), "--out", str(out)]},
         {"name": "review_gate", "skipped": False,
@@ -419,12 +423,21 @@ def _run_job(job_id: str) -> None:
         if step["status"] == "skipped":
             continue
         step["status"] = "running"
-        proc = subprocess.run(step["cmd"], cwd=REPO_ROOT, capture_output=True, text=True)
-        step["log"] = (proc.stdout + proc.stderr)[-4000:]
-        if proc.returncode != 0:
+        if step.get("fn"):
+            try:
+                step["log"] = step["fn"]()
+                returncode = 0
+            except Exception as exc:  # the step's failure is the job's failure; keep the reason
+                logger.exception("job %s: %s", job_id, step["name"])
+                step["log"], returncode = f"{type(exc).__name__}: {exc}", 1
+        else:
+            proc = subprocess.run(step["cmd"], cwd=REPO_ROOT, capture_output=True, text=True)
+            step["log"] = (proc.stdout + proc.stderr)[-4000:]
+            returncode = proc.returncode
+        if returncode != 0:
             step["status"] = "failed"
             job["status"] = "failed"
-            job["error"] = f"{step['name']} exited {proc.returncode}"
+            job["error"] = f"{step['name']} exited {returncode}"
             logger.error("job %s: %s failed\n%s", job_id, step["name"], step["log"])
             return
         step["status"] = "completed"
@@ -442,6 +455,7 @@ def _job_view(job_id: str) -> dict:
         "status": job["status"],
         "error": job.get("error"),
         "steps": [{k: s[k] for k in ("name", "status", "note", "log")} for s in job["steps"]],
+        "edits": _read_edits(job_dir)["edits"],
         "artifacts": [
             {"name": str(p.relative_to(job_dir)), "url": f"/runs/jobs/{job_id}/{p.relative_to(job_dir)}"}
             for p in files
@@ -456,6 +470,7 @@ def api_garnet_job(
     equipment_json: UploadFile | None = File(None),
     line_numbers_json: UploadFile | None = File(None),
     review_llm: bool = Form(False),
+    ocr_instruments: bool = Form(True),
     weight_file: str = Form(""),
 ) -> dict:
     """Stage one sheet plus any supplied JSON, then run the garnet/ chain in a background thread."""
@@ -506,7 +521,7 @@ def api_garnet_job(
         (indir / JSON_INPUTS[key]).write_text(json.dumps(payload))
 
     with JOBS_LOCK:
-        JOBS[job_id] = {"status": "queued", "steps": _plan(job_dir, set(parsed), review_llm, weight)}
+        JOBS[job_id] = {"status": "queued", "steps": _plan(job_dir, set(parsed), review_llm, weight, ocr_instruments)}
     threading.Thread(target=_run_job, args=(job_id,), daemon=True).start()
     logger.info("garnet job %s: uploaded=%s review_llm=%s", job_id, sorted(parsed), review_llm)
     return _job_view(job_id)
@@ -514,4 +529,104 @@ def api_garnet_job(
 
 @app.get("/api/garnet/jobs/{job_id}")
 def api_garnet_job_status(job_id: str) -> dict:
+    return _job_view(job_id)
+
+
+INSTRUMENT_CLASSES = {"instrument tag", "instrument dcs", "instrument logic"}
+
+
+def _ocr_instruments(indir: Path) -> str:
+    """Fill `text` on instrument objects that have none, by EasyOCR on their crop.
+
+    The objects file as it arrived (upload or YOLO) is kept as `.source.json`; the staged file
+    the tracer reads gets the text plus `text_source: "easyocr"`. Existing text is never
+    overwritten — a transcribed tag outranks a machine read.
+    """
+    path = indir / JSON_INPUTS["objects_json"]
+    source = indir / f"{STEM}_objects.source.json"
+    if not source.exists():
+        source.write_text(path.read_text())
+    payload = json.loads(source.read_text())
+    image = cv2.imread(str(indir / f"{STEM}.jpg"))
+    if image is None:
+        raise RuntimeError("staged raster unreadable")
+
+    rows, owners = [], []
+    for obj in payload["objects"]:
+        if obj.get("class_name") not in INSTRUMENT_CLASSES or str(obj.get("text") or "").strip():
+            continue
+        bb = obj["bbox"]
+        rows.append({"Index": obj["id"], "Object": obj["class_name"], "Text": "",
+                     "Left": int(bb["x_min"]), "Top": int(bb["y_min"]),
+                     "Width": int(bb["x_max"] - bb["x_min"]), "Height": int(bb["y_max"] - bb["y_min"])})
+        owners.append(obj)
+    read = read_object_text(image, rows)
+    for row, obj in zip(rows, owners):
+        if row["Text"]:
+            obj["text"] = row["Text"]
+            obj["text_source"] = "easyocr"
+    path.write_text(json.dumps(payload))
+    return f"read {read} of {len(rows)} instrument objects without text"
+
+
+# --- Text edits ------------------------------------------------------------------------------
+# A human correction is an overlay, never a rewrite: Stage 6 artifacts stay as produced,
+# `edits.json` holds the current map, `edits_history.jsonl` every save, and
+# `out/reviewed_associations.json` is Stage 6 with the edits applied. Stage 6 uses text only
+# for display (matching is geometric), so applying an edit needs no re-run.
+
+class EditsRequest(BaseModel):
+    # object id -> corrected text. An empty string is a deliberate "this box has no text".
+    edits: dict[str, str]
+
+
+def _read_edits(job_dir: Path) -> dict:
+    p = job_dir / "edits.json"
+    return json.loads(p.read_text()) if p.is_file() else {"version": 0, "edits": {}}
+
+
+@app.put("/api/garnet/jobs/{job_id}/edits")
+def api_garnet_edits(job_id: str, payload: EditsRequest) -> dict:
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Job not found")
+        if job["status"] != "completed":
+            raise HTTPException(status_code=409, detail="Job has not completed")
+        job_dir = JOBS_DIR / job_id
+        stage6_path = job_dir / "out" / "stage6_trace_associations.json"
+        stage6 = json.loads(stage6_path.read_text())
+
+        known = {
+            item["id"]
+            for group in stage6["associations"].values()
+            for status in ("accepted", "rejected")
+            for item in group.get(status, [])
+            if "id" in item
+        }
+        objects = json.loads((job_dir / "out" / "stage4_objects.json").read_text())["objects"]
+        known |= {o["id"] for o in objects}
+        unknown = sorted(set(payload.edits) - known)
+        if unknown:
+            raise HTTPException(status_code=400, detail=f"Unknown object id(s): {unknown[:10]}")
+
+        prev = _read_edits(job_dir)
+        record = {"version": prev["version"] + 1,
+                  "saved_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                  "edits": payload.edits}
+        (job_dir / "edits.json").write_text(json.dumps(record, indent=2, ensure_ascii=False))
+        with (job_dir / "edits_history.jsonl").open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+        for group in stage6["associations"].values():
+            for status in ("accepted", "rejected"):
+                for item in group.get(status, []):
+                    if item.get("id") in payload.edits:
+                        item["text_original"] = item.get("text", "")
+                        item["text"] = payload.edits[item["id"]]
+                        item["normalized_text"] = item["text"]
+                        item["text_source"] = "human_edit"
+        stage6["edits_version"] = record["version"]
+        (job_dir / "out" / "reviewed_associations.json").write_text(
+            json.dumps(stage6, indent=2, ensure_ascii=False))
     return _job_view(job_id)

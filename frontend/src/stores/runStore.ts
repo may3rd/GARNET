@@ -5,6 +5,7 @@ import {
   deleteResultObject,
   extractPdfPages,
   getGarnetJob,
+  saveGarnetEdits as saveGarnetEditsApi,
   getPipelineJob,
   getWeightFiles,
   getPipelineStageStatus,
@@ -75,6 +76,8 @@ export type RunConfig = {
   textOCR: boolean
   /** garnet task: let the review gate call the vision model on the residual. */
   reviewLlm: boolean
+  /** garnet task: EasyOCR the instrument bubbles that arrive without text. */
+  ocrInstruments: boolean
 }
 
 type RunState = {
@@ -114,6 +117,8 @@ type RunState = {
   setGarnetInput: (sheetId: string, key: keyof GarnetInputs, file: File | undefined) => void
   /** garnet task: POST /api/garnet/jobs for one sheet, then poll it to rest. */
   runGarnetFor: (sheetId: string) => Promise<void>
+  /** Replace the job's saved text edits; throws so the caller can keep the draft. */
+  saveGarnetEdits: (sheetId: string, edits: Record<string, string>) => Promise<void>
   /** Object edits persist to the server's in-memory result store. */
   updateObject: (sheetId: string, obj: DetectedObject) => Promise<void>
   deleteObject: (sheetId: string, obj: DetectedObject) => Promise<void>
@@ -186,6 +191,7 @@ export const useRunStore = create<RunState>((set, get) => ({
     overlapRatio: 0.2,
     textOCR: false,
     reviewLlm: false,
+    ocrInstruments: true,
   },
   theme: 'default',
   isExtracting: false,
@@ -413,6 +419,7 @@ export const useRunStore = create<RunState>((set, get) => ({
     try {
       let job = await startGarnetJob(sheet.file, sheet.garnetInputs, {
         reviewLlm: config.reviewLlm,
+        ocrInstruments: config.ocrInstruments,
         weightFile: config.weightFile,
       })
       for (;;) {
@@ -436,6 +443,12 @@ export const useRunStore = create<RunState>((set, get) => ({
         error: error instanceof Error ? error.message : 'GARNET run failed',
       })
     }
+  },
+
+  saveGarnetEdits: async (sheetId, edits) => {
+    const job = get().sheets.find((s) => s.id === sheetId)?.garnet
+    if (!job) return
+    patchSheet(set, sheetId, { garnet: await saveGarnetEditsApi(job.id, edits) })
   },
 
   updateObject: async (sheetId, obj) => {

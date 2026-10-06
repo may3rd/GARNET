@@ -114,19 +114,45 @@ export function GarnetResults() {
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   const [hidden, setHidden] = useState<Set<string>>(new Set())
+  const saveGarnetEdits = useRunStore((s) => s.saveGarnetEdits)
+  const saved = job?.edits ?? {}
+  // Unsaved corrections, layered over `saved`. Reset when the sheet changes.
+  const [draft, setDraft] = useState<Record<string, string>>({})
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const dirty = Object.keys(draft).some((id) => draft[id] !== (saved[id] ?? null))
+  const edits: Edits = {
+    textOf: (id, original) => draft[id] ?? saved[id] ?? original ?? '',
+    isEdited: (id) => id in draft || id in saved,
+    set: (id, text) => setDraft((d) => ({ ...d, [id]: text })),
+  }
+  const save = async () => {
+    if (!sheet) return
+    setSaving(true)
+    setSaveError(null)
+    try {
+      await saveGarnetEdits(sheet.id, { ...saved, ...draft })
+      setDraft({})
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSaving(false)
+    }
+  }
 
   useEffect(() => {
     if (!job) return
     let live = true
     setData(null)
     setError(null)
+    setDraft({})
     loadData(job)
       .then((d) => live && setData(d))
       .catch((e) => live && setError(e instanceof Error ? e.message : String(e)))
     return () => {
       live = false
     }
-  }, [job])
+  }, [job?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const boxes: Box[] = useMemo(() => {
     if (!data) return []
@@ -137,9 +163,9 @@ export function GarnetResults() {
           .filter((o) => !hidden.has(o.class_name))
           .map((o) => ({ id: o.id, bbox: o.bbox, color: `hsl(${hue(o.class_name)} 80% 45%)` }))
       case 'lineNumbers':
-        return data.lineNumbers.map((a) => ({ id: a.id, bbox: a.bbox, color: statusColor(a), label: a.text || undefined }))
+        return data.lineNumbers.map((a) => ({ id: a.id, bbox: a.bbox, color: statusColor(a), label: edits.textOf(a.id, a.text) || undefined }))
       case 'instruments':
-        return data.instruments.map((a) => ({ id: a.id, bbox: a.bbox, color: statusColor(a), label: a.text || undefined }))
+        return data.instruments.map((a) => ({ id: a.id, bbox: a.bbox, color: statusColor(a), label: edits.textOf(a.id, a.text) || undefined }))
       case 'equipment':
         return data.equipment.map((e) => ({
           id: String(e.Index),
@@ -149,7 +175,7 @@ export function GarnetResults() {
           points: (e.Ports ?? []).map((p) => ({ x: p.point_px[0], y: p.point_px[1], label: p.mark })),
         }))
     }
-  }, [data, tab, hidden])
+  }, [data, tab, hidden, draft, saved]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!job) {
     return (
@@ -182,6 +208,19 @@ export function GarnetResults() {
                 ))}
               </select>
             )}
+            {dirty && (
+              <Button variant="ghost" style={{ height: 36, borderRadius: 'var(--r-btn)' }} isDisabled={saving} onPress={() => setDraft({})}>
+                Discard
+              </Button>
+            )}
+            <Button
+              variant="primary"
+              style={{ height: 36, borderRadius: 'var(--r-btn)' }}
+              isDisabled={!dirty || saving}
+              onPress={() => void save()}
+            >
+              {saving ? 'Saving…' : dirty ? 'Save edits' : 'Saved'}
+            </Button>
             <Button variant="ghost" style={{ height: 36, borderRadius: 'var(--r-btn)' }} onPress={() => setScreen('garnet')}>
               <ArrowLeft size={16} strokeWidth={1.5} />
               Back to run
@@ -211,6 +250,7 @@ export function GarnetResults() {
         ))}
       </div>
 
+      {saveError && <Card padding={16} style={{ color: 'var(--danger)' }}>{`Edits not saved: ${saveError}`}</Card>}
       {error && <Card padding={16} style={{ color: 'var(--danger)' }}>{error}</Card>}
       {!data && !error && <Card padding={16}>Loading…</Card>}
 
@@ -219,17 +259,18 @@ export function GarnetResults() {
           <Overlay data={data} boxes={boxes} selected={selected} onSelect={setSelected} />
           <Card padding={0} className="min-h-0 overflow-auto lg:w-[460px]">
             {tab === 'objects' && (
-              <ObjectsTable data={data} hidden={hidden} setHidden={setHidden} selected={selected} onSelect={setSelected} />
+              <ObjectsTable edits={edits} data={data} hidden={hidden} setHidden={setHidden} selected={selected} onSelect={setSelected} />
             )}
             {tab === 'lineNumbers' && (
               <AssocTable
+                edits={edits}
                 rows={data.lineNumbers}
                 selected={selected}
                 onSelect={setSelected}
                 footer={`${data.tracesWithoutLineNumber.length} trace(s) without a line number: ${data.tracesWithoutLineNumber.join(', ') || '—'}`}
               />
             )}
-            {tab === 'instruments' && <AssocTable rows={data.instruments} selected={selected} onSelect={setSelected} showClass />}
+            {tab === 'instruments' && <AssocTable edits={edits} rows={data.instruments} selected={selected} onSelect={setSelected} showClass />}
             {tab === 'equipment' && <EquipmentTable rows={data.equipment} selected={selected} onSelect={setSelected} />}
           </Card>
         </div>
@@ -445,12 +486,14 @@ const rowStyle = (on: boolean): React.CSSProperties => ({ cursor: 'pointer', bac
 const bboxText = (b: BBox) => `${b.x_min},${b.y_min} → ${b.x_max},${b.y_max}`
 
 function ObjectsTable({
+  edits,
   data,
   hidden,
   setHidden,
   selected,
   onSelect,
 }: {
+  edits: Edits
   data: Data
   hidden: Set<string>
   setHidden: (s: Set<string>) => void
@@ -487,7 +530,7 @@ function ObjectsTable({
               <td style={td} className="mono">{o.id}</td>
               <td style={td}>{o.class_name}</td>
               <td style={td} className="mono">{o.confidence ?? '—'}</td>
-              <td style={td} className="mono">{o.text || '—'}</td>
+              <TextCell edits={edits} id={o.id} original={o.text} on={o.id === selected} />
               <td style={td} className="mono">{bboxText(o.bbox)}</td>
             </tr>
           ))}
@@ -498,12 +541,14 @@ function ObjectsTable({
 }
 
 function AssocTable({
+  edits,
   rows,
   selected,
   onSelect,
   showClass,
   footer,
 }: {
+  edits: Edits
   rows: Assoc[]
   selected: string | null
   onSelect: (id: string) => void
@@ -530,7 +575,7 @@ function AssocTable({
         <tbody>
           {rows.map((r) => (
             <tr key={r.id} style={rowStyle(r.id === selected)} onClick={() => onSelect(r.id)}>
-              <td style={td} className="mono">{r.text || <span style={{ color: 'var(--muted)' }}>{`(no text) ${r.id}`}</span>}</td>
+              <TextCell edits={edits} id={r.id} original={r.text} on={r.id === selected} />
               {showClass && <td style={td}>{r.class_name}</td>}
               <td style={td} className="mono">{r.trace_id ?? '—'}</td>
               <td style={td} className="mono">{r.distance_px}</td>
@@ -602,5 +647,43 @@ function EquipmentTable({
         </div>
       )}
     </div>
+  )
+}
+
+type Edits = {
+  textOf: (id: string, original: string | undefined) => string
+  isEdited: (id: string) => boolean
+  set: (id: string, text: string) => void
+}
+
+/**
+ * Text cell: read-only until its row is selected, then an input. Changes go to the draft only;
+ * nothing reaches the server until Save. An edited value is marked and shows the original.
+ */
+function TextCell({ edits, id, original, on }: { edits: Edits; id: string; original?: string; on: boolean }) {
+  const value = edits.textOf(id, original)
+  const edited = edits.isEdited(id) && value !== (original ?? '')
+  return (
+    <td style={td} className="mono" title={edited ? `was: ${original || '(empty)'}` : undefined}>
+      {on ? (
+        <input
+          autoFocus
+          aria-label={`Text for ${id}`}
+          value={value}
+          onChange={(e) => edits.set(id, e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+          className="mono"
+          style={{ width: 220, font: 'inherit', padding: '2px 6px', border: '1px solid var(--accent)', borderRadius: 4, background: 'var(--surface)' }}
+        />
+      ) : value ? (
+        <>
+          {value}
+          {edited && <span style={{ color: 'var(--accent)', marginLeft: 6 }}>●</span>}
+        </>
+      ) : (
+        <span style={{ color: 'var(--muted)' }}>{`(no text) ${id}`}</span>
+      )}
+    </td>
   )
 }

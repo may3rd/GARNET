@@ -37,12 +37,18 @@ export function GarnetRun() {
           </Button>
         }
       />
-      <Card padding={20}>
+      <Card padding={20} className="flex flex-col gap-3">
         <Toggle
           label="Review gate calls the vision model"
           description="Off passes --no-llm: the residual is kept, nothing leaves this machine."
           checked={config.reviewLlm}
           onChange={(reviewLlm) => setConfig({ reviewLlm })}
+        />
+        <Toggle
+          label="OCR instrument tags"
+          description="EasyOCR on instrument bubbles that have no text. Existing text is never overwritten."
+          checked={config.ocrInstruments}
+          onChange={(ocrInstruments) => setConfig({ ocrInstruments })}
         />
       </Card>
       {sheets.length === 0 ? (
