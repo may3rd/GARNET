@@ -59,6 +59,8 @@ export function GarnetRun() {
 function SheetCard({ sheet }: { sheet: Sheet }) {
   const setGarnetInput = useRunStore((s) => s.setGarnetInput)
   const runGarnetFor = useRunStore((s) => s.runGarnetFor)
+  const selectSheet = useRunStore((s) => s.selectSheet)
+  const setScreen = useRunStore((s) => s.setScreen)
   const job = sheet.garnet
   const busy = sheet.progress !== null
   const overlays = job?.artifacts.filter((a) => a.name.startsWith('out/') && a.name.endsWith('.png')) ?? []
@@ -70,6 +72,19 @@ function SheetCard({ sheet }: { sheet: Sheet }) {
         title={sheet.label}
         description={job ? `job ${job.id.slice(0, 8)}… · ${job.status}` : 'Not started'}
         actions={
+          <div className="flex gap-2">
+          {job?.status === 'completed' && !busy && (
+            <Button
+              variant="secondary"
+              style={{ height: 32, borderRadius: 'var(--r-btn)' }}
+              onPress={() => {
+                selectSheet(sheet.id)
+                setScreen('garnetResults')
+              }}
+            >
+              Open results
+            </Button>
+          )}
           <Button
             variant="primary"
             isDisabled={busy}
@@ -79,6 +94,7 @@ function SheetCard({ sheet }: { sheet: Sheet }) {
             <Play size={14} strokeWidth={1.8} />
             {job ? 'Re-run' : 'Run'}
           </Button>
+          </div>
         }
       />
 

@@ -11,6 +11,7 @@ export type Screen =
   | 'detection' // 3 · DetectionRun
   | 'run' // 4 · ExtractionRun
   | 'garnet' // garnet/ trace run (no artboard)
+  | 'garnetResults' // garnet/ outputs: objects, line numbers, equipment, instruments
   | 'review' // 5-8 · Gate1..Gate4
   | 'merge' // 9 · Exports and merge
   | 'exports' // 9 · Exports and merge
@@ -24,6 +25,7 @@ export const RAIL_FOR: Record<Screen, RailKey> = {
   detection: 'detection',
   run: 'extraction',
   garnet: 'extraction',
+  garnetResults: 'extraction',
   review: 'review',
   merge: 'merge',
   exports: 'exports',
@@ -102,6 +104,8 @@ export function breadcrumbFor(screen: Screen, ctx: NavContext): Crumb[] {
       return [SHEETS, TASK, { label: 'Run' }]
     case 'garnet':
       return [SHEETS, TASK, { label: 'GARNET trace' }]
+    case 'garnetResults':
+      return [SHEETS, TASK, { label: 'GARNET trace', to: 'garnet' }, { label: 'Results' }]
     case 'review':
       return [
         SHEETS,
