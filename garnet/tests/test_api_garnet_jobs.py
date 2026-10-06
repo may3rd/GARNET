@@ -76,6 +76,58 @@ class TestGarnetJobs(unittest.TestCase):
         history = client.get(f"/runs/jobs/{jid}/edits_history.jsonl").text.strip().splitlines()
         self.assertEqual(len(history), 2)
 
+    def test_reopen_gate1_restores_inputs_after_restart(self):
+        from garnet import api
+        client = TestClient(app)
+        files = {
+            "file_input": ("s.jpg", (INPUT / f"{STEM}.jpg").read_bytes(), "image/jpeg"),
+            "objects_json": ("o.json", (INPUT / f"{STEM}_objects.json").read_bytes()),
+            "equipment_json": ("e.json", (INPUT / f"{STEM}_equipment_bboxes.json").read_bytes()),
+            "line_numbers_json": ("l.json", (INPUT / f"{STEM}_line_numbers.json").read_bytes()),
+        }
+        jid = client.post("/api/garnet/jobs", files=files, data={"ocr_instruments": "false"}).json()["id"]
+
+        def wait():
+            j = client.get(f"/api/garnet/jobs/{jid}").json()
+            deadline = time.time() + 600
+            while j["status"] in ("queued", "running") and time.time() < deadline:
+                time.sleep(1)
+                j = client.get(f"/api/garnet/jobs/{jid}").json()
+            return j
+
+        def get(rel):
+            return client.get(f"/runs/jobs/{jid}/{rel}").json()
+
+        self.assertEqual(wait()["gate"], 1)
+        objs0, ln0, eq0 = (get("input/sheet_objects.json"), get("input/gate1_line_numbers.json"),
+                           get("input/sheet_equipment_bboxes.json"))
+        ids = {o["id"] for o in objs0["objects"]}
+        drop = next(o["id"] for o in ln0["objects"] if o["id"] in ids)
+        v = next(e for e in eq0["objects"] if e["Tag"] == "V-2501")
+        ports = v["Ports"][1:] + [{"side": "left", "point_px": [v["Left"], v["Top"] + 300]}]
+
+        def gate1(body):
+            return client.post(f"/api/garnet/jobs/{jid}/gates/1", json=body)
+        self.assertEqual(gate1({"ports": {"NOPE-1": ports}}).status_code, 400)
+        self.assertEqual(gate1({"ports": {"V-2501": [{"side": "diagonal", "point_px": [1, 1]}]}}).status_code, 422)
+        self.assertEqual(gate1({"ports": {"V-2501": [{"side": "top", "point_px": [-5, 1]}]}}).status_code, 400)
+        self.assertEqual(gate1({"rejected": [drop], "ports": {"V-2501": ports}}).status_code, 200)
+        self.assertEqual(wait()["gate"], 2)
+        edited = next(e for e in get("input/sheet_equipment_bboxes.json")["objects"] if e["Tag"] == "V-2501")
+        self.assertEqual(([p["side"] for p in edited["Ports"]], edited["ports_source"]),
+                         ([p["side"] for p in ports], "human_edit"))
+        self.assertNotEqual(get("input/gate1_line_numbers.json"), ln0)
+
+        # The API restarts: the job comes back from its job.json, and Reopen still works.
+        api.JOBS.pop(jid)
+        api._load_saved_jobs()
+        r = client.post(f"/api/garnet/jobs/{jid}/reopen", json={"gate": 1})
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual((r.json()["status"], r.json()["gate"]), ("awaiting_gate", 1))
+        self.assertEqual(get("input/sheet_objects.json"), objs0)
+        self.assertEqual(get("input/sheet_equipment_bboxes.json"), eq0)
+        self.assertEqual(get("input/gate1_line_numbers.json"), ln0)
+
     def test_gates_park_apply_and_resume(self):
         client = TestClient(app)
         files = {

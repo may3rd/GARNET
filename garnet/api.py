@@ -33,6 +33,7 @@ import threading
 import uuid
 from collections import OrderedDict
 from pathlib import Path
+from typing import Literal
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -954,6 +955,49 @@ def _apply_gate1(job_dir: Path, rejected: list[str], edits: dict[str, str],
     path.write_text(json.dumps(payload))
 
 
+def _pre_gate1(job_dir: Path, name: str) -> Path:
+    """The untouched copy Gate 1 keeps of a staged input, and Reopen puts back."""
+    return job_dir / "input" / JSON_INPUTS[name].replace(".json", ".pre_gate1.json")
+
+
+def _check_ports(job_dir: Path, ports: dict[str, list[Port]]) -> None:
+    """Ports are keyed by equipment Tag (that is how the tracer finds them), on the raster."""
+    if not ports:
+        return
+    path = _pre_gate1(job_dir, "equipment_json")
+    if not path.is_file():
+        path = job_dir / "input" / JSON_INPUTS["equipment_json"]
+    items = json.loads(path.read_text()).get("objects", []) if path.is_file() else []
+    tags = {str(e.get("Tag") or "").strip() for e in items} - {""}
+    unknown = sorted(set(ports) - tags)
+    if unknown:
+        raise HTTPException(status_code=400, detail=f"ports: no tagged equipment {unknown}; "
+                                                    "an untagged box cannot take ports, tag it first")
+    h, w = cv2.imread(str(job_dir / "input" / f"{STEM}.jpg"), cv2.IMREAD_GRAYSCALE).shape[:2]
+    for tag, plist in ports.items():
+        for p in plist:
+            x, y = p.point_px
+            if not (0 <= x < w and 0 <= y < h):
+                raise HTTPException(status_code=400, detail=f"ports: {tag} point {[x, y]} is off the {w}x{h} raster")
+
+
+def _apply_gate1_ports(job_dir: Path, ports: dict[str, list[Port]]) -> None:
+    """Replace the port lists of the named equipment; the pre-gate file is kept for Reopen."""
+    if not ports:
+        return
+    path, keep = job_dir / "input" / JSON_INPUTS["equipment_json"], _pre_gate1(job_dir, "equipment_json")
+    if not keep.exists():
+        keep.write_text(path.read_text())
+    payload = json.loads(keep.read_text())
+    for item in payload.get("objects", []):
+        tag = str(item.get("Tag") or "").strip()
+        if tag in ports:
+            item["Ports_original"] = item.get("Ports") or []
+            item["Ports"] = [p.model_dump() for p in ports[tag]]
+            item["ports_source"] = "human_edit"
+    path.write_text(json.dumps(payload))
+
+
 TRACE_FILES = ("stage5b_trace_results.json", "stage5c_branch_trace_results.json",
                "stage5b_branch_trace_results.json")
 
@@ -1023,6 +1067,15 @@ class AddedObject(BaseModel):
     class_name: str = Field(min_length=1)
     bbox: Box
     text: str = ""
+
+
+class Port(BaseModel):
+    # Sides `host.load_equipment_ports` maps to a trace direction; anything else it drops.
+    side: Literal["top", "bottom", "left", "right"]
+    point_px: tuple[int, int]
+    mark: str | None = None
+    size: str | None = None
+    line_number: str | None = None
 
 
 class Seg(BaseModel):
@@ -1142,6 +1195,8 @@ class GateRequest(BaseModel):
     moved: dict[str, Box] = {}
     # Gate 1 only: object id -> corrected class.
     reclassed: dict[str, str] = {}
+    # Gate 1 only: equipment Tag -> its FULL port list (replaces the uploaded one).
+    ports: dict[str, list[Port]] = {}
     # Gate 2 only: hand-drawn traces, and replacement geometry for existing traces (what is left
     # after erasing; an empty list removes the trace like a rejection).
     drawn: list[list[Seg]] = []
@@ -1179,12 +1234,13 @@ def api_garnet_gate(job_id: str, gate: int, payload: GateRequest) -> dict:
             _check_reassign(job_dir, payload.reassigned, payload.decisions)
         elif payload.reassigned:
             raise HTTPException(status_code=400, detail="Line numbers can be reassigned at Gate 3 only")
-        if gate != 1 and (payload.added or payload.moved or payload.reclassed):
-            raise HTTPException(status_code=400, detail="Boxes can be added, moved or reclassed at Gate 1 only")
+        if gate != 1 and (payload.added or payload.moved or payload.reclassed or payload.ports):
+            raise HTTPException(status_code=400, detail="Boxes and ports can be edited at Gate 1 only")
         if any(not c.strip() for c in payload.reclassed.values()):
             raise HTTPException(status_code=400, detail="reclassed: class names must be non-empty")
         if gate == 1:
             _check_boxes(job_dir, [a.bbox for a in payload.added] + list(payload.moved.values()))
+            _check_ports(job_dir, payload.ports)
         bad = {v for v in payload.decisions.values()} - {"accepted", "rejected"}
         if bad:
             raise HTTPException(status_code=400, detail=f"decisions must be accepted/rejected, got {sorted(bad)}")
@@ -1194,6 +1250,7 @@ def api_garnet_gate(job_id: str, gate: int, payload: GateRequest) -> dict:
         _record_gate(job_dir, gate, payload.model_dump())
         if gate == 1:
             _apply_gate1(job_dir, payload.rejected, payload.edits, payload.added, payload.moved, payload.reclassed)
+            _apply_gate1_ports(job_dir, payload.ports)
             _write_gate1_line_numbers(job_dir)
         if gate == 3:
             if payload.edits:
@@ -1293,11 +1350,13 @@ def api_garnet_reopen(job_id: str, payload: ReopenRequest) -> dict:
         # Edits are text corrections over Stage 6; they belong to the review being discarded.
         stash("edits.json")
         if gate == 1:
-            # Undo Gate 1's write to the staged objects: the pre-gate copy becomes current again.
-            pre = job_dir / "input" / f"{STEM}_objects.pre_gate1.json"
-            if pre.is_file():
-                stash(f"input/{JSON_INPUTS['objects_json']}")
-                shutil.move(str(pre), str(job_dir / "input" / JSON_INPUTS["objects_json"]))
+            # Undo Gate 1's writes to the staged objects and ports: the pre-gate copies become current.
+            for name in ("objects_json", "equipment_json"):
+                pre = _pre_gate1(job_dir, name)
+                if pre.is_file():
+                    stash(f"input/{JSON_INPUTS[name]}")
+                    shutil.move(str(pre), str(job_dir / "input" / JSON_INPUTS[name]))
+            _write_gate1_line_numbers(job_dir)
             _MASKS.pop(str(job_dir), None)
             (job_dir / "out").mkdir(exist_ok=True)
 
@@ -1362,6 +1421,41 @@ def api_garnet_bundle(job_id: str) -> StreamingResponse:
                              headers={"Content-Disposition": f'attachment; filename="{stem}_garnet_{job_id[:8]}.zip"'})
 
 
+def _restore_job(job_dir: Path, state: dict) -> dict:
+    """A job-table entry from a saved `job.json`: steps rebuilt from `plan`, saved statuses kept."""
+    plan = state["plan"]
+    saved = {st["name"]: st for st in state["steps"]}
+    weight = Path(plan["weight"])
+    steps = _plan(job_dir, set(plan["have"]), plan["review_llm"],
+                  weight if weight.is_absolute() else REPO_ROOT / weight, plan["ocr_instruments"])
+    for st in steps:
+        if st["name"] in saved:
+            s = saved[st["name"]]
+            st.update(status=s["status"], note=s["note"], log=s["log"])
+    job = {k: v for k, v in state.items() if k not in ("steps", "version")}
+    job["steps"] = steps
+    return job
+
+
+def _load_saved_jobs() -> None:
+    """Rebuild the job table from each job folder's `job.json`, so jobs survive an API restart."""
+    for path in sorted(JOBS_DIR.glob("*/job.json")):
+        job_id = path.parent.name
+        if job_id in JOBS:
+            continue
+        try:
+            job = _restore_job(path.parent, json.loads(path.read_text()))
+        except (ValueError, KeyError, TypeError) as exc:
+            logger.warning("garnet job %s: job.json unreadable, not restored (%s)", job_id, exc)
+            continue
+        if job["status"] in ("queued", "running"):  # its worker thread died with the old process
+            job.update(status="failed", error="interrupted by an API restart; start the sheet again")
+        JOBS[job_id] = job
+
+
+_load_saved_jobs()
+
+
 @app.post("/api/garnet/jobs/load")
 def api_garnet_load(bundle: UploadFile = File(...)) -> dict:
     """Restore a saved bundle as a new job, resting where it was saved (a gate, or completed)."""
@@ -1380,29 +1474,20 @@ def api_garnet_load(bundle: UploadFile = File(...)) -> dict:
         raise HTTPException(status_code=413, detail="Bundle too large")
     if "job.json" not in names or f"input/{STEM}.jpg" not in names:
         raise HTTPException(status_code=400, detail="Not a GARNET job bundle (job.json / input raster missing)")
+    job_id = uuid.uuid4().hex
+    job_dir = JOBS_DIR / job_id
     try:
         state = json.loads(zf.read("job.json"))
-        plan = state["plan"]
-        saved_steps = {st["name"]: st for st in state["steps"]}
+        job = _restore_job(job_dir, state)  # builds paths only; nothing is written yet
     except (ValueError, KeyError, TypeError) as exc:
         raise HTTPException(status_code=400, detail=f"job.json unreadable: {exc}") from exc
     if state.get("status") not in ("awaiting_gate", "completed", "failed"):
         raise HTTPException(status_code=400, detail=f"Bundle was saved while {state.get('status')}")
 
-    job_id = uuid.uuid4().hex
-    job_dir = JOBS_DIR / job_id
     job_dir.mkdir(parents=True)
     zf.extractall(job_dir)
-    weight = Path(plan["weight"])
-    steps = _plan(job_dir, set(plan["have"]), plan["review_llm"],
-                  weight if weight.is_absolute() else REPO_ROOT / weight, plan["ocr_instruments"])
-    for st in steps:
-        saved = saved_steps.get(st["name"])
-        if saved:
-            st.update(status=saved["status"], note=saved["note"], log=saved["log"])
     with JOBS_LOCK:
-        JOBS[job_id] = {k: v for k, v in state.items() if k not in ("steps", "version")}
-        JOBS[job_id]["steps"] = steps
+        JOBS[job_id] = job
         JOBS[job_id]["loaded_from"] = bundle.filename or ""
         _persist(job_id)
     logger.info("garnet job %s: loaded from %s (%s, gate %s)", job_id, bundle.filename, state["status"], state.get("gate"))
