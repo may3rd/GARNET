@@ -106,7 +106,7 @@ class Stage5bConfig:
 # ---------------------------------------------------------------------------
 
 
-def merge_line_numbers(objects: list[dict], line_numbers: list[dict]) -> list[dict]:
+def merge_line_numbers(objects: list[dict], line_numbers: list[dict], master: bool = False) -> list[dict]:
     """Return `objects` with the line numbers as `class_name: "line number"` rows.
 
     An uploaded line-number file is the MASTER list: every detector line-number box is
@@ -114,12 +114,13 @@ def merge_line_numbers(objects: list[dict], line_numbers: list[dict]) -> list[di
     `line_number_0001`... in upload order. The detector's boxes only localise; the upload is
     transcribed, so mixing the two showed labels twice and left textless detector boxes
     (18 of 26 on sheet 0002A) for the tracer to attach. With no usable upload the detector's
-    boxes stay as they are.
+    boxes stay as they are, unless `master` (a list the Gate 1 reviewer edited, possibly to
+    empty) says the file is authoritative anyway.
     """
     labels = []
     for ln in line_numbers:
         text = str(ln.get("Text") or "").strip()
-        if not text:
+        if not text and not master:  # a reviewed list keeps what the reviewer kept, text or not
             continue
         try:
             x, y = int(ln["Left"]), int(ln["Top"])
@@ -134,7 +135,7 @@ def merge_line_numbers(objects: list[dict], line_numbers: list[dict]) -> list[di
             "text": text,
             "text_source": "line_number_boxes",
         })
-    if not labels:
+    if not labels and not master:
         return [dict(o) for o in objects]
     kept = [dict(o) for o in objects
             if str(o.get("class_name", "")).strip().lower() not in LINE_NUMBER_CLASSES]
@@ -230,7 +231,8 @@ def load_fixtures(indir: Path, stem: str) -> tuple[list[dict], list[dict]]:
     objects = obj_payload.get("objects", [])
 
     ln_payload = read("{stem}_line_number_boxes.json", "{stem}_line_numbers.json")
-    objects = merge_line_numbers(objects, (ln_payload or {}).get("objects", []))
+    ln_payload = ln_payload or {}
+    objects = merge_line_numbers(objects, ln_payload.get("objects", []), bool(ln_payload.get("master")))
 
     eq_payload = read("{stem}_equipment_bboxes.json", "{stem}_equipment.json")
     equipment = _equipment_as_objects((eq_payload or {}).get("objects", []))

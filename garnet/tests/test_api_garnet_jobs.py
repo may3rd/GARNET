@@ -110,10 +110,11 @@ class TestGarnetJobs(unittest.TestCase):
         self.assertEqual(gate1({"ports": {"NOPE-1": ports}}).status_code, 400)
         self.assertEqual(gate1({"ports": {"V-2501": [{"side": "diagonal", "point_px": [1, 1]}]}}).status_code, 422)
         self.assertEqual(gate1({"ports": {"V-2501": [{"side": "top", "point_px": [-5, 1]}]}}).status_code, 400)
-        # With an upload, line numbers are not Gate 1 object edits (they would vanish on rerun).
+        # Line numbers change only in their own list: a drawn one needs text, no object-style edits.
         box = {"x_min": 1, "y_min": 1, "x_max": 9, "y_max": 9}
-        self.assertEqual(gate1({"rejected": [ln0["objects"][0]["id"]]}).status_code, 400)
         self.assertEqual(gate1({"added": [{"class_name": "Line Number", "bbox": box}]}).status_code, 400)
+        self.assertEqual(gate1({"edits": {ln0["objects"][0]["id"]: "X"}}).status_code, 400)
+        self.assertEqual(gate1({"reclassed": {objs0["objects"][0]["id"]: "line_number"}}).status_code, 400)
         self.assertEqual(gate1({"ports": {"V-2501": ports}}).status_code, 200)
         self.assertEqual(wait()["gate"], 2)
         edited = next(e for e in get("input/sheet_equipment_bboxes.json")["objects"] if e["Tag"] == "V-2501")
@@ -176,9 +177,15 @@ class TestGarnetJobs(unittest.TestCase):
                  "bbox": {"x_min": 10, "y_min": 10, "x_max": 60, "y_max": 60}}
         off = {"class_name": "gate valve", "bbox": {"x_min": 10, "y_min": 10, "x_max": 10, "y_max": 99999}}
         self.assertEqual(client.post(f"/api/garnet/jobs/{jid}/gates/1", json={"added": [off]}).status_code, 400)
+        # Line numbers: reject one and draw one; both go to the uploaded line-number file.
+        ln_drop = gate1_ln[0]["id"]
+        ln_new = {"class_name": "Line Number", "text": '9"-P-99-999',
+                  "bbox": {"x_min": 100, "y_min": 100, "x_max": 300, "y_max": 130}}
+        ln_expected = sorted([o["text"] for o in gate1_ln if o["id"] != ln_drop] + [ln_new["text"]])
+        ln_texts = lambda: sorted(o["text"] for o in get("input/gate1_line_numbers.json")["objects"])  # noqa: E731
         r = client.post(f"/api/garnet/jobs/{jid}/gates/1", json={
-            "rejected": [drop], "edits": {tag: "TI 0001"}, "added": [added], "moved": {moved["id"]: new_box},
-            "reclassed": {moved["id"]: "globe valve"}})
+            "rejected": [drop, ln_drop], "edits": {tag: "TI 0001"}, "added": [added, ln_new],
+            "moved": {moved["id"]: new_box}, "reclassed": {moved["id"]: "globe valve"}})
         self.assertEqual(r.status_code, 200, r.text)
 
         job = wait()
@@ -196,6 +203,8 @@ class TestGarnetJobs(unittest.TestCase):
         self.assertEqual(sorted((o["id"], o.get("text")) for o in get("input/gate1_line_numbers.json")["objects"]),
                          sorted((o["id"], o.get("text")) for o in get("out/stage4_objects.json")["objects"] if is_ln(o)))
         self.assertIn(drop, {o["id"] for o in get("input/sheet_objects.pre_gate1.json")["objects"]})
+        self.assertEqual(ln_texts(), ln_expected)  # and, above, exactly what Stage 4 got
+        self.assertEqual(get("input/sheet_line_numbers.pre_gate1.json"), json.loads((INPUT / f"{STEM}_line_numbers.json").read_text()))
         traces = get("out/stage5b_trace_results.json")
         dropped_trace = next(iter(traces))
         self.assertEqual(client.post(f"/api/garnet/jobs/{jid}/gates/2", json={"rejected": ["nope"]}).status_code, 400)
@@ -272,6 +281,7 @@ class TestGarnetJobs(unittest.TestCase):
         self.assertEqual((job["status"], job["gate"]), ("awaiting_gate", 3))
         stage6 = get("out/stage6_trace_associations.json")
         self.assertIn(dropped_trace, {e["trace_id"] for e in stage6["trace_edges"]})  # Gate 2 redone with no rejections
+        self.assertEqual(ln_texts(), ln_expected)  # Gate 1's line-number edits survive a later Reopen
 
         # Reset to start: Gate 1 undone in the staged objects, whole trace archived.
         job = client.post(f"/api/garnet/jobs/{jid}/reopen", json={"gate": 1}).json()
@@ -279,6 +289,8 @@ class TestGarnetJobs(unittest.TestCase):
         staged = {o["id"]: o for o in get("input/sheet_objects.json")["objects"]}
         self.assertIn(drop, staged)
         self.assertNotIn("human_000001", staged)
+        self.assertEqual(get("input/sheet_line_numbers.json"), json.loads((INPUT / f"{STEM}_line_numbers.json").read_text()))
+        self.assertEqual(ln_texts(), sorted(o["text"] for o in gate1_ln))
         self.assertFalse(any(a["name"].startswith("out/") for a in job["artifacts"]))
         self.assertEqual([h["event"] for h in job["history"]], ["confirm", "confirm", "confirm", "reopen", "confirm", "reopen"])
         # Save at Gate 1, load it back as a new job, and drive the LOADED job on: its steps must
@@ -292,6 +304,46 @@ class TestGarnetJobs(unittest.TestCase):
         self.assertEqual(client.post(f"/api/garnet/jobs/{jid}/gates/1", json={}).status_code, 200)
         job = wait()
         self.assertEqual((job["status"], job["gate"]), ("awaiting_gate", 2))
+
+    def test_gate1_line_numbers_without_upload(self):
+        """No upload: the first line-number edit creates the file from the tab; Reopen deletes it."""
+        client = TestClient(app)
+        files = {
+            "file_input": ("s.jpg", (INPUT / f"{STEM}.jpg").read_bytes(), "image/jpeg"),
+            "objects_json": ("o.json", (INPUT / f"{STEM}_objects.json").read_bytes()),
+            "equipment_json": ("e.json", (INPUT / f"{STEM}_equipment_bboxes.json").read_bytes()),
+        }
+        jid = client.post("/api/garnet/jobs", files=files, data={"ocr_instruments": "false"}).json()["id"]
+
+        def wait():
+            j = client.get(f"/api/garnet/jobs/{jid}").json()
+            deadline = time.time() + 600
+            while j["status"] in ("queued", "running") and time.time() < deadline:
+                time.sleep(1)
+                j = client.get(f"/api/garnet/jobs/{jid}").json()
+            return j
+
+        def get(rel):
+            return client.get(f"/runs/jobs/{jid}/{rel}").json()
+
+        def boxes(rows):
+            return sorted(tuple(o["bbox"].values()) for o in rows)
+        self.assertEqual(wait()["gate"], 1)
+        ln0 = get("input/gate1_line_numbers.json")["objects"]
+        drop = ln0[0]
+        self.assertEqual(client.post(f"/api/garnet/jobs/{jid}/gates/1", json={"rejected": [drop["id"]]}).status_code, 200)
+        self.assertEqual(wait()["gate"], 2)
+        ln1 = get("input/gate1_line_numbers.json")["objects"]
+        self.assertEqual(boxes(ln1), boxes(ln0[1:]))  # text-less detector boxes are kept, too
+        stage4 = [o for o in get("out/stage4_objects.json")["objects"] if o["class_name"] == "line number"]
+        self.assertEqual(boxes(stage4), boxes(ln1))
+        self.assertTrue(get("input/sheet_line_numbers.pre_gate1.json")["absent"])
+
+        r = client.post(f"/api/garnet/jobs/{jid}/reopen", json={"gate": 1})
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(client.get(f"/runs/jobs/{jid}/input/sheet_line_numbers.json").status_code, 404)
+        self.assertEqual(client.get(f"/runs/jobs/{jid}/input/sheet_line_numbers.pre_gate1.json").status_code, 404)
+        self.assertEqual(get("input/gate1_line_numbers.json")["objects"], ln0)
 
     def test_report_and_bundle_round_trip(self):
         import io, zipfile

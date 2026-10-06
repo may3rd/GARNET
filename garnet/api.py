@@ -447,9 +447,16 @@ def _write_gate1_line_numbers(job_dir: Path) -> None:
     Built exactly as Stage 5b will see it: with an upload, its labels are the master list and
     detector line-number boxes are dropped; without one, the detector boxes stand.
     """
+    (job_dir / "input" / "gate1_line_numbers.json").write_text(json.dumps({"objects": _line_number_rows(job_dir)}))
+
+
+def _is_ln(class_name) -> bool:
+    return str(class_name or "").strip().lower() in LINE_NUMBER_CLASSES
+
+
+def _line_number_rows(job_dir: Path) -> list[dict]:
     objects, _ = load_fixtures(job_dir / "input", STEM)
-    rows = [o for o in objects if str(o.get("class_name", "")).strip().lower() in LINE_NUMBER_CLASSES]
-    (job_dir / "input" / "gate1_line_numbers.json").write_text(json.dumps({"objects": rows}))
+    return [o for o in objects if _is_ln(o.get("class_name"))]
 
 
 def _run_job_inner(job_id: str, start: int = 0) -> None:
@@ -659,7 +666,7 @@ def _now() -> str:
 def _known_ids(job_dir: Path) -> set[str]:
     """Every object id a review may name: staged objects, stage 4 objects, Stage 6 items."""
     known: set[str] = set()
-    for rel in (f"input/{JSON_INPUTS['objects_json']}", "out/stage4_objects.json"):
+    for rel in (f"input/{JSON_INPUTS['objects_json']}", "input/gate1_line_numbers.json", "out/stage4_objects.json"):
         path = job_dir / rel
         if path.is_file():
             known |= {o["id"] for o in json.loads(path.read_text())["objects"] if "id" in o}
@@ -956,26 +963,46 @@ def _apply_gate1(job_dir: Path, rejected: list[str], edits: dict[str, str],
 
 
 def _check_line_number_edits(job_dir: Path, payload: "GateRequest") -> None:
-    """With an uploaded line-number list, Gate 1 object edits must not touch line numbers.
+    """Gate 1 line numbers change only by reject or draw, which go to the line-number file.
 
-    `merge_line_numbers` rebuilds them from the upload and drops every line-number box in the
-    objects file, so such an edit would vanish silently. Refuse it until the Line numbers tab
-    gets its own write path.
+    Editing, moving or reclassing one in the objects file would vanish: with a line-number
+    file `merge_line_numbers` drops every line-number box there and rebuilds from the file.
     """
-    view = job_dir / "input" / "gate1_line_numbers.json"
-    rows = json.loads(view.read_text())["objects"] if view.is_file() else []
-    if not any(r.get("text_source") == "line_number_boxes" for r in rows):
-        return
-    is_ln = lambda c: str(c or "").strip().lower() in LINE_NUMBER_CLASSES  # noqa: E731
-    ln_ids = {r["id"] for r in rows}
+    ids = {r["id"] for r in _line_number_rows(job_dir)}
     for path in (_pre_gate1(job_dir, "objects_json"), job_dir / "input" / JSON_INPUTS["objects_json"]):
         if path.is_file():
-            ln_ids |= {o["id"] for o in json.loads(path.read_text())["objects"] if is_ln(o.get("class_name"))}
-    hit = sorted(ln_ids & {*payload.rejected, *payload.edits, *payload.moved, *payload.reclassed})
-    if (hit or any(is_ln(c) for c in payload.reclassed.values())
-            or any(is_ln(a.class_name) for a in payload.added)):
-        raise HTTPException(status_code=400, detail="Line numbers come from the uploaded list and cannot be "
-                                                    f"edited at Gate 1 {hit or ''}".rstrip())
+            ids |= {o["id"] for o in json.loads(path.read_text())["objects"] if _is_ln(o.get("class_name"))}
+    hit = sorted(ids & {*payload.edits, *payload.moved, *payload.reclassed})
+    if hit or any(_is_ln(c) for c in payload.reclassed.values()):
+        raise HTTPException(status_code=400, detail="Line numbers can only be rejected or drawn at Gate 1, "
+                                                    f"in the Line numbers list {hit or ''}".rstrip())
+    if any(_is_ln(a.class_name) and not a.text.strip() for a in payload.added):
+        raise HTTPException(status_code=400, detail="added: a drawn line number needs its text")
+
+
+def _apply_gate1_line_numbers(job_dir: Path, rejected: list[str], added: list[AddedObject]) -> None:
+    """Rewrite the line-number file as the Gate 1 list (minus rejects, plus drawn boxes).
+
+    Runs on the pre-gate inputs, so the base is exactly what the Line numbers tab showed. With
+    no upload the first edit creates the file; the pre-gate copy then records `absent`, and
+    Reopen deletes the file instead of restoring it. The file is marked `master` so an
+    emptied list stays empty instead of falling back to the detector boxes.
+    """
+    rows = _line_number_rows(job_dir)
+    drop = set(rejected) & {r["id"] for r in rows}
+    new = [a for a in added if _is_ln(a.class_name)]
+    if not drop and not new:
+        return
+    path, keep = job_dir / "input" / JSON_INPUTS["line_numbers_json"], _pre_gate1(job_dir, "line_numbers_json")
+    if not keep.exists():
+        keep.write_text(path.read_text() if path.is_file() else json.dumps({"absent": True}))
+
+    def label(b: dict, text: str, score: float) -> dict:
+        return {"Left": b["x_min"], "Top": b["y_min"], "Width": b["x_max"] - b["x_min"],
+                "Height": b["y_max"] - b["y_min"], "Text": text, "Score": score}
+    labels = [label(r["bbox"], r.get("text", ""), r.get("confidence", 1.0)) for r in rows if r["id"] not in drop]
+    labels += [{**label(a.bbox.model_dump(), a.text.strip(), 1.0), "source": "human"} for a in new]
+    path.write_text(json.dumps({"master": True, "objects": labels}))
 
 
 def _pre_gate1(job_dir: Path, name: str) -> Path:
@@ -1273,7 +1300,9 @@ def api_garnet_gate(job_id: str, gate: int, payload: GateRequest) -> dict:
 
         _record_gate(job_dir, gate, payload.model_dump())
         if gate == 1:
-            _apply_gate1(job_dir, payload.rejected, payload.edits, payload.added, payload.moved, payload.reclassed)
+            _apply_gate1_line_numbers(job_dir, payload.rejected, payload.added)
+            _apply_gate1(job_dir, payload.rejected, payload.edits,
+                         [a for a in payload.added if not _is_ln(a.class_name)], payload.moved, payload.reclassed)
             _apply_gate1_ports(job_dir, payload.ports)
             _write_gate1_line_numbers(job_dir)
         if gate == 3:
@@ -1375,12 +1404,16 @@ def api_garnet_reopen(job_id: str, payload: ReopenRequest) -> dict:
         # Edits are text corrections over Stage 6; they belong to the review being discarded.
         stash("edits.json")
         if gate == 1:
-            # Undo Gate 1's writes to the staged objects and ports: the pre-gate copies become current.
-            for name in ("objects_json", "equipment_json"):
+            # Undo Gate 1's writes to the staged objects, ports and line numbers: the pre-gate
+            # copies become current; a line-number file Gate 1 created (no upload) is removed.
+            for name in ("objects_json", "equipment_json", "line_numbers_json"):
                 pre = _pre_gate1(job_dir, name)
                 if pre.is_file():
                     stash(f"input/{JSON_INPUTS[name]}")
-                    shutil.move(str(pre), str(job_dir / "input" / JSON_INPUTS[name]))
+                    if json.loads(pre.read_text()).get("absent"):
+                        pre.unlink()
+                    else:
+                        shutil.move(str(pre), str(job_dir / "input" / JSON_INPUTS[name]))
             _write_gate1_line_numbers(job_dir)
             _MASKS.pop(str(job_dir), None)
             (job_dir / "out").mkdir(exist_ok=True)
