@@ -127,7 +127,8 @@ type RunState = {
   /** Confirm the gate a garnet job is parked on, then follow it to its next rest. */
   confirmGarnetGate: (sheetId: string, gate: GarnetGate, decision: GarnetGateDecision) => Promise<void>
   /** Go back to `gate` (1 = reset to start). Later work is archived by the server. */
-  reopenGarnetGate: (sheetId: string, gate: GarnetGate) => Promise<void>
+  /** Resolves false when the reopen failed; the reason is on `sheet.error`. */
+  reopenGarnetGate: (sheetId: string, gate: GarnetGate) => Promise<boolean>
   /** Load a saved .zip as a new GARNET sheet, resting where it was saved. Throws on a bad bundle. */
   loadGarnetBundle: (file: File) => Promise<void>
   /** Object edits persist to the server's in-memory result store. */
@@ -479,11 +480,13 @@ export const useRunStore = create<RunState>((set, get) => ({
 
   reopenGarnetGate: async (sheetId, gate) => {
     const job = get().sheets.find((s) => s.id === sheetId)?.garnet
-    if (!job) return
+    if (!job) return false
     try {
       patchSheet(set, sheetId, { garnet: await reopenGarnetGateApi(job.id, gate), error: null })
+      return true
     } catch (error) {
       patchSheet(set, sheetId, { error: error instanceof Error ? error.message : 'Reopen failed' })
+      return false
     }
   },
 
