@@ -287,6 +287,11 @@ export function GarnetResults() {
   }
   const confirm = async () => {
     if (!sheet || !gate) return
+    const blank = gate === 1 && added.find((o) => isLineNumber(o.class_name) && !(draft[o.id] ?? '').trim())
+    if (blank) {
+      setSelected(blank.id)
+      return setSaveError(`${blank.id}: type the text of the line number you drew.`)
+    }
     setSaving(true)
     setSaveError(null)
     try {
@@ -405,12 +410,14 @@ export function GarnetResults() {
           ...added,
           // Line numbers have their own list (Gate 1 tab, Gate 3); the tracer takes them from there.
         ].filter((o) => !isLineNumber(o.class_name)),
+        // Gate 1 Line numbers tab: drawn line numbers join the list they belong to.
+        inputLineNumbers: [...data.inputLineNumbers, ...added.filter((o) => isLineNumber(o.class_name))],
       },
     [data, moved, added, reclassed]
   )
   const onDraw = (bbox: BBox) => {
-    const cls = addClass.trim()
-    if (!cls || isLineNumber(cls)) return
+    const cls = tab === 'inputLineNumbers' ? 'line number' : addClass.trim()
+    if (!cls || (tab === 'objects' && isLineNumber(cls))) return
     nextNew.current += 1
     const id = `new_${nextNew.current}`
     setAdded((a) => [...a, { id, class_name: cls, confidence: 1, bbox }])
@@ -424,7 +431,7 @@ export function GarnetResults() {
   }
   /** Class edits: a drawn box changes in place; an existing one records an override (cleared when reverted). */
   const onReclass = (id: string, cls: string) => {
-    if (isLineNumber(cls)) return
+    if (isLineNumber(cls)) return setSaveError('Line numbers go in the Line numbers list, not Objects.')
     if (added.some((o) => o.id === id)) {
       setAdded((a) => a.map((o) => (o.id === id ? { ...o, class_name: cls } : o)))
       return
@@ -469,7 +476,8 @@ export function GarnetResults() {
   const traceOf = (a: Assoc) => reassigned[a.id] ?? a.trace_id
   const onMove = (id: string, bbox: BBox) => {
     if (added.some((o) => o.id === id)) setAdded((a) => a.map((o) => (o.id === id ? { ...o, bbox } : o)))
-    else setMoved((m) => ({ ...m, [id]: bbox }))
+    // Only drawn line numbers move; the API refuses geometry edits on existing ones.
+    else if (tab !== 'inputLineNumbers') setMoved((m) => ({ ...m, [id]: bbox }))
   }
 
   // Traces as the reviewer currently sees them: erased geometry applied, drawn traces appended.
@@ -635,7 +643,7 @@ export function GarnetResults() {
       case 'inputLineNumbers':
         return view.inputLineNumbers
           .filter((o) => o.bbox)
-          .map((o) => ({ id: o.id, bbox: o.bbox, color: `hsl(${hue(o.class_name)} 80% 45%)`, dim: rejected.has(o.id), label: o.text || undefined }))
+          .map((o) => ({ id: o.id, bbox: o.bbox, color: `hsl(${hue(o.class_name)} 80% 45%)`, dim: rejected.has(o.id), label: (draft[o.id] ?? o.text) || undefined }))
       case 'traces':
         return traces.map((t) => ({
           id: t.id,
@@ -779,18 +787,20 @@ export function GarnetResults() {
               busy={busyStroke}
             />
           )}
-          {gate === 1 && tab === 'objects' && (
+          {gate === 1 && (tab === 'objects' || tab === 'inputLineNumbers') && (
             <div className="flex w-full items-center gap-2">
               <Button
                 size="sm"
                 variant={addMode ? 'primary' : 'secondary'}
                 aria-pressed={addMode}
-                isDisabled={!addClass.trim() || isLineNumber(addClass)}
+                isDisabled={tab === 'objects' && (!addClass.trim() || isLineNumber(addClass))}
                 onPress={() => setAddMode((m) => !m)}
               >
                 <Plus size={14} />
-                {addMode ? 'Drag on the drawing…' : 'Add box'}
+                {addMode ? 'Drag on the drawing…' : tab === 'objects' ? 'Add box' : 'Add line number'}
               </Button>
+              {tab === 'inputLineNumbers' && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Draw a box, then type its text in the list.</span>}
+              {tab === 'objects' && (<>
               <label className="flex items-center gap-1.5" style={{ fontSize: 12 }}>
                 class
                 {/* Suggestions are this sheet's own classes; free text is allowed for a class it lacks. */}
@@ -809,6 +819,7 @@ export function GarnetResults() {
               <span style={{ fontSize: 12, color: 'var(--muted)' }}>
                 {isLineNumber(addClass) ? 'Line numbers go in the Line numbers list, not Objects.' : 'Select a box to drag it or pull its corners.'}
               </span>
+              </>)}
               {selected && selected in moved && (
                 <Button
                   size="sm"
@@ -886,7 +897,7 @@ export function GarnetResults() {
             selected={selected}
             onSelect={onCanvasSelect}
             onPoint={portMode && portEq ? addPort : undefined}
-            editable={gate === 1 && tab === 'objects'}
+            editable={gate === 1 && (tab === 'objects' || tab === 'inputLineNumbers')}
             addMode={addMode}
             onDraw={onDraw}
             onMove={onMove}
@@ -901,7 +912,7 @@ export function GarnetResults() {
                 onReclass={gate === 1 ? onReclass : undefined}
                 classEdited={(id) => id in reclassed} hidden={hidden} setHidden={setHidden} selected={selected} onSelect={setSelected} />
             )}
-            {tab === 'inputLineNumbers' && <InputLineNumbersTable rows={view!.inputLineNumbers} rejected={rejected} selected={selected} onSelect={setSelected} />}
+            {tab === 'inputLineNumbers' && <InputLineNumbersTable rows={view!.inputLineNumbers} edits={edits} rejectable={gate === 1} rejected={rejected} onReject={toggleReject} selected={selected} onSelect={setSelected} />}
             {tab === 'lineNumbers' && (
               <AssocTable
                 edits={edits}
@@ -1504,26 +1515,52 @@ const rowStyle = (on: boolean): React.CSSProperties => ({ cursor: 'pointer', bac
 const bboxText = (b: BBox) => `${b.x_min},${b.y_min} → ${b.x_max},${b.y_max}`
 
 /** Read-only: Gate 1 edits only write the objects file, so changes here would never reach the tracer. */
-function InputLineNumbersTable({ rows, rejected, selected, onSelect }: { rows: Obj[]; rejected: Set<string>; selected: string | null; onSelect: (id: string) => void }) {
+function InputLineNumbersTable({
+  rows,
+  edits,
+  rejectable,
+  rejected,
+  onReject,
+  selected,
+  onSelect,
+}: {
+  rows: Obj[]
+  edits: Edits
+  /** Gate 1: reject rows and type the text of drawn ones. */
+  rejectable: boolean
+  rejected: Set<string>
+  onReject: (id: string) => void
+  selected: string | null
+  onSelect: (id: string) => void
+}) {
   return (
     <div style={{ fontSize: 12 }}>
       <div className="p-3" style={{ color: 'var(--muted)' }}>
-        The line numbers the tracer will use, with the uploaded text merged onto detector boxes. Read-only here; fix text at Gate 3.
+        The line numbers the tracer will use, with any uploaded text merged in.
+        {rejectable && ' Reject a wrong one, or draw a missing one with Add line number. Fix the text of existing ones at Gate 3.'}
       </div>
       <table className="w-full" style={{ borderCollapse: 'collapse' }}>
         <thead>
           <tr>
-            <th style={th}>id</th><th style={th}>text</th><th style={th}>bbox</th>
+            {rejectable && <th style={th} />}<th style={th}>id</th><th style={th}>text</th><th style={th}>bbox</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((o) => (
-            <tr key={o.id} style={{ ...rowStyle(o.id === selected), ...(rejected.has(o.id) ? REJECTED_ROW : {}) }} onClick={() => onSelect(o.id)}>
-              <td style={td} className="mono">{o.id}</td>
-              <td style={td} className="mono">{o.text || '—'}</td>
-              <td style={td} className="mono">{o.bbox ? bboxText(o.bbox) : '—'}</td>
-            </tr>
-          ))}
+          {rows.map((o) => {
+            const drawn = o.id.startsWith('new_')
+            return (
+              <tr key={o.id} style={{ ...rowStyle(o.id === selected), ...(rejected.has(o.id) ? REJECTED_ROW : {}) }} onClick={() => onSelect(o.id)}>
+                {rejectable && <RejectCell on={rejected.has(o.id)} onToggle={() => onReject(o.id)} label={drawn ? 'delete' : undefined} />}
+                <td style={td} className="mono">{o.id}</td>
+                {rejectable && drawn ? (
+                  <TextCell edits={edits} id={o.id} on={o.id === selected} />
+                ) : (
+                  <td style={td} className="mono">{o.text || '—'}</td>
+                )}
+                <td style={td} className="mono">{o.bbox ? bboxText(o.bbox) : '—'}</td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>
