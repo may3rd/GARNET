@@ -444,9 +444,8 @@ def _run_job(job_id: str, start: int = 0) -> None:
 def _write_gate1_line_numbers(job_dir: Path) -> None:
     """Gate 1's read-only line-number view, merged by the tracer's own `load_fixtures`.
 
-    The uploaded labels are folded into the staged objects exactly as Stage 5b will see
-    them (fixture text onto overlapping detector boxes, the rest added), so the screen never
-    shows a label twice or one the tracer won't get.
+    Built exactly as Stage 5b will see it: with an upload, its labels are the master list and
+    detector line-number boxes are dropped; without one, the detector boxes stand.
     """
     objects, _ = load_fixtures(job_dir / "input", STEM)
     rows = [o for o in objects if str(o.get("class_name", "")).strip().lower() in LINE_NUMBER_CLASSES]
@@ -956,6 +955,29 @@ def _apply_gate1(job_dir: Path, rejected: list[str], edits: dict[str, str],
     path.write_text(json.dumps(payload))
 
 
+def _check_line_number_edits(job_dir: Path, payload: "GateRequest") -> None:
+    """With an uploaded line-number list, Gate 1 object edits must not touch line numbers.
+
+    `merge_line_numbers` rebuilds them from the upload and drops every line-number box in the
+    objects file, so such an edit would vanish silently. Refuse it until the Line numbers tab
+    gets its own write path.
+    """
+    view = job_dir / "input" / "gate1_line_numbers.json"
+    rows = json.loads(view.read_text())["objects"] if view.is_file() else []
+    if not any(r.get("text_source") == "line_number_boxes" for r in rows):
+        return
+    is_ln = lambda c: str(c or "").strip().lower() in LINE_NUMBER_CLASSES  # noqa: E731
+    ln_ids = {r["id"] for r in rows}
+    for path in (_pre_gate1(job_dir, "objects_json"), job_dir / "input" / JSON_INPUTS["objects_json"]):
+        if path.is_file():
+            ln_ids |= {o["id"] for o in json.loads(path.read_text())["objects"] if is_ln(o.get("class_name"))}
+    hit = sorted(ln_ids & {*payload.rejected, *payload.edits, *payload.moved, *payload.reclassed})
+    if (hit or any(is_ln(c) for c in payload.reclassed.values())
+            or any(is_ln(a.class_name) for a in payload.added)):
+        raise HTTPException(status_code=400, detail="Line numbers come from the uploaded list and cannot be "
+                                                    f"edited at Gate 1 {hit or ''}".rstrip())
+
+
 def _pre_gate1(job_dir: Path, name: str) -> Path:
     """The untouched copy Gate 1 keeps of a staged input, and Reopen puts back."""
     return job_dir / "input" / JSON_INPUTS[name].replace(".json", ".pre_gate1.json")
@@ -1242,6 +1264,7 @@ def api_garnet_gate(job_id: str, gate: int, payload: GateRequest) -> dict:
         if gate == 1:
             _check_boxes(job_dir, [a.bbox for a in payload.added] + list(payload.moved.values()))
             _check_ports(job_dir, payload.ports)
+            _check_line_number_edits(job_dir, payload)
         bad = {v for v in payload.decisions.values()} - {"accepted", "rejected"}
         if bad:
             raise HTTPException(status_code=400, detail=f"decisions must be accepted/rejected, got {sorted(bad)}")

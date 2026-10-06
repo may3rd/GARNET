@@ -110,6 +110,10 @@ class TestGarnetJobs(unittest.TestCase):
         self.assertEqual(gate1({"ports": {"NOPE-1": ports}}).status_code, 400)
         self.assertEqual(gate1({"ports": {"V-2501": [{"side": "diagonal", "point_px": [1, 1]}]}}).status_code, 422)
         self.assertEqual(gate1({"ports": {"V-2501": [{"side": "top", "point_px": [-5, 1]}]}}).status_code, 400)
+        # With an upload, line numbers are not Gate 1 object edits (they would vanish on rerun).
+        box = {"x_min": 1, "y_min": 1, "x_max": 9, "y_max": 9}
+        self.assertEqual(gate1({"rejected": [ln0["objects"][0]["id"]]}).status_code, 400)
+        self.assertEqual(gate1({"added": [{"class_name": "Line Number", "bbox": box}]}).status_code, 400)
         self.assertEqual(gate1({"ports": {"V-2501": ports}}).status_code, 200)
         self.assertEqual(wait()["gate"], 2)
         edited = next(e for e in get("input/sheet_equipment_bboxes.json")["objects"] if e["Tag"] == "V-2501")

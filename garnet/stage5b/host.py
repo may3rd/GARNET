@@ -146,10 +146,9 @@ def merge_line_numbers(objects: list[dict], line_numbers: list[dict]) -> list[di
 def merge_ocr_regions(objects: list[dict], ocr_regions: list[dict]) -> list[dict]:
     """Fold Stage 2 OCR text boxes into the object list, without displacing fixtures.
 
-    Same contract as `merge_line_numbers`, for the same reason: the two sources
-    disagree by a few px on the same label (detector boxes are consistently taller
-    than tight text boxes, and OCR re-tightens to ink), so IoU-based matching
-    silently drops correct pairs. Matching is by **centre containment** instead.
+    The two sources disagree by a few px on the same label (detector boxes are
+    consistently taller than tight text boxes, and OCR re-tightens to ink), so
+    IoU-based matching silently drops correct pairs. Matching is by **centre containment** instead.
 
     Precedence, and why:
       * an object box containing the OCR box's centre KEEPS its own bbox and class;
