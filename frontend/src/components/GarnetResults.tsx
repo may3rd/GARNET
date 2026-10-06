@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@heroui/react'
-import { ArrowLeft, Brush, Download, Eraser, Link2, Magnet, Maximize, Minus, MousePointer2, PanelRightClose, PanelRightOpen, Plus, Redo2, Undo2 } from 'lucide-react'
+import { ArrowLeft, Brush, Download, Eraser, FileText, Link2, Magnet, Maximize, Minus, MousePointer2, PanelRightClose, PanelRightOpen, Plus, Redo2, Undo2 } from 'lucide-react'
 import { Card, PageHeader, Tag } from '@/components/ui/primitives'
 import { snapGarnetTrace, type GarnetGate, type GarnetJob } from '@/lib/api'
 import { densify, eraseSegments, mergeDrawn, orthogonal, rdp, segDist, strokeTangents, type Pt, type Segment } from '@/lib/traceGeometry'
@@ -415,7 +415,8 @@ export function GarnetResults() {
   }
   /** Point a line number at another trace; picking its own system trace clears the override. */
   const reassign = (id: string, traceId: string) => {
-    const original = data?.lineNumbers.find((a) => a.id === id)?.trace_id
+    // Line numbers and instrument tags share the mechanism; ids are unique across both.
+    const original = [...(data?.lineNumbers ?? []), ...(data?.instruments ?? [])].find((a) => a.id === id)?.trace_id
     setReassigned((r) => {
       const { [id]: _, ...rest } = r
       return traceId === original ? rest : { ...rest, [id]: traceId }
@@ -616,7 +617,7 @@ export function GarnetResults() {
           }
         }).concat(
           // While picking, every eligible pipe is a click target.
-          picking && tab === 'lineNumbers'
+          picking && (tab === 'lineNumbers' || tab === 'instruments')
             ? data.traces
                 .filter((t) => data.stage6TraceIds.has(t.id))
                 .map((t) => traceById.get(t.id) ?? t)
@@ -881,9 +882,22 @@ export function GarnetResults() {
                 footer={`${data.tracesWithoutLineNumber.length} trace(s) without a line number: ${data.tracesWithoutLineNumber.join(', ') || '—'}`}
               />
             )}
-            {tab === 'instruments' && <AssocTable edits={edits} decisions={{}} rows={data.instruments} selected={selected} onSelect={setSelected} showClass />}
+            {tab === 'instruments' && (
+              <AssocTable
+                edits={edits}
+                decisions={{}}
+                reassigned={reassigned}
+                picking={picking}
+                onPick={gate === 3 ? () => setPicking((x) => !x) : undefined}
+                onUnassign={gate === 3 ? (id) => reassign(id, data.instruments.find((a) => a.id === id)?.trace_id ?? '') : undefined}
+                rows={data.instruments}
+                selected={selected}
+                onSelect={setSelected}
+                showClass
+              />
+            )}
             {tab === 'testSystems' && (
-              <TestSystemsPanel data={data} sheetLabel={sheet.label} selected={selected} onSelect={setSelected} />
+              <TestSystemsPanel data={data} jobId={job.id} sheetLabel={sheet.label} selected={selected} onSelect={setSelected} />
             )}
             {tab === 'traces' && (
               <TracesTable
@@ -1809,11 +1823,13 @@ const fileStem = (label: string) => label.replace(/\.[a-z0-9]+$/i, '').replace(/
 
 function TestSystemsPanel({
   data,
+  jobId,
   sheetLabel,
   selected,
   onSelect,
 }: {
   data: Data
+  jobId?: string
   sheetLabel: string
   selected: string | null
   onSelect: (key: string) => void
@@ -1851,6 +1867,26 @@ function TestSystemsPanel({
           >
             <Download size={14} />
             Export JSON
+          </a>
+        )}
+        {data.testSystemsUrl && jobId && (
+          // Rendered server-side from the same test_systems.json, values verbatim.
+          <a
+            href={`/api/garnet/jobs/${jobId}/report.txt`}
+            download={`${fileStem(sheetLabel)}_test_systems.txt`}
+            className="inline-flex items-center gap-1.5"
+            style={{
+              height: 28,
+              padding: '0 10px',
+              borderRadius: 'var(--r-btn)',
+              boxShadow: 'inset 0 0 0 1px var(--border)',
+              color: 'inherit',
+              fontWeight: 500,
+              textDecoration: 'none',
+            }}
+          >
+            <FileText size={14} />
+            Export TXT
           </a>
         )}
       </div>

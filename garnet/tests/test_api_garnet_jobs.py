@@ -166,8 +166,11 @@ class TestGarnetJobs(unittest.TestCase):
         for bad in ({"reassigned": {moved_ln["id"]: dropped_trace}},             # rejected at Gate 2
                     {"reassigned": {moved_ln["id"]: target}, "decisions": {moved_ln["id"]: "rejected"}}):
             self.assertEqual(client.post(f"/api/garnet/jobs/{jid}/gates/3", json=bad).status_code, 400)
+        tag3 = stage6["associations"]["instrument_tags"]["accepted"][0]
+        tag_target = next(e["trace_id"] for e in stage6["trace_edges"] if e["trace_id"] != tag3["trace_id"])
         r = client.post(f"/api/garnet/jobs/{jid}/gates/3", json={
-            "decisions": {ln: "rejected"}, "edits": {ln: "X-1"}, "reassigned": {moved_ln["id"]: target}})
+            "decisions": {ln: "rejected"}, "edits": {ln: "X-1"},
+            "reassigned": {moved_ln["id"]: target, tag3["id"]: tag_target}})
         self.assertEqual(r.status_code, 200, r.text)
 
         job = wait()
@@ -179,6 +182,9 @@ class TestGarnetJobs(unittest.TestCase):
         self.assertEqual((re_item["trace_id"], re_item["trace_assignment"], re_item["system_assignment"]["trace_id"]),
                          (target, "human", moved_ln["trace_id"]))
         self.assertNotIn("projected_xy", re_item)
+        tag_item = next(i for i in get("out/reviewed_associations.json")["associations"]["instrument_tags"]["accepted"]
+                        if i["id"] == tag3["id"])
+        self.assertEqual((tag_item["trace_id"], tag_item["system_assignment"]["trace_id"]), (tag_target, tag3["trace_id"]))
         unresolved = get("out/reviewed_associations.json")["unresolved"]["traces_without_line_number"]
         self.assertNotIn(target, unresolved)
         self.assertEqual(set(get("gates.json")), {"1", "2", "3"})
@@ -207,9 +213,56 @@ class TestGarnetJobs(unittest.TestCase):
         self.assertNotIn("human_000001", staged)
         self.assertFalse(any(a["name"].startswith("out/") for a in job["artifacts"]))
         self.assertEqual([h["event"] for h in job["history"]], ["confirm", "confirm", "confirm", "reopen", "confirm", "reopen"])
+        # Save at Gate 1, load it back as a new job, and drive the LOADED job on: its steps must
+        # be rebuilt (callables included), not just its status.
+        bundle = client.get(f"/api/garnet/jobs/{jid}/bundle")
+        self.assertEqual(bundle.status_code, 200)
+        loaded = client.post("/api/garnet/jobs/load", files={"bundle": ("b.zip", bundle.content, "application/zip")}).json()
+        self.assertNotEqual(loaded["id"], jid)
+        self.assertEqual((loaded["status"], loaded["gate"], loaded["history"]), (job["status"], job["gate"], job["history"]))
+        jid = loaded["id"]
         self.assertEqual(client.post(f"/api/garnet/jobs/{jid}/gates/1", json={}).status_code, 200)
         job = wait()
         self.assertEqual((job["status"], job["gate"]), ("awaiting_gate", 2))
+
+    def test_report_and_bundle_round_trip(self):
+        import io, zipfile
+        client = TestClient(app)
+        files = {
+            "file_input": ("my sheet\"x.jpg", (INPUT / f"{STEM}.jpg").read_bytes(), "image/jpeg"),
+            "objects_json": ("o.json", (INPUT / f"{STEM}_objects.json").read_bytes()),
+            "equipment_json": ("e.json", (INPUT / f"{STEM}_equipment_bboxes.json").read_bytes()),
+            "line_numbers_json": ("l.json", (INPUT / f"{STEM}_line_numbers.json").read_bytes()),
+        }
+        job = client.post("/api/garnet/jobs", files=files,
+                          data={"pause_at_gates": "false", "ocr_instruments": "false"}).json()
+        deadline = time.time() + 600
+        while job["status"] in ("queued", "running") and time.time() < deadline:
+            time.sleep(1)
+            job = client.get(f"/api/garnet/jobs/{job['id']}").json()
+        self.assertEqual(job["status"], "completed")
+
+        rep = client.get(f"/api/garnet/jobs/{job['id']}/report.txt")
+        self.assertEqual(rep.status_code, 200)
+        # Whatever the client did to the upload name, only header-safe characters come back.
+        import re
+        self.assertRegex(rep.headers["content-disposition"], r'^attachment; filename="my_sheet[\w.-]*_test_systems\.txt"$')
+        ts = client.get(f"/runs/jobs/{job['id']}/out/test_systems.json").json()
+        self.assertTrue(rep.text.startswith("=" * 78 + "\nGARNET TEST SYSTEMS REPORT"))
+        for sysm in ts["systems"]:
+            self.assertIn(sysm["line_number"], rep.text)  # every system, text exactly as stored
+
+        zipped = client.get(f"/api/garnet/jobs/{job['id']}/bundle").content
+        loaded = client.post("/api/garnet/jobs/load", files={"bundle": ("b.zip", zipped)}).json()
+        self.assertEqual(loaded["status"], "completed")
+        self.assertEqual(client.get(f"/runs/jobs/{loaded['id']}/out/test_systems.json").json(), ts)
+
+        evil = io.BytesIO()
+        with zipfile.ZipFile(evil, "w") as zf:
+            zf.writestr("job.json", "{}")
+            zf.writestr("../escape.txt", "x")
+        self.assertEqual(client.post("/api/garnet/jobs/load", files={"bundle": ("e.zip", evil.getvalue())}).status_code, 400)
+        self.assertEqual(client.post("/api/garnet/jobs/load", files={"bundle": ("n.zip", b"not a zip")}).status_code, 400)
 
     def test_bad_json_rejected_before_staging(self):
         client = TestClient(app)

@@ -697,6 +697,8 @@ export type GarnetJob = {
   /** Saved text corrections, object id -> text. Applied over Stage 6; never rewrite it. */
   edits: Record<string, string>
   gates_confirmed: number[]
+  /** Original upload filename, for labels and download names. */
+  source_name: string
   /** Gate confirmations and reopens, oldest first. */
   history: GarnetHistoryEvent[]
 }
@@ -740,6 +742,13 @@ export async function saveGarnetEdits(jobId: string, edits: Record<string, strin
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ edits }),
   })
+}
+
+/** Restore a saved job bundle (.zip) on the server as a new job. */
+export async function loadGarnetBundle(file: File): Promise<GarnetJob> {
+  const form = new FormData()
+  form.append('bundle', file)
+  return requestJson<GarnetJob>('/api/garnet/jobs/load', { method: 'POST', body: form }, DEFAULT_TIMEOUT)
 }
 
 export async function getGarnetJob(jobId: string): Promise<GarnetJob> {

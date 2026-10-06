@@ -419,7 +419,26 @@ def _plan(job_dir: Path, have: set[str], review_llm: bool, weight: Path, ocr_ins
     return steps
 
 
+def _persist(job_id: str) -> None:
+    """Write the job's state next to its files, so a saved bundle (or the folder) can be reloaded.
+
+    Steps are stored without their callables; _plan rebuilds those from `plan`.
+    """
+    job = JOBS[job_id]
+    state = {k: v for k, v in job.items() if k != "steps"}
+    state["steps"] = [{k: st[k] for k in ("name", "status", "note", "log")} for st in job["steps"]]
+    state["version"] = 1
+    (JOBS_DIR / job_id / "job.json").write_text(json.dumps(state, indent=2, ensure_ascii=False))
+
+
 def _run_job(job_id: str, start: int = 0) -> None:
+    try:
+        _run_job_inner(job_id, start)
+    finally:
+        _persist(job_id)
+
+
+def _run_job_inner(job_id: str, start: int = 0) -> None:
     job = JOBS[job_id]
     job["status"], job["gate"] = "running", None
     for i, step in enumerate(job["steps"]):
@@ -467,6 +486,7 @@ def _job_view(job_id: str) -> dict:
         "id": job_id,
         "status": job["status"],
         "gate": job.get("gate"),
+        "source_name": job.get("source_name", ""),
         "error": job.get("error"),
         "steps": [{k: s[k] for k in ("name", "status", "note", "log")} for s in job["steps"]],
         "edits": _read_edits(job_dir)["edits"],
@@ -538,7 +558,15 @@ def api_garnet_job(
         (indir / JSON_INPUTS[key]).write_text(json.dumps(payload))
 
     with JOBS_LOCK:
-        JOBS[job_id] = {"status": "queued", "pause_at_gates": pause_at_gates, "steps": _plan(job_dir, set(parsed), review_llm, weight, ocr_instruments)}
+        JOBS[job_id] = {
+            "status": "queued", "pause_at_gates": pause_at_gates,
+            "source_name": file_input.filename or "",
+            # Everything _plan needs, so a reloaded job gets the same steps back.
+            "plan": {"have": sorted(parsed), "review_llm": review_llm, "ocr_instruments": ocr_instruments,
+                     "weight": str(weight.relative_to(REPO_ROOT)) if weight.is_relative_to(REPO_ROOT) else str(weight)},
+            "steps": _plan(job_dir, set(parsed), review_llm, weight, ocr_instruments),
+        }
+        _persist(job_id)
     threading.Thread(target=_run_job, args=(job_id,), daemon=True).start()
     logger.info("garnet job %s: uploaded=%s review_llm=%s", job_id, sorted(parsed), review_llm)
     return _job_view(job_id)
@@ -649,6 +677,10 @@ def _record_gate(job_dir: Path, gate: int, decision: dict) -> None:
         fh.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
+# Association groups whose items a reviewer may move to another trace at Gate 3.
+REASSIGNABLE = ("line_numbers", "instrument_tags")
+
+
 def _write_reviewed(job_dir: Path) -> None:
     """Stage 6 + text edits + Gate 3 line-number decisions -> out/reviewed_associations.json."""
     stage6 = json.loads((job_dir / "out" / "stage6_trace_associations.json").read_text())
@@ -664,7 +696,7 @@ def _write_reviewed(job_dir: Path) -> None:
                     item["text"] = edits["edits"][item["id"]]
                     item["normalized_text"] = item["text"]
                     item["text_source"] = "human_edit"
-        if name != "line_numbers":
+        if name not in REASSIGNABLE:
             continue
         # A human decision moves an item between the lists; the system's verdict is kept.
         items = [(st, it) for st in ("accepted", "rejected") for it in group.get(st, [])]
@@ -688,7 +720,9 @@ def _write_reviewed(job_dir: Path) -> None:
                 it["review_source"] = "human"
                 st = "accepted" if verdict == "accepted" else "rejected"
             group[st].append(it)
-    # Derived list: recompute so it agrees with the reviewed assignments.
+    # Derived lists: recompute so they agree with the reviewed assignments.
+    stage6["unresolved"]["unattached_line_numbers"] = stage6["associations"]["line_numbers"]["rejected"]
+    stage6["unresolved"]["unattached_instrument_tags"] = stage6["associations"]["instrument_tags"]["rejected"]
     labelled = {it["trace_id"] for it in stage6["associations"]["line_numbers"]["accepted"] if it.get("trace_id")}
     stage6["unresolved"]["traces_without_line_number"] = sorted(
         {e["trace_id"] for e in stage6["trace_edges"]} - labelled)
@@ -804,11 +838,11 @@ def _write_test_systems(job_dir: Path, reviewed: dict) -> None:
 
 
 def _check_reassign(job_dir: Path, reassigned: dict[str, str], decisions: dict[str, str]) -> None:
-    """Keys must be line numbers Stage 6 saw; targets must be traces Stage 6 actually used
-    (Gate 2 rejections are gone from trace_edges); and reassign + reject is a contradiction."""
+    """Keys must be line numbers or instrument tags Stage 6 saw; targets must be traces Stage 6
+    actually used (Gate 2 rejections are gone from trace_edges); reassign + reject contradicts."""
     stage6 = json.loads((job_dir / "out" / "stage6_trace_associations.json").read_text())
-    group = stage6["associations"]["line_numbers"]
-    _check_ids(reassigned, {it["id"] for st in ("accepted", "rejected") for it in group.get(st, [])})
+    _check_ids(reassigned, {it["id"] for name in REASSIGNABLE
+                            for st in ("accepted", "rejected") for it in stage6["associations"][name].get(st, [])})
     _check_ids(reassigned.values(), {e["trace_id"] for e in stage6["trace_edges"]})
     clash = sorted(k for k in reassigned if decisions.get(k) == "rejected")
     if clash:
@@ -1060,7 +1094,7 @@ class GateRequest(BaseModel):
     modified: dict[str, list[Seg]] = {}
     # Gates 1 and 3: object id -> corrected text.
     edits: dict[str, str] = {}
-    # Gate 3: line-number id -> trace id it belongs on instead (implies accepted).
+    # Gate 3: line-number or instrument-tag id -> trace id it belongs on (implies accepted).
     reassigned: dict[str, str] = {}
     # Gate 3: line-number id -> "accepted" | "rejected".
     decisions: dict[str, str] = {}
@@ -1111,6 +1145,7 @@ def api_garnet_gate(job_id: str, gate: int, payload: GateRequest) -> dict:
                 _append_edits(job_dir, {**_read_edits(job_dir)["edits"], **payload.edits})
             _write_reviewed(job_dir)
         job["status"] = "running"
+        _persist(job_id)
     threading.Thread(target=_run_job, args=(job_id, job["resume_at"]), daemon=True).start()
     return _job_view(job_id)
 
@@ -1227,5 +1262,190 @@ def api_garnet_reopen(job_id: str, payload: ReopenRequest) -> dict:
                 st["status"], st["log"] = "pending", ""
         # Reopening means the reviewer wants the gates back, even on a run that went straight through.
         job.update(status="awaiting_gate", gate=gate, resume_at=boundary + 1, pause_at_gates=True, error=None)
+        _persist(job_id)
     logger.info("garnet job %s: reopened Gate %d (archived to %s)", job_id, gate, archive.name)
     return _job_view(job_id)
+
+
+
+# --- Save / load a job as one zip ----------------------------------------------------------
+# The bundle is the job folder as-is (input, out, history, gate and edit records, job.json), so a
+# saved result is the evidence, not a summary of it. Loading rebuilds the job under a NEW id and
+# never overwrites another job.
+
+import io  # noqa: E402
+import zipfile  # noqa: E402
+from fastapi.responses import PlainTextResponse, StreamingResponse  # noqa: E402
+
+MAX_BUNDLE_BYTES = 1024 * 1024 * 1024  # uncompressed ceiling for a loaded bundle
+
+
+def _safe_stem(name: str | None) -> str:
+    """Upload filename -> header-safe download stem (it lands inside a quoted header)."""
+    stem = "".join(c if c.isalnum() or c in "-_." else "_" for c in Path(name or "").stem)
+    return stem.strip("._") or "sheet"
+
+
+@app.get("/api/garnet/jobs/{job_id}/bundle")
+def api_garnet_bundle(job_id: str) -> StreamingResponse:
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Job not found")
+        if job["status"] in ("queued", "running"):
+            raise HTTPException(status_code=409, detail="Job is running; save it once it rests")
+        _persist(job_id)
+        job_dir = JOBS_DIR / job_id
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for path in sorted(job_dir.rglob("*")):
+                if path.is_file():
+                    zf.write(path, path.relative_to(job_dir).as_posix())
+    buf.seek(0)
+    stem = _safe_stem(job.get("source_name"))
+    return StreamingResponse(buf, media_type="application/zip",
+                             headers={"Content-Disposition": f'attachment; filename="{stem}_garnet_{job_id[:8]}.zip"'})
+
+
+@app.post("/api/garnet/jobs/load")
+def api_garnet_load(bundle: UploadFile = File(...)) -> dict:
+    """Restore a saved bundle as a new job, resting where it was saved (a gate, or completed)."""
+    raw = bundle.file.read()
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(raw))
+    except zipfile.BadZipFile as exc:
+        raise HTTPException(status_code=400, detail="Not a zip file") from exc
+    names = zf.namelist()
+    # Trust boundary: a bundle may come from anywhere. No absolute paths, no '..', bounded size.
+    for n in names:
+        parts = Path(n).parts
+        if n.startswith(("/", "\\")) or ".." in parts or (parts and ":" in parts[0]):
+            raise HTTPException(status_code=400, detail=f"Unsafe path in bundle: {n}")
+    if sum(i.file_size for i in zf.infolist()) > MAX_BUNDLE_BYTES:
+        raise HTTPException(status_code=413, detail="Bundle too large")
+    if "job.json" not in names or f"input/{STEM}.jpg" not in names:
+        raise HTTPException(status_code=400, detail="Not a GARNET job bundle (job.json / input raster missing)")
+    try:
+        state = json.loads(zf.read("job.json"))
+        plan = state["plan"]
+        saved_steps = {st["name"]: st for st in state["steps"]}
+    except (ValueError, KeyError, TypeError) as exc:
+        raise HTTPException(status_code=400, detail=f"job.json unreadable: {exc}") from exc
+    if state.get("status") not in ("awaiting_gate", "completed", "failed"):
+        raise HTTPException(status_code=400, detail=f"Bundle was saved while {state.get('status')}")
+
+    job_id = uuid.uuid4().hex
+    job_dir = JOBS_DIR / job_id
+    job_dir.mkdir(parents=True)
+    zf.extractall(job_dir)
+    weight = Path(plan["weight"])
+    steps = _plan(job_dir, set(plan["have"]), plan["review_llm"],
+                  weight if weight.is_absolute() else REPO_ROOT / weight, plan["ocr_instruments"])
+    for st in steps:
+        saved = saved_steps.get(st["name"])
+        if saved:
+            st.update(status=saved["status"], note=saved["note"], log=saved["log"])
+    with JOBS_LOCK:
+        JOBS[job_id] = {k: v for k, v in state.items() if k not in ("steps", "version")}
+        JOBS[job_id]["steps"] = steps
+        JOBS[job_id]["loaded_from"] = bundle.filename or ""
+        _persist(job_id)
+    logger.info("garnet job %s: loaded from %s (%s, gate %s)", job_id, bundle.filename, state["status"], state.get("gate"))
+    return _job_view(job_id)
+
+
+# --- Human-readable report -----------------------------------------------------------------
+
+def _report_text(job_id: str) -> str:
+    job = JOBS[job_id]
+    job_dir = JOBS_DIR / job_id
+    ts_path = job_dir / "out" / "test_systems.json"
+    if not ts_path.is_file():
+        raise HTTPException(status_code=409, detail="No test systems yet: Stage 6 has not run")
+    ts = json.loads(ts_path.read_text())
+    gates = _read_gates(job_dir)
+    W = 78
+    out: list[str] = []
+    line = out.append
+
+    def rule(ch: str = "-") -> None:
+        line(ch * W)
+
+    def row(label: str, value: object) -> None:
+        line(f"  {label:<18}{value}")
+
+    rule("=")
+    line("GARNET TEST SYSTEMS REPORT")
+    rule("=")
+    row("Sheet", job.get("source_name") or "(unnamed)")
+    row("Job", job_id)
+    row("Generated", _now())
+    row("Status", job["status"] + (f" (Gate {job.get('gate')})" if job["status"] == "awaiting_gate" else ""))
+    row("Gates confirmed", ", ".join(f"Gate {g}" for g in sorted(gates)) or "none")
+    row("Gate 3 confirmed", "yes" if ts.get("gate3_confirmed") else "NO - review not final")
+    row("Text edits", f"version {ts.get('edits_version', 0)}")
+    row("Membership rule", ts.get("rule", ""))
+    line("")
+    row("Systems", len(ts["systems"]))
+    row("Conflicts", len(ts["conflicts"]))
+    row("Unassigned traces", len(ts["unassigned_traces"]))
+    line("")
+
+    for n, sysm in enumerate(ts["systems"], start=1):
+        rule("=")
+        flags = [f for f, on in (("CONFLICT", sysm["has_conflict"]), ("NO TEXT", sysm["no_text"])) if on]
+        line(f"[{n}] {sysm['line_number']}" + (f"   <{', '.join(flags)}>" if flags else ""))
+        rule()
+        line(f"  Pipe sections ({len(sysm['traces'])})")
+        for t in sysm["traces"]:
+            extra = f"  ** also carries: {', '.join(t['conflict_with'])}" if t["conflict"] else ""
+            line(f"    - {t['trace_id']:<26} {t.get('trace_kind') or '':<7} -> {t.get('terminal_type') or '-'}{extra}")
+        line(f"  Equipment ({len(sysm['equipment'])})")
+        for e in sysm["equipment"]:
+            line(f"    - {e.get('tag') or e['id']:<14} {e.get('class_name') or '':<18} {e['role']:<9} via {e['trace_id']}")
+        line(f"  Instruments ({len(sysm['instruments'])})")
+        for o in sysm["instruments"]:
+            line(f"    - {o.get('text') or '(no text)':<16} {o.get('class_name') or '':<18} {o['id']}  on {o['trace_id']}")
+        counts: dict[str, int] = {}
+        for o in sysm["inline_objects"]:
+            counts[o.get("class_name") or "?"] = counts.get(o.get("class_name") or "?", 0) + 1
+        line(f"  Inline objects ({len(sysm['inline_objects'])})"
+             + (": " + ", ".join(f"{c} x{k}" for c, k in sorted(counts.items())) if counts else ""))
+        for o in sysm["inline_objects"]:
+            line(f"    - {o['id']:<22} {o.get('class_name') or '':<22} {o.get('text') or ''}")
+        line(f"  Boundaries ({len(sysm['boundaries'])})")
+        for b in sysm["boundaries"]:
+            line(f"    - {b['id']:<22} {b['type']:<20} {b['role']}")
+        line(f"  Labels: {', '.join(lab['id'] for lab in sysm['labels'])}")
+        line(f"  Flow arrows on these sections: {sysm['flow_arrow_count']}")
+        line("")
+
+    rule("=")
+    line("CONFLICTS (one pipe section carrying more than one line number)")
+    rule()
+    for c in ts["conflicts"] or []:
+        line(f"  - {c['trace_id']}: {' | '.join(c['line_numbers'])}")
+    if not ts["conflicts"]:
+        line("  none")
+    line("")
+    rule("=")
+    line("PIPE SECTIONS IN NO SYSTEM (no line number attached)")
+    rule()
+    for i in range(0, len(ts["unassigned_traces"]), 3):
+        line("  " + "  ".join(f"{t:<24}" for t in ts["unassigned_traces"][i:i + 3]).rstrip())
+    if not ts["unassigned_traces"]:
+        line("  none")
+    line("")
+    rule("=")
+    line("Source: out/test_systems.json. Values are reproduced exactly as stored.")
+    return "\n".join(x.rstrip() for x in out) + "\n"
+
+
+@app.get("/api/garnet/jobs/{job_id}/report.txt", response_class=PlainTextResponse)
+def api_garnet_report(job_id: str) -> PlainTextResponse:
+    with JOBS_LOCK:
+        if job_id not in JOBS:
+            raise HTTPException(status_code=404, detail="Job not found")
+        text = _report_text(job_id)
+    stem = _safe_stem(JOBS[job_id].get("source_name"))
+    return PlainTextResponse(text, headers={"Content-Disposition": f'attachment; filename="{stem}_test_systems.txt"'})

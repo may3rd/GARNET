@@ -5,6 +5,7 @@ import {
   deleteResultObject,
   extractPdfPages,
   getGarnetJob,
+  loadGarnetBundle as loadGarnetBundleApi,
   confirmGarnetGate as confirmGarnetGateApi,
   reopenGarnetGate as reopenGarnetGateApi,
   type GarnetGate,
@@ -127,6 +128,8 @@ type RunState = {
   confirmGarnetGate: (sheetId: string, gate: GarnetGate, decision: GarnetGateDecision) => Promise<void>
   /** Go back to `gate` (1 = reset to start). Later work is archived by the server. */
   reopenGarnetGate: (sheetId: string, gate: GarnetGate) => Promise<void>
+  /** Load a saved .zip as a new GARNET sheet, resting where it was saved. Throws on a bad bundle. */
+  loadGarnetBundle: (file: File) => Promise<void>
   /** Object edits persist to the server's in-memory result store. */
   updateObject: (sheetId: string, obj: DetectedObject) => Promise<void>
   deleteObject: (sheetId: string, obj: DetectedObject) => Promise<void>
@@ -445,6 +448,33 @@ export const useRunStore = create<RunState>((set, get) => ({
     void pollGarnet(set, get, sheetId, next).catch((error) =>
       patchSheet(set, sheetId, { progress: null, error: error instanceof Error ? error.message : 'GARNET run failed' })
     )
+  },
+
+  loadGarnetBundle: async (file) => {
+    const job = await loadGarnetBundleApi(file)
+    // The sheet needs its raster as a File (previews, re-runs): take the one inside the bundle.
+    const raster = job.artifacts.find((a) => a.name === 'input/sheet.jpg')
+    if (!raster) throw new Error('Loaded bundle has no raster')
+    const blob = await (await fetch(raster.url)).blob()
+    const name = job.source_name || file.name.replace(/\.zip$/i, '.jpg')
+    // Re-attach the job's own inputs, so Re-run reuses them instead of running YOLO / the LLM.
+    // Objects: the file as it first arrived (before OCR, before Gate 1) when the bundle has it.
+    const pick = async (names: string[], as: string) => {
+      const a = names.map((n) => job.artifacts.find((x) => x.name === n)).find(Boolean)
+      return a ? new File([await (await fetch(a.url)).blob()], as, { type: 'application/json' }) : undefined
+    }
+    const garnetInputs: GarnetInputs = {
+      objects: await pick(['input/sheet_objects.source.json', 'input/sheet_objects.pre_gate1.json', 'input/sheet_objects.json'], 'objects.json'),
+      equipment: await pick(['input/sheet_equipment_bboxes.json'], 'equipment.json'),
+      lineNumbers: await pick(['input/sheet_line_numbers.json'], 'line_numbers.json'),
+    }
+    const sheet = {
+      ...makeSheet(new File([blob], name, { type: 'image/jpeg' }), `${name} · loaded`, 'garnet', get().config.ocrRoute),
+      garnet: job,
+      garnetInputs,
+    }
+    set((state) => ({ sheets: [...state.sheets, sheet], selectedSheetId: sheet.id }))
+    measure(sheet, set)
   },
 
   reopenGarnetGate: async (sheetId, gate) => {

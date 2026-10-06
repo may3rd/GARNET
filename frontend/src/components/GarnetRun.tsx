@@ -1,6 +1,6 @@
 import { Button } from '@heroui/react'
 import { useEffect, useRef, useState } from 'react'
-import { CheckCircle2, Container, Hash, History, Play, RotateCcw, Shapes, Upload, X } from 'lucide-react'
+import { CheckCircle2, Container, FolderOpen, Hash, History, Play, RotateCcw, Save, Shapes, Upload, X } from 'lucide-react'
 import { Card, PageHeader, SectionHeader, Tag, Toggle } from '@/components/ui/primitives'
 import type { GarnetGate, GarnetInputs, GarnetStepStatus } from '@/lib/api'
 import { useRunStore, type Sheet } from '@/stores/runStore'
@@ -199,6 +199,22 @@ export function GarnetRun() {
   const config = useRunStore((s) => s.config)
   const setConfig = useRunStore((s) => s.setConfig)
   const setScreen = useRunStore((s) => s.setScreen)
+  const loadGarnetBundle = useRunStore((s) => s.loadGarnetBundle)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const loader = useRef<HTMLInputElement>(null)
+  const onLoad = async (file: File | undefined) => {
+    if (!file) return
+    setLoading(true)
+    setLoadError(null)
+    try {
+      await loadGarnetBundle(file)
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto p-6">
@@ -206,11 +222,33 @@ export function GarnetRun() {
         title="GARNET trace"
         subtitle={`${sheets.length} sheet${sheets.length === 1 ? '' : 's'} · POST /api/garnet/jobs`}
         actions={
-          <Button variant="ghost" style={{ height: 36, borderRadius: 'var(--r-btn)' }} onPress={() => setScreen('sheets')}>
-            Back to sheets
-          </Button>
+          <>
+            <Button
+              variant="secondary"
+              isDisabled={loading}
+              style={{ height: 36, borderRadius: 'var(--r-btn)' }}
+              onPress={() => loader.current?.click()}
+            >
+              <FolderOpen size={16} strokeWidth={1.5} />
+              {loading ? 'Loading…' : 'Load saved result'}
+            </Button>
+            <input
+              ref={loader}
+              type="file"
+              accept=".zip,application/zip"
+              hidden
+              onChange={(e) => {
+                void onLoad(e.target.files?.[0])
+                e.target.value = ''
+              }}
+            />
+            <Button variant="ghost" style={{ height: 36, borderRadius: 'var(--r-btn)' }} onPress={() => setScreen('sheets')}>
+              Back to sheets
+            </Button>
+          </>
         }
       />
+      {loadError && <Card padding={14} style={{ color: 'var(--danger)', fontSize: 13 }}>{`Could not load: ${loadError}`}</Card>}
       <Card padding={20} className="flex flex-col gap-3">
         <Toggle
           label="Review gate calls the vision model"
@@ -273,6 +311,18 @@ function SheetCard({ sheet }: { sheet: Sheet }) {
             >
               Review Gate {job.gate}
             </Button>
+          )}
+          {job && (job.status === 'completed' || job.status === 'awaiting_gate' || job.status === 'failed') && !busy && (
+            // The whole job folder as a zip: reload it later with "Load saved result".
+            <a
+              href={`/api/garnet/jobs/${job.id}/bundle`}
+              download
+              title="Save this result (inputs, outputs, gate decisions, history) as a .zip"
+              className="inline-flex items-center gap-1.5"
+              style={{ height: 32, padding: '0 12px', borderRadius: 'var(--r-btn)', boxShadow: 'inset 0 0 0 1px var(--border)', color: 'inherit', fontSize: 13, fontWeight: 500, textDecoration: 'none' }}
+            >
+              <Save size={14} /> Save
+            </a>
           )}
           {job?.status === 'completed' && !busy && (
             <Button
