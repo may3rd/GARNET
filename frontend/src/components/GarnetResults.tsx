@@ -3,7 +3,7 @@ import { Button } from '@heroui/react'
 import { ArrowLeft, Brush, Download, Eraser, Link2, Magnet, Maximize, Minus, MousePointer2, PanelRightClose, PanelRightOpen, Plus, Redo2, Undo2 } from 'lucide-react'
 import { Card, PageHeader, Tag } from '@/components/ui/primitives'
 import { snapGarnetTrace, type GarnetGate, type GarnetJob } from '@/lib/api'
-import { densify, eraseSegments, mergeDrawn, orthogonal, rdp, segDist, type Pt, type Segment } from '@/lib/traceGeometry'
+import { densify, eraseSegments, mergeDrawn, orthogonal, rdp, segDist, strokeTangents, type Pt, type Segment } from '@/lib/traceGeometry'
 import { useRunStore } from '@/stores/runStore'
 
 /**
@@ -465,11 +465,13 @@ export function GarnetResults() {
     if (kind === 'erase') {
       const r = brushPx * screenToImage
       const brush = densify(raw, Math.max(1, r / 2))
+      // Directional unless the stroke is a short dab; see strokeTangents.
+      const tangents = strokeTangents(brush, r)
       const modified = { ...te.modified }
       const drawn: Trace[] = []
       let changed = false
       for (const t of traces) {
-        const cut = eraseSegments(t.segments, brush, r)
+        const cut = eraseSegments(t.segments, brush, r, tangents)
         if (t.kind === 'manual' && t.id.startsWith('draw_')) {
           if (cut) changed = true
           const segs = cut ?? t.segments

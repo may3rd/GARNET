@@ -52,7 +52,47 @@ export function densify(pts: Pt[], step: number): Pt[] {
  * every brush point blanks the chord where its circle crosses the segment; what is left (>= 3 px)
  * survives as new segments. Returns null when nothing was touched.
  */
-export function eraseSegments(segs: Segment[], brush: Pt[], r: number): Segment[] | null {
+/** Max angle between a stroke and a segment for the stroke to erase it (directional mode). */
+export const ERASE_ALIGN_DEG = 30
+
+/**
+ * Unit direction of the stroke at each point, smoothed over ~one brush width either side so hand
+ * wobble does not count as a turn. Null for a DAB (stroke shorter than two brush diameters): a
+ * tap has no direction, so it erases everything under it.
+ */
+export function strokeTangents(brush: Pt[], r: number): (Pt | null)[] | null {
+  let length = 0
+  for (let i = 1; i < brush.length; i++) length += Math.hypot(brush[i][0] - brush[i - 1][0], brush[i][1] - brush[i - 1][1])
+  if (length < 4 * r) return null
+  return brush.map((_, i) => {
+    // Walk out to ~r of arc length on each side.
+    const reach = (dir: 1 | -1) => {
+      let j = i
+      let acc = 0
+      while (j + dir >= 0 && j + dir < brush.length && acc < r) {
+        acc += Math.hypot(brush[j + dir][0] - brush[j][0], brush[j + dir][1] - brush[j][1])
+        j += dir
+      }
+      return brush[j]
+    }
+    const a = reach(-1)
+    const b = reach(1)
+    const n = Math.hypot(b[0] - a[0], b[1] - a[1])
+    return n > 1e-6 ? [(b[0] - a[0]) / n, (b[1] - a[1]) / n] : null
+  })
+}
+
+/**
+ * Cut away the parts of `segs` within `r` of the brush. Each brush point blanks the chord where
+ * its circle crosses a segment; what is left (>= 3 px) survives as new segments. Returns null
+ * when nothing was touched.
+ *
+ * Directional: with `tangents` (see strokeTangents), a brush point only cuts a segment running
+ * the same way as the stroke there (within ERASE_ALIGN_DEG), so wiping along one pipe leaves the
+ * pipes that cross it intact. A point with no direction (null tangent) cuts anything, as a dab.
+ */
+export function eraseSegments(segs: Segment[], brush: Pt[], r: number, tangents: (Pt | null)[] | null = null): Segment[] | null {
+  const minCos = Math.cos((ERASE_ALIGN_DEG * Math.PI) / 180)
   let touched = false
   const out: Segment[] = []
   for (const g of segs) {
@@ -61,7 +101,11 @@ export function eraseSegments(segs: Segment[], brush: Pt[], r: number): Segment[
     const ux = (g.x2 - g.x1) / L
     const uy = (g.y2 - g.y1) / L
     const cut: [number, number][] = []
-    for (const [px, py] of brush) {
+    for (let i = 0; i < brush.length; i++) {
+      const [px, py] = brush[i]
+      const tan = tangents?.[i]
+      // Either direction along the segment counts: a pipe has no preferred sense here.
+      if (tan && Math.abs(tan[0] * ux + tan[1] * uy) < minCos) continue
       const t = (px - g.x1) * ux + (py - g.y1) * uy
       const d = Math.abs((px - g.x1) * uy - (py - g.y1) * ux)
       if (d > r) continue
