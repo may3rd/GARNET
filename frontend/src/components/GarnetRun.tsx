@@ -1,5 +1,6 @@
 import { Button } from '@heroui/react'
-import { Play } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { CheckCircle2, Container, Hash, Play, Shapes, Upload, X } from 'lucide-react'
 import { Card, PageHeader, SectionHeader, Tag, Toggle } from '@/components/ui/primitives'
 import type { GarnetInputs, GarnetStepStatus } from '@/lib/api'
 import { useRunStore, type Sheet } from '@/stores/runStore'
@@ -12,12 +13,185 @@ const STEP_TONE: Record<GarnetStepStatus, 'success' | 'warning' | 'accent' | 'ou
   pending: 'outline',
 }
 
-/** Which uploaded JSON replaces which ML step. Line numbers have no ML step at all. */
-const INPUTS: { key: keyof GarnetInputs; label: string; replaces: string }[] = [
-  { key: 'objects', label: 'Objects JSON', replaces: 'skips YOLO detection' },
-  { key: 'equipment', label: 'Equipment JSON', replaces: 'skips the equipment LLM' },
-  { key: 'lineNumbers', label: 'Line numbers JSON', replaces: 'no script exists — traces stay unlabelled without it' },
+/** The three inputs, and what happens when each is missing. */
+const INPUTS: { key: keyof GarnetInputs; label: string; missing: string; icon: React.ReactNode }[] = [
+  { key: 'objects', label: 'Objects', missing: 'YOLO will detect symbols', icon: <Shapes size={18} /> },
+  { key: 'equipment', label: 'Equipment', missing: 'Vision LLM will find equipment', icon: <Container size={18} /> },
+  { key: 'lineNumbers', label: 'Line numbers', missing: 'No source — traces stay unlabelled', icon: <Hash size={18} /> },
 ]
+
+/**
+ * Which slot a JSON file belongs in, from its CONTENT first (the three formats are distinct), then
+ * its filename. Content wins because exported files are often renamed.
+ */
+function classify(name: string, payload: unknown): keyof GarnetInputs | null {
+  const first = (payload as { objects?: Record<string, unknown>[] })?.objects?.[0]
+  if (first) {
+    if ('Equipment_type' in first || 'Bounding_box_px' in first) return 'equipment'
+    if (String(first.Object ?? '').toLowerCase() === 'line number') return 'lineNumbers'
+    if ('class_name' in first && 'bbox' in first) return 'objects'
+  }
+  const n = name.toLowerCase()
+  if (n.includes('line_number')) return 'lineNumbers'
+  if (n.includes('equipment')) return 'equipment'
+  if (n.includes('objects')) return 'objects'
+  return null
+}
+
+type Parsed = { count: number } | { error: string }
+
+async function parse(file: File): Promise<{ payload: unknown; info: Parsed }> {
+  try {
+    const payload = JSON.parse(await file.text())
+    const objs = (payload as { objects?: unknown })?.objects
+    if (!Array.isArray(objs)) return { payload, info: { error: "no 'objects' list" } }
+    return { payload, info: { count: objs.length } }
+  } catch {
+    return { payload: null, info: { error: 'not valid JSON' } }
+  }
+}
+
+/** Drop zone + three slots. Drop all three files at once; each lands in its slot by content. */
+function JsonInputs({ sheet, disabled }: { sheet: Sheet; disabled: boolean }) {
+  const setGarnetInput = useRunStore((s) => s.setGarnetInput)
+  const [info, setInfo] = useState<Partial<Record<keyof GarnetInputs, Parsed>>>({})
+  const [over, setOver] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+  const picker = useRef<HTMLInputElement>(null)
+
+  // Re-read attached files (e.g. after navigating back) so counts survive remounts.
+  useEffect(() => {
+    INPUTS.forEach(({ key }) => {
+      const f = sheet.garnetInputs[key]
+      if (f && !info[key]) void parse(f).then(({ info: i }) => setInfo((x) => ({ ...x, [key]: i })))
+    })
+  }, [sheet.garnetInputs]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const accept = async (files: File[]) => {
+    const skipped: string[] = []
+    for (const f of files) {
+      const { payload, info: i } = await parse(f)
+      const slot = classify(f.name, payload)
+      if (!slot) {
+        skipped.push(`${f.name} (${'error' in i ? i.error : 'unrecognised format'})`)
+        continue
+      }
+      setGarnetInput(sheet.id, slot, f)
+      setInfo((x) => ({ ...x, [slot]: i }))
+    }
+    setNotice(skipped.length ? `Not used: ${skipped.join(', ')}` : null)
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div
+        role="button"
+        tabIndex={0}
+        aria-disabled={disabled}
+        onClick={() => !disabled && picker.current?.click()}
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && !disabled && picker.current?.click()}
+        onDragOver={(e) => {
+          e.preventDefault()
+          if (!disabled) setOver(true)
+        }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(e) => {
+          e.preventDefault()
+          setOver(false)
+          if (!disabled) void accept([...e.dataTransfer.files])
+        }}
+        className="flex items-center justify-center gap-3"
+        style={{
+          minHeight: 72,
+          padding: 16,
+          borderRadius: 12,
+          border: `2px dashed ${over ? 'var(--accent)' : 'var(--border)'}`,
+          background: over ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'var(--surface-2, transparent)',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          opacity: disabled ? 0.5 : 1,
+          transition: 'border-color .15s, background .15s',
+        }}
+      >
+        <Upload size={22} style={{ color: over ? 'var(--accent)' : 'var(--muted)' }} />
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>Drop JSON files here, or click to browse</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+            Objects, equipment and line-number files, together or one at a time. Each is recognised by its content.
+          </div>
+        </div>
+        <input
+          ref={picker}
+          type="file"
+          multiple
+          accept=".json,application/json"
+          hidden
+          onChange={(e) => {
+            void accept([...(e.target.files ?? [])])
+            e.target.value = ''
+          }}
+        />
+      </div>
+
+      <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+        {INPUTS.map(({ key, label, missing, icon }) => {
+          const file = sheet.garnetInputs[key]
+          const i = info[key]
+          const bad = i && 'error' in i
+          return (
+            <div
+              key={key}
+              className="flex items-center gap-3"
+              style={{
+                padding: '10px 12px',
+                borderRadius: 10,
+                boxShadow: `inset 0 0 0 ${file ? 1.5 : 1}px ${bad ? 'hsl(0 75% 50%)' : file ? 'hsl(140 60% 40%)' : 'var(--border)'}`,
+                background: file && !bad ? 'color-mix(in srgb, hsl(140 60% 40%) 7%, transparent)' : undefined,
+              }}
+            >
+              <span
+                className="flex shrink-0 items-center justify-center"
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 8,
+                  color: file && !bad ? 'hsl(140 60% 35%)' : 'var(--muted)',
+                  background: 'var(--surface)',
+                  boxShadow: 'inset 0 0 0 1px var(--border)',
+                }}
+              >
+                {file && !bad ? <CheckCircle2 size={18} /> : icon}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2" style={{ fontSize: 13, fontWeight: 600 }}>
+                  {label}
+                  {file && i && !bad && <Tag tone="success">{`${(i as { count: number }).count} objects`}</Tag>}
+                  {bad && <Tag tone="warning">{(i as { error: string }).error}</Tag>}
+                </div>
+                <div className="truncate" style={{ fontSize: 12, color: 'var(--muted)' }} title={file?.name}>
+                  {file ? file.name : missing}
+                </div>
+              </div>
+              {file && !disabled && (
+                <button
+                  type="button"
+                  aria-label={`Remove ${label} file`}
+                  onClick={() => {
+                    setGarnetInput(sheet.id, key, undefined)
+                    setInfo((x) => ({ ...x, [key]: undefined }))
+                  }}
+                  style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      {notice && <div style={{ fontSize: 12, color: 'hsl(0 70% 45%)' }}>{notice}</div>}
+    </div>
+  )
+}
 
 /** garnet/ chain: stage fixtures, optional ML, trace, review gate, Stage 6. */
 export function GarnetRun() {
@@ -69,7 +243,6 @@ export function GarnetRun() {
 }
 
 function SheetCard({ sheet }: { sheet: Sheet }) {
-  const setGarnetInput = useRunStore((s) => s.setGarnetInput)
   const runGarnetFor = useRunStore((s) => s.runGarnetFor)
   const selectSheet = useRunStore((s) => s.selectSheet)
   const setScreen = useRunStore((s) => s.setScreen)
@@ -126,22 +299,7 @@ function SheetCard({ sheet }: { sheet: Sheet }) {
         }
       />
 
-      <div className="flex flex-wrap gap-4">
-        {INPUTS.map(({ key, label, replaces }) => (
-          <label key={key} className="flex min-w-[220px] flex-1 flex-col gap-1" style={{ fontSize: 12 }}>
-            <span style={{ fontWeight: 500 }}>{label}</span>
-            <input
-              type="file"
-              accept=".json,application/json"
-              disabled={busy}
-              onChange={(e) => setGarnetInput(sheet.id, key, e.target.files?.[0])}
-            />
-            <span style={{ color: 'var(--muted)' }}>
-              {sheet.garnetInputs[key] ? `using ${sheet.garnetInputs[key]!.name}` : replaces}
-            </span>
-          </label>
-        ))}
-      </div>
+      <JsonInputs sheet={sheet} disabled={busy} />
 
       {sheet.error && <div style={{ fontSize: 13, color: 'var(--danger)' }}>{sheet.error}</div>}
 

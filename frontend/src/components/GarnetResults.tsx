@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@heroui/react'
-import { ArrowLeft, Download, Maximize, Minus, Plus } from 'lucide-react'
+import { ArrowLeft, Brush, Download, Eraser, Magnet, Maximize, Minus, MousePointer2, Plus, Redo2, Undo2 } from 'lucide-react'
 import { Card, PageHeader, Tag } from '@/components/ui/primitives'
-import type { GarnetGate, GarnetJob } from '@/lib/api'
+import { snapGarnetTrace, type GarnetGate, type GarnetJob } from '@/lib/api'
 import { useRunStore } from '@/stores/runStore'
 
 /**
@@ -50,7 +50,17 @@ type TestSystems = {
   unassigned_traces: string[]
 }
 type Segment = { x1: number; y1: number; x2: number; y2: number; length_px?: number }
-type Trace = { id: string; kind: 'port' | 'branch'; terminal_type?: string; segments: Segment[]; bbox: BBox }
+type Trace = {
+  id: string
+  kind: 'port' | 'branch' | 'manual'
+  terminal_type?: string
+  segments: Segment[]
+  bbox: BBox
+  /** Manual traces: share of the drawn path lying on the pipe mask. */
+  coverage?: number
+  /** Geometry changed by an erase in this review. */
+  edited?: boolean
+}
 type Data = {
   /** out/test_systems.json — present once Stage 6 has run. */
   testSystems: TestSystems | null
@@ -88,6 +98,97 @@ const GATE_COPY: Record<GarnetGate, { title: string; hint: string }> = {
   3: { title: 'Gate 3 · Line numbers', hint: 'Accept or reject each line-number attachment and fix text.' },
 }
 
+type Pt = [number, number]
+
+/** Ramer-Douglas-Peucker: drop points within `eps` of the line through their neighbours. */
+function rdp(pts: Pt[], eps: number): Pt[] {
+  if (pts.length < 3) return pts
+  const [a, b] = [pts[0], pts[pts.length - 1]]
+  let idx = 0
+  let max = 0
+  for (let i = 1; i < pts.length - 1; i++) {
+    const d = segDist(pts[i][0], pts[i][1], { x1: a[0], y1: a[1], x2: b[0], y2: b[1] })
+    if (d > max) [max, idx] = [d, i]
+  }
+  return max > eps ? [...rdp(pts.slice(0, idx + 1), eps).slice(0, -1), ...rdp(pts.slice(idx), eps)] : [a, b]
+}
+
+/** Freehand -> horizontal/vertical runs. Each leg follows its dominant axis; collinear legs merge. */
+function orthogonal(pts: Pt[]): Pt[] {
+  const out: Pt[] = [[Math.round(pts[0][0]), Math.round(pts[0][1])]]
+  for (const p of pts.slice(1)) {
+    const cur = out[out.length - 1]
+    const q: Pt = Math.abs(p[0] - cur[0]) >= Math.abs(p[1] - cur[1]) ? [Math.round(p[0]), cur[1]] : [cur[0], Math.round(p[1])]
+    if (q[0] === cur[0] && q[1] === cur[1]) continue
+    const prev = out[out.length - 2]
+    const sameAxis = prev && ((prev[1] === cur[1] && cur[1] === q[1]) || (prev[0] === cur[0] && cur[0] === q[0]))
+    if (sameAxis) out[out.length - 1] = q
+    else out.push(q)
+  }
+  return out
+}
+
+/** Interpolate a stroke so consecutive points are at most `step` apart (brush coverage has no gaps). */
+function densify(pts: Pt[], step: number): Pt[] {
+  const out: Pt[] = [pts[0]]
+  for (let i = 1; i < pts.length; i++) {
+    const [ax, ay] = pts[i - 1]
+    const [bx, by] = pts[i]
+    const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / step))
+    for (let k = 1; k <= n; k++) out.push([ax + ((bx - ax) * k) / n, ay + ((by - ay) * k) / n])
+  }
+  return out
+}
+
+/**
+ * Cut away the parts of `segs` within `r` of any brush point. Works on each segment's own axis:
+ * every brush point blanks the chord where its circle crosses the segment; what is left (>= 3 px)
+ * survives as new segments. Returns null when nothing was touched.
+ */
+function eraseSegments(segs: Segment[], brush: Pt[], r: number): Segment[] | null {
+  let touched = false
+  const out: Segment[] = []
+  for (const g of segs) {
+    const L = Math.hypot(g.x2 - g.x1, g.y2 - g.y1)
+    if (L === 0) continue
+    const ux = (g.x2 - g.x1) / L
+    const uy = (g.y2 - g.y1) / L
+    const cut: [number, number][] = []
+    for (const [px, py] of brush) {
+      const t = (px - g.x1) * ux + (py - g.y1) * uy
+      const d = Math.abs((px - g.x1) * uy - (py - g.y1) * ux)
+      if (d > r) continue
+      const half = Math.sqrt(r * r - d * d)
+      const lo = Math.max(0, t - half)
+      const hi = Math.min(L, t + half)
+      if (hi > lo) cut.push([lo, hi])
+    }
+    if (cut.length === 0) {
+      out.push(g)
+      continue
+    }
+    touched = true
+    cut.sort((a, b) => a[0] - b[0])
+    let at = 0
+    const keep: [number, number][] = []
+    for (const [lo, hi] of cut) {
+      if (lo > at) keep.push([at, lo])
+      at = Math.max(at, hi)
+    }
+    if (at < L) keep.push([at, L])
+    for (const [a, b] of keep) {
+      if (b - a < 3) continue
+      out.push({
+        x1: Math.round(g.x1 + ux * a),
+        y1: Math.round(g.y1 + uy * a),
+        x2: Math.round(g.x1 + ux * b),
+        y2: Math.round(g.y1 + uy * b),
+      })
+    }
+  }
+  return touched ? out : null
+}
+
 function segBox(segments: Segment[]): BBox {
   const xs = segments.flatMap((g) => [g.x1, g.x2])
   const ys = segments.flatMap((g) => [g.y1, g.y2])
@@ -108,10 +209,13 @@ async function loadData(job: GarnetJob): Promise<Data> {
   if (!imageUrl) throw new Error('input/sheet.jpg missing from the job')
   // stage 4 exists only after trace; before that (Gate 1) the staged objects are the source.
   const objectsFile = url(job, 'out/stage4_objects.json') ? 'out/stage4_objects.json' : 'input/sheet_objects.json'
+  // After Gate 2, Stage 6 read the gate-2 view (rejections removed, edits and drawn traces in);
+  // show exactly that. Before it, the tracer's own files.
+  const dir = url(job, 'out/gate2/stage5b_trace_results.json') ? 'out/gate2' : 'out'
   // Branch geometry: 5c (post-merge) first, the same preference Stage 6 uses.
-  const branchFile = url(job, 'out/stage5c_branch_trace_results.json')
-    ? 'out/stage5c_branch_trace_results.json'
-    : 'out/stage5b_branch_trace_results.json'
+  const branchFile = url(job, `${dir}/stage5c_branch_trace_results.json`)
+    ? `${dir}/stage5c_branch_trace_results.json`
+    : `${dir}/stage5b_branch_trace_results.json`
   const [objects, equipment, stage6, portTraces, branches, testSystems] = await Promise.all([
     json<{ objects: Obj[] }>(job, objectsFile),
     json<{ objects: Equipment[] }>(job, 'input/sheet_equipment_bboxes.json'),
@@ -120,16 +224,21 @@ async function loadData(job: GarnetJob): Promise<Data> {
       unresolved: { traces_without_line_number: string[] }
       trace_edges: { trace_id: string }[]
     }>(job, 'out/stage6_trace_associations.json'),
-    json<Record<string, { terminal_type?: string; segments?: Segment[] }>>(job, 'out/stage5b_trace_results.json'),
+    json<Record<string, { terminal_type?: string; segments?: Segment[]; mask_coverage?: number }>>(job, `${dir}/stage5b_trace_results.json`),
     json<{ branches: Record<string, { terminal_type?: string; segments?: Segment[] }> }>(job, branchFile),
     json<TestSystems>(job, 'out/test_systems.json'),
   ])
   const traces: Trace[] = [
-    ...Object.entries(portTraces ?? {}).map(([id, t]) => ({ id, kind: 'port' as const, ...t })),
-    ...Object.entries(branches?.branches ?? {}).map(([id, t]) => ({ id, kind: 'branch' as const, ...t })),
+    ...Object.entries(portTraces ?? {}).map(([id, t]) => ({
+      id,
+      kind: id.startsWith('manual_') ? ('manual' as const) : ('port' as const),
+      ...t,
+      coverage: t.mask_coverage,
+    })),
+    ...Object.entries(branches?.branches ?? {}).map(([id, t]) => ({ id, kind: 'branch' as const, ...t, coverage: undefined as number | undefined })),
   ]
     .filter((t) => t.segments && t.segments.length > 0)
-    .map((t) => ({ id: t.id, kind: t.kind, terminal_type: t.terminal_type, segments: t.segments!, bbox: segBox(t.segments!) }))
+    .map((t) => ({ id: t.id, kind: t.kind, terminal_type: t.terminal_type, segments: t.segments!, bbox: segBox(t.segments!), coverage: t.coverage }))
   const img = new Image()
   img.src = imageUrl
   await img.decode()
@@ -207,6 +316,21 @@ export function GarnetResults() {
   const [reclassed, setReclassed] = useState<Record<string, string>>({})
   // Gate 3: line number -> trace it belongs on; `picking` arms the next canvas click.
   const [reassigned, setReassigned] = useState<Record<string, string>>({})
+  // Gate 2 trace editing. One immutable snapshot per action, so undo/redo is a pointer move.
+  type TraceEdits = { drawn: Trace[]; modified: Record<string, Segment[]> }
+  const EMPTY_EDITS: TraceEdits = { drawn: [], modified: {} }
+  const [history, setHistory] = useState<{ stack: TraceEdits[]; at: number }>({ stack: [EMPTY_EDITS], at: 0 })
+  const te = history.stack[history.at]
+  const pushEdits = (next: TraceEdits) =>
+    setHistory((h) => ({ stack: [...h.stack.slice(0, h.at + 1), next], at: h.at + 1 }))
+  const undo = () => setHistory((h) => ({ ...h, at: Math.max(0, h.at - 1) }))
+  const redo = () => setHistory((h) => ({ ...h, at: Math.min(h.stack.length - 1, h.at + 1) }))
+  const [tool, setTool] = useState<TraceTool>('select')
+  const [brushPx, setBrushPx] = useState(14)
+  const [orthoOn, setOrthoOn] = useState(true)
+  const [snapOn, setSnapOn] = useState(true)
+  const [busyStroke, setBusyStroke] = useState(false)
+  const nextDrawn = useRef(0)
   const [picking, setPicking] = useState(false)
   const [added, setAdded] = useState<Obj[]>([])
   const [addMode, setAddMode] = useState(false)
@@ -214,6 +338,11 @@ export function GarnetResults() {
   const nextNew = useRef(0)
   const confirmGarnetGate = useRunStore((s) => s.confirmGarnetGate)
   const toggleReject = (id: string) => {
+    if (id.startsWith('draw_')) {
+      pushEdits({ ...te, drawn: te.drawn.filter((t) => t.id !== id) })
+      setSelected(null)
+      return
+    }
     // A box drawn in this session has nothing upstream to reject: just remove it.
     if (added.some((o) => o.id === id)) {
       setAdded((a) => a.filter((o) => o.id !== id))
@@ -240,6 +369,8 @@ export function GarnetResults() {
         moved: gate === 1 ? Object.fromEntries(Object.entries(moved).filter(([id]) => !isNew(id))) : {},
         reclassed: gate === 1 ? reclassed : {},
         reassigned: gate === 3 ? reassigned : {},
+        drawn: gate === 2 ? te.drawn.map((t) => t.segments) : [],
+        modified: gate === 2 ? te.modified : {},
         decisions: gate === 3 ? decisions : {},
       })
       setScreen('garnet')
@@ -291,6 +422,8 @@ export function GarnetResults() {
     setReclassed({})
     setReassigned({})
     setPicking(false)
+    setHistory({ stack: [{ drawn: [], modified: {} }], at: 0 })
+    setTool('select')
     setAdded([])
     setAddMode(false)
     setSelected(null)
@@ -380,7 +513,84 @@ export function GarnetResults() {
     else setMoved((m) => ({ ...m, [id]: bbox }))
   }
 
-  const traceById = useMemo(() => new Map((data?.traces ?? []).map((t) => [t.id, t])), [data])
+  // Traces as the reviewer currently sees them: erased geometry applied, drawn traces appended.
+  const traces: Trace[] = useMemo(() => {
+    if (!data) return []
+    const base = data.traces
+      .map((t) => (te.modified[t.id] ? { ...t, segments: te.modified[t.id], edited: true } : t))
+      .filter((t) => t.segments.length > 0)
+      .map((t) => (t.edited ? { ...t, bbox: segBox(t.segments) } : t))
+    return [...base, ...te.drawn]
+  }, [data, te])
+  const traceById = useMemo(() => new Map(traces.map((t) => [t.id, t])), [traces])
+
+  const onStroke = async (kind: 'draw' | 'erase', raw: Pt[], screenToImage: number) => {
+    if (!data || !job) return
+    if (kind === 'erase') {
+      const r = brushPx * screenToImage
+      const brush = densify(raw, Math.max(1, r / 2))
+      const modified = { ...te.modified }
+      const drawn: Trace[] = []
+      let changed = false
+      for (const t of traces) {
+        const cut = eraseSegments(t.segments, brush, r)
+        if (t.kind === 'manual' && t.id.startsWith('draw_')) {
+          if (cut) changed = true
+          const segs = cut ?? t.segments
+          if (segs.length) drawn.push({ ...t, segments: segs, bbox: segBox(segs) })
+        } else if (cut) {
+          changed = true
+          modified[t.id] = cut
+        }
+      }
+      if (changed) pushEdits({ drawn, modified })
+      return
+    }
+    const simplified = rdp(raw, Math.max(2, 6 * screenToImage))
+    const pts = orthoOn ? orthogonal(simplified) : simplified.map(([x, y]) => [Math.round(x), Math.round(y)] as Pt)
+    if (pts.length < 2) return
+    setBusyStroke(true)
+    try {
+      const res = await snapGarnetTrace(job.id, pts, snapOn)
+      if (res.segments.length === 0) return
+      nextDrawn.current += 1
+      const t: Trace = {
+        id: `draw_${nextDrawn.current}`,
+        kind: 'manual',
+        terminal_type: 'manual',
+        segments: res.segments,
+        bbox: segBox(res.segments),
+        coverage: res.coverage,
+      }
+      pushEdits({ ...te, drawn: [...te.drawn, t] })
+      setSelected(t.id)
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusyStroke(false)
+    }
+  }
+
+  // Tool and undo shortcuts, only while editing traces and never while typing in a field.
+  useEffect(() => {
+    if (gate !== 2 || tab !== 'traces') return
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable) return
+      const mod = e.metaKey || e.ctrlKey
+      if (mod && e.key.toLowerCase() === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) redo()
+        else undo()
+      } else if (!mod && e.key.toLowerCase() === 'v') setTool('select')
+      else if (!mod && e.key.toLowerCase() === 'd') setTool('draw')
+      else if (!mod && e.key.toLowerCase() === 'e') setTool('erase')
+      else if (e.key === 'Escape') setTool('select')
+      else if (!mod && (e.key === '[' || e.key === ']')) setBrushPx((b) => Math.min(60, Math.max(4, b + (e.key === ']' ? 4 : -4))))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [gate, tab])
   // The selected label's trace: shown on the line-number and instrument tabs.
   const system = tab === 'testSystems' ? data?.testSystems?.systems.find((x) => x.line_number === selected) : undefined
   const highlight = useMemo(() => {
@@ -432,10 +642,10 @@ export function GarnetResults() {
             label: edits.textOf(o.id, o.text) || undefined,
           }))
       case 'traces':
-        return data.traces.map((t) => ({
+        return traces.map((t) => ({
           id: t.id,
           bbox: t.bbox,
-          color: t.kind === 'port' ? 'hsl(165 85% 32%)' : 'hsl(320 75% 45%)',
+          color: t.kind === 'manual' ? 'hsl(38 100% 45%)' : t.kind === 'port' ? 'hsl(165 85% 32%)' : 'hsl(320 75% 45%)',
           lines: t.segments,
           dim: rejected.has(t.id),
         }))
@@ -456,6 +666,7 @@ export function GarnetResults() {
           picking && tab === 'lineNumbers'
             ? data.traces
                 .filter((t) => data.stage6TraceIds.has(t.id))
+                .map((t) => traceById.get(t.id) ?? t)
                 .map((t) => ({ id: `trace:${t.id}`, bbox: t.bbox, color: 'hsl(265 80% 55%)', lines: t.segments }))
             : []
         )
@@ -468,7 +679,7 @@ export function GarnetResults() {
           points: (e.Ports ?? []).map((p) => ({ x: p.point_px[0], y: p.point_px[1], label: p.mark })),
         }))
     }
-  }, [data, view, tab, hidden, draft, saved, rejected, decisions, traceById, reassigned, picking, system]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, view, tab, hidden, draft, saved, rejected, decisions, traceById, reassigned, picking, system, traces]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!job) {
     return (
@@ -542,12 +753,31 @@ export function GarnetResults() {
           <span className="mono" style={{ fontSize: 12, marginLeft: 'auto' }}>
             {gate === 3
               ? `${Object.keys(decisions).length} verdict(s) · ${Object.keys(reassigned).length} reassigned · ${Object.keys(draft).length} text fix(es)`
-              : `${rejected.size} rejected${
+              : gate === 2
+                ? `${rejected.size} rejected · ${te.drawn.length} drawn · ${Object.keys(te.modified).length} edited`
+                : `${rejected.size} rejected${
                   gate === 1
                     ? ` · ${added.length} added · ${Object.keys(moved).length} moved · ${Object.keys(reclassed).length} reclassed · ${Object.keys(draft).length} text fix(es)`
                     : ''
                 }`}
           </span>
+          {gate === 2 && tab === 'traces' && (
+            <TraceToolbar
+              tool={tool}
+              setTool={setTool}
+              brushPx={brushPx}
+              setBrushPx={setBrushPx}
+              orthoOn={orthoOn}
+              setOrthoOn={setOrthoOn}
+              snapOn={snapOn}
+              setSnapOn={setSnapOn}
+              canUndo={history.at > 0}
+              canRedo={history.at < history.stack.length - 1}
+              undo={undo}
+              redo={redo}
+              busy={busyStroke}
+            />
+          )}
           {gate === 1 && tab === 'objects' && (
             <div className="flex w-full items-center gap-2">
               <Button
@@ -634,6 +864,9 @@ export function GarnetResults() {
             onDraw={onDraw}
             onMove={onMove}
             highlight={highlight}
+            tool={gate === 2 && tab === 'traces' ? tool : 'select'}
+            brushPx={brushPx}
+            onStroke={gate === 2 && tab === 'traces' ? (k, pts, sc) => void onStroke(k, pts, sc) : undefined}
           />
           <Card padding={0} className="min-h-0 overflow-auto lg:w-[460px]">
             {tab === 'objects' && (
@@ -673,7 +906,7 @@ export function GarnetResults() {
             )}
             {tab === 'traces' && (
               <TracesTable
-                rows={data.traces}
+                rows={traces}
                 rejectable={gate === 2}
                 rejected={rejected}
                 onReject={toggleReject}
@@ -708,6 +941,9 @@ type DragMode =
   | { kind: 'draw'; x0: number; y0: number }
   | { kind: 'move'; id: string; x0: number; y0: number; start: BBox }
   | { kind: 'resize'; id: string; corner: Corner; start: BBox }
+  | { kind: 'stroke'; pts: [number, number][] }
+
+export type TraceTool = 'select' | 'draw' | 'erase'
 
 function Overlay({
   data,
@@ -719,6 +955,9 @@ function Overlay({
   onDraw,
   onMove,
   highlight,
+  tool = 'select',
+  brushPx = 14,
+  onStroke,
 }: {
   data: Data
   boxes: Box[]
@@ -732,12 +971,21 @@ function Overlay({
   onMove?: (id: string, bbox: BBox) => void
   /** Context drawn under the boxes: the trace a selected label attached to, and where. */
   highlight?: { segments: Segment[]; point?: [number, number] } | null
+  /** Gate 2 trace editing. `draw`/`erase` turn a drag into a stroke handed to `onStroke`. */
+  tool?: TraceTool
+  /** Erase brush radius in screen px (constant on screen at any zoom). */
+  brushPx?: number
+  onStroke?: (tool: 'draw' | 'erase', pts: [number, number][], screenToImage: number) => void
 }) {
   const host = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<View>({ s: 0, x: 0, y: 0 })
   const drag = useRef<{ px: number; py: number; moved: boolean; mode: DragMode } | null>(null)
   // Geometry being dragged right now; committed to the parent on pointer-up only.
   const [live, setLive] = useState<{ id: string; bbox: BBox } | null>(null)
+  // Stroke in progress (draw/erase), and the brush position for the erase cursor.
+  const [stroke2, setStroke2] = useState<[number, number][] | null>(null)
+  const [hover, setHover] = useState<{ x: number; y: number } | null>(null)
+  const stroking = tool !== 'select' && !!onStroke
 
   /** Screen event -> image pixel, clamped to the raster. */
   const toImg = (e: React.PointerEvent, el: HTMLElement) => {
@@ -753,6 +1001,7 @@ function Overlay({
     y_max: Math.round(Math.max(y0, y1)),
   })
   const startMode = (pt: { x: number; y: number }): DragMode => {
+    if (stroking) return { kind: 'stroke', pts: [[pt.x, pt.y]] }
     const sel = editable ? boxes.find((b) => b.id === selected && !b.lines) : undefined
     if (sel) {
       const b = sel.bbox
@@ -873,7 +1122,7 @@ function Overlay({
         ref={host}
         className="relative min-h-0 flex-1 overflow-hidden"
         style={{
-          cursor: editable && addMode ? 'crosshair' : drag.current ? 'grabbing' : 'grab',
+          cursor: stroking ? (tool === 'erase' ? 'none' : 'crosshair') : editable && addMode ? 'crosshair' : drag.current ? 'grabbing' : 'grab',
           touchAction: 'none',
           background: 'var(--surface-2, #f4f4f5)',
         }}
@@ -883,8 +1132,16 @@ function Overlay({
           e.currentTarget.setPointerCapture(e.pointerId)
         }}
         onPointerMove={(e) => {
+          if (stroking) setHover(toImg(e, e.currentTarget))
           const d = drag.current
           if (!d) return
+          if (d.mode.kind === 'stroke') {
+            const pt = toImg(e, e.currentTarget)
+            d.mode.pts.push([pt.x, pt.y])
+            d.moved = true
+            setStroke2([...d.mode.pts])
+            return
+          }
           const dx = e.clientX - d.px
           const dy = e.clientY - d.py
           if (!d.moved && Math.hypot(dx, dy) < 3) return
@@ -897,9 +1154,16 @@ function Overlay({
           d.py = e.clientY
           setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }))
         }}
+        onPointerLeave={() => setHover(null)}
         onPointerUp={(e) => {
           const d = drag.current
           drag.current = null
+          if (d?.mode.kind === 'stroke') {
+            setStroke2(null)
+            // A click without a drag erases/draws nothing.
+            if (d.mode.pts.length > 1 && (tool === 'draw' || tool === 'erase')) onStroke?.(tool, d.mode.pts, 1 / view.s)
+            return
+          }
           const done = d && d.moved && d.mode.kind !== 'pan' ? dragBox(d.mode, toImg(e, e.currentTarget)) : null
           setLive(null)
           if (done) {
@@ -1022,6 +1286,31 @@ function Overlay({
                   </g>
                 )
               })}
+              {stroke2 && tool === 'draw' && (
+                <polyline
+                  points={stroke2.map((p) => p.join(',')).join(' ')}
+                  fill="none"
+                  stroke="hsl(38 100% 50%)"
+                  strokeOpacity={0.8}
+                  strokeWidth={stroke * 4}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              )}
+              {stroke2 && tool === 'erase' && (
+                <polyline
+                  points={stroke2.map((p) => p.join(',')).join(' ')}
+                  fill="none"
+                  stroke="hsl(0 85% 55%)"
+                  strokeOpacity={0.25}
+                  strokeWidth={(brushPx * 2) / view.s}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              )}
+              {hover && tool === 'erase' && stroking && (
+                <circle cx={hover.x} cy={hover.y} r={brushPx / view.s} fill="hsl(0 85% 55%)" fillOpacity={0.12} stroke="hsl(0 85% 45%)" strokeWidth={stroke * 1.5} />
+              )}
               {live?.id === '__draw__' && (
                 <rect
                   x={live.bbox.x_min}
@@ -1352,7 +1641,7 @@ function TextCell({ edits, id, original, on }: { edits: Edits; id: string; origi
 
 const REJECTED_ROW: React.CSSProperties = { textDecoration: 'line-through', color: 'var(--muted)' }
 
-function RejectCell({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+function RejectCell({ on, onToggle, label }: { on: boolean; onToggle: () => void; label?: string }) {
   return (
     <td style={td} onClick={(e) => e.stopPropagation()}>
       <button
@@ -1361,7 +1650,7 @@ function RejectCell({ on, onToggle }: { on: boolean; onToggle: () => void }) {
         onClick={onToggle}
         style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer', textDecoration: 'none' }}
       >
-        <Tag tone={on ? 'warning' : 'outline'}>{on ? 'restore' : 'reject'}</Tag>
+        <Tag tone={on ? 'warning' : 'outline'}>{on ? 'restore' : (label ?? 'reject')}</Tag>
       </button>
     </td>
   )
@@ -1387,24 +1676,35 @@ function TracesTable({
       <div className="flex gap-2 p-3">
         <Tag dot="hsl(165 85% 32%)">{`${rows.filter((r) => r.kind === 'port').length} port`}</Tag>
         <Tag dot="hsl(320 75% 45%)">{`${rows.filter((r) => r.kind === 'branch').length} branch`}</Tag>
+        {rows.some((r) => r.kind === 'manual') && <Tag dot="hsl(38 100% 45%)">{`${rows.filter((r) => r.kind === 'manual').length} manual`}</Tag>}
         {rejected.size > 0 && <Tag tone="warning">{`${[...rejected].filter((id) => rows.some((r) => r.id === id)).length} rejected`}</Tag>}
       </div>
       <table className="w-full" style={{ borderCollapse: 'collapse' }}>
         <thead>
           <tr>
             {rejectable && <th style={th} />}
-            <th style={th}>trace</th><th style={th}>kind</th><th style={th}>terminal</th><th style={th}>segments</th><th style={th}>length px</th>
+            <th style={th}>trace</th><th style={th}>kind</th><th style={th}>terminal</th><th style={th}>segments</th><th style={th}>length px</th><th style={th}>on pipe</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((t) => (
             <tr key={t.id} style={{ ...rowStyle(t.id === selected), ...(rejected.has(t.id) ? REJECTED_ROW : {}) }} onClick={() => onSelect(t.id)}>
-              {rejectable && <RejectCell on={rejected.has(t.id)} onToggle={() => onReject(t.id)} />}
+              {rejectable && <RejectCell on={rejected.has(t.id)} onToggle={() => onReject(t.id)} label={t.id.startsWith('draw_') ? 'delete' : undefined} />}
               <td style={td} className="mono">{t.id}</td>
               <td style={td}>{t.kind}</td>
               <td style={td}>{t.terminal_type ?? '—'}</td>
               <td style={td} className="mono">{t.segments.length}</td>
-              <td style={td} className="mono">{t.segments.reduce((n, g) => n + (g.length_px ?? 0), 0)}</td>
+              <td style={td} className="mono">
+                {Math.round(t.segments.reduce((n, g) => n + (g.length_px ?? Math.hypot(g.x2 - g.x1, g.y2 - g.y1)), 0))}
+                {t.edited && <span title="Erased in this review" style={{ color: 'var(--accent)', marginLeft: 6 }}>●</span>}
+              </td>
+              <td style={td} className="mono">
+                {t.coverage == null ? '—' : (
+                  <span style={{ color: t.coverage < 0.6 ? 'hsl(0 75% 45%)' : undefined }} title={t.coverage < 0.6 ? 'Less than 60% of this path lies on the pipe mask' : undefined}>
+                    {`${Math.round(t.coverage * 100)}%`}
+                  </span>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -1540,6 +1840,81 @@ function SystemDetail({ sysm }: { sysm: TestSystem }) {
       {section('Instruments', sysm.instruments.map((o) => line(o.id, o.text || `(no text) ${o.id}`, o.class_name)))}
       {section('Boundaries', sysm.boundaries.map((b) => line(b.id, b.id, b.type, b.role)))}
       <div style={{ color: 'var(--muted)' }}>{`${sysm.flow_arrow_count} flow arrow(s) on these sections`}</div>
+    </div>
+  )
+}
+
+function TraceToolbar(p: {
+  tool: TraceTool
+  setTool: (t: TraceTool) => void
+  brushPx: number
+  setBrushPx: (n: number) => void
+  orthoOn: boolean
+  setOrthoOn: (b: boolean) => void
+  snapOn: boolean
+  setSnapOn: (b: boolean) => void
+  canUndo: boolean
+  canRedo: boolean
+  undo: () => void
+  redo: () => void
+  busy: boolean
+}) {
+  const tools: { key: TraceTool; label: string; key_: string; icon: React.ReactNode; hint: string }[] = [
+    { key: 'select', label: 'Select', key_: 'V', icon: <MousePointer2 size={14} />, hint: 'Pan, pick and reject traces' },
+    { key: 'draw', label: 'Draw', key_: 'D', icon: <Brush size={14} />, hint: 'Drag along a pipe to add a trace' },
+    { key: 'erase', label: 'Erase', key_: 'E', icon: <Eraser size={14} />, hint: 'Brush over a trace to cut it' },
+  ]
+  const seg = (on: boolean): React.CSSProperties => ({
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    height: 30,
+    padding: '0 10px',
+    border: 0,
+    cursor: 'pointer',
+    fontSize: 12,
+    fontWeight: 500,
+    background: on ? 'var(--accent)' : 'transparent',
+    color: on ? 'var(--accent-foreground)' : 'inherit',
+  })
+  const chip = (on: boolean): React.CSSProperties => ({ ...seg(on), borderRadius: 6, boxShadow: on ? undefined : 'inset 0 0 0 1px var(--border)' })
+  return (
+    <div className="flex w-full flex-wrap items-center gap-3">
+      <div role="radiogroup" aria-label="Trace tool" className="inline-flex overflow-hidden" style={{ borderRadius: 8, boxShadow: 'inset 0 0 0 1px var(--border)' }}>
+        {tools.map((t) => (
+          <button key={t.key} type="button" role="radio" aria-checked={p.tool === t.key} title={`${t.hint} (${t.key_})`} onClick={() => p.setTool(t.key)} style={seg(p.tool === t.key)}>
+            {t.icon}
+            {t.label}
+            <kbd style={{ fontSize: 10, opacity: 0.6 }}>{t.key_}</kbd>
+          </button>
+        ))}
+      </div>
+      {p.tool === 'draw' && (
+        <>
+          <button type="button" aria-pressed={p.orthoOn} onClick={() => p.setOrthoOn(!p.orthoOn)} style={chip(p.orthoOn)} title="Straighten strokes into horizontal / vertical runs">
+            ⊾ Ortho
+          </button>
+          <button type="button" aria-pressed={p.snapOn} onClick={() => p.setSnapOn(!p.snapOn)} style={chip(p.snapOn)} title="Slide each run onto the nearest pipe (pipe mask, ±12 px)">
+            <Magnet size={14} /> Snap to pipe
+          </button>
+        </>
+      )}
+      {p.tool === 'erase' && (
+        <label className="inline-flex items-center gap-2" style={{ fontSize: 12 }} title="[ and ] to resize">
+          Brush
+          <input type="range" min={4} max={60} step={2} value={p.brushPx} onChange={(e) => p.setBrushPx(Number(e.target.value))} />
+          <span className="mono" style={{ width: 34 }}>{p.brushPx}px</span>
+        </label>
+      )}
+      <div className="inline-flex items-center gap-1" style={{ marginLeft: 'auto' }}>
+        {p.busy && <span style={{ fontSize: 12, color: 'var(--muted)' }}>snapping…</span>}
+        <button type="button" disabled={!p.canUndo} onClick={p.undo} title="Undo (⌘Z)" style={{ ...chip(false), opacity: p.canUndo ? 1 : 0.4 }}>
+          <Undo2 size={14} />
+        </button>
+        <button type="button" disabled={!p.canRedo} onClick={p.redo} title="Redo (⇧⌘Z)" style={{ ...chip(false), opacity: p.canRedo ? 1 : 0.4 }}>
+          <Redo2 size={14} />
+        </button>
+      </div>
     </div>
   )
 }

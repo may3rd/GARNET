@@ -643,6 +643,21 @@ export async function exportResultsToExcel(
 export type GarnetGate = 1 | 2 | 3
 
 /** What a gate confirm sends. Gate 1/2: ids to drop. Gate 1/3: text fixes. Gate 3: line-number verdicts. */
+export type GarnetSeg = { x1: number; y1: number; x2: number; y2: number }
+
+/** Snap a drawn polyline onto the pipe mask (read-only) and report how much of it is on pipe. */
+export async function snapGarnetTrace(
+  jobId: string,
+  points: [number, number][],
+  snap: boolean
+): Promise<{ points: [number, number][]; segments: GarnetSeg[]; coverage: number }> {
+  return requestJson(`/api/garnet/jobs/${jobId}/trace-snap`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ points, snap }),
+  })
+}
+
 export type GarnetBox = { x_min: number; y_min: number; x_max: number; y_max: number }
 
 export type GarnetGateDecision = {
@@ -654,6 +669,9 @@ export type GarnetGateDecision = {
   reclassed?: Record<string, string>
   /** Gate 3: line-number id -> trace id it belongs on (implies accepted). */
   reassigned?: Record<string, string>
+  /** Gate 2: hand-drawn traces, and what is left of edited traces (empty list = removed). */
+  drawn?: GarnetSeg[][]
+  modified?: Record<string, GarnetSeg[]>
   edits?: Record<string, string>
   decisions?: Record<string, 'accepted' | 'rejected'>
 }

@@ -871,16 +871,33 @@ def _run_associations(job_dir: Path) -> str:
     """Stage 6 against out/gate2/: copies of the trace inputs minus Gate 2's rejected traces."""
     out, view = job_dir / "out", job_dir / "out" / "gate2"
     view.mkdir(exist_ok=True)
-    rejected = set(_read_gates(job_dir).get("2", {}).get("rejected", []))
+    gate2 = _read_gates(job_dir).get("2", {})
+    rejected = set(gate2.get("rejected", []))
+    modified = gate2.get("modified", {})
+    rejected |= {k for k, segs in modified.items() if not segs}
+
+    def edit(tid: str, rec: dict) -> dict:
+        if tid in modified:
+            rec = {**rec, "segments_original": rec.get("segments"), "segments": modified[tid],
+                   "geometry_source": "human_edit"}
+        return rec
+
     for name in ("stage4_objects.json", "stage5_connection_ports.json", *TRACE_FILES):
         src = out / name
         if not src.is_file():
             continue
         payload = json.loads(src.read_text())
         if name == "stage5b_trace_results.json":
-            payload = {k: v for k, v in payload.items() if k not in rejected}
+            payload = {k: edit(k, v) for k, v in payload.items() if k not in rejected}
+            mask = _mask(job_dir)
+            for n, segs in enumerate(gate2.get("drawn", []), start=1):
+                tid = f"manual_{n:06d}"
+                last = segs[-1]
+                payload[tid] = {"source_obj_id": tid, "segments": segs, "terminal_type": "manual",
+                                "terminal_x": last["x2"], "terminal_y": last["y2"], "status": "manual",
+                                "source": "human", "mask_coverage": _coverage(mask, segs)}
         elif name in TRACE_FILES:
-            payload["branches"] = {k: v for k, v in payload["branches"].items() if k not in rejected}
+            payload["branches"] = {k: edit(k, v) for k, v in payload["branches"].items() if k not in rejected}
         (view / name).write_text(json.dumps(payload))
     cmd = [sys.executable, "-m", "garnet.stage5b.run_associations", "--stem", STEM,
            "--indir", str(job_dir / "input"), "--dir", str(view), "--out", str(out)]
@@ -889,7 +906,8 @@ def _run_associations(job_dir: Path) -> str:
     if proc.returncode != 0:
         raise RuntimeError(f"run_associations exited {proc.returncode}\n{log}")
     _write_reviewed(job_dir)
-    return f"{len(rejected)} trace(s) rejected at Gate 2\n{log}"
+    return (f"{len(rejected)} trace(s) removed, {len(modified)} edited, "
+            f"{len(gate2.get('drawn', []))} drawn at Gate 2\n{log}")
 
 
 def _trace_ids(job_dir: Path) -> set[str]:
@@ -916,6 +934,115 @@ class AddedObject(BaseModel):
     text: str = ""
 
 
+class Seg(BaseModel):
+    x1: int
+    y1: int
+    x2: int
+    y2: int
+
+
+class SnapRequest(BaseModel):
+    # Polyline in image pixels, as the reviewer drew it (already orthogonalised client-side).
+    points: list[tuple[int, int]] = Field(min_length=2, max_length=2000)
+    snap: bool = True
+    radius: int = Field(default=12, ge=0, le=40)
+
+
+_MASKS: "OrderedDict[str, np.ndarray]" = OrderedDict()
+
+
+def _mask(job_dir: Path) -> np.ndarray:
+    """Stage 5 pipe mask (255 = pipe), same frame as the raster. Small LRU: one per open job."""
+    key = str(job_dir)
+    if key not in _MASKS:
+        m = cv2.imread(str(job_dir / "out" / "stage5_pipe_mask.png"), cv2.IMREAD_GRAYSCALE)
+        if m is None:
+            raise HTTPException(status_code=409, detail="No pipe mask yet: trace has not run")
+        _MASKS[key] = m > 0
+        while len(_MASKS) > 4:
+            _MASKS.popitem(last=False)
+    _MASKS.move_to_end(key)
+    return _MASKS[key]
+
+
+def _samples(x1: int, y1: int, x2: int, y2: int, step: int = 2):
+    n = max(1, int(max(abs(x2 - x1), abs(y2 - y1)) // step))
+    return [(round(x1 + (x2 - x1) * i / n), round(y1 + (y2 - y1) * i / n)) for i in range(n + 1)]
+
+
+def _on_mask(mask: np.ndarray, x: int, y: int, tol: int = 1) -> bool:
+    h, w = mask.shape
+    return bool(mask[max(0, y - tol):min(h, y + tol + 1), max(0, x - tol):min(w, x + tol + 1)].any())
+
+
+def _coverage(mask: np.ndarray, segs: list[dict]) -> float:
+    """Fraction of sample points along the segments that sit on a pipe pixel (+-1 px)."""
+    pts = [pt for g in segs for pt in _samples(g["x1"], g["y1"], g["x2"], g["y2"])]
+    return round(sum(_on_mask(mask, x, y) for x, y in pts) / len(pts), 3) if pts else 0.0
+
+
+def _snap_points(mask: np.ndarray, pts: list[list[int]], radius: int) -> list[list[int]]:
+    """Slide each axis-aligned run sideways (<= radius px) onto the offset with most pipe under it.
+
+    Corners are shared points, so moving a horizontal run's y drags the ends of its vertical
+    neighbours with it and the path stays connected. Diagonal runs are left where drawn. A run
+    only moves when that strictly improves coverage; ties keep the smaller offset.
+    """
+    h, w = mask.shape
+    pts = [list(p) for p in pts]
+    for i in range(len(pts) - 1):
+        (ax, ay), (bx, by) = pts[i], pts[i + 1]
+        horizontal, vertical = ay == by, ax == bx
+        if not (horizontal or vertical) or (ax == bx and ay == by):
+            continue
+        best, best_cov = 0, -1.0
+        for d in sorted(range(-radius, radius + 1), key=abs):
+            if horizontal:
+                y = ay + d
+                if not 0 <= y < h:
+                    continue
+                xs = range(max(0, min(ax, bx)), min(w, max(ax, bx) + 1), 2)
+                cov = sum(bool(mask[y, x]) for x in xs) / max(1, len(xs))
+            else:
+                x = ax + d
+                if not 0 <= x < w:
+                    continue
+                ys = range(max(0, min(ay, by)), min(h, max(ay, by) + 1), 2)
+                cov = sum(bool(mask[y, x]) for y in ys) / max(1, len(ys))
+            if cov > best_cov + 1e-9:
+                best, best_cov = d, cov
+        if horizontal:
+            pts[i][1] = pts[i + 1][1] = ay + best
+        else:
+            pts[i][0] = pts[i + 1][0] = ax + best
+    return pts
+
+
+def _check_segments(job_dir: Path, segs: list[Seg]) -> None:
+    h, w = cv2.imread(str(job_dir / "input" / f"{STEM}.jpg"), cv2.IMREAD_GRAYSCALE).shape[:2]
+    for g in segs:
+        if not all(0 <= v <= lim for v, lim in ((g.x1, w), (g.x2, w), (g.y1, h), (g.y2, h))):
+            raise HTTPException(status_code=400, detail=f"Segment {g.model_dump()} is off the {w}x{h} raster")
+
+
+@app.post("/api/garnet/jobs/{job_id}/trace-snap")
+def api_garnet_trace_snap(job_id: str, payload: SnapRequest) -> dict:
+    """Snap a drawn polyline onto the pipe mask and report how much of it lies on pipe.
+
+    Read-only: nothing is stored. The reviewer sees the coverage before committing the trace.
+    """
+    if job_id not in JOBS:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job_dir = JOBS_DIR / job_id
+    mask = _mask(job_dir)
+    h, w = mask.shape
+    pts = [[min(w - 1, max(0, x)), min(h - 1, max(0, y))] for x, y in payload.points]
+    if payload.snap:
+        pts = _snap_points(mask, pts, payload.radius)
+    segs = [{"x1": a[0], "y1": a[1], "x2": b[0], "y2": b[1]} for a, b in zip(pts, pts[1:]) if a != b]
+    return {"points": pts, "segments": segs, "coverage": _coverage(mask, segs)}
+
+
 class GateRequest(BaseModel):
     # Gate 1: object ids to drop before tracing. Gate 2: trace ids to drop before Stage 6.
     rejected: list[str] = []
@@ -924,6 +1051,10 @@ class GateRequest(BaseModel):
     moved: dict[str, Box] = {}
     # Gate 1 only: object id -> corrected class.
     reclassed: dict[str, str] = {}
+    # Gate 2 only: hand-drawn traces, and replacement geometry for existing traces (what is left
+    # after erasing; an empty list removes the trace like a rejection).
+    drawn: list[list[Seg]] = []
+    modified: dict[str, list[Seg]] = {}
     # Gates 1 and 3: object id -> corrected text.
     edits: dict[str, str] = {}
     # Gate 3: line-number id -> trace id it belongs on instead (implies accepted).
@@ -943,7 +1074,13 @@ def api_garnet_gate(job_id: str, gate: int, payload: GateRequest) -> dict:
             raise HTTPException(status_code=409, detail=f"Job is not waiting at Gate {gate}")
         job_dir = JOBS_DIR / job_id
         if gate == 2:
-            _check_ids(payload.rejected, _trace_ids(job_dir))
+            _check_ids([*payload.rejected, *payload.modified], _trace_ids(job_dir))
+            _check_segments(job_dir, [g for poly in payload.drawn for g in poly]
+                            + [g for segs in payload.modified.values() for g in segs])
+            if any(not poly for poly in payload.drawn):
+                raise HTTPException(status_code=400, detail="drawn: every trace needs at least one segment")
+        elif payload.drawn or payload.modified:
+            raise HTTPException(status_code=400, detail="Traces can be drawn or edited at Gate 2 only")
         else:
             _check_ids([*payload.rejected, *payload.edits, *payload.decisions, *payload.moved, *payload.reclassed],
                        _known_ids(job_dir))

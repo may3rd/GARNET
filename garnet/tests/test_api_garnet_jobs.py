@@ -131,13 +131,35 @@ class TestGarnetJobs(unittest.TestCase):
         traces = get("out/stage5b_trace_results.json")
         dropped_trace = next(iter(traces))
         self.assertEqual(client.post(f"/api/garnet/jobs/{jid}/gates/2", json={"rejected": ["nope"]}).status_code, 400)
-        self.assertEqual(client.post(f"/api/garnet/jobs/{jid}/gates/2", json={"rejected": [dropped_trace]}).status_code, 200)
+
+        # Snap: a stroke drawn 5 px below the pipe at y=988 (x 400-1000, obj_000195) lands on it.
+        snap = client.post(f"/api/garnet/jobs/{jid}/trace-snap", json={"points": [[400, 993], [1000, 993]]}).json()
+        self.assertIn(snap["points"][0][1], (987, 988, 989))
+        self.assertGreater(snap["coverage"], 0.6)
+        raw = client.post(f"/api/garnet/jobs/{jid}/trace-snap", json={"points": [[400, 993], [1000, 993]], "snap": False}).json()
+        self.assertLess(raw["coverage"], 0.1)
+
+        # Edit: keep only the first segment of another trace; draw one trace.
+        edited_id, edited = next((k, v) for k, v in traces.items() if k != dropped_trace and len(v["segments"]) > 1)
+        keep = [{k: edited["segments"][0][k] for k in ("x1", "y1", "x2", "y2")}]
+        bad = {"drawn": [[{"x1": 0, "y1": 0, "x2": 99999, "y2": 0}]]}
+        self.assertEqual(client.post(f"/api/garnet/jobs/{jid}/gates/2", json=bad).status_code, 400)
+        r = client.post(f"/api/garnet/jobs/{jid}/gates/2", json={
+            "rejected": [dropped_trace], "modified": {edited_id: keep}, "drawn": [snap["segments"]]})
+        self.assertEqual(r.status_code, 200, r.text)
 
         job = wait()
         self.assertEqual((job["status"], job["gate"]), ("awaiting_gate", 3))
         stage6 = get("out/stage6_trace_associations.json")
         self.assertNotIn(dropped_trace, {e["trace_id"] for e in stage6["trace_edges"]})
         self.assertIn(dropped_trace, get("out/stage5b_trace_results.json"))  # original untouched
+        edges = {e["trace_id"]: e for e in stage6["trace_edges"]}
+        self.assertEqual(len(edges[edited_id]["segments"]), 1)
+        self.assertEqual(len(get("out/stage5b_trace_results.json")[edited_id]["segments"]), len(edited["segments"]))
+        self.assertIn("manual_000001", edges)
+        view = get("out/gate2/stage5b_trace_results.json")["manual_000001"]
+        self.assertEqual((view["source"], view["terminal_type"]), ("human", "manual"))
+        self.assertGreater(view["mask_coverage"], 0.6)
         ln = stage6["associations"]["line_numbers"]["accepted"][0]["id"]
         moved_ln = stage6["associations"]["line_numbers"]["accepted"][1]
         target = next(e["trace_id"] for e in stage6["trace_edges"] if e["trace_id"] != moved_ln["trace_id"])
