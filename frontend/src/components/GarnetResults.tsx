@@ -3,6 +3,7 @@ import { Button } from '@heroui/react'
 import { ArrowLeft, Brush, Download, Eraser, FileText, Link2, Magnet, Maximize, Minus, MousePointer2, PanelRightClose, PanelRightOpen, Plus, Redo2, Undo2 } from 'lucide-react'
 import { Card, PageHeader, Tag } from '@/components/ui/primitives'
 import { snapGarnetTrace, type GarnetGate, type GarnetJob } from '@/lib/api'
+import { snapToEdge } from '@/lib/portSnap'
 import { densify, eraseSegments, mergeDrawn, orthogonal, rdp, segDist, strokeTangents, type Pt, type Segment } from '@/lib/traceGeometry'
 import { useRunStore } from '@/stores/runStore'
 
@@ -23,7 +24,7 @@ type Assoc = Omit<Obj, 'bbox'> & {
   max_distance_px?: number
   status: 'accepted' | 'rejected'
 }
-type Port = { mark: string; size?: string; line_number?: string | null; side?: string; point_px: [number, number] }
+type Port = { mark?: string | null; size?: string; line_number?: string | null; side?: string; point_px: [number, number] }
 type Equipment = {
   Index: number
   Tag?: string
@@ -258,6 +259,9 @@ export function GarnetResults() {
   const [addMode, setAddMode] = useState(false)
   const [addClass, setAddClass] = useState('instrument tag')
   const nextNew = useRef(0)
+  // Gate 1: equipment Tag -> edited port list (only tags the reviewer touched).
+  const [ports, setPorts] = useState<Record<string, Port[]>>({})
+  const [portMode, setPortMode] = useState(false)
   const confirmGarnetGate = useRunStore((s) => s.confirmGarnetGate)
   const toggleReject = (id: string) => {
     if (id.startsWith('draw_')) {
@@ -290,6 +294,7 @@ export function GarnetResults() {
         added: gate === 1 ? added.map((o) => ({ class_name: o.class_name, bbox: o.bbox, text: draft[o.id] ?? '' })) : [],
         moved: gate === 1 ? Object.fromEntries(Object.entries(moved).filter(([id]) => !isNew(id))) : {},
         reclassed: gate === 1 ? reclassed : {},
+        ports: gate === 1 ? ports : {},
         reassigned: gate === 3 ? reassigned : {},
         drawn: gate === 2 ? te.drawn.map((t) => t.segments) : [],
         modified: gate === 2 ? te.modified : {},
@@ -372,6 +377,8 @@ export function GarnetResults() {
     setTool('select')
     setAdded([])
     setAddMode(false)
+    setPorts({})
+    setPortMode(false)
     setSelected(null)
     setTab(gate ? GATE_TABS[gate][0] : 'testSystems')
     loadData(job)
@@ -570,6 +577,21 @@ export function GarnetResults() {
     return t ? { segments: t.segments, point: a && reassigned[a.id] ? undefined : a!.projected_xy } : null
   }, [data, tab, selected, traceById, reassigned, system]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const equipment = useMemo(
+    () => (data?.equipment ?? []).map((e) => (e.Tag && ports[e.Tag] ? { ...e, Ports: ports[e.Tag] } : e)),
+    [data, ports],
+  )
+  // Ports need a Tag: the backend keys port edits by it.
+  const portEq = gate === 1 && tab === 'equipment' ? equipment.find((e) => String(e.Index) === selected && e.Tag) : undefined
+  const addPort = (x: number, y: number) => {
+    if (!portEq) return
+    const { side, point_px } = snapToEdge(portEq.Bounding_box_px, x, y)
+    setPorts((p) => ({ ...p, [portEq.Tag!]: [...(portEq.Ports ?? []), { mark: null, side, point_px }] }))
+  }
+  const removePort = (i: number) => {
+    if (!portEq) return
+    setPorts((p) => ({ ...p, [portEq.Tag!]: (portEq.Ports ?? []).filter((_, j) => j !== i) }))
+  }
   const boxes: Box[] = useMemo(() => {
     if (!data || !view) return []
     const statusColor = (a: Assoc) =>
@@ -642,15 +664,15 @@ export function GarnetResults() {
             : []
         )
       case 'equipment':
-        return data.equipment.map((e) => ({
+        return equipment.map((e) => ({
           id: String(e.Index),
           bbox: e.Bounding_box_px,
           color: 'hsl(265 70% 55%)',
           label: e.Tag,
-          points: (e.Ports ?? []).map((p) => ({ x: p.point_px[0], y: p.point_px[1], label: p.mark })),
+          points: (e.Ports ?? []).map((p) => ({ x: p.point_px[0], y: p.point_px[1], label: p.mark ?? '' })),
         }))
     }
-  }, [data, view, tab, hidden, draft, saved, rejected, decisions, traceById, reassigned, picking, system, traces]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, view, tab, hidden, draft, saved, rejected, decisions, traceById, reassigned, picking, system, traces, equipment]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!job) {
     return (
@@ -858,6 +880,7 @@ export function GarnetResults() {
             boxes={boxes}
             selected={selected}
             onSelect={onCanvasSelect}
+            onPoint={portMode && portEq ? addPort : undefined}
             editable={gate === 1 && tab === 'objects'}
             addMode={addMode}
             onDraw={onDraw}
@@ -927,7 +950,14 @@ export function GarnetResults() {
                 onSelect={setSelected}
               />
             )}
-            {tab === 'equipment' && <EquipmentTable rows={data.equipment} selected={selected} onSelect={setSelected} />}
+            {tab === 'equipment' && (
+              <EquipmentTable
+                rows={equipment}
+                selected={selected}
+                onSelect={(id) => { setSelected(id); setPortMode(false) }}
+                portEdit={gate === 1 ? { adding: portMode, toggleAdd: () => setPortMode((m) => !m), remove: removePort } : undefined}
+              />
+            )}
           </Card>}
         </div>
       )}
@@ -963,6 +993,7 @@ function Overlay({
   boxes,
   selected,
   onSelect,
+  onPoint,
   editable = false,
   addMode = false,
   onDraw,
@@ -976,6 +1007,8 @@ function Overlay({
   boxes: Box[]
   selected: string | null
   onSelect: (id: string | null) => void
+  /** When set, a click hands its image point here instead of selecting. */
+  onPoint?: (x: number, y: number) => void
   /** Gate 1: the selected box can be dragged and resized. */
   editable?: boolean
   /** Next drag on empty canvas draws a new box instead of panning. */
@@ -1290,6 +1323,7 @@ function Overlay({
           const r = e.currentTarget.getBoundingClientRect()
           const ix = (e.clientX - r.left - view.x) / view.s
           const iy = (e.clientY - r.top - view.y) / view.s
+          if (onPoint) return onPoint(ix, iy)
           // Polylines hit by distance to the drawn line (nearest wins); rectangles by
           // containment (smallest wins). A pipe near the pointer beats the box it runs through.
           const tol = 8 / view.s
@@ -1680,12 +1714,16 @@ function EquipmentTable({
   rows,
   selected,
   onSelect,
+  portEdit,
 }: {
   rows: Equipment[]
   selected: string | null
   onSelect: (id: string) => void
+  /** Gate 1 port editing; absent when read-only. */
+  portEdit?: { adding: boolean; toggleAdd: () => void; remove: (i: number) => void }
 }) {
   const current = rows.find((r) => String(r.Index) === selected)
+  const canEdit = !!portEdit && !!current?.Tag
   return (
     <div style={{ fontSize: 12 }}>
       <table className="w-full" style={{ borderCollapse: 'collapse' }}>
@@ -1709,18 +1747,33 @@ function EquipmentTable({
           <div style={{ color: 'var(--muted)' }}>
             {current.Size || '—'} · evidence: {current.Evidence || '—'} · bbox <span className="mono">{bboxText(current.Bounding_box_px)}</span>
           </div>
+          {portEdit && (canEdit ? (
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant={portEdit.adding ? 'primary' : 'secondary'} onPress={portEdit.toggleAdd}>
+                <Plus size={14} /> {portEdit.adding ? 'Adding: click the drawing' : 'Add port'}
+              </Button>
+              <span style={{ color: 'var(--muted)' }}>A click snaps to the nearest edge of the box.</span>
+            </div>
+          ) : (
+            <div style={{ color: 'var(--muted)' }}>Untagged equipment can't take ports.</div>
+          ))}
           <table className="w-full" style={{ borderCollapse: 'collapse' }}>
             <thead>
-              <tr><th style={th}>mark</th><th style={th}>size</th><th style={th}>side</th><th style={th}>line number</th><th style={th}>point</th></tr>
+              <tr><th style={th}>mark</th><th style={th}>size</th><th style={th}>side</th><th style={th}>line number</th><th style={th}>point</th>{canEdit && <th style={th} />}</tr>
             </thead>
             <tbody>
               {(current.Ports ?? []).map((p, i) => (
                 <tr key={`${p.mark}-${i}`}>
-                  <td style={td} className="mono">{p.mark}</td>
+                  <td style={td} className="mono">{p.mark || '—'}</td>
                   <td style={td} className="mono">{p.size || '—'}</td>
                   <td style={td}>{p.side || '—'}</td>
                   <td style={td} className="mono">{p.line_number || '—'}</td>
                   <td style={td} className="mono">{p.point_px.join(',')}</td>
+                  {canEdit && (
+                    <td style={td}>
+                      <Button size="sm" variant="ghost" aria-label={`Remove port ${i + 1}`} onPress={() => portEdit!.remove(i)}><Minus size={14} /></Button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

@@ -667,6 +667,8 @@ export type GarnetGateDecision = {
   moved?: Record<string, GarnetBox>
   /** Gate 1: object id -> corrected class. */
   reclassed?: Record<string, string>
+  /** Gate 1: equipment Tag -> its full, edited port list. */
+  ports?: Record<string, { side?: string; point_px: [number, number]; mark?: string | null; size?: string | null; line_number?: string | null }[]>
   /** Gate 3: line-number id -> trace id it belongs on (implies accepted). */
   reassigned?: Record<string, string>
   /** Gate 2: hand-drawn traces, and what is left of edited traces (empty list = removed). */
