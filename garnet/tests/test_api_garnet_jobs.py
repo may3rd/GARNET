@@ -264,6 +264,46 @@ class TestGarnetJobs(unittest.TestCase):
         self.assertEqual(client.post("/api/garnet/jobs/load", files={"bundle": ("e.zip", evil.getvalue())}).status_code, 400)
         self.assertEqual(client.post("/api/garnet/jobs/load", files={"bundle": ("n.zip", b"not a zip")}).status_code, 400)
 
+    def test_multi_sheet_links_line_numbers(self):
+        """4"-CUL-25-002007-B1A2-NI is drawn on both 0002A and 0003: one cross-sheet line."""
+        client = TestClient(app)
+
+        def run(stem: str, eq: str) -> str:
+            files = {
+                "file_input": (f"{stem}.jpg", (INPUT / f"{stem}.jpg").read_bytes(), "image/jpeg"),
+                "objects_json": ("o.json", (INPUT / f"{stem}_objects.json").read_bytes()),
+                "equipment_json": ("e.json", (INPUT / f"{stem}_{eq}.json").read_bytes()),
+                "line_numbers_json": ("l.json", (INPUT / f"{stem}_line_numbers.json").read_bytes()),
+            }
+            return client.post("/api/garnet/jobs", files=files,
+                               data={"pause_at_gates": "false", "ocr_instruments": "false"}).json()["id"]
+
+        ids = [run(STEM, "equipment_bboxes"), run("14780-8120-25-25-0003", "equipment_bboxes")]
+        deadline = time.time() + 900
+        while time.time() < deadline and any(
+                client.get(f"/api/garnet/jobs/{j}").json()["status"] in ("queued", "running") for j in ids):
+            time.sleep(1)
+
+        m = client.get("/api/garnet/merge/test_systems.json", params={"jobs": ",".join(ids + ["missing"])}).json()
+        self.assertEqual(len(m["sheets"]), 2)
+        self.assertEqual(m["skipped_sheets"][0]["reason"], "job not found")
+        by_key = {x["line_number"]: x for x in m["lines"]}
+        shared = by_key['4"-CUL-25-002007-B1A2-NI']
+        self.assertEqual(shared["sheet_count"], 2)
+        self.assertEqual({e["sheet"] for e in shared["sheets"]}, {f"{STEM}.jpg", "14780-8120-25-25-0003.jpg"})
+        # Linking is exact: every multi-sheet line is one text present on each of its sheets.
+        for x in m["lines"]:
+            if x["no_text"]:
+                self.assertEqual(x["sheet_count"], 1)  # a textless label never links
+                self.assertIn(":", x["line_number"])
+        # Every per-sheet system shows up exactly once in the merge.
+        total = sum(len(client.get(f"/runs/jobs/{j}/out/test_systems.json").json()["systems"]) for j in ids)
+        self.assertEqual(sum(len(x["sheets"]) for x in m["lines"]), total)
+
+        txt = client.get("/api/garnet/merge/test_systems.txt", params={"jobs": ",".join(ids)}).text
+        self.assertIn('4"-CUL-25-002007-B1A2-NI   <MULTI-SHEET', txt)
+        self.assertEqual(client.get("/api/garnet/merge/test_systems.json").status_code, 400)
+
     def test_bad_json_rejected_before_staging(self):
         client = TestClient(app)
         files = {

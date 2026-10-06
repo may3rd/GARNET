@@ -1,6 +1,6 @@
 import { Button } from '@heroui/react'
 import { useEffect, useRef, useState } from 'react'
-import { CheckCircle2, Container, FolderOpen, Hash, History, Play, RotateCcw, Save, Shapes, Upload, X } from 'lucide-react'
+import { CheckCircle2, Container, FolderOpen, Layers, Hash, History, Play, RotateCcw, Save, Shapes, Upload, X } from 'lucide-react'
 import { Card, PageHeader, SectionHeader, Tag, Toggle } from '@/components/ui/primitives'
 import type { GarnetGate, GarnetInputs, GarnetStepStatus } from '@/lib/api'
 import { useRunStore, type Sheet } from '@/stores/runStore'
@@ -200,6 +200,10 @@ export function GarnetRun() {
   const setConfig = useRunStore((s) => s.setConfig)
   const setScreen = useRunStore((s) => s.setScreen)
   const loadGarnetBundle = useRunStore((s) => s.loadGarnetBundle)
+  const runGarnetFor = useRunStore((s) => s.runGarnetFor)
+  // Never-started sheets; Run all starts them together (each with whatever JSON it has).
+  const unstarted = sheets.filter((s) => !s.garnet && s.progress === null)
+  const mergeable = sheets.filter((s) => s.garnet?.status === 'completed' || (s.garnet?.status === 'awaiting_gate' && s.garnet.gate === 3)).length
   const [loadError, setLoadError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const loader = useRef<HTMLInputElement>(null)
@@ -223,6 +227,30 @@ export function GarnetRun() {
         subtitle={`${sheets.length} sheet${sheets.length === 1 ? '' : 's'} · POST /api/garnet/jobs`}
         actions={
           <>
+            {unstarted.length > 1 && (
+              <Button
+                variant="primary"
+                style={{ height: 36, borderRadius: 'var(--r-btn)' }}
+                onPress={() => {
+                  const missing = unstarted.filter((s) => !s.garnetInputs.objects || !s.garnetInputs.equipment).length
+                  if (missing && !window.confirm(`${missing} of ${unstarted.length} sheets are missing objects or equipment JSON; those will run YOLO / the equipment LLM. Run all anyway?`)) return
+                  unstarted.forEach((s) => void runGarnetFor(s.id))
+                }}
+              >
+                <Play size={15} /> {`Run all (${unstarted.length})`}
+              </Button>
+            )}
+            {sheets.length > 1 && (
+              <Button
+                variant="secondary"
+                isDisabled={mergeable === 0}
+                style={{ height: 36, borderRadius: 'var(--r-btn)' }}
+                onPress={() => setScreen('merge')}
+              >
+                <Layers size={16} strokeWidth={1.5} />
+                {`Merge sheets (${mergeable})`}
+              </Button>
+            )}
             <Button
               variant="secondary"
               isDisabled={loading}
@@ -269,6 +297,8 @@ export function GarnetRun() {
           onChange={(pauseAtEveryGate) => setConfig({ pauseAtEveryGate })}
         />
       </Card>
+      {sheets.length > 1 && <BatchJsonDrop sheets={sheets} />}
+
       {sheets.length === 0 ? (
         <Card padding={20}>
           <SectionHeader title="No GARNET sheets" description="Pick the GARNET trace task on the Task screen." />
@@ -496,6 +526,90 @@ function GateTimeline({ sheet, busy }: { sheet: Sheet; busy: boolean }) {
           </details>
         )}
       </div>
+    </div>
+  )
+}
+
+const stemOf = (name: string) => name.replace(/\.[^.]+$/, '')
+
+/**
+ * One drop for many sheets: each file goes to the sheet whose raster name is the LONGEST prefix
+ * of the file name (so `..-0004A_objects.json` goes to 0004A, not 0004), and into its slot by
+ * content. Files that match no sheet, or no slot, are listed, not guessed.
+ */
+function BatchJsonDrop({ sheets }: { sheets: Sheet[] }) {
+  const setGarnetInput = useRunStore((s) => s.setGarnetInput)
+  const [over, setOver] = useState(false)
+  const [report, setReport] = useState<string | null>(null)
+  const picker = useRef<HTMLInputElement>(null)
+  const open = sheets.filter((s) => !s.garnet && s.progress === null)
+
+  const accept = async (files: File[]) => {
+    let placed = 0
+    const misses: string[] = []
+    for (const f of files) {
+      const target = open
+        .filter((s) => f.name.startsWith(stemOf(s.file.name)))
+        .sort((a, b) => stemOf(b.file.name).length - stemOf(a.file.name).length)[0]
+      if (!target) {
+        misses.push(`${f.name} (no sheet named like it)`)
+        continue
+      }
+      const { payload, info } = await parse(f)
+      const slot = classify(f.name, payload)
+      if (!slot || 'error' in info) {
+        misses.push(`${f.name} (${'error' in info ? info.error : 'unrecognised format'})`)
+        continue
+      }
+      setGarnetInput(target.id, slot, f)
+      placed += 1
+    }
+    setReport(`${placed} file(s) attached${misses.length ? ` · not used: ${misses.join(', ')}` : ''}`)
+  }
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => picker.current?.click()}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && picker.current?.click()}
+      onDragOver={(e) => {
+        e.preventDefault()
+        setOver(true)
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        e.preventDefault()
+        setOver(false)
+        void accept([...e.dataTransfer.files])
+      }}
+      className="flex flex-wrap items-center gap-3"
+      style={{
+        padding: '12px 16px',
+        borderRadius: 12,
+        border: `2px dashed ${over ? 'var(--accent)' : 'var(--border)'}`,
+        background: over ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'var(--surface)',
+        cursor: 'pointer',
+      }}
+    >
+      <Layers size={20} style={{ color: over ? 'var(--accent)' : 'var(--muted)' }} />
+      <div className="min-w-0 flex-1">
+        <div style={{ fontSize: 14, fontWeight: 600 }}>Drop JSON for all sheets</div>
+        <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+          {report ?? 'Files are matched to sheets by name (e.g. 14780-…-0002A_objects.json → 14780-…-0002A.jpg) and to slots by content.'}
+        </div>
+      </div>
+      <input
+        ref={picker}
+        type="file"
+        multiple
+        accept=".json,application/json"
+        hidden
+        onChange={(e) => {
+          void accept([...(e.target.files ?? [])])
+          e.target.value = ''
+        }}
+      />
     </div>
   )
 }

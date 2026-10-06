@@ -754,3 +754,44 @@ export async function loadGarnetBundle(file: File): Promise<GarnetJob> {
 export async function getGarnetJob(jobId: string): Promise<GarnetJob> {
   return requestJson<GarnetJob>(`/api/garnet/jobs/${jobId}`, undefined, PIPELINE_POLL_TIMEOUT)
 }
+
+// --- multi-sheet merge (read-only, computed per request) -----------------------------------
+
+export type MergedSheetEntry = {
+  job_id: string
+  sheet: string
+  trace_ids: string[]
+  equipment: string[]
+  instruments: string[]
+  inline_counts: Record<string, number>
+  boundaries: Record<string, number>
+  conflict: boolean
+  no_text: boolean
+}
+
+export type MergedLine = {
+  line_number: string
+  no_text: boolean
+  sheets: MergedSheetEntry[]
+  sheet_count: number
+  totals: { pipe_sections: number; equipment: string[]; instruments: number; inline_objects: number }
+  offpage: boolean
+  continuation_missing: boolean
+  conflict: boolean
+  similar_to: string[]
+}
+
+export type MergedTestSystems = {
+  rule: string
+  sheets: { job_id: string; sheet: string; status: string; gate: number | null; gate3_confirmed: boolean }[]
+  skipped_sheets: { job_id: string; sheet?: string; reason: string }[]
+  lines: MergedLine[]
+  summary: { lines: number; multi_sheet: number; continuation_missing: number; similar: number; conflict: number }
+}
+
+export const mergeUrl = (jobIds: string[], ext: 'json' | 'txt') =>
+  `/api/garnet/merge/test_systems.${ext}?jobs=${jobIds.map(encodeURIComponent).join(',')}`
+
+export async function getMergedTestSystems(jobIds: string[]): Promise<MergedTestSystems> {
+  return requestJson<MergedTestSystems>(mergeUrl(jobIds, 'json'))
+}

@@ -1449,3 +1449,160 @@ def api_garnet_report(job_id: str) -> PlainTextResponse:
         text = _report_text(job_id)
     stem = _safe_stem(JOBS[job_id].get("source_name"))
     return PlainTextResponse(text, headers={"Content-Disposition": f'attachment; filename="{stem}_test_systems.txt"'})
+
+
+# --- Multi-sheet: link test systems across sheets by line number ---------------------------
+# Read-only and recomputed on request from each sheet's own test_systems.json, so a Gate 3 edit on
+# any sheet flows through. Linking is EXACT text only: OCR near-misses are flagged, never merged.
+
+MERGE_VERSION = 1
+
+
+def _norm_line(key: str) -> str:
+    """Comparison form for spotting near-duplicates only — never used to link."""
+    return "".join(key.split()).casefold().strip("-")
+
+
+def _merged(job_ids: list[str]) -> dict:
+    sheets, skipped = [], []
+    per_line: dict[str, list[dict]] = {}
+    for jid in job_ids:
+        job = JOBS.get(jid)
+        if job is None:
+            skipped.append({"job_id": jid, "reason": "job not found"})
+            continue
+        ts_path = JOBS_DIR / jid / "out" / "test_systems.json"
+        if not ts_path.is_file():
+            skipped.append({"job_id": jid, "sheet": job.get("source_name", ""), "reason": "Stage 6 has not run"})
+            continue
+        ts = json.loads(ts_path.read_text())
+        name = job.get("source_name") or jid[:8]
+        sheets.append({"job_id": jid, "sheet": name, "status": job["status"], "gate": job.get("gate"),
+                       "gate3_confirmed": bool(ts.get("gate3_confirmed"))})
+        for sysm in ts["systems"]:
+            # A textless label names nothing that could match another sheet: keep it sheet-local.
+            key = f"(no text) {name}:{sysm['labels'][0]['id']}" if sysm["no_text"] else sysm["line_number"]
+            counts: dict[str, int] = {}
+            for o in sysm["inline_objects"]:
+                c = o.get("class_name") or "?"
+                counts[c] = counts.get(c, 0) + 1
+            bnd: dict[str, int] = {}
+            for b in sysm["boundaries"]:
+                bnd[b["type"]] = bnd.get(b["type"], 0) + 1
+            per_line.setdefault(key, []).append({
+                "job_id": jid, "sheet": name,
+                "trace_ids": [t["trace_id"] for t in sysm["traces"]],
+                "equipment": [e.get("tag") or e["id"] for e in sysm["equipment"]],
+                "instruments": [o.get("text") or f"(no text) {o['id']}" for o in sysm["instruments"]],
+                "inline_counts": dict(sorted(counts.items())),
+                "boundaries": dict(sorted(bnd.items())),
+                "conflict": sysm["has_conflict"], "no_text": sysm["no_text"],
+            })
+
+    groups: dict[str, set[str]] = {}
+    for key in per_line:
+        groups.setdefault(_norm_line(key), set()).add(key)
+
+    lines = []
+    for key in sorted(per_line):
+        entries = sorted(per_line[key], key=lambda e: (e["sheet"], e["job_id"]))
+        offpage = any("page connection" in e["boundaries"] for e in entries)
+        eq = sorted({t for e in entries for t in e["equipment"]})
+        lines.append({
+            "line_number": key,
+            "no_text": entries[0]["no_text"],
+            "sheets": entries,
+            "sheet_count": len({e["job_id"] for e in entries}),
+            "totals": {"pipe_sections": sum(len(e["trace_ids"]) for e in entries),
+                       "equipment": eq,
+                       "instruments": sum(len(e["instruments"]) for e in entries),
+                       "inline_objects": sum(sum(e["inline_counts"].values()) for e in entries)},
+            "offpage": offpage,
+            # Leaves the sheet through a connector, yet no other loaded sheet carries it.
+            "continuation_missing": offpage and len({e["job_id"] for e in entries}) == 1 and not entries[0]["no_text"],
+            "conflict": any(e["conflict"] for e in entries),
+            "similar_to": [] if entries[0]["no_text"] else sorted(groups[_norm_line(key)] - {key}),
+        })
+    return {
+        "version": MERGE_VERSION,
+        "generated_at": _now(),
+        "rule": "exact line-number text match across sheets; near-matches are flagged in similar_to, never merged",
+        "sheets": sheets,
+        "skipped_sheets": skipped,
+        "lines": lines,
+        "summary": {"lines": len(lines),
+                    "multi_sheet": sum(1 for x in lines if x["sheet_count"] > 1),
+                    "continuation_missing": sum(1 for x in lines if x["continuation_missing"]),
+                    "similar": sum(1 for x in lines if x["similar_to"]),
+                    "conflict": sum(1 for x in lines if x["conflict"])},
+    }
+
+
+def _merged_text(m: dict) -> str:
+    W = 78
+    out: list[str] = []
+    line = out.append
+    line("=" * W)
+    line("GARNET MULTI-SHEET TEST SYSTEMS REPORT")
+    line("=" * W)
+    line(f"  Generated         {m['generated_at']}")
+    line(f"  Linking rule      {m['rule']}")
+    line("")
+    line("  Sheets")
+    for s in m["sheets"]:
+        state = "Gate 3 confirmed" if s["gate3_confirmed"] else f"NOT final ({s['status']}{' Gate ' + str(s['gate']) if s['gate'] else ''})"
+        line(f"    - {s['sheet']:<32} {state}")
+    for s in m["skipped_sheets"]:
+        line(f"    - {s.get('sheet') or s['job_id']:<32} SKIPPED: {s['reason']}")
+    sm = m["summary"]
+    line("")
+    line(f"  Line numbers      {sm['lines']}  (on more than one sheet: {sm['multi_sheet']})")
+    line(f"  Off-sheet, continuation not in loaded sheets: {sm['continuation_missing']}")
+    line(f"  Possible duplicates (similar text): {sm['similar']}")
+    line(f"  With a conflict on some sheet:      {sm['conflict']}")
+    line("")
+    for n, x in enumerate(m["lines"], start=1):
+        flags = [f for f, on in (("MULTI-SHEET", x["sheet_count"] > 1), ("CONTINUATION NOT FOUND", x["continuation_missing"]),
+                                 ("CONFLICT", x["conflict"]), ("NO TEXT", x["no_text"])) if on]
+        line("=" * W)
+        line(f"[{n}] {x['line_number']}" + (f"   <{', '.join(flags)}>" if flags else ""))
+        line("-" * W)
+        if x["similar_to"]:
+            line(f"  ** similar text, NOT linked: {' | '.join(x['similar_to'])}")
+        t = x["totals"]
+        line(f"  Sheets {x['sheet_count']} | sections {t['pipe_sections']} | instruments {t['instruments']} | inline {t['inline_objects']}")
+        line(f"  Equipment: {', '.join(t['equipment']) or '-'}")
+        for e in x["sheets"]:
+            line(f"  > {e['sheet']}" + ("   (conflict on this sheet)" if e["conflict"] else ""))
+            line(f"      sections    {', '.join(e['trace_ids']) or '-'}")
+            line(f"      equipment   {', '.join(e['equipment']) or '-'}")
+            line(f"      instruments {', '.join(e['instruments']) or '-'}")
+            line(f"      inline      {', '.join(f'{c} x{k}' for c, k in e['inline_counts'].items()) or '-'}")
+            if e["boundaries"]:
+                line(f"      boundaries  {', '.join(f'{c} x{k}' for c, k in e['boundaries'].items())}")
+        line("")
+    line("=" * W)
+    line("Source: each sheet's out/test_systems.json. Values are reproduced exactly as stored.")
+    return "\n".join(x.rstrip() for x in out) + "\n"
+
+
+def _merge_jobs(jobs: str) -> list[str]:
+    ids = [j for j in (jobs or "").split(",") if j]
+    if not ids:
+        raise HTTPException(status_code=400, detail="jobs: give one or more job ids, comma-separated")
+    if len(ids) > 200:
+        raise HTTPException(status_code=400, detail="jobs: at most 200 sheets")
+    return list(dict.fromkeys(ids))  # de-duplicate, keep order
+
+
+@app.get("/api/garnet/merge/test_systems.json")
+def api_garnet_merge_json(jobs: str = "") -> dict:
+    with JOBS_LOCK:
+        return _merged(_merge_jobs(jobs))
+
+
+@app.get("/api/garnet/merge/test_systems.txt", response_class=PlainTextResponse)
+def api_garnet_merge_txt(jobs: str = "") -> PlainTextResponse:
+    with JOBS_LOCK:
+        text = _merged_text(_merged(_merge_jobs(jobs)))
+    return PlainTextResponse(text, headers={"Content-Disposition": 'attachment; filename="garnet_multi_sheet_test_systems.txt"'})
