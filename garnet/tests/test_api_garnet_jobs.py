@@ -102,6 +102,9 @@ class TestGarnetJobs(unittest.TestCase):
         job = wait()
         self.assertEqual((job["status"], job["gate"]), ("awaiting_gate", 1))
         self.assertEqual(client.post(f"/api/garnet/jobs/{jid}/gates/2", json={}).status_code, 409)
+        is_ln = lambda o: o["class_name"].strip().lower() in ("line number", "line_number")  # noqa: E731
+        gate1_ln = get("input/gate1_line_numbers.json")["objects"]
+        self.assertTrue(gate1_ln and all(map(is_ln, gate1_ln)))
         objs = get("input/sheet_objects.json")["objects"]
         drop = next(o["id"] for o in objs if o["class_name"] == "gate valve")
         tag = next(o["id"] for o in objs if o["class_name"] == "instrument tag")
@@ -127,6 +130,9 @@ class TestGarnetJobs(unittest.TestCase):
         human = staged["human_000001"]
         self.assertEqual((human["class_name"], human["text"], human["source"]), ("instrument tag", "PI 0999", "human"))
         self.assertIn("human_000001", {o["id"] for o in get("out/stage4_objects.json")["objects"]})
+        # Gate 1's line-number view is exactly the set the tracer got.
+        self.assertEqual(sorted((o["id"], o.get("text")) for o in get("input/gate1_line_numbers.json")["objects"]),
+                         sorted((o["id"], o.get("text")) for o in get("out/stage4_objects.json")["objects"] if is_ln(o)))
         self.assertIn(drop, {o["id"] for o in get("input/sheet_objects.pre_gate1.json")["objects"]})
         traces = get("out/stage5b_trace_results.json")
         dropped_trace = next(iter(traces))

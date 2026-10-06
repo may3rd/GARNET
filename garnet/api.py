@@ -371,6 +371,8 @@ import sys  # noqa: E402
 import cv2  # noqa: E402
 import numpy as np  # noqa: E402
 
+from garnet.stage5b.host import LINE_NUMBER_CLASSES, load_fixtures  # noqa: E402
+
 JOBS_DIR = RUNS_DIR / "jobs"
 STEM = "sheet"
 # ponytail: in-memory job table, lost on restart; persist job.json if jobs must outlive the server
@@ -438,12 +440,26 @@ def _run_job(job_id: str, start: int = 0) -> None:
         _persist(job_id)
 
 
+def _write_gate1_line_numbers(job_dir: Path) -> None:
+    """Gate 1's read-only line-number view, merged by the tracer's own `load_fixtures`.
+
+    The uploaded labels are folded into the staged objects exactly as Stage 5b will see
+    them (fixture text onto overlapping detector boxes, the rest added), so the screen never
+    shows a label twice or one the tracer won't get.
+    """
+    objects, _ = load_fixtures(job_dir / "input", STEM)
+    rows = [o for o in objects if str(o.get("class_name", "")).strip().lower() in LINE_NUMBER_CLASSES]
+    (job_dir / "input" / "gate1_line_numbers.json").write_text(json.dumps({"objects": rows}))
+
+
 def _run_job_inner(job_id: str, start: int = 0) -> None:
     job = JOBS[job_id]
     job["status"], job["gate"] = "running", None
     for i, step in enumerate(job["steps"]):
         if i < start:
             continue
+        if step.get("gate_after") == 1:
+            _write_gate1_line_numbers(JOBS_DIR / job_id)
         if step["status"] == "skipped":
             gate = step.get("gate_after")
             if gate and job["pause_at_gates"]:
@@ -1178,6 +1194,7 @@ def api_garnet_gate(job_id: str, gate: int, payload: GateRequest) -> dict:
         _record_gate(job_dir, gate, payload.model_dump())
         if gate == 1:
             _apply_gate1(job_dir, payload.rejected, payload.edits, payload.added, payload.moved, payload.reclassed)
+            _write_gate1_line_numbers(job_dir)
         if gate == 3:
             if payload.edits:
                 _append_edits(job_dir, {**_read_edits(job_dir)["edits"], **payload.edits})
