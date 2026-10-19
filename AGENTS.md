@@ -2,6 +2,16 @@
 
 # Lessons
 
+- Run patch scripts from the repository root and stop the shell if patching fails before verification.
+
+- When adding a review gate, update event-history assertions for later reopen and reconfirm paths.
+
+- Use single-quoted Python patch markers for JSX attributes so triple-quote delimiters cannot terminate them.
+
+- When orthogonal snapping a lone trace endpoint, constrain it to the existing segment axis; do not insert a bend.
+
+- Run root-level patch scripts from the repository root; the frontend directory has no `.venv/`.
+- Check live route registrations before trusting an API's older module description; `garnet/api.py` now serves trace jobs as well as detection.
 - Do not assign a UI click failure to a confirmation dialog without reproducing the click path; verify the rendered event and API request first.
 - The **active** P&ID extraction work is the top-level `garnet/` package, not `backend/garnet/`. Run it from the **repo root** with `.venv/bin/python`. `backend/garnet/` is the older pipeline behind the FastAPI service; it still runs, but new extraction work goes in `garnet/`.
 - From `backend/`, use the root virtualenv as `../.venv/bin/python` or its absolute path, never `.venv/bin/python`.

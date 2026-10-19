@@ -2,7 +2,7 @@
  * Runnable check for the trace editor geometry: `bun run src/lib/traceGeometry.test.ts`
  * Throws (non-zero exit) on any failure.
  */
-import { densify, eraseSegments, mergeDrawn, orthogonal, strokeTangents, type Segment } from './traceGeometry'
+import { deleteTraceEndpoint, densify, eraseSegments, extendTraceEndpoint, mergeDrawn, moveTracePoint, orthogonal, strokeTangents, type Segment } from './traceGeometry'
 
 let failures = 0
 function check(label: string, actual: unknown, expected: unknown) {
@@ -98,6 +98,34 @@ check('erase misses', eraseSegments([seg(0, 0, 100, 0)], [[50, 30]], 10), null)
 
 // --- orthogonal: a wobbly L becomes two axis runs --------------------------------------------
 check('ortho L', orthogonal([[0, 0], [100, 3], [102, 80]]), [[0, 0], [100, 0], [100, 80]])
+
+// Editing a shared bend moves both incident ends and drops stale segment lengths.
+{
+  const segs: Segment[] = [
+    { x1: 0, y1: 0, x2: 10, y2: 0, length_px: 10 },
+    { x1: 10, y1: 0, x2: 10, y2: 20, length_px: 20 },
+  ]
+  const moved = moveTracePoint(segs, [10, 0], [14, 6])
+  check('point drag joins both segments', moved.map((g) => [g.x1, g.y1, g.x2, g.y2]), [[0, 0, 14, 6], [14, 6, 10, 20]])
+  check('point drag leaves source untouched', segs[0].x2, 10)
+  check('point drag drops stale lengths', moved.map((g) => g.length_px), [undefined, undefined])
+  const snapped = moveTracePoint(segs, [10, 0], [14, 6], true)
+  check('orthogonal corner keeps other points fixed', snapped.map((g) => [g.x1, g.y1, g.x2, g.y2]),
+    [[0, 0, 14, 0], [14, 0, 14, 6], [14, 6, 10, 6], [10, 6, 10, 20]])
+  check('orthogonal endpoint keeps one horizontal segment', moveTracePoint([segs[0]], [0, 0], [3, 7], true),
+    [{ x1: 3, y1: 0, x2: 10, y2: 0 }])
+  check('orthogonal endpoint keeps one vertical segment', moveTracePoint([segs[1]], [10, 20], [14, 6], true),
+    [{ x1: 10, y1: 0, x2: 10, y2: 6 }])
+  check('delete first endpoint', deleteTraceEndpoint(segs, [0, 0]), [segs[1]])
+  check('delete last endpoint', deleteTraceEndpoint(segs, [10, 20]), [segs[0]])
+  check('keep two-point trace', deleteTraceEndpoint([segs[0]], [0, 0]), null)
+  check('cannot delete interior point from endpoint menu', deleteTraceEndpoint(segs, [10, 0]), null)
+  check('extend first endpoint with snap', extendTraceEndpoint(segs, [0, 0], [-5, 8], true),
+    [{ x1: 0, y1: 8, x2: 0, y2: 0 }, ...segs])
+  check('extend last endpoint without snap', extendTraceEndpoint(segs, [10, 20], [15, 27], false),
+    [...segs, { x1: 10, y1: 20, x2: 15, y2: 27 }])
+  check('skip coincident new point', extendTraceEndpoint(segs, [10, 20], [10, 20], true), null)
+}
 
 if (failures > 0) throw new Error(`${failures} traceGeometry check(s) failed`)
 console.log('traceGeometry: all checks passed')

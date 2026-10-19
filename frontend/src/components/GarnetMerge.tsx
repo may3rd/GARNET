@@ -30,9 +30,9 @@ export function GarnetMerge() {
   const selectSheet = useRunStore((s) => s.selectSheet)
   const setScreen = useRunStore((s) => s.setScreen)
 
-  // Sheets whose Stage 6 has run: completed, or parked at Gate 3.
+  // Sheets whose Stage 6 has run: completed, or parked at Gate 3 or 4.
   const ready = sheets.filter(
-    (s) => s.task === 'garnet' && s.garnet && (s.garnet.status === 'completed' || (s.garnet.status === 'awaiting_gate' && s.garnet.gate === 3))
+    (s) => s.task === 'garnet' && s.garnet && (s.garnet.status === 'completed' || (s.garnet.status === 'awaiting_gate' && (s.garnet.gate === 3 || s.garnet.gate === 4)))
   )
   // Unticked sheets; everything else that is ready is in, including sheets that become ready later.
   const [excluded, setExcluded] = useState<Set<string>>(new Set())
@@ -157,7 +157,7 @@ export function GarnetMerge() {
                     }
                   />
                   {s.label}
-                  {!final && <Tag tone="warning">Gate 3 open</Tag>}
+                  {!final && <Tag tone="warning">{s.garnet?.gate === 4 ? 'Gate 4 open' : 'Gate 3 open'}</Tag>}
                 </label>
               )
             })}

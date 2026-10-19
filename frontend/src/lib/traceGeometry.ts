@@ -246,6 +246,56 @@ export function mergeDrawn(drawn: Segment[], traces: { id: string; segments: Seg
 }
 
 
+/** Remove the outer segment; a trace must retain at least two points. */
+export function deleteTraceEndpoint(segs: Segment[], point: Pt): Segment[] | null {
+  if (segs.length < 2) return null
+  const first = segs[0], last = segs[segs.length - 1]
+  if (point[0] === first.x1 && point[1] === first.y1) return segs.slice(1)
+  if (point[0] === last.x2 && point[1] === last.y2) return segs.slice(0, -1)
+  return null
+}
+
+/** Add one outer segment when the reviewer places a new endpoint. */
+export function extendTraceEndpoint(segs: Segment[], point: Pt, to: Pt, snapOrthogonal: boolean): Segment[] | null {
+  if (!segs.length) return null
+  const first = segs[0], last = segs[segs.length - 1]
+  const atStart = point[0] === first.x1 && point[1] === first.y1
+  const atEnd = point[0] === last.x2 && point[1] === last.y2
+  if (atStart === atEnd) return null
+  const next = snapOrthogonal ? orthogonal([point, to])[1] : to
+  if (!next || (next[0] === point[0] && next[1] === point[1])) return null
+  const added = atStart
+    ? { x1: next[0], y1: next[1], x2: point[0], y2: point[1] }
+    : { x1: point[0], y1: point[1], x2: next[0], y2: next[1] }
+  return atStart ? [added, ...segs] : [...segs, added]
+}
+
+/** Move a shared vertex; orthogonal snap inserts bends so all other vertices stay fixed. */
+export function moveTracePoint(segs: Segment[], from: Pt, to: Pt, snapOrthogonal = false): Segment[] {
+  const loneEndpoint = segs.filter((g) =>
+    (g.x1 === from[0] && g.y1 === from[1]) || (g.x2 === from[0] && g.y2 === from[1])).length === 1
+  return segs.flatMap((g) => {
+    const start = g.x1 === from[0] && g.y1 === from[1]
+    const end = g.x2 === from[0] && g.y2 === from[1]
+    if (!start && !end) return [{ x1: g.x1, y1: g.y1, x2: g.x2, y2: g.y2 }]
+    if (!snapOrthogonal || (start && end)) return [{
+      x1: start ? to[0] : g.x1, y1: start ? to[1] : g.y1,
+      x2: end ? to[0] : g.x2, y2: end ? to[1] : g.y2,
+    }]
+    const fixed: Pt = start ? [g.x2, g.y2] : [g.x1, g.y1]
+    const horizontal = Math.abs(g.x2 - g.x1) >= Math.abs(g.y2 - g.y1)
+    if (loneEndpoint) {
+      const snapped: Pt = horizontal ? [to[0], fixed[1]] : [fixed[0], to[1]]
+      return [{ x1: start ? snapped[0] : fixed[0], y1: start ? snapped[1] : fixed[1],
+        x2: end ? snapped[0] : fixed[0], y2: end ? snapped[1] : fixed[1] }]
+    }
+    const bend: Pt = horizontal ? [to[0], fixed[1]] : [fixed[0], to[1]]
+    const points = start ? [to, bend, fixed] : [fixed, bend, to]
+    return points.slice(1).map((p, i) => ({ x1: points[i][0], y1: points[i][1], x2: p[0], y2: p[1] }))
+      .filter((s) => s.x1 !== s.x2 || s.y1 !== s.y2)
+  })
+}
+
 /** Distance from point (x, y) to segment g, in image pixels. */
 export function segDist(x: number, y: number, g: Segment) {
   const dx = g.x2 - g.x1

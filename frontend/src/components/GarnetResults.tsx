@@ -5,7 +5,7 @@ import { Card, PageHeader, Tag } from '@/components/ui/primitives'
 import { snapGarnetTrace, type GarnetGate, type GarnetJob } from '@/lib/api'
 import { normalizeClass } from '@/lib/detectionClasses'
 import { snapToEdge } from '@/lib/portSnap'
-import { densify, eraseSegments, mergeDrawn, orthogonal, rdp, segDist, strokeTangents, type Pt, type Segment } from '@/lib/traceGeometry'
+import { deleteTraceEndpoint, densify, eraseSegments, extendTraceEndpoint, mergeDrawn, moveTracePoint, orthogonal, rdp, segDist, strokeTangents, type Pt, type Segment } from '@/lib/traceGeometry'
 import { useRunStore } from '@/stores/runStore'
 
 /**
@@ -99,12 +99,14 @@ const TABS: { key: Tab; label: string }[] = [
 const GATE_TABS: Record<GarnetGate, Tab[]> = {
   1: ['objects', 'inputLineNumbers', 'equipment'],
   2: ['traces', 'objects', 'equipment'],
-  3: ['lineNumbers', 'instruments', 'traces', 'testSystems'],
+  3: ['lineNumbers', 'instruments', 'traces'],
+  4: ['testSystems'],
 }
 const GATE_COPY: Record<GarnetGate, { title: string; hint: string }> = {
   1: { title: 'Gate 1 · Objects', hint: 'Reject false detections and fix tag text. Rejected objects are not traced.' },
-  2: { title: 'Gate 2 · Traces', hint: 'Reject traces that follow the wrong pipe. Stage 6 runs without them.' },
+  2: { title: 'Gate 2 · Traces', hint: 'Select a trace to drag its points, or reject a wrong pipe. Stage 6 uses the reviewed geometry.' },
   3: { title: 'Gate 3 · Line numbers', hint: 'Accept or reject each line-number attachment and fix text.' },
+  4: { title: 'Gate 4 · Test systems', hint: 'Review test-system membership and confirm the result.' },
 }
 
 function segBox(segments: Segment[]): BBox {
@@ -143,7 +145,7 @@ async function loadData(job: GarnetJob): Promise<Data> {
       trace_edges: { trace_id: string }[]
     }>(job, 'out/stage6_trace_associations.json'),
     json<Record<string, { terminal_type?: string; segments?: Segment[]; mask_coverage?: number }>>(job, `${dir}/stage5b_trace_results.json`),
-    json<{ branches: Record<string, { terminal_type?: string; segments?: Segment[] }> }>(job, branchFile),
+    json<{ branches: Record<string, { status?: string; terminal_type?: string; segments?: Segment[] }> }>(job, branchFile),
     json<TestSystems>(job, 'out/test_systems.json'),
     json<{ objects: Obj[] }>(job, 'input/gate1_line_numbers.json'),
   ])
@@ -156,7 +158,7 @@ async function loadData(job: GarnetJob): Promise<Data> {
     })),
     ...Object.entries(branches?.branches ?? {}).map(([id, t]) => ({ id, kind: 'branch' as const, ...t, coverage: undefined as number | undefined })),
   ]
-    .filter((t) => t.segments && t.segments.length > 0)
+    .filter((t) => t.segments && t.segments.length > 0 && (t.kind !== 'branch' || t.status === 'traced'))
     .map((t) => ({ id: t.id, kind: t.kind, terminal_type: t.terminal_type, segments: t.segments!, bbox: segBox(t.segments!), coverage: t.coverage }))
   const img = new Image()
   img.src = imageUrl
@@ -299,8 +301,8 @@ export function GarnetResults() {
     try {
       const isNew = (id: string) => id.startsWith('new_')
       await confirmGarnetGate(sheet.id, gate, {
-        rejected: gate === 3 ? [] : [...rejected],
-        edits: gate === 2 ? {} : Object.fromEntries(Object.entries(draft).filter(([id]) => !isNew(id))),
+        rejected: gate === 3 || gate === 4 ? [] : [...rejected],
+        edits: gate === 2 || gate === 4 ? {} : Object.fromEntries(Object.entries(draft).filter(([id]) => !isNew(id))),
         added: gate === 1 ? added.map((o) => ({ class_name: o.class_name, bbox: o.bbox, text: draft[o.id] ?? '' })) : [],
         moved: gate === 1 ? Object.fromEntries(Object.entries(moved).filter(([id]) => !isNew(id))) : {},
         reclassed: gate === 1 ? reclassed : {},
@@ -491,6 +493,13 @@ export function GarnetResults() {
     return [...base, ...te.drawn]
   }, [data, te])
   const traceById = useMemo(() => new Map(traces.map((t) => [t.id, t])), [traces])
+  const onTracePointMove = (id: string, segments: Segment[]) => {
+    if (te.drawn.some((t) => t.id === id)) {
+      pushEdits({ ...te, drawn: te.drawn.map((t) => t.id === id ? { ...t, segments, bbox: segBox(segments) } : t) })
+    } else {
+      pushEdits({ ...te, modified: { ...te.modified, [id]: segments } })
+    }
+  }
 
   const onStroke = async (kind: 'draw' | 'erase', raw: Pt[], screenToImage: number) => {
     if (!data || !job) return
@@ -758,8 +767,10 @@ export function GarnetResults() {
           <Tag tone="warning">{GATE_COPY[gate].title}</Tag>
           <span style={{ fontSize: 13, color: 'var(--muted)' }}>{GATE_COPY[gate].hint}</span>
           <span className="mono" style={{ fontSize: 12, marginLeft: 'auto' }}>
-            {gate === 3
-              ? `${Object.keys(decisions).length} verdict(s) · ${Object.keys(reassigned).length} reassigned · ${Object.keys(draft).length} text fix(es)`
+            {gate === 4
+              ? `${data?.testSystems?.systems.length ?? 0} test system(s) to review`
+              : gate === 3
+                ? `${Object.keys(decisions).length} verdict(s) · ${Object.keys(reassigned).length} reassigned · ${Object.keys(draft).length} text fix(es)`
               : gate === 2
                 ? `${rejected.size} rejected · ${te.drawn.length} drawn · ${Object.keys(te.modified).length} edited`
                 : `${rejected.size} rejected${
@@ -902,9 +913,11 @@ export function GarnetResults() {
             addMode={addMode}
             onDraw={onDraw}
             onMove={onMove}
+            onTracePointMove={gate === 2 && tab === 'traces' ? onTracePointMove : undefined}
             highlight={highlight}
             tool={gate === 2 && tab === 'traces' ? tool : 'select'}
             brushPx={brushPx}
+            snapOrthogonal={orthoOn}
             onStroke={gate === 2 && tab === 'traces' ? (k, pts, sc) => void onStroke(k, pts, sc) : undefined}
           />
           {!listHidden && <Card padding={0} className="min-h-0 overflow-auto lg:w-[460px]">
@@ -955,7 +968,7 @@ export function GarnetResults() {
               />
             )}
             {tab === 'testSystems' && (
-              <TestSystemsPanel data={data} jobId={job.id} sheetLabel={sheet.label} selected={selected} onSelect={setSelected} />
+              <TestSystemsPanel data={data} jobId={job.id} exportReady={job.status === 'completed'} sheetLabel={sheet.label} selected={selected} onSelect={setSelected} />
             )}
             {tab === 'traces' && (
               <TracesTable
@@ -1002,6 +1015,7 @@ type DragMode =
   | { kind: 'move'; id: string; x0: number; y0: number; start: BBox }
   | { kind: 'resize'; id: string; corner: Corner; start: BBox }
   | { kind: 'stroke'; pts: [number, number][] }
+  | { kind: 'tracePoint'; id: string; from: Pt; start: Segment[] }
 
 export type TraceTool = 'select' | 'draw' | 'erase'
 
@@ -1015,9 +1029,11 @@ function Overlay({
   addMode = false,
   onDraw,
   onMove,
+  onTracePointMove,
   highlight,
   tool = 'select',
   brushPx = 14,
+  snapOrthogonal = true,
   onStroke,
 }: {
   data: Data
@@ -1032,12 +1048,15 @@ function Overlay({
   addMode?: boolean
   onDraw?: (bbox: BBox) => void
   onMove?: (id: string, bbox: BBox) => void
+  /** Gate 2: commit one dragged trace vertex as replacement geometry. */
+  onTracePointMove?: (id: string, segments: Segment[]) => void
   /** Context drawn under the boxes: the trace a selected label attached to, and where. */
   highlight?: { segments: Segment[]; point?: [number, number] } | null
   /** Gate 2 trace editing. `draw`/`erase` turn a drag into a stroke handed to `onStroke`. */
   tool?: TraceTool
   /** Erase brush radius in screen px (constant on screen at any zoom). */
   brushPx?: number
+  snapOrthogonal?: boolean
   onStroke?: (tool: 'draw' | 'erase', pts: [number, number][], screenToImage: number) => void
 }) {
   const host = useRef<HTMLDivElement>(null)
@@ -1052,13 +1071,34 @@ function Overlay({
   }
   // Geometry being dragged right now; committed to the parent on pointer-up only.
   const [live, setLive] = useState<{ id: string; bbox: BBox } | null>(null)
+  const [liveTrace, setLiveTrace] = useState<{ id: string; segments: Segment[] } | null>(null)
+  const [pointMenu, setPointMenu] = useState<{ x: number; y: number; id: string; from: Pt; segments: Segment[] } | null>(null)
+  const [pendingPoint, setPendingPoint] = useState<{ id: string; from: Pt; segments: Segment[] } | null>(null)
   // Stroke in progress (draw/erase), and the brush position for the erase cursor.
   const [stroke2, setStroke2] = useState<[number, number][] | null>(null)
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null)
   const stroking = tool !== 'select' && !!onStroke
+  const selectedTrace = onTracePointMove ? boxes.find((b) => b.id === selected && b.lines && !b.dim) : undefined
+  useEffect(() => { setPointMenu(null); setPendingPoint(null) }, [selected, tool])
+  useEffect(() => {
+    const cancel = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setPointMenu(null); setPendingPoint(null) }
+    }
+    window.addEventListener('keydown', cancel)
+    return () => window.removeEventListener('keydown', cancel)
+  }, [])
+  const openPointMenu = (from: Pt, clientX: number, clientY: number) => {
+    if (!selectedTrace?.lines) return
+    const r = host.current?.getBoundingClientRect()
+    if (!r) return
+    setPendingPoint(null)
+    setPointMenu({ x: Math.max(0, Math.min(r.width - 160, clientX - r.left)),
+      y: Math.max(0, Math.min(r.height - 80, clientY - r.top)),
+      id: selectedTrace.id, from, segments: selectedTrace.lines })
+  }
 
   /** Screen event -> image pixel, clamped to the raster. */
-  const toImg = (e: React.PointerEvent, el: HTMLElement) => {
+  const toImg = (e: { clientX: number; clientY: number }, el: HTMLElement) => {
     const r = el.getBoundingClientRect()
     const x = (e.clientX - r.left - view.x) / view.s
     const y = (e.clientY - r.top - view.y) / view.s
@@ -1072,6 +1112,12 @@ function Overlay({
   })
   const startMode = (pt: { x: number; y: number }): DragMode => {
     if (stroking) return { kind: 'stroke', pts: [[pt.x, pt.y]] }
+    if (selectedTrace?.lines) {
+      const tol = 10 / view.s
+      const hit = selectedTrace.lines.flatMap((g) => [[g.x1, g.y1], [g.x2, g.y2]] as Pt[])
+        .find(([x, y]) => Math.hypot(pt.x - x, pt.y - y) <= tol)
+      if (hit) return { kind: 'tracePoint', id: selectedTrace.id, from: hit, start: selectedTrace.lines }
+    }
     const sel = editable ? boxes.find((b) => b.id === selected && !b.lines && !b.fixed) : undefined
     if (sel) {
       const b = sel.bbox
@@ -1242,11 +1288,26 @@ function Overlay({
         ref={host}
         className="relative min-h-0 flex-1 overflow-hidden"
         style={{
-          cursor: stroking ? (tool === 'erase' ? 'none' : 'crosshair') : editable && addMode ? 'crosshair' : drag.current ? 'grabbing' : 'grab',
+          cursor: pendingPoint ? 'crosshair' : stroking ? (tool === 'erase' ? 'none' : 'crosshair') : editable && addMode ? 'crosshair' : drag.current ? 'grabbing' : 'grab',
           touchAction: 'none',
           background: 'var(--surface-2, #f4f4f5)',
         }}
+        onContextMenu={(e) => {
+          if (!selectedTrace?.lines || tool !== 'select') return
+          const segs = selectedTrace.lines
+          const first: Pt = [segs[0].x1, segs[0].y1]
+          const last: Pt = [segs[segs.length - 1].x2, segs[segs.length - 1].y2]
+          if (first[0] === last[0] && first[1] === last[1]) return
+          const pt = toImg(e, e.currentTarget)
+          const hit = [first, last].find(([x, y]) => Math.hypot(pt.x - x, pt.y - y) <= 10 / view.s)
+          if (!hit) return
+          e.preventDefault()
+          openPointMenu(hit, e.clientX, e.clientY)
+        }}
         onPointerDown={(e) => {
+          if (e.button !== 0) return
+          setPointMenu(null)
+          if (pendingPoint) return
           if (e.pointerType === 'touch') {
             touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
             if (touches.current.size === 2) {
@@ -1254,6 +1315,7 @@ function Overlay({
               drag.current = null
               setStroke2(null)
               setLive(null)
+              setLiveTrace(null)
               pinch.current = pinchState()
               e.currentTarget.setPointerCapture(e.pointerId)
               return
@@ -1292,6 +1354,11 @@ function Overlay({
           const dy = e.clientY - d.py
           if (!d.moved && Math.hypot(dx, dy) < 3) return
           d.moved = true
+          if (d.mode.kind === 'tracePoint') {
+            const pt = toImg(e, e.currentTarget)
+            setLiveTrace({ id: d.mode.id, segments: moveTracePoint(d.mode.start, d.mode.from, [Math.round(pt.x), Math.round(pt.y)], snapOrthogonal) })
+            return
+          }
           if (d.mode.kind !== 'pan') {
             setLive(dragBox(d.mode, toImg(e, e.currentTarget)))
             return
@@ -1306,8 +1373,19 @@ function Overlay({
           touches.current.delete(e.pointerId)
           pinch.current = null
           drag.current = null
+          setLive(null)
+          setLiveTrace(null)
+          setStroke2(null)
         }}
         onPointerUp={(e) => {
+          if (e.button !== 0) return
+          if (pendingPoint) {
+            const pt = toImg(e, e.currentTarget)
+            const next = extendTraceEndpoint(pendingPoint.segments, pendingPoint.from,
+              [Math.round(pt.x), Math.round(pt.y)], snapOrthogonal)
+            if (next) { onTracePointMove?.(pendingPoint.id, next); setPendingPoint(null) }
+            return
+          }
           if (e.pointerType === 'touch') {
             touches.current.delete(e.pointerId)
             if (pinch.current) {
@@ -1323,6 +1401,16 @@ function Overlay({
             setStroke2(null)
             // A click without a drag erases/draws nothing.
             if (d.mode.pts.length > 1 && (tool === 'draw' || tool === 'erase')) onStroke?.(tool, d.mode.pts, 1 / view.s)
+            return
+          }
+          if (d?.mode.kind === 'tracePoint') {
+            setLiveTrace(null)
+            if (d.moved) {
+              const pt = toImg(e, e.currentTarget)
+              const to: Pt = [Math.round(pt.x), Math.round(pt.y)]
+              if (to[0] !== d.mode.from[0] || to[1] !== d.mode.from[1])
+                onTracePointMove?.(d.mode.id, moveTracePoint(d.mode.start, d.mode.from, to, snapOrthogonal))
+            }
             return
           }
           const done = d && d.moved && d.mode.kind !== 'pan' ? dragBox(d.mode, toImg(e, e.currentTarget)) : null
@@ -1409,7 +1497,7 @@ function Overlay({
                       />
                     )}
                     {b.lines ? (
-                      b.lines.map((g, k) => (
+                      (liveTrace?.id === b.id ? liveTrace.segments : b.lines).map((g, k) => (
                         <line
                           key={k}
                           x1={g.x1}
@@ -1448,6 +1536,33 @@ function Overlay({
                   </g>
                 )
               })}
+              {selectedTrace?.lines
+                && [...new Map((liveTrace?.id === selected ? liveTrace.segments : selectedTrace.lines)
+                  .flatMap((g) => [[g.x1, g.y1], [g.x2, g.y2]] as Pt[])
+                  .map((p) => [p.join(','), p])).values()].map(([x, y], i) => (
+                    <circle key={i} cx={x} cy={y} r={5 / view.s} fill="white" stroke={SELECTED} strokeWidth={2 / view.s}
+                      role="button" tabIndex={0} aria-label={`Trace point ${i + 1} at ${x}, ${y}. Use arrow keys to move; Shift moves ten pixels.`}
+                      onKeyDown={(e) => {
+                        if ((e.key === 'F10' && e.shiftKey) || e.key === 'ContextMenu') {
+                          const segs = selectedTrace.lines!
+                          const isFirst = x === segs[0].x1 && y === segs[0].y1
+                          const isLast = x === segs[segs.length - 1].x2 && y === segs[segs.length - 1].y2
+                          if (isFirst !== isLast) {
+                            e.preventDefault()
+                            const r = e.currentTarget.getBoundingClientRect()
+                            openPointMenu([x, y], r.left + r.width / 2, r.top + r.height / 2)
+                          }
+                          return
+                        }
+                        const step = e.shiftKey ? 10 : 1
+                        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
+                        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
+                        if (!dx && !dy) return
+                        e.preventDefault()
+                        onTracePointMove?.(selectedTrace.id, moveTracePoint(selectedTrace.lines!, [x, y],
+                          [Math.min(data.width, Math.max(0, x + dx)), Math.min(data.height, Math.max(0, y + dy))], snapOrthogonal))
+                      }} />
+                  ))}
               {stroke2 && tool === 'draw' && (
                 <polyline
                   points={stroke2.map((p) => p.join(',')).join(' ')}
@@ -1499,6 +1614,30 @@ function Overlay({
                   ))
                 })()}
             </svg>
+          </div>
+        )}
+        {pointMenu?.id === selected && (
+          <div role="menu" aria-label="Trace endpoint actions" className="absolute z-20 min-w-40 rounded-md border p-1 shadow-lg"
+            style={{ left: pointMenu.x, top: pointMenu.y, background: 'var(--surface)', borderColor: 'var(--border)' }}
+            onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()}>
+            <button type="button" role="menuitem" autoFocus={pointMenu.segments.length >= 2} disabled={pointMenu.segments.length < 2}
+              title={pointMenu.segments.length < 2 ? 'A trace needs two points; use Reject to remove it' : undefined}
+              className="block w-full rounded px-3 py-1.5 text-left text-sm hover:bg-black/5 disabled:opacity-40"
+              onClick={() => {
+                const next = deleteTraceEndpoint(pointMenu.segments, pointMenu.from)
+                if (next) onTracePointMove?.(pointMenu.id, next)
+                setPointMenu(null)
+              }}>Delete point</button>
+            <button type="button" role="menuitem" autoFocus={pointMenu.segments.length < 2} className="block w-full rounded px-3 py-1.5 text-left text-sm hover:bg-black/5"
+              onClick={() => { setPendingPoint({ id: pointMenu.id, from: pointMenu.from, segments: pointMenu.segments }); setPointMenu(null) }}>
+              Add new point
+            </button>
+          </div>
+        )}
+        {pendingPoint?.id === selected && (
+          <div className="absolute bottom-2 left-2 z-10 rounded-md px-3 py-1.5 text-xs"
+            style={{ background: 'var(--surface)', boxShadow: '0 1px 4px rgba(0,0,0,.15)' }}>
+            Click canvas to place the new point · Esc cancels
           </div>
         )}
       </div>
@@ -1965,12 +2104,14 @@ const fileStem = (label: string) => label.replace(/\.[a-z0-9]+$/i, '').replace(/
 function TestSystemsPanel({
   data,
   jobId,
+  exportReady,
   sheetLabel,
   selected,
   onSelect,
 }: {
   data: Data
   jobId?: string
+  exportReady: boolean
   sheetLabel: string
   selected: string | null
   onSelect: (key: string) => void
@@ -2008,6 +2149,17 @@ function TestSystemsPanel({
           >
             <Download size={14} />
             Export JSON
+          </a>
+        )}
+        {data.testSystemsUrl && jobId && exportReady && (
+          <a
+            href={`/api/garnet/jobs/${jobId}/test-systems.zip`}
+            download={`${fileStem(sheetLabel)}_test_systems.zip`}
+            className="inline-flex items-center gap-1.5"
+            style={{ height: 28, padding: '0 10px', borderRadius: 'var(--r-btn)', boxShadow: 'inset 0 0 0 1px var(--border)', color: 'inherit', fontWeight: 500, textDecoration: 'none' }}
+          >
+            <Download size={14} />
+            Export ZIP
           </a>
         )}
         {data.testSystemsUrl && jobId && (
@@ -2111,7 +2263,7 @@ function TraceToolbar(p: {
   busy: boolean
 }) {
   const tools: { key: TraceTool; label: string; key_: string; icon: React.ReactNode; hint: string }[] = [
-    { key: 'select', label: 'Select', key_: 'V', icon: <MousePointer2 size={14} />, hint: 'Pan, pick and reject traces' },
+    { key: 'select', label: 'Select', key_: 'V', icon: <MousePointer2 size={14} />, hint: 'Select a trace, then drag its points to adjust it' },
     { key: 'draw', label: 'Draw', key_: 'D', icon: <Brush size={14} />, hint: 'Drag along a pipe to add a trace' },
     { key: 'erase', label: 'Erase', key_: 'E', icon: <Eraser size={14} />, hint: 'Brush over a trace to cut it' },
   ]
@@ -2140,11 +2292,13 @@ function TraceToolbar(p: {
           </button>
         ))}
       </div>
+      {(p.tool === 'select' || p.tool === 'draw') && (
+        <button type="button" aria-pressed={p.orthoOn} onClick={() => p.setOrthoOn(!p.orthoOn)} style={chip(p.orthoOn)} title="Keep moved trace points and drawn strokes orthogonal">
+          ⊾ Orthogonal snap
+        </button>
+      )}
       {p.tool === 'draw' && (
         <>
-          <button type="button" aria-pressed={p.orthoOn} onClick={() => p.setOrthoOn(!p.orthoOn)} style={chip(p.orthoOn)} title="Straighten strokes into horizontal / vertical runs">
-            ⊾ Ortho
-          </button>
           <button type="button" aria-pressed={p.snapOn} onClick={() => p.setSnapOn(!p.snapOn)} style={chip(p.snapOn)} title="Slide each run onto the nearest pipe (pipe mask, ±12 px)">
             <Magnet size={14} /> Snap to pipe
           </button>

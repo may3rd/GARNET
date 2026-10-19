@@ -304,7 +304,7 @@ export function GarnetRun() {
         />
         <Toggle
           label="Pause at every gate"
-          description="Gate 1 objects, Gate 2 traces, Gate 3 line numbers. Off runs straight through."
+          description="Gate 1 objects, Gate 2 traces, Gate 3 line numbers, Gate 4 test systems. Off runs straight through."
           checked={config.pauseAtEveryGate}
           onChange={(pauseAtEveryGate) => setConfig({ pauseAtEveryGate })}
         />
@@ -473,10 +473,10 @@ function SheetCard({ sheet }: { sheet: Sheet }) {
   )
 }
 
-const GATE_NAMES: Record<GarnetGate, string> = { 1: 'Objects', 2: 'Traces', 3: 'Line numbers' }
+const GATE_NAMES: Record<GarnetGate, string> = { 1: 'Objects', 2: 'Traces', 3: 'Line numbers', 4: 'Test systems' }
 
 /**
- * Gate 1 -> Gate 2 -> Gate 3 -> Done. A confirmed gate can be reopened: the job parks there
+ * Gate 1 -> Gate 2 -> Gate 3 -> Gate 4 -> Done. A confirmed gate can be reopened: the job parks there
  * again and everything produced after it is archived by the server (history/), not deleted.
  */
 function GateTimeline({ sheet, busy }: { sheet: Sheet; busy: boolean }) {
@@ -498,7 +498,7 @@ function GateTimeline({ sheet, busy }: { sheet: Sheet; busy: boolean }) {
   const node = (gate: GarnetGate) => {
     const confirmed = job.gates_confirmed.includes(gate)
     const current = job.status === 'awaiting_gate' && job.gate === gate
-    // Passed = the run is beyond this gate, reviewed or not (a run with gates off passes all three).
+    // Passed = the run is beyond this gate, reviewed or not (a run with gates off passes all four).
     // Same rule as the API's reopen check: every step up to the gate's boundary completed or skipped.
     const boundary = job.steps.findIndex((st) => st.gate_after === gate)
     const reached = boundary >= 0 && job.steps.slice(0, boundary + 1).every((st) => st.status === 'completed' || st.status === 'skipped')
@@ -534,7 +534,7 @@ function GateTimeline({ sheet, busy }: { sheet: Sheet; busy: boolean }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-stretch gap-2">
-        {([1, 2, 3] as GarnetGate[]).map(node)}
+        {([1, 2, 3, 4] as GarnetGate[]).map(node)}
         <div
           className="flex min-w-[110px] flex-col justify-center gap-1"
           style={{ padding: '10px 12px', borderRadius: 10, boxShadow: `inset 0 0 0 1px ${done ? 'hsl(140 60% 38%)' : 'var(--border)'}` }}

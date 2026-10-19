@@ -1,19 +1,16 @@
 #!/usr/bin/env python
-"""FastAPI service for the frontend — detection path only.
+"""FastAPI service for frontend detection and GARNET trace jobs.
 
-Mirrors the request/response shapes of `backend/api.py`'s legacy `/api/detect` path so the
-existing React app works against this tree unchanged, but it wires ONLY the detection path:
-detection plus `text_OCR` over the text-bearing boxes. No pipeline jobs, no review state, no
-Excel/PDF export. Detection runs through `garnet.detect_objects.detect`, the same code the CLI
-uses; `text_OCR=true` then reads instrument tags, line numbers and connections through
-`garnet.ocr_objects`.
+Detection runs through `garnet.detect_objects.detect`; `text_OCR=true` reads text-bearing
+boxes through `garnet.ocr_objects`. GARNET trace jobs consume uploaded JSON fixtures or run
+the missing detection steps, then trace pipes and associate labels. Legacy pipeline jobs and
+Excel/PDF export live in `backend/api.py`.
 
 Run it with `python garnet/main.py`, or directly:
     .venv/bin/python -m uvicorn garnet.api:app --reload --port 8090
 
-Port 8090 is the one `backend/api.py` uses, so the frontend reaches this app with no proxy
-change — but only ONE of the two can be running. The pipeline/review/export views have no
-routes here and will 404 while this app holds the port.
+Port 8090 is shared with `backend/api.py`; only one can run there at a time. This app
+serves GARNET trace jobs, while the legacy pipeline/review/export views still 404 here.
 
 Endpoints:
     POST   /api/detect                             run detection (+ optional OCR), store it
@@ -416,6 +413,8 @@ def _plan(job_dir: Path, have: set[str], review_llm: bool, weight: Path, ocr_ins
         # 5b/5c originals edited in place.
         {"name": "associations", "skipped": False, "cmd": None,
          "fn": lambda: _run_associations(job_dir), "gate_after": 3},
+        {"name": "test_systems_review", "skipped": False, "cmd": None,
+         "fn": lambda: "Test systems ready for review", "gate_after": 4},
     ]
     for s in steps:
         s["status"] = "skipped" if s["skipped"] else "pending"
@@ -912,6 +911,7 @@ def _write_test_systems(job_dir: Path, reviewed: dict) -> None:
         "source": "reviewed_associations.json",
         "edits_version": reviewed.get("edits_version"),
         "gate3_confirmed": reviewed.get("gate3_confirmed"),
+        "gate4_confirmed": "4" in _read_gates(job_dir),
         "rule": "direct: a trace belongs to the systems of the accepted line numbers attached to it",
         "systems": result,
         "conflicts": [{"trace_id": t, "line_numbers": k} for t, k in sorted(conflicts.items())],
@@ -1085,7 +1085,10 @@ def _run_associations(job_dir: Path) -> str:
 
     def edit(tid: str, rec: dict) -> dict:
         if tid in modified:
-            rec = {**rec, "segments_original": rec.get("segments"), "segments": modified[tid],
+            segs = modified[tid]
+            rec = {**rec, "segments_original": rec.get("segments"), "segments": segs,
+                   "terminal_x": segs[-1]["x2"], "terminal_y": segs[-1]["y2"],
+                   "trace_length_px": sum(max(abs(g["x2"] - g["x1"]), abs(g["y2"] - g["y1"])) for g in segs),
                    "geometry_source": "human_edit"}
         return rec
 
@@ -1327,9 +1330,15 @@ def api_garnet_gate(job_id: str, gate: int, payload: GateRequest) -> dict:
                          [a for a in payload.added if not _is_ln(a.class_name)], payload.moved, payload.reclassed)
             _apply_gate1_ports(job_dir, payload.ports)
             _write_gate1_line_numbers(job_dir)
+        if gate == 4 and any((payload.rejected, payload.edits, payload.added, payload.moved,
+                              payload.reclassed, payload.ports, payload.drawn, payload.modified,
+                              payload.reassigned, payload.decisions)):
+            raise HTTPException(status_code=400, detail="Gate 4 reviews test systems without edits")
         if gate == 3:
             if payload.edits:
                 _append_edits(job_dir, {**_read_edits(job_dir)["edits"], **payload.edits})
+            _write_reviewed(job_dir)
+        if gate == 4:
             _write_reviewed(job_dir)
         job["status"] = "running"
         _persist(job_id)
@@ -1381,6 +1390,7 @@ _REOPEN_FILES = {
         "out/stage6_line_number_review.json", "out/stage6_line_number_review_summary.json",
         "out/stage6_trace_association_overlay.png", "out/reviewed_associations.json", "out/test_systems.json"],
     3: ["out/reviewed_associations.json", "out/test_systems.json"],
+    4: ["out/test_systems.json"],
 }
 
 
@@ -1403,7 +1413,7 @@ def _read_history(job_dir: Path) -> list[dict]:
 
 
 class ReopenRequest(BaseModel):
-    gate: int = Field(ge=1, le=3)
+    gate: int = Field(ge=1, le=4)
 
 
 @app.post("/api/garnet/jobs/{job_id}/reopen")
@@ -1429,7 +1439,8 @@ def api_garnet_reopen(job_id: str, payload: ReopenRequest) -> dict:
         for rel in _REOPEN_FILES[gate]:
             stash(rel)
         # Edits are text corrections over Stage 6; they belong to the review being discarded.
-        stash("edits.json")
+        if gate != 4:
+            stash("edits.json")
         if gate == 1:
             # Undo Gate 1's writes to the staged objects, ports and line numbers: the pre-gate
             # copies become current; a line-number file Gate 1 created (no upload) is removed.
@@ -1453,8 +1464,8 @@ def api_garnet_reopen(job_id: str, payload: ReopenRequest) -> dict:
             fh.write(json.dumps({"event": "reopen", "gate": gate, "at": _now(),
                                  "archive": str(archive.relative_to(job_dir))}) + "\n")
 
-        if gate == 3:
-            _write_reviewed(job_dir)  # Stage 6 as produced, minus the discarded Gate 3 review
+        if gate in (3, 4):
+            _write_reviewed(job_dir)  # Restore the review view after discarding a gate decision
 
         for st in steps[boundary + 1:]:
             if st["status"] != "skipped":
@@ -1605,6 +1616,8 @@ def _restore_job(job_dir: Path, state: dict) -> dict:
         if st["name"] in saved:
             s = saved[st["name"]]
             st.update(status=s["status"], note=s["note"], log=s["log"])
+        elif st["name"] == "test_systems_review" and state["status"] == "completed":
+            st["status"] = "completed"  # Jobs saved before Gate 4 already have test systems.
     job = {k: v for k, v in state.items() if k not in ("steps", "version")}
     job["steps"] = steps
     return job
@@ -1695,7 +1708,7 @@ def _report_text(job_id: str) -> str:
     row("Generated", _now())
     row("Status", job["status"] + (f" (Gate {job.get('gate')})" if job["status"] == "awaiting_gate" else ""))
     row("Gates confirmed", ", ".join(f"Gate {g}" for g in sorted(gates)) or "none")
-    row("Gate 3 confirmed", "yes" if ts.get("gate3_confirmed") else "NO - review not final")
+    row("Gate 4 confirmed", "yes" if ts.get("gate4_confirmed") else "NO - review not final")
     row("Text edits", f"version {ts.get('edits_version', 0)}")
     row("Membership rule", ts.get("rule", ""))
     line("")
@@ -1762,6 +1775,69 @@ def api_garnet_report(job_id: str) -> PlainTextResponse:
         text = _report_text(job_id)
     stem = _safe_stem(JOBS[job_id].get("source_name"))
     return PlainTextResponse(text, headers={"Content-Disposition": f'attachment; filename="{stem}_test_systems.txt"'})
+
+
+@app.get("/api/garnet/jobs/{job_id}/test-systems.zip")
+def api_garnet_test_systems_zip(job_id: str) -> StreamingResponse:
+    job = JOBS.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job["status"] != "completed":
+        raise HTTPException(status_code=409, detail="Confirm Gate 4 before exporting test systems")
+    job_dir = JOBS_DIR / job_id
+    ts_path = job_dir / "out" / "test_systems.json"
+    reviewed_path = job_dir / "out" / "reviewed_associations.json"
+    if not ts_path.is_file() or not reviewed_path.is_file():
+        raise HTTPException(status_code=409, detail="Reviewed test systems are not available")
+    ts = json.loads(ts_path.read_text())
+    edges = {e["trace_id"]: e for e in json.loads(reviewed_path.read_text())["trace_edges"]}
+    equipment_path = job_dir / "out" / "stage3_equipment_bboxes.json"
+    equipment = {e["id"]: e for e in json.loads(equipment_path.read_text()).get("equipment", [])} if equipment_path.is_file() else {}
+    source = cv2.imread(str(job_dir / "input" / f"{STEM}.jpg"))
+    if source is None:
+        raise HTTPException(status_code=409, detail="Source P&ID image is missing")
+
+    buf = io.BytesIO()
+    index = {"sheet": job.get("source_name", ""), "gate4_confirmed": bool(ts.get("gate4_confirmed")), "systems": []}
+    with zipfile.ZipFile(buf, "w") as zf:
+        def put(name: str, data: str | bytes) -> None:
+            info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            zf.writestr(info, data)
+
+        for number, system in enumerate(ts["systems"], 1):
+            slug = "".join(c if c.isascii() and (c.isalnum() or c in "-_.") else "_" for c in system["line_number"]).strip("._")[:80] or "unnamed"
+            folder = f"{number:03d}_{slug}"
+            index["systems"].append({"folder": folder, "line_number": system["line_number"]})
+            marked = source.copy()
+            for trace in system["traces"]:
+                edge = edges.get(trace["trace_id"])
+                if edge is None:
+                    raise HTTPException(status_code=409, detail=f"Trace {trace['trace_id']} is missing from reviewed associations")
+                for segment in edge["segments"]:
+                    cv2.line(marked, (round(segment["x1"]), round(segment["y1"])),
+                             (round(segment["x2"]), round(segment["y2"])), (0, 0, 255), 7)
+            for row in system["equipment"]:
+                box = equipment.get(row["id"], {}).get("bbox")
+                if box:
+                    cv2.rectangle(marked, (round(box["x_min"]), round(box["y_min"])),
+                                  (round(box["x_max"]), round(box["y_max"])), (255, 0, 0), 5)
+            for row in system["instruments"]:
+                box = row.get("bbox")
+                if box:
+                    cv2.rectangle(marked, (round(box["x_min"]), round(box["y_min"])),
+                                  (round(box["x_max"]), round(box["y_max"])), (0, 180, 0), 5)
+            ok, png = cv2.imencode(".png", marked)
+            if not ok:
+                raise HTTPException(status_code=500, detail=f"Could not render {system['line_number']}")
+            put(f"{folder}/pid_markup.png", png.tobytes())
+            put(f"{folder}/equipment.json", json.dumps(system["equipment"], indent=2, ensure_ascii=False))
+            put(f"{folder}/instruments.json", json.dumps(system["instruments"], indent=2, ensure_ascii=False))
+        put("index.json", json.dumps(index, indent=2, ensure_ascii=False))
+    buf.seek(0)
+    stem = _safe_stem(job.get("source_name"))
+    return StreamingResponse(buf, media_type="application/zip",
+                             headers={"Content-Disposition": f'attachment; filename="{stem}_test_systems.zip"'})
 
 
 # --- Multi-sheet: link test systems across sheets by line number ---------------------------
@@ -1877,7 +1953,7 @@ def _merged(job_ids: list[str]) -> dict:
         ts = json.loads(ts_path.read_text())
         name = job.get("source_name") or jid[:8]
         sheets.append({"job_id": jid, "sheet": name, "status": job["status"], "gate": job.get("gate"),
-                       "gate3_confirmed": bool(ts.get("gate3_confirmed")), "ref": _sheet_ref(name)})
+                       "gate4_confirmed": bool(ts.get("gate4_confirmed")), "ref": _sheet_ref(name)})
         conns[jid] = ts.get("connectors", [])
         for sysm in ts["systems"]:
             # A textless label names nothing that could match another sheet: keep it sheet-local.
@@ -1979,7 +2055,7 @@ def _merged_text(m: dict) -> str:
     line("")
     line("  Sheets")
     for s in m["sheets"]:
-        state = "Gate 3 confirmed" if s["gate3_confirmed"] else f"NOT final ({s['status']}{' Gate ' + str(s['gate']) if s['gate'] else ''})"
+        state = "Gate 4 confirmed" if s["gate4_confirmed"] else f"NOT final ({s['status']}{' Gate ' + str(s['gate']) if s['gate'] else ''})"
         line(f"    - {s['sheet']:<32} {state}")
     for s in m["skipped_sheets"]:
         line(f"    - {s.get('sheet') or s['job_id']:<32} SKIPPED: {s['reason']}")

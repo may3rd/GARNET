@@ -640,7 +640,7 @@ export async function exportResultsToExcel(
 
 // --- garnet/ extraction path (garnet/api.py) --------------------------------
 
-export type GarnetGate = 1 | 2 | 3
+export type GarnetGate = 1 | 2 | 3 | 4
 
 /** What a gate confirm sends. Gate 1/2: ids to drop. Gate 1/3: text fixes. Gate 3: line-number verdicts. */
 export type GarnetSeg = { x1: number; y1: number; x2: number; y2: number }
@@ -824,7 +824,7 @@ export type ConnectorLink = {
 
 export type MergedTestSystems = {
   rule: string
-  sheets: { job_id: string; sheet: string; status: string; gate: number | null; gate3_confirmed: boolean }[]
+  sheets: { job_id: string; sheet: string; status: string; gate: number | null; gate4_confirmed: boolean }[]
   skipped_sheets: { job_id: string; sheet?: string; reason: string }[]
   lines: MergedLine[]
   connector_links: ConnectorLink[]

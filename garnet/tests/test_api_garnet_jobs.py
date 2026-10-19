@@ -232,6 +232,9 @@ class TestGarnetJobs(unittest.TestCase):
         self.assertIn(dropped_trace, get("out/stage5b_trace_results.json"))  # original untouched
         edges = {e["trace_id"]: e for e in stage6["trace_edges"]}
         self.assertEqual(len(edges[edited_id]["segments"]), 1)
+        self.assertEqual(edges[edited_id]["terminal_xy"], [keep[-1]["x2"], keep[-1]["y2"]])
+        self.assertEqual(edges[edited_id]["trace_length_px"],
+                         max(abs(keep[-1]["x2"] - keep[-1]["x1"]), abs(keep[-1]["y2"] - keep[-1]["y1"])))
         self.assertEqual(len(get("out/stage5b_trace_results.json")[edited_id]["segments"]), len(edited["segments"]))
         self.assertIn("manual_000001", edges)
         view = get("out/gate2/stage5b_trace_results.json")["manual_000001"]
@@ -251,7 +254,13 @@ class TestGarnetJobs(unittest.TestCase):
         self.assertEqual(r.status_code, 200, r.text)
 
         job = wait()
+        self.assertEqual((job["status"], job["gate"]), ("awaiting_gate", 4))
+        self.assertFalse(get("out/test_systems.json")["gate4_confirmed"])
+        self.assertEqual(client.post(f"/api/garnet/jobs/{jid}/gates/4", json={"edits": {ln: "bad"}}).status_code, 400)
+        self.assertEqual(client.post(f"/api/garnet/jobs/{jid}/gates/4", json={}).status_code, 200)
+        job = wait()
         self.assertEqual(job["status"], "completed")
+        self.assertTrue(get("out/test_systems.json")["gate4_confirmed"])
         reviewed = get("out/reviewed_associations.json")["associations"]["line_numbers"]
         item = next(i for i in reviewed["rejected"] if i["id"] == ln)
         self.assertEqual((item["review_source"], item["system_status"], item["text"]), ("human", "accepted", "X-1"))
@@ -264,7 +273,7 @@ class TestGarnetJobs(unittest.TestCase):
         self.assertEqual((tag_item["trace_id"], tag_item["system_assignment"]["trace_id"]), (tag_target, tag3["trace_id"]))
         unresolved = get("out/reviewed_associations.json")["unresolved"]["traces_without_line_number"]
         self.assertNotIn(target, unresolved)
-        self.assertEqual(set(get("gates.json")), {"1", "2", "3"})
+        self.assertEqual(set(get("gates.json")), {"1", "2", "3", "4"})
 
         # Reopen Gate 2 from a completed job: Stage 6 onward is archived, not deleted.
         r = client.post(f"/api/garnet/jobs/{jid}/reopen", json={"gate": 2})
@@ -292,7 +301,7 @@ class TestGarnetJobs(unittest.TestCase):
         self.assertEqual(get("input/sheet_line_numbers.json"), json.loads((INPUT / f"{STEM}_line_numbers.json").read_text()))
         self.assertEqual(ln_texts(), sorted(o["text"] for o in gate1_ln))
         self.assertFalse(any(a["name"].startswith("out/") for a in job["artifacts"]))
-        self.assertEqual([h["event"] for h in job["history"]], ["confirm", "confirm", "confirm", "reopen", "confirm", "reopen"])
+        self.assertEqual([h["event"] for h in job["history"]], ["confirm", "confirm", "confirm", "confirm", "confirm", "reopen", "confirm", "reopen"])
         # Save at Gate 1, load it back as a new job, and drive the LOADED job on: its steps must
         # be rebuilt (callables included), not just its status.
         bundle = client.get(f"/api/garnet/jobs/{jid}/bundle")
@@ -418,6 +427,21 @@ class TestGarnetJobs(unittest.TestCase):
         self.assertTrue(rep.text.startswith("=" * 78 + "\nGARNET TEST SYSTEMS REPORT"))
         for sysm in ts["systems"]:
             self.assertIn(sysm["line_number"], rep.text)  # every system, text exactly as stored
+
+        exported = client.get(f"/api/garnet/jobs/{job['id']}/test-systems.zip")
+        self.assertEqual(exported.status_code, 200, exported.text[:200])
+        self.assertRegex(exported.headers["content-disposition"], r'^attachment; filename="my_sheet[\w.-]*_test_systems\.zip"$')
+        with zipfile.ZipFile(io.BytesIO(exported.content)) as zf:
+            index = json.loads(zf.read("index.json"))
+            self.assertEqual([x["line_number"] for x in index["systems"]],
+                             [x["line_number"] for x in ts["systems"]])
+            for entry, system in zip(index["systems"], ts["systems"]):
+                folder = entry["folder"]
+                self.assertNotIn("/", folder)
+                self.assertEqual(json.loads(zf.read(f"{folder}/equipment.json")), system["equipment"])
+                self.assertEqual(json.loads(zf.read(f"{folder}/instruments.json")), system["instruments"])
+                self.assertTrue(zf.read(f"{folder}/pid_markup.png").startswith(b"\x89PNG\r\n\x1a\n"))
+            self.assertEqual(len(zf.namelist()), 1 + 3 * len(ts["systems"]))
 
         zipped = client.get(f"/api/garnet/jobs/{job['id']}/bundle").content
         loaded = client.post("/api/garnet/jobs/load", files={"bundle": ("b.zip", zipped)}).json()

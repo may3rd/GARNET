@@ -96,6 +96,10 @@ GARNET is an AI-powered tool designed to **automate symbol detection, classifica
    bun run dev  # or: npm run dev
    ```
 
+For **GARNET trace** (`POST /api/garnet/jobs`), start the API from the repository root with
+`.venv/bin/python -m uvicorn garnet.api:app --reload --port 8090` instead of `backend/api.py`.
+Both APIs use port 8090; only one can serve the frontend at a time.
+
 ## 🖥️ Usage
 
 ### 1. React Frontend + API Backend (Recommended)
