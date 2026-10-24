@@ -10,7 +10,25 @@
    "line_core": "25-006002",
    "confidence": "high",
    "evidence": "garnet/tests/golden/evidence/0007_1.png",
-   "why": "Main 2in line from FROM PRU SEPARATOR connector (bottom-left) runs right, then up x~689 to the horizontal at y~2094 feeding X-2503 inlet."
+   "why": "Main 2in line from FROM PRU SEPARATOR connector (bottom-left) runs right, then up x~689 to the horizontal at y~2094 feeding X-2503 inlet.",
+   "path_px": [
+    [
+     425,
+     3104
+    ],
+    [
+     689,
+     3104
+    ],
+    [
+     689,
+     2094
+    ],
+    [
+     1078,
+     2094
+    ]
+   ]
   },
   {
    "a": "PC/25-0013",
@@ -18,7 +36,33 @@
    "line_core": "25-013003",
    "confidence": "medium",
    "evidence": "garnet/tests/golden/evidence/0007_2.png",
-   "why": "FROM PHENOLIC WASTE WATER PUMPS 25-0013 (arrow points left, y~2918) -> PWHT line up x~965 -> tee into main at y~2535. Joins main (not direct to mixer)."
+   "why": "FROM PHENOLIC WASTE WATER PUMPS 25-0013 (arrow points left, y~2918) -> PWHT line up x~965 -> tee into main at y~2535. Joins main (not direct to mixer).",
+   "path_px": [
+    [
+     3746,
+     2917
+    ],
+    [
+     965,
+     2917
+    ],
+    [
+     965,
+     2535
+    ],
+    [
+     689,
+     2535
+    ],
+    [
+     689,
+     2094
+    ],
+    [
+     1078,
+     2094
+    ]
+   ]
   },
   {
    "a": "PC/25-0010",
@@ -26,7 +70,33 @@
    "line_core": "25-010007",
    "confidence": "medium",
    "evidence": "garnet/tests/golden/evidence/0007_3.png",
-   "why": "FROM OEC ACID INJECTION PUMPS 25-0010 (y~2806) -> 1/2in SA line up x~1160 -> reducer -> tee into main at y~2378. Joins main."
+   "why": "FROM OEC ACID INJECTION PUMPS 25-0010 (y~2806) -> 1/2in SA line up x~1160 -> reducer -> tee into main at y~2378. Joins main.",
+   "path_px": [
+    [
+     3748,
+     2806
+    ],
+    [
+     1159,
+     2806
+    ],
+    [
+     1159,
+     2378
+    ],
+    [
+     689,
+     2378
+    ],
+    [
+     689,
+     2094
+    ],
+    [
+     1078,
+     2094
+    ]
+   ]
   },
   {
    "a": "PC/25-0006",
@@ -34,7 +104,33 @@
    "line_core": "25-007002",
    "confidence": "medium",
    "evidence": "garnet/tests/golden/evidence/0007_4.png",
-   "why": "Branch off main at y~2719 (gate valve) -> down arrow x~815 -> east to TO PHENOLIC WASTE WATER TANK 25-0013 (the lower of the 3 right-edge 25-0013 connectors, y~3034, arrow pointing right). Id PC/25-0013 has several copies; this one is the 'to' copy at y~3034."
+   "why": "Branch off main at y~2719 (gate valve) -> down arrow x~815 -> east to TO PHENOLIC WASTE WATER TANK 25-0013 (the lower of the 3 right-edge 25-0013 connectors, y~3034, arrow pointing right). Id PC/25-0013 has several copies; this one is the 'to' copy at y~3034.",
+   "path_px": [
+    [
+     425,
+     3104
+    ],
+    [
+     689,
+     3104
+    ],
+    [
+     689,
+     2716
+    ],
+    [
+     815,
+     2716
+    ],
+    [
+     815,
+     3034
+    ],
+    [
+     3747,
+     3034
+    ]
+   ]
   },
   {
    "a": "X-2503/p2",
@@ -42,7 +138,21 @@
    "line_core": "25-006002",
    "confidence": "high",
    "evidence": "garnet/tests/golden/evidence/0007_5.png",
-   "why": "3in TFE2 line from mixer outlet to vessel bottom nozzle DW."
+   "why": "3in TFE2 line from mixer outlet to vessel bottom nozzle DW.",
+   "path_px": [
+    [
+     1183,
+     2094
+    ],
+    [
+     1682,
+     2094
+    ],
+    [
+     1682,
+     2040
+    ]
+   ]
   },
   {
    "a": "X-2503/p1",
@@ -50,7 +160,33 @@
    "line_core": "25-006002",
    "confidence": "medium",
    "evidence": "garnet/tests/golden/evidence/0007_6.png",
-   "why": "3in bypass around X-2503 (valve in bypass); line number of bypass not printed separately (3in leader only), taken as 25-006002 [ASSUMPTION]."
+   "why": "3in bypass around X-2503 (valve in bypass); line number of bypass not printed separately (3in leader only), taken as 25-006002 [ASSUMPTION].",
+   "path_px": [
+    [
+     1078,
+     2094
+    ],
+    [
+     965,
+     2094
+    ],
+    [
+     965,
+     2168
+    ],
+    [
+     1309,
+     2168
+    ],
+    [
+     1309,
+     2094
+    ],
+    [
+     1183,
+     2094
+    ]
+   ]
   },
   {
    "a": "D-2506/AM",
@@ -58,7 +194,29 @@
    "line_core": "25-007001",
    "confidence": "high",
    "evidence": "garnet/tests/golden/evidence/0007_7.png",
-   "why": "Main 3in line from D-2506 AM up the vertical x~1860 past FIF/AE to TO OIL EXTRACTION COLUMN 25-0007A at y~645 (the connector at y~645, not the signal connector at y~219)."
+   "why": "Main 3in line from D-2506 AM up the vertical x~1860 past FIF/AE to TO OIL EXTRACTION COLUMN 25-0007A at y~645 (the connector at y~645, not the signal connector at y~219).",
+   "path_px": [
+    [
+     1682,
+     1713
+    ],
+    [
+     1682,
+     1675
+    ],
+    [
+     1861,
+     1675
+    ],
+    [
+     1861,
+     645
+    ],
+    [
+     3744,
+     645
+    ]
+   ]
   },
   {
    "a": "D-2506/AM",
@@ -66,7 +224,37 @@
    "line_core": "25-007003",
    "confidence": "medium",
    "evidence": "garnet/tests/golden/evidence/0007_8.png",
-   "why": "Riser A (1.5in, 007003 printed vertically beside it) from header y~1643 up to PSV 0702A inlet. PSV is a terminal; inlet side."
+   "why": "Riser A (1.5in, 007003 printed vertically beside it) from header y~1643 up to PSV 0702A inlet. PSV is a terminal; inlet side.",
+   "path_px": [
+    [
+     1682,
+     1713
+    ],
+    [
+     1682,
+     1675
+    ],
+    [
+     1861,
+     1675
+    ],
+    [
+     1861,
+     1644
+    ],
+    [
+     2017,
+     1644
+    ],
+    [
+     2017,
+     1059
+    ],
+    [
+     2042,
+     1038
+    ]
+   ]
   },
   {
    "a": "D-2506/AM",
@@ -74,7 +262,37 @@
    "line_core": "25-007004",
    "confidence": "medium",
    "evidence": "garnet/tests/golden/evidence/0007_9.png",
-   "why": "Riser B (1.5in, 007004 leader points at it) from header up to PSV 0702B inlet."
+   "why": "Riser B (1.5in, 007004 leader points at it) from header up to PSV 0702B inlet.",
+   "path_px": [
+    [
+     1682,
+     1713
+    ],
+    [
+     1682,
+     1675
+    ],
+    [
+     1861,
+     1675
+    ],
+    [
+     1861,
+     1644
+    ],
+    [
+     2216,
+     1644
+    ],
+    [
+     2216,
+     1259
+    ],
+    [
+     2216,
+     1235
+    ]
+   ]
   },
   {
    "a": "PSV/obj_000101",
@@ -82,7 +300,17 @@
    "line_core": "25-007005",
    "confidence": "medium",
    "evidence": "garnet/tests/golden/evidence/0007_10.png",
-   "why": "PSV 0702A outlet -> 2in F line 007005 -> UC 25-0017 (F box)."
+   "why": "PSV 0702A outlet -> 2in F line 007005 -> UC 25-0017 (F box).",
+   "path_px": [
+    [
+     2042,
+     1038
+    ],
+    [
+     2611,
+     1038
+    ]
+   ]
   },
   {
    "a": "PSV/obj_000102",
@@ -90,7 +318,29 @@
    "line_core": "25-007006",
    "confidence": "medium",
    "evidence": "garnet/tests/golden/evidence/0007_11.png",
-   "why": "PSV 0702B outlet -> up x~2408 (007006 leader) -> joins 007005 junction -> UC 25-0017."
+   "why": "PSV 0702B outlet -> up x~2408 (007006 leader) -> joins 007005 junction -> UC 25-0017.",
+   "path_px": [
+    [
+     2216,
+     1235
+    ],
+    [
+     2216,
+     1213
+    ],
+    [
+     2408,
+     1213
+    ],
+    [
+     2408,
+     1038
+    ],
+    [
+     2611,
+     1038
+    ]
+   ]
   }
  ],
  "line_numbers": [

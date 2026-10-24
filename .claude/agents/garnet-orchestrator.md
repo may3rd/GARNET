@@ -22,6 +22,7 @@ From the repo root (`.venv/bin/python`):
    | `line_numbers` | `garnet-line-number-extractor` |
    | `instrument_reader` | `garnet-instrument-reader` |
    | `review` | `garnet-graph-reviewer` |
+   | `ln_assign` | `garnet-line-number-assigner` |
 
    Pass the item's `image`, `inputs`, `reason` and the **exact `output` path**. Then rerun with `--resume`.
 3. Exit **0** or **1**: stop and report. Exit **2**: bad input, report the message.

@@ -3,7 +3,7 @@
 Edge kinds `has_port` and `cross_sheet_continues` match garnet/knowledge_graph.py RELATIONSHIP_TYPES.
 """
 import re
-from typing import List, TypedDict
+from typing import List, Optional, TypedDict
 
 SCHEMA = "garnet_graph_v1"
 
@@ -75,10 +75,17 @@ class Graph(TypedDict):
     flags: List[Flag]
 
 
-class GoldenConnection(TypedDict):
+class _GoldenConnectionReq(TypedDict):
     a: str
     b: str
     line_core: str
+
+
+class GoldenConnection(_GoldenConnectionReq, total=False):
+    path_px: List[List[float]]  # waypoints along the real pipe a -> b, sheet pixels
+    confidence: str
+    why: str
+    evidence: str
 
 
 class GoldenInline(TypedDict):
@@ -102,6 +109,24 @@ class Golden(TypedDict):
     inline: List[dict]          # {"line_core", "class", "count"}
     cross_sheet: List[GoldenConnection]  # ids carry short sheet prefix
     not_connected: List[GoldenNotConnected]
+
+
+class LnAssign(TypedDict):
+    id: str                  # Stage 6 line-number id, e.g. "line_number_0005"
+    choice: str              # candidate letter "A"|"B"|... or "none" (label belongs to no traced pipe)
+    trace_id: Optional[str]  # chosen candidate's trace id, None for "none"
+    xy: Optional[List[float]]  # chosen candidate's point, None for "none"
+    via: str                 # alongside | leader_arrow | other
+    why: str                 # one line
+
+
+class LnAssignment(TypedDict):
+    """Vision-agent output for line-number assignment: {"sheet": stem, "assignments": [LnAssign]}.
+
+    The agent writes it to out/<stem>/ln_assign.json; build_graph applies it over Stage 6's geometric pick.
+    """
+    sheet: str
+    assignments: List[LnAssign]
 
 
 _SIZE = r'(?:\d+[½¼¾⅜⅝⅞]|\d+\s+\d+/\d+|\d+/\d+|\d+|[½¼¾⅜⅝⅞])"'

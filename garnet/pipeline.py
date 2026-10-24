@@ -18,7 +18,7 @@ from pathlib import Path
 import cv2
 
 from garnet.graph.build_graph import build_graph
-from garnet.graph.contracts import parse_line_number
+from garnet.graph.contracts import parse_line_number, short_sheet
 from garnet.graph.link_sheets import link_sheets
 from garnet.stage5b.host import _equipment_as_objects
 
@@ -269,6 +269,31 @@ def process_sheet(a, job: Path, stem: str, rep: dict, pending: list) -> dict | N
         S["status"] = "fail"
         return None
 
+    # G4: deterministic candidates, then a vision agent picks the pipe each label belongs to
+    t = time.time()
+    cj, aj = odir / "ln_candidates.json", odir / "ln_assign.json"
+    if not (a.resume and cj.is_file()):
+        run(["garnet.graph.ln_candidates", "--stem", stem, "--dir", str(odir), "--indir", str(sdir)], odir / "ln_candidates.log")
+    labels = [l["id"] for l in (_j(cj).get("labels") or [])] if cj.is_file() else []
+    if not cj.is_file():
+        gate("G4", "warn", "ln_candidates produced no json; geometric line-number assignment only", t)
+    elif not labels:
+        gate("G4", "pass", "no labels", t)
+    elif not aj.is_file():
+        if a.no_agents:
+            gate("G4", "warn", "geometric line-number assignment only", t)
+        elif dispatch("ln_assign", f"{len(labels)} labels need a vision pick", {"candidates": str(cj), "image": str(sdir / f"{stem}.jpg")}, aj):
+            gate("G4", "warn", "dispatched ln_assign", t)
+            S["waiting"] = True
+            return None  # build_graph would bake in the geometric pick
+        else:
+            fail("G4", "ln_assign attempts exhausted")
+            return None
+    else:
+        got = {x.get("id"): x for x in _j(aj).get("assignments") or []}
+        bad = [l for l in labels if l not in got or got[l].get("choice") == "none" or not got[l].get("trace_id")]
+        gate("G4", "warn" if bad else "pass", f"{len(bad)}/{len(labels)} none/undecided/missing: {bad[:10]}" if bad else f"{len(labels)} assigned", t)
+
     t = time.time()
     try:
         g = build_graph(stem, odir, sdir)
@@ -366,6 +391,14 @@ def main(argv=None) -> int:
             rep["score"] = {"pass": res["pass"], "metrics": {k: m["value"] for k, m in res["metrics"].items()}}
             if not res["pass"]:
                 status = "fail"
+            for stem in graphs:
+                gf = a.golden / f"{stem}.json"
+                if gf.is_file():
+                    out = job / "eval" / "review" / short_sheet(stem)
+                    run(["garnet.eval.render_golden", "--stem", stem, "--golden", str(gf), "--graph", str(job / "out" / stem / "graph.json"),
+                         "--image", str(job / "sheets" / stem / f"{stem}.jpg"), "--out", str(out)], job / "eval" / f"render_{stem}.log")
+                    if (out / "index.html").is_file():
+                        rep.setdefault("review_index", []).append(str(out / "index.html"))
     if any(s.get("status") == "fail" for s in S.values()):
         status = "fail"
     _finish(job, rep, pending, status)
@@ -389,6 +422,8 @@ def _finish(job, rep, pending, status):
             print(f"  {stem.rsplit('-', 1)[-1]:>6} {gname:3} {g['status']:5} {g['seconds']:>5}s  {g['reason'][:90]}")
     if "links" in rep:
         print(f"  links {rep['links']['count']} {rep['links']['cores']}, unmatched {len(rep['links']['unmatched'])}")
+    for p in rep.get("review_index", []):
+        print(f"  golden review {p}")
     if "score" in rep:
         print(f"  score pass={rep['score']['pass']}")
     for p in pending:

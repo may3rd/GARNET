@@ -284,13 +284,41 @@ def build_graph(stem: str, out_dir, indir="garnet/tests/input") -> dict:
         for o, s, p in c["splits"].values():
             o.cuts.append([s, c["node"], c["anchor"]])
 
+    # ---- line-number labels per trace: Stage 6 geometry pick, overridden by the vision file if present ----
+    labels = {}  # trace id -> [(xy, label id, text, source)]
+    text_of = {}
+    for tr in traces:
+        for i, a in enumerate(tr.raw.get("attachments", {}).get("line_numbers", [])):
+            lid = a.get("id") or f"{tr.id}:ln{i}"
+            text_of[lid] = " ".join((a.get("text") or "").split())
+            if a.get("review_state", "accepted") == "accepted" and text_of[lid]:
+                labels.setdefault(tr.id, []).append((tuple(a["projected_xy"]), lid, text_of[lid], "geometry"))
+    for a in ((s6.get("associations") or {}).get("line_numbers") or {}).get("rejected", []):
+        text_of.setdefault(a["id"], " ".join((a.get("text") or "").split()))
+    asg = _load(out_dir / "ln_assign.json")
+    if asg is not None:
+        done = set()
+        tids = {tr.id for tr in traces}
+        for a in asg.get("assignments", []):
+            lid = a["id"]
+            done.add(lid)
+            labels = {k: [l for l in v if l[1] != lid] for k, v in labels.items()}
+            if a.get("choice") == "none" or not a.get("trace_id"):
+                flag("ln_unassigned", lid, a.get("why") or "vision: label belongs to no traced pipe")
+            elif a["trace_id"] not in tids or not a.get("xy") or not text_of.get(lid):
+                flag("ln_unassigned", lid, f"vision chose trace {a['trace_id']} but it is not a graph trace or the label text is unknown")
+            else:
+                labels.setdefault(a["trace_id"], []).append((tuple(a["xy"]), lid, text_of[lid], "vision"))
+        for k, v in labels.items():
+            for l in v:
+                if l[1] not in done:
+                    flag("ln_not_reviewed", l[1], f"vision file omits this label; keeping Stage 6 pick (trace {k})")
+
     # ---- pipe edges -----------------------------------------------------------------------
     n_e = 0
     for tr in traces:
         cuts = sorted(tr.cuts, key=lambda x: x[0])
         att = tr.raw.get("attachments", {})
-        lns = [(tr.project(tuple(a["projected_xy"]))[1], a) for a in att.get("line_numbers", [])
-               if a.get("review_state", "accepted") == "accepted" and (a.get("text") or "").strip()]
         inl_all = att.get("inline_objects", [])
         # Stage 6 lists a symbol twice: the detector object and the tracer's `<trace>:hit_NNN` record, with no
         # reference between them. ponytail: a hit is dropped when a same-class detector object lies within 25 px;
@@ -299,8 +327,8 @@ def build_graph(stem: str, out_dir, indir="garnet/tests/input") -> dict:
         inl_all = dets + [h for h in inl_all if ":hit_" in str(h["id"]) and not any(
             d["class_name"] == h["class_name"] and math.dist(d["projected_xy"], h["projected_xy"]) <= 25 for d in dets)]
         inl = [(tr.project(tuple(a["projected_xy"]))[1], a) for a in inl_all]
-        lns = [(s, " ".join(a["text"].split())) for s, a in lns]
-        all_texts = [t for _, t in lns]
+        lns = [(tr.project(xy)[1], t, src) for xy, _, t, src in labels.get(tr.id, [])]
+        all_texts = [t for _, t, _ in lns]
         warned = False
         flow = tr.raw.get("flow_direction_state")
         flow = flow if flow in ("forward", "reverse") else "unknown"
@@ -312,17 +340,18 @@ def build_graph(stem: str, out_dir, indir="garnet/tests/input") -> dict:
             def inside(s):  # ponytail: nearest-point projection decides the half; a label on a tee exactly goes right
                 return s0 <= s < s1 or (last and s == s1)
             # a trace is one walk of one pipe: every piece inherits the trace's number(s)
-            mine = [t for s, t in lns if inside(s)]
+            mine = [t for s, t, _ in lns if inside(s)]
             # ponytail: with several different numbers a piece with none of its own gets the trace majority
             text = Counter(mine or all_texts).most_common(1)[0][0] if all_texts else ""
             if len(set(all_texts)) > 1 and not warned:
                 warned = True
                 flag("multiple_line_numbers", f"{sh}/E{n_e + 1}", f"trace {tr.id}: {sorted(set(all_texts))}")
+            lsrc = "vision" if any(src == "vision" and t == text for _, t, src in lns) else ("geometry" if text else "")
             poly = tr.piece(s0, s1, xu, xv)
             n_e += 1
             edges.append({
                 "id": f"{sh}/E{n_e}", "kind": "pipe", "u": u, "v": v, "line_number": text,
-                "line_core": line_core(text),
+                "line_core": line_core(text), "line_number_source": lsrc,
                 "inline_objects": sorted({f"{a['class_name']}#{a['id']}" for s, a in inl if inside(s)}),
                 "flow": flow, "trace_ids": [tr.id], "length_px": round(_arc(poly), 1), "polyline": poly,
                 "evidence": {"crosscheck": "none", "review": "none"}})

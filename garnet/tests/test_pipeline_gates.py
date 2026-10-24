@@ -74,6 +74,27 @@ class Gates(unittest.TestCase):
         self.assertEqual(g["nodes"][0]["tag"], "X")
         self.assertEqual(g["line_list"][0]["edges"], ["e2"])
 
+    def test_g4_dispatches_ln_assign_and_skips_build_graph(self):
+        def fake_run(cmd, log):
+            odir = Path(cmd[cmd.index("--out" if "--out" in cmd else "--dir") + 1])
+            odir.mkdir(parents=True, exist_ok=True)
+            if cmd[0].endswith("run_associations"):
+                (odir / "stage6_trace_associations.json").write_text(json.dumps({"trace_edges": [{}], "unresolved": {}}))
+            if cmd[0].endswith("ln_candidates"):
+                (odir / "ln_candidates.json").write_text(json.dumps({"labels": [{"id": "line_number_0001"}]}))
+            return 0
+        with tempfile.TemporaryDirectory() as fx, tempfile.TemporaryDirectory() as root:
+            stage(Path(fx))
+            with mock.patch.object(pipeline, "run", fake_run), \
+                    mock.patch.object(pipeline, "check_text", return_value=(True, "ok", {})), \
+                    mock.patch.object(pipeline, "build_graph") as bg:
+                rc = pipeline.main(["--job", "j", "--sheets", STEM, "--from-fixtures", fx, "--root", root])
+            self.assertEqual(rc, 3)
+            bg.assert_not_called()
+            d = json.loads((Path(root) / "j" / "dispatch.json").read_text())
+            self.assertEqual([p["role"] for p in d["pending"]], ["ln_assign"])
+            self.assertTrue(d["pending"][0]["output"].endswith("ln_assign.json"))
+
 
 if __name__ == "__main__":
     unittest.main()

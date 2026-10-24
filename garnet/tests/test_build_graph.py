@@ -20,8 +20,10 @@ def _trace(tid, poly, ttype, src="page connection", **kw):
             "attachments": kw.get("att", {})}
 
 
-def _run(traces, objects=()):
+def _run(traces, objects=(), ln_assign=None):
     with tempfile.TemporaryDirectory() as d:
+        if ln_assign is not None:
+            (Path(d) / "ln_assign.json").write_text(json.dumps({"sheet": "x-y-0009", "assignments": ln_assign}))
         (Path(d) / "x-y-0009_objects.json").write_text(json.dumps({"objects": list(objects)}))
         (Path(d) / "stage6_trace_associations.json").write_text(json.dumps({"trace_edges": traces}))
         return build_graph("x-y-0009", d, d)
@@ -65,6 +67,19 @@ class TestBuildGraph(unittest.TestCase):
                    att={"inline_objects": [v("obj_1", 100), v("A:hit_001", 90), v("A:hit_002", 250)]})
         e = [e for e in _run([a])["edges"] if e["kind"] == "pipe"][0]
         self.assertEqual(e["inline_objects"], ["gate valve#A:hit_002", "gate valve#obj_1"])  # unmatched hit stays
+
+    def test_vision_assignment_overrides_stage6(self):
+        a = _trace("A", [[0, 0], [300, 0]], "dead_end", att={"line_numbers": [dict(_ln(50, 0), id="line_number_0001")]})
+        b = _trace("B", [[0, 100], [300, 100]], "dead_end")
+        mv = [{"id": "line_number_0001", "choice": "B", "trace_id": "B", "xy": [60, 100], "via": "leader_arrow", "why": ""}]
+        by = {e["trace_ids"][0]: e for e in _run([a, b], ln_assign=mv)["edges"] if e["kind"] == "pipe"}
+        self.assertEqual((by["B"]["line_core"], by["B"]["line_number_source"]), ("25-002007", "vision"))
+        self.assertEqual(by["A"]["line_core"], "")
+        g = _run([a, b], ln_assign=[dict(mv[0], choice="none", trace_id=None, xy=None, why="points at nothing")])
+        self.assertEqual([f["why"] for f in g["flags"] if f["kind"] == "ln_unassigned"], ["points at nothing"])
+        g = _run([a, b], ln_assign=[])  # file present but label omitted: Stage 6 pick kept and flagged
+        self.assertEqual([f["kind"] for f in g["flags"] if f["kind"] == "ln_not_reviewed"], ["ln_not_reviewed"])
+        self.assertEqual({e["line_number_source"] for e in g["edges"] if e["trace_ids"] == ["A"]}, {"geometry"})
 
     def test_multiple_line_numbers_flagged(self):
         a = _trace("A", [[0, 0], [300, 0]], "dead_end",
