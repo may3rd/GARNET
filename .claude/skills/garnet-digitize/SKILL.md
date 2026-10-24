@@ -112,3 +112,20 @@ outside what these skills cover.
   lost its only equipment this way ("Filter Vessel" matched neither `filter` nor `vessel`).
 - **Backend equipment import replaces the whole equipment bucket** in `stage4_objects.json` —
   re-running with a revised equipment JSON discards the previous equipment objects.
+
+## Agent-system route (pipeline + orchestrator)
+
+Use for multi-sheet jobs, graph / line list / cross-sheet linking from `garnet/` without the
+backend, and scored runs against golden sheets. `garnet.pipeline` runs every deterministic stage
+and gate (G0–G7) and never calls a model; when it needs agent work it writes `dispatch.json` and
+exits 3. Exit codes: 0 pass, 1 hard gate failed, 2 bad input, 3 waiting on agents.
+
+```bash
+# fixtures only, no agents (deterministic stages + gates)
+.venv/bin/python -m garnet.pipeline --job <name> --sheets <stem>... --from-fixtures <indir> --no-agents
+# full run: delegate to the garnet-orchestrator agent (dispatches the extractor/reader/reviewer agents, --resume loop)
+```
+
+Outputs land in `output/<job>/`: `run_report.json`, `dispatch.json`, `sheets/<stem>/`, `out/<stem>/graph.json`,
+`graph_merged.json`, `review/review_decisions.json`, `eval/score.json` (with `--golden`).
+Design doc: https://claude.ai/artifact/M6EYR2JnmD7mfrH6hGYCia
