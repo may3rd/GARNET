@@ -1,11 +1,12 @@
-"""Render two review images per golden connection: pair_NN.png (end points) and path_NN.png (drawn path).
+"""Render one review image per golden connection (conn_NN.png: ends + path along the pipe + tracer path),
+plus index.html and review.json.
 python3 -m garnet.eval.render_golden --stem S [--golden F] [--graph G] [--image J] [--out DIR]"""
 import argparse, html, json, os
 
 import cv2
 import numpy as np
 
-from garnet.eval.score import _key
+from garnet.eval.score import _key, score
 from garnet.graph.contracts import short_sheet
 
 PAD, MIN_W, MIN_H, CAP = 150, 700, 500, 1800
@@ -53,14 +54,6 @@ def ring(tile, xy, label, color):
     cv2.putText(tile, label, (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
 
 
-def dashed(tile, p, q, color, dash=14):
-    d = max(np.hypot(q[0] - p[0], q[1] - p[1]), 1)
-    for t in np.arange(0, d, dash * 2):
-        a, b = min(t + dash, d), t
-        cv2.line(tile, (int(p[0] + (q[0] - p[0]) * b / d), int(p[1] + (q[1] - p[1]) * b / d)),
-                 (int(p[0] + (q[0] - p[0]) * a / d), int(p[1] + (q[1] - p[1]) * a / d)), color, 2)
-
-
 def with_caption(tile, text, note=""):
     w = max(tile.shape[1], 700)
     strip = np.full((64 if note else 40, w, 3), 245, np.uint8)
@@ -75,10 +68,51 @@ def with_caption(tile, text, note=""):
 RED, BLUE, GREEN = (0, 0, 255), (255, 80, 0), (0, 160, 0)
 
 
+def tracer_path(graph, short, a, b):
+    """Edges of the shortest graph path a -> b through tee/end nodes, or None.
+    # ponytail: re-walks the graph (score.py keeps its BFS private); verdict itself comes from score()."""
+    nodes = {n["id"]: n for n in graph["nodes"]}
+    adj = {}
+    for e in graph["edges"]:
+        if e.get("kind") in ("pipe", "cross_sheet_continues"):
+            adj.setdefault(e["u"], []).append((e["v"], e))
+            adj.setdefault(e["v"], []).append((e["u"], e))
+    starts = [i for i, _ in resolve(graph, short, a)]
+    seen = {i: [] for i in starts}
+    q = list(starts)
+    while q:
+        u = q.pop(0)
+        if u not in starts and nodes.get(u, {}).get("kind") not in ("tee", "end"):
+            if _key(u) == f"{short}/{b}":
+                return seen[u]
+            continue
+        for v, e in adj.get(u, []):
+            if v not in seen:
+                seen[v] = seen[u] + [e]
+                q.append(v)
+    return None
+
+
+def verdicts(golden, graph):
+    """-> {(a, b, line_core): (found, line_ok)} from score.score()'s own misses."""
+    short = short_sheet(golden["sheet"])
+    m = {x["golden"] for x in score(graph, [golden])["misses"] if x["metric"] in ("connection_recall", "line_assignment")}
+    out = {}
+    for c in golden.get("connections", []):
+        a, b, core = f"{short}/{c['a']}", f"{short}/{c['b']}", c.get("line_core", "")
+        found = f"{a} -- {b}" not in m
+        out[(c["a"], c["b"], core)] = (found, found and f"{a} -- {b} core {core}" not in m)
+    return out
+
+
 def render(golden, graph, image, out):
     os.makedirs(out, exist_ok=True)
+    for f in os.listdir(out):  # stale pair_/path_/conn_ images from earlier runs
+        if f.endswith(".png") and f.split("_")[0] in ("pair", "path", "conn"):
+            os.remove(os.path.join(out, f))
     short = short_sheet(golden["sheet"])
-    rows = []
+    vd = verdicts(golden, graph)
+    recs = []
     for n, c in enumerate(golden.get("connections", []), 1):
         path = c.get("path_px") or []
         ends, notes = [], []
@@ -89,37 +123,47 @@ def render(golden, graph, image, out):
             elif len(cands) > 1:
                 notes.append(f"{gid}: {len(cands)} candidates drawn")
             ends.append(cands)
-        cap = f"#{n:02d}  {c['a']} -> {c['b']}  {c.get('line_core', '')}  {c.get('confidence', '')}"
-        for kind in ("pair", "path"):
-            pts = [p for e in ends for _, p in e] + ([tuple(p) for p in path] if kind == "path" else [])
-            note = "; ".join(notes + (["NO PATH YET"] if kind == "path" and not path else []))
-            if not pts:  # nothing to place: blank tile
-                tile, tf = np.full((MIN_H, MIN_W, 3), 255, np.uint8), None
-            else:
-                tile, tf = crop(image, pts)
-            if tf:
-                if kind == "pair":
-                    for _, pa in ends[0]:
-                        for _, pb in ends[1]:
-                            dashed(tile, tf(pa), tf(pb), (80, 80, 80))
-                elif path:
-                    ov = tile.copy()
-                    cv2.polylines(ov, [np.array([tf(p) for p in path], np.int32)], False, (0, 140, 255), 6)
-                    tile = cv2.addWeighted(ov, 0.45, tile, 0.55, 0)
-                    for p in path:
-                        cv2.circle(tile, tf(p), 4, (0, 90, 200), -1)
-                for e, lab, col in ((ends[0], "A: " + c["a"], RED), (ends[1], "B: " + c["b"], BLUE)):
-                    for _, p in e:
-                        ring(tile, tf(p), lab, col)
-            cv2.imwrite(os.path.join(out, f"{kind}_{n:02d}.png"), with_caption(tile, cap, note))
-        rows.append((cap, "; ".join(notes), n))
-    tr = "".join(f"<tr><td style='width:20%'>{html.escape(cap)}<br><small>{html.escape(nt)}</small></td>"
-                 f"<td><img src='pair_{n:02d}.png' style='width:100%'></td>"
-                 f"<td><img src='path_{n:02d}.png' style='width:100%'></td></tr>" for cap, nt, n in rows)
+        found, line_ok = vd[(c["a"], c["b"], c.get("line_core", ""))]
+        tp = tracer_path(graph, short, c["a"], c["b"]) if found else None
+        cap = (f"#{n:02d}  {c['a']} -> {c['b']}  {c.get('line_core', '')}  {c.get('confidence', '')}")
+        verdict = f"tracer: {'found' if found else 'MISSED'}, line: {'ok' if line_ok else 'WRONG'}"
+        if not path:
+            notes.append("NO PATH TRACED")
+        pts = [p for e in ends for _, p in e] + [tuple(p) for p in path]
+        tpl = [tuple(p) for e in (tp or []) for p in e.get("polyline", [])]
+        pts += tpl
+        tile, tf = crop(image, pts) if pts else (np.full((MIN_H, MIN_W, 3), 255, np.uint8), None)
+        if tf:
+            if path:
+                ov = tile.copy()
+                cv2.polylines(ov, [np.array([tf(p) for p in path], np.int32)], False, (0, 140, 255), 6)
+                tile = cv2.addWeighted(ov, 0.45, tile, 0.55, 0)
+                for p in path:
+                    cv2.circle(tile, tf(p), 4, (0, 90, 200), -1)
+            for e in tp or []:
+                if e.get("polyline"):
+                    cv2.polylines(tile, [np.array([tf(p) for p in e["polyline"]], np.int32)], False, (200, 0, 200), 2)
+            for e, lab, col in ((ends[0], "A: " + c["a"], RED), (ends[1], "B: " + c["b"], BLUE)):
+                for _, p in e:
+                    ring(tile, tf(p), lab, col)
+        img = f"conn_{n:02d}.png"
+        cv2.imwrite(os.path.join(out, img), with_caption(tile, cap + "  " + verdict, "; ".join(notes)))
+        recs.append({"nn": f"{n:02d}", "a": c["a"], "b": c["b"], "line_core": c.get("line_core", ""),
+                     "confidence": c.get("confidence", ""), "why": c.get("why", c.get("note", "")), "image": img,
+                     "tracer_found": found, "tracer_line_ok": line_ok, "has_path": bool(path), "_cap": cap,
+                     "_v": verdict, "_n": "; ".join(notes)})
+    tr = "".join(f"<tr><td style='width:22%'>{html.escape(r['_cap'])}<br><b>{html.escape(r['_v'])}</b><br>"
+                 f"<small>{html.escape(r['_n'])}<br>{html.escape(r['why'])}</small></td>"
+                 f"<td><img src='{r['image']}' style='width:100%'></td></tr>" for r in recs)
     with open(os.path.join(out, "index.html"), "w") as f:
         f.write(f"<!doctype html><meta charset=utf-8><title>{golden['sheet']}</title>"
                 f"<table border=1 style='width:100%;table-layout:fixed;border-collapse:collapse'>{tr}</table>")
-    return len(rows)
+    for r in recs:
+        for k in ("_cap", "_v", "_n"):
+            del r[k]
+    json.dump({"sheet": golden["sheet"], "connections": recs}, open(os.path.join(out, "review.json"), "w"),
+              indent=1, ensure_ascii=False)
+    return recs
 
 
 def main(argv=None):
@@ -137,7 +181,10 @@ def main(argv=None):
     if image is None:
         raise SystemExit("cannot read image")
     out = a.out or f"garnet/tests/golden/review/{short_sheet(s)}"
-    print(render(golden, graph, image, out), "connections ->", out)
+    r = render(golden, graph, image, out)
+    f = sum(x["tracer_found"] for x in r)
+    ok = sum(x["tracer_line_ok"] for x in r)
+    print(f"{len(r)} conns -> {out}: found {f} missed {len(r) - f}; line ok {ok} wrong {f - ok}")
 
 
 if __name__ == "__main__":
