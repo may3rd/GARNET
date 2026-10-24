@@ -291,7 +291,14 @@ def build_graph(stem: str, out_dir, indir="garnet/tests/input") -> dict:
         att = tr.raw.get("attachments", {})
         lns = [(tr.project(tuple(a["projected_xy"]))[1], a) for a in att.get("line_numbers", [])
                if a.get("review_state", "accepted") == "accepted" and (a.get("text") or "").strip()]
-        inl = [(tr.project(tuple(a["projected_xy"]))[1], a) for a in att.get("inline_objects", [])]
+        inl_all = att.get("inline_objects", [])
+        # Stage 6 lists a symbol twice: the detector object and the tracer's `<trace>:hit_NNN` record, with no
+        # reference between them. ponytail: a hit is dropped when a same-class detector object lies within 25 px;
+        # a hit with no such object stays (YOLO missed it). Dense runs of identical symbols could mis-merge.
+        dets = [a for a in inl_all if ":hit_" not in str(a["id"])]
+        inl_all = dets + [h for h in inl_all if ":hit_" in str(h["id"]) and not any(
+            d["class_name"] == h["class_name"] and math.dist(d["projected_xy"], h["projected_xy"]) <= 25 for d in dets)]
+        inl = [(tr.project(tuple(a["projected_xy"]))[1], a) for a in inl_all]
         lns = [(s, " ".join(a["text"].split())) for s, a in lns]
         all_texts = [t for _, t in lns]
         warned = False
@@ -359,7 +366,7 @@ def build_graph(stem: str, out_dir, indir="garnet/tests/input") -> dict:
         if len(cs) > 1:
             flag("port_core_conflict", p, f"port touches edges with different line cores {sorted(cs)}")
 
-    return {"schema": SCHEMA, "sheets": [sh], "nodes": list(nodes.values()), "edges": edges,
+    return {"schema": SCHEMA, "sheets": [stem], "nodes": list(nodes.values()), "edges": edges,
             "line_list": line_list, "equipment_connectivity": conn, "flags": flags}
 
 

@@ -35,6 +35,7 @@ class TestBuildGraph(unittest.TestCase):
         g = _run([a, b])
         tees = [n for n in g["nodes"] if n["kind"] == "tee"]
         pipes = [e for e in g["edges"] if e["kind"] == "pipe"]
+        self.assertEqual(g["sheets"], ["x-y-0009"])  # full stem, node ids keep the short form
         self.assertEqual(len(tees), 1)
         self.assertEqual(len(pipes), 3)
         for e in pipes:
@@ -56,6 +57,14 @@ class TestBuildGraph(unittest.TestCase):
         g = _run([a], [{"id": "A", "class_name": "page connection", "Text": "X-1", "Direction": "To"}])
         n = [n for n in g["nodes"] if n["kind"] == "page_connection"][0]
         self.assertEqual((n["id"], n["text"], n["direction"]), ("0009/PC/X-1@1", "X-1", "to"))
+
+    def test_inline_hit_deduped_against_detector_object(self):
+        def v(i, x):
+            return {"id": i, "class_name": "gate valve", "projected_xy": [x, 0]}
+        a = _trace("A", [[0, 0], [300, 0]], "dead_end",
+                   att={"inline_objects": [v("obj_1", 100), v("A:hit_001", 90), v("A:hit_002", 250)]})
+        e = [e for e in _run([a])["edges"] if e["kind"] == "pipe"][0]
+        self.assertEqual(e["inline_objects"], ["gate valve#A:hit_002", "gate valve#obj_1"])  # unmatched hit stays
 
     def test_multiple_line_numbers_flagged(self):
         a = _trace("A", [[0, 0], [300, 0]], "dead_end",

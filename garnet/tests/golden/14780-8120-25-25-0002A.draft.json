@@ -1,0 +1,667 @@
+{
+ "sheet": "14780-8120-25-25-0002A",
+ "status": "draft",
+ "verified_by": "",
+ "verified_on": "",
+ "connections": [
+  {
+   "a": "V-2501/AO",
+   "b": "PC/25-0003",
+   "line_core": "25-002007",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0002A_2.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "V-2501/AO",
+   "b": "P-2504A/p1",
+   "line_core": "25-002007",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_2.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "V-2501/AO",
+   "b": "P-2504B/p1",
+   "line_core": "25-002007",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_2.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "V-2501/AO",
+   "b": "P-2504A/p2",
+   "line_core": "25-002007",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_2.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "V-2501/AO",
+   "b": "P-2504B/p2",
+   "line_core": "25-002007",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_2.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "V-2501/AO",
+   "b": "X-2501/p1",
+   "line_core": "25-002007",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_2.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "V-2501/AO",
+   "b": "CN/obj_000224",
+   "line_core": "25-002007",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_2.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "V-2501/AO",
+   "b": "PC/26-0003",
+   "line_core": "25-002007",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_2.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "V-2501/AO",
+   "b": "PC/25-0005",
+   "line_core": "25-002007",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_2.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "V-2501/AO",
+   "b": "PC/25-0002",
+   "line_core": "25-002007",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_2.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "PC/25-0003",
+   "b": "P-2504A/p1",
+   "line_core": "25-002007",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_3.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "PC/25-0003",
+   "b": "P-2504B/p1",
+   "line_core": "25-002007",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_3.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "PC/25-0003",
+   "b": "P-2504A/p2",
+   "line_core": "25-002007",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_3.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "PC/25-0003",
+   "b": "P-2504B/p2",
+   "line_core": "25-002007",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_3.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "PC/25-0003",
+   "b": "X-2501/p1",
+   "line_core": "25-002007",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_3.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "PC/25-0003",
+   "b": "CN/obj_000224",
+   "line_core": "25-002007",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_3.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "PC/25-0003",
+   "b": "PC/26-0003",
+   "line_core": "25-002007",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_3.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "PC/25-0003",
+   "b": "PC/25-0005",
+   "line_core": "25-002007",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_3.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "PC/25-0003",
+   "b": "PC/25-0002",
+   "line_core": "25-002007",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_3.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504A/p1",
+   "b": "P-2504B/p1",
+   "line_core": "25-002010",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504A/p1",
+   "b": "P-2504A/p2",
+   "line_core": "25-002010",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504A/p1",
+   "b": "P-2504B/p2",
+   "line_core": "25-002010",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504A/p1",
+   "b": "X-2501/p1",
+   "line_core": "25-002010",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504A/p1",
+   "b": "CN/obj_000224",
+   "line_core": "25-002010",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504A/p1",
+   "b": "PC/26-0003",
+   "line_core": "25-002010",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504A/p1",
+   "b": "PC/25-0005",
+   "line_core": "25-002010",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504A/p1",
+   "b": "PC/25-0002",
+   "line_core": "25-002010",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504B/p1",
+   "b": "P-2504A/p2",
+   "line_core": "25-002010",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504B/p1",
+   "b": "P-2504B/p2",
+   "line_core": "25-002010",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504B/p1",
+   "b": "X-2501/p1",
+   "line_core": "25-002010",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504B/p1",
+   "b": "CN/obj_000224",
+   "line_core": "25-002010",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504B/p1",
+   "b": "PC/26-0003",
+   "line_core": "25-002010",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504B/p1",
+   "b": "PC/25-0005",
+   "line_core": "25-002010",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504B/p1",
+   "b": "PC/25-0002",
+   "line_core": "25-002010",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504A/p2",
+   "b": "P-2504B/p2",
+   "line_core": "25-002008",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504A/p2",
+   "b": "X-2501/p1",
+   "line_core": "25-002008",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504A/p2",
+   "b": "CN/obj_000224",
+   "line_core": "25-002008",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504A/p2",
+   "b": "PC/26-0003",
+   "line_core": "25-002008",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504A/p2",
+   "b": "PC/25-0005",
+   "line_core": "25-002008",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504A/p2",
+   "b": "PC/25-0002",
+   "line_core": "25-002008",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504B/p2",
+   "b": "X-2501/p1",
+   "line_core": "25-002009",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504B/p2",
+   "b": "CN/obj_000224",
+   "line_core": "25-002009",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504B/p2",
+   "b": "PC/26-0003",
+   "line_core": "25-002009",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504B/p2",
+   "b": "PC/25-0005",
+   "line_core": "25-002009",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2504B/p2",
+   "b": "PC/25-0002",
+   "line_core": "25-002009",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_5.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "X-2501/p1",
+   "b": "CN/obj_000224",
+   "line_core": "24-015002",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0002A_7.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "X-2501/p1",
+   "b": "PC/26-0003",
+   "line_core": "24-015002",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_7.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "X-2501/p1",
+   "b": "PC/25-0005",
+   "line_core": "24-015002",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_7.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "X-2501/p1",
+   "b": "PC/25-0002",
+   "line_core": "24-015002",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0002A_7.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "CN/obj_000224",
+   "b": "PC/26-0003",
+   "line_core": "24-015002",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0002A_8.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "CN/obj_000224",
+   "b": "PC/25-0005",
+   "line_core": "24-015002",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0002A_8.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "CN/obj_000224",
+   "b": "PC/25-0002",
+   "line_core": "24-015002",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_8.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "PC/26-0003",
+   "b": "PC/25-0005",
+   "line_core": "26-003008",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_8.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "PC/26-0003",
+   "b": "PC/25-0002",
+   "line_core": "26-003008",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_8.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "PC/25-0005",
+   "b": "PC/25-0002",
+   "line_core": "25-002022",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_8.png",
+   "note": "same circulation network (tees + valves only); PC/25-0003 = @1 (right, TO CAUSTIC SETTLER); PC/25-0002 = @2 (FROM SPENT CAUSTIC CIRCULATION PUMPS); P-2504x/p1 = top/discharge, p2 = bottom/suction"
+  },
+  {
+   "a": "P-2512/p1",
+   "b": "V-2501/CT",
+   "line_core": "25-002015",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0002A_4.png"
+  },
+  {
+   "a": "P-2512/p2",
+   "b": "V-2501/BT",
+   "line_core": "25-002014",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0002A_4.png"
+  },
+  {
+   "a": "PC/25-0003",
+   "b": "V-2501/AI",
+   "line_core": "25-003004",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_3.png",
+   "note": "PC/25-0003 = @2 (FROM CAUSTIC SETTLER PUMPS, lower right); AI line carries no own label, core taken from the 2\"-NAS flag line"
+  },
+  {
+   "a": "PC/25-0002",
+   "b": "V-2501/EO",
+   "line_core": "25-002013",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0002A_6.png",
+   "note": "PC/25-0002 = @3 (TO SPENT CAUSTIC CIRCULATION PUMPS, lower left)"
+  },
+  {
+   "a": "V-2501/EO",
+   "b": "UC/25-0015",
+   "line_core": "25-002016",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0002A_6.png"
+  },
+  {
+   "a": "PC/25-0002",
+   "b": "UC/25-0015",
+   "line_core": "25-002013",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_6.png",
+   "note": "PC/25-0002 = @3; tee below EO, drain valve in path"
+  },
+  {
+   "a": "UC/66-0059",
+   "b": "V-2501/DS",
+   "line_core": "66-059061",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0002A_6.png"
+  },
+  {
+   "a": "V-2501/CI",
+   "b": "X-2501/p2",
+   "line_core": "",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_7.png",
+   "note": "6\" thick line, no line-number label on this run"
+  },
+  {
+   "a": "V-2501/AU",
+   "b": "V-2501/AV",
+   "line_core": "25-002021",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_1.png",
+   "note": "PSV 222 = PSV-0201A (upper), 223 = PSV-0201B (lower); joined only via tees / free-draining line (T-junction at PSV-B inlet has no dot)"
+  },
+  {
+   "a": "V-2501/AU",
+   "b": "PSV/obj_000222",
+   "line_core": "25-002017",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0002A_1.png",
+   "note": "PSV 222 = PSV-0201A (upper), 223 = PSV-0201B (lower); "
+  },
+  {
+   "a": "V-2501/AU",
+   "b": "PSV/obj_000223",
+   "line_core": "25-002018",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0002A_1.png",
+   "note": "PSV 222 = PSV-0201A (upper), 223 = PSV-0201B (lower); "
+  },
+  {
+   "a": "V-2501/AU",
+   "b": "UC/25-0017",
+   "line_core": "25-002020",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_1.png",
+   "note": "PSV 222 = PSV-0201A (upper), 223 = PSV-0201B (lower); joined only via tees / free-draining line (T-junction at PSV-B inlet has no dot)"
+  },
+  {
+   "a": "V-2501/AV",
+   "b": "PSV/obj_000222",
+   "line_core": "25-002021",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_1.png",
+   "note": "PSV 222 = PSV-0201A (upper), 223 = PSV-0201B (lower); joined only via tees / free-draining line (T-junction at PSV-B inlet has no dot)"
+  },
+  {
+   "a": "V-2501/AV",
+   "b": "PSV/obj_000223",
+   "line_core": "25-002021",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_1.png",
+   "note": "PSV 222 = PSV-0201A (upper), 223 = PSV-0201B (lower); joined only via tees / free-draining line (T-junction at PSV-B inlet has no dot)"
+  },
+  {
+   "a": "V-2501/AV",
+   "b": "UC/25-0017",
+   "line_core": "25-002021",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0002A_1.png",
+   "note": "PSV 222 = PSV-0201A (upper), 223 = PSV-0201B (lower); "
+  },
+  {
+   "a": "PSV/obj_000222",
+   "b": "PSV/obj_000223",
+   "line_core": "25-002018",
+   "confidence": "medium",
+   "evidence": "garnet/tests/golden/evidence/0002A_1.png",
+   "note": "PSV 222 = PSV-0201A (upper), 223 = PSV-0201B (lower); joined only via tees / free-draining line (T-junction at PSV-B inlet has no dot)"
+  },
+  {
+   "a": "PSV/obj_000222",
+   "b": "UC/25-0017",
+   "line_core": "25-002019",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0002A_1.png",
+   "note": "PSV 222 = PSV-0201A (upper), 223 = PSV-0201B (lower); "
+  },
+  {
+   "a": "PSV/obj_000223",
+   "b": "UC/25-0017",
+   "line_core": "25-002020",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0002A_1.png",
+   "note": "PSV 222 = PSV-0201A (upper), 223 = PSV-0201B (lower); "
+  }
+ ],
+ "line_numbers": [
+  "1\"-PL-25-002022-N2A1-NI",
+  "1½\"-CUL-25-002012-B1A2-NI",
+  "1½\"-PL-25-002004-B2A2-NI",
+  "1½\"-PWD-25-002016-L1A1-NI",
+  "1½\"-VG-25-002021-L1A1-NI",
+  "2\"-NAS-25-003004-B2A2-NI",
+  "2\"-PL-25-002015-B1A2-NI",
+  "2\"-S12-66-059061-MS12-H",
+  "3\"-CUL-25-002008-B1A2-NI",
+  "3\"-CUL-25-002009-B2A2-NI",
+  "3\"-CUL-25-002010-B2A2-NI",
+  "3\"-CUL-25-002011-B2A2-NI",
+  "3\"-PL-24-015002-N2A1-NI",
+  "3\"-PL-25-002013-B1A2-NI",
+  "3\"-PL-25-002014-B1A2-NI",
+  "3\"-PL-26-003008-N2A1-NI",
+  "4\"-CUL-25-002007-B1A2-NI",
+  "4\"-CUL-25-002017-B1A2-NI",
+  "4\"-CUL-25-002018-B1A2-NI",
+  "6\"-F-25-002019-L1A1-NI",
+  "6\"-F-25-002020-L1A1-NI"
+ ],
+ "inline": [
+  {
+   "line_core": "66-059061",
+   "class": "gate valve",
+   "count": 2
+  },
+  {
+   "line_core": "66-059061",
+   "class": "check valve",
+   "count": 1
+  }
+ ],
+ "cross_sheet": [
+  {
+   "a": "0002A/PC/25-0003",
+   "b": "0003/PC/25-0002A",
+   "line_core": "25-002007"
+  },
+  {
+   "a": "0002A/PC/25-0003",
+   "b": "0003/PC/25-0002A",
+   "line_core": "25-003004"
+  }
+ ],
+ "not_connected": [
+  {
+   "a": "V-2501/AI",
+   "b": "V-2501/AO",
+   "why": "AI line (y~423) is crossed by the 1.5\" CUL-25-002012 riser with no junction dot; AO header is a separate line"
+  },
+  {
+   "a": "V-2501/AI",
+   "b": "P-2504A/p1",
+   "why": "same crossing: AI line passes through the 002012/002010 vertical; pump discharge does not feed AI"
+  },
+  {
+   "a": "V-2501/CT",
+   "b": "V-2501/BT",
+   "why": "CT (2\"-PL-25-002015, flows to column) and BT (3\"-PL-25-002014, flows to pump) run in parallel on the right of V-2501; never meet"
+  },
+  {
+   "a": "V-2501/EO",
+   "b": "X-2501/p1",
+   "why": "3\"-PL-25-002013 horizontal crosses the thick 3\"-PL-24-015002 riser with no dot"
+  },
+  {
+   "a": "V-2501/EO",
+   "b": "P-2504A/p1",
+   "why": "002013 horizontal crosses the 002010 riser (x~1204 px) - riser has a line-jump gap, no junction"
+  },
+  {
+   "a": "V-2501/BT",
+   "b": "P-2512/p1",
+   "why": "BT line goes to the suction (bottom) of P-2512 only; discharge (top) goes to CT"
+  }
+ ]
+}

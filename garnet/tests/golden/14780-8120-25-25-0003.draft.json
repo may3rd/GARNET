@@ -1,0 +1,185 @@
+{
+ "sheet": "14780-8120-25-25-0003",
+ "status": "draft",
+ "verified_by": "",
+ "verified_on": "",
+ "connections": [
+  {
+   "a": "PC/25-0002A",
+   "b": "D-2502/I01",
+   "line_core": "25-002007",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0003_1.png",
+   "why": "PC/25-0002A copy 1 (FROM CUMENE-AMS, upper-left, y~687)"
+  },
+  {
+   "a": "PC/25-0002A",
+   "b": "P-2503A/p1",
+   "line_core": "25-003004",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0003_2.png",
+   "why": "PC/25-0002A copy 2 (TO CUMENE-AMS, y~1506); discharge (top) nozzle"
+  },
+  {
+   "a": "PC/25-0002A",
+   "b": "P-2503B/p1",
+   "line_core": "25-003004",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0003_3.png",
+   "why": "PC/25-0002A copy 2; discharge (top) nozzle"
+  },
+  {
+   "a": "D-2502/N02",
+   "b": "P-2503A/p2",
+   "line_core": "25-003002",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0003_4.png",
+   "why": "suction (bottom) nozzle via 6in NAS header"
+  },
+  {
+   "a": "D-2502/N02",
+   "b": "P-2503B/p2",
+   "line_core": "25-003003",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0003_5.png",
+   "why": "suction (bottom) nozzle via 6in NAS-003003 branch"
+  },
+  {
+   "a": "UC/NAS",
+   "b": "D-2502/N02",
+   "line_core": "41-007104",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0003_6.png",
+   "why": "caustic make-up tees into suction header at T(2332,2195)"
+  },
+  {
+   "a": "UC/PRW",
+   "b": "D-2502/N02",
+   "line_core": "64-052012",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0003_7.png",
+   "why": "process water drop tees off N02 outlet line"
+  },
+  {
+   "a": "UC/PWD",
+   "b": "D-2502/N02",
+   "line_core": "25-003007",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0003_8.png",
+   "why": "drain line tees off N02 outlet line"
+  },
+  {
+   "a": "D-2502/O02",
+   "b": "PC/25-0004",
+   "line_core": "25-003001",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0003_9.png",
+   "why": "heavy CUL line to TO CUMENE-AMS WATER WASH"
+  },
+  {
+   "a": "D-2502/A01",
+   "b": "PSV/obj_000156",
+   "line_core": "25-003008",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0003_10.png",
+   "why": "A01 riser up to PSV-0301A inlet"
+  },
+  {
+   "a": "PSV/obj_000156",
+   "b": "UC/F",
+   "line_core": "25-003010",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0003_11.png",
+   "why": "PSV-0301A outlet to F 25-0017"
+  },
+  {
+   "a": "PSV/obj_000157",
+   "b": "UC/F",
+   "line_core": "25-003011",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0003_12.png",
+   "why": "PSV-0301B outlet joins F header"
+  },
+  {
+   "a": "D-2502/A01",
+   "b": "PSV/obj_000157",
+   "line_core": "25-003009",
+   "confidence": "high",
+   "evidence": "garnet/tests/golden/evidence/0003_13.png",
+   "why": "A01 riser tee T(2098,1506) -> 003009 -> riser to PSV-0301B inlet"
+  }
+ ],
+ "line_numbers": [
+  "3\"-CUL-25-002007-B1A2-NI",
+  "3\"-NAS-25-003006-B2A2-NI",
+  "1½\"-NAS-25-003004-B2A2-NI",
+  "4\"-NAS-25-003004-B2A2-NI",
+  "4\"-NAS-25-003005-B2A2-NI",
+  "4\"-CUL-25-002007-B1A2-NI",
+  "6\"-CUL-25-003008-B1A2-NI",
+  "6\"-F-25-003010-L1A1-NI",
+  "6\"-F-25-003011-L1A1-NI",
+  "6\"-CUL-25-003009-B1A2-NI",
+  "3\"-CUL-25-003001-B1A2-NI",
+  "6\"-NAS-25-003003-B2A2-NI",
+  "6\"-NAS-25-003002-B1A2-NI",
+  "1\"-PRW-64-052012-B1A1-NI",
+  "1½\"-PWD-25-003007-L1A1-NI",
+  "1½\"-NAS-41-007104-B1A2-NI"
+ ],
+ "inline": [
+  {
+   "line_core": "25-002007",
+   "class": "control valve",
+   "count": 1
+  },
+  {
+   "line_core": "25-002007",
+   "class": "gate valve",
+   "count": 2
+  },
+  {
+   "line_core": "25-003006",
+   "class": "globe valve",
+   "count": 1
+  },
+  {
+   "line_core": "41-007104",
+   "class": "control valve",
+   "count": 1
+  },
+  {
+   "line_core": "41-007104",
+   "class": "check valve",
+   "count": 1
+  }
+ ],
+ "cross_sheet": [],
+ "not_connected": [
+  {
+   "a": "D-2502/I01",
+   "b": "D-2502/A01",
+   "why": "4in CUL-002007 inlet riser (x~2024) and 6in CUL-003008 riser (x~2097) run parallel into adjacent top nozzles; no junction between them"
+  },
+  {
+   "a": "D-2502/I01",
+   "b": "PSV/obj_000156",
+   "why": "heavy 4in inlet riser passes beside PSV-0301A inlet; PSV connects only to the A01 riser"
+  },
+  {
+   "a": "D-2502/A01",
+   "b": "D-2502/N02",
+   "why": "A01 net (PSV/F relief header) and N02 net (NAS suction/PRW/PWD) are separate; drain/level-instrument taps are notes only"
+  },
+  {
+   "a": "D-2502/O02",
+   "b": "PC/25-0002A",
+   "why": "heavy 3in-CUL-003001 outlet to 25-0004 is separate from the 002007 inlet run; neither 25-0002A copy reaches O02"
+  },
+  {
+   "a": "UC/F",
+   "b": "PC/25-0004",
+   "why": "F relief header ends at box F 25-0017 (x~2716); heavy 003001 line is to the right and does not touch it"
+  }
+ ]
+}

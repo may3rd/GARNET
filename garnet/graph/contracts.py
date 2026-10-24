@@ -107,7 +107,7 @@ class Golden(TypedDict):
 _SIZE = r'(?:\d+[½¼¾⅜⅝⅞]|\d+\s+\d+/\d+|\d+/\d+|\d+|[½¼¾⅜⅝⅞])"'
 _CORE = re.compile(r'(?<!\d)(\d{2})\s*-\s*(\d{6})(?!\d)')
 _LINE = re.compile(
-    rf'^\s*({_SIZE})\s*-\s*([A-Za-z]+)\s*-\s*(\d{{2}})\s*-\s*(\d{{6}})\s*-\s*([A-Za-z0-9]+)'
+    rf'^\s*({_SIZE})\s*-\s*([A-Za-z][A-Za-z0-9]*)\s*-\s*(\d{{2}})\s*-\s*(\d{{6}})\s*-\s*([A-Za-z0-9]+)'
     r'(?:\s*-\s*([A-Za-z]+))?\s*$')
 
 
@@ -144,6 +144,9 @@ if __name__ == "__main__":
     p = parse_line_number('1½"-PL-25-007004-N2A1-ET')
     assert p["size"] == '1½"' and p["line_core"] == "25-007004" and p["insulation"] == "ET", p
     assert parse_line_number('2 1/2"-PL-25-007004-N2A1-ET')["size"] == '2 1/2"'
+    p = parse_line_number('2"-S12-66-059061-MS12-H')
+    assert (p["service"], p["unit"], p["number"], p["spec"], p["insulation"]) == ("S12", "66", "059061", "MS12", "H"), p
+    assert parse_line_number("25-0003") == {}
     assert line_core("PI 0203") == "" and parse_line_number("PI 0203") == {}
     assert short_sheet("14780-8120-25-25-0002A") == "0002A"
     print("OK")

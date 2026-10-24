@@ -212,6 +212,10 @@ def main(argv=None):
     except (OSError, ValueError, KeyError, AssertionError) as e:
         print(f"bad input: {e}", file=sys.stderr)
         return 2
+    for p, g in zip(a.golden, goldens):
+        if g.get("status") == "draft":
+            print(f"WARNING: golden {p} is a DRAFT, this score is not a verified score", file=sys.stderr)
+    os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)  # also covers score_contact.png (same dir)
     json.dump(res, open(a.out, "w"), indent=2)
     for k, m in res["metrics"].items():
         v = "null" if m["value"] is None else f"{m['value']:.3f}"
