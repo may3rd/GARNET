@@ -95,6 +95,18 @@ class Gates(unittest.TestCase):
             self.assertEqual([p["role"] for p in d["pending"]], ["ln_assign"])
             self.assertTrue(d["pending"][0]["output"].endswith("ln_assign.json"))
 
+    def test_ln_assign_fixture_staging(self):
+        with tempfile.TemporaryDirectory() as fx, tempfile.TemporaryDirectory() as out:
+            fx, out = Path(fx), Path(out) / "o"
+            self.assertFalse(pipeline.stage_ln_assign(fx, STEM, out))  # no fixture
+            (fx / f"{STEM}_ln_assign.json").write_text('{"v": "fixture"}')
+            self.assertTrue(pipeline.stage_ln_assign(fx, STEM, out))
+            self.assertEqual((out / "ln_assign.json").read_text(), '{"v": "fixture"}')
+            (out / "ln_assign.json").write_text('{"v": "agent"}')
+            self.assertFalse(pipeline.stage_ln_assign(fx, STEM, out))  # never overwrite
+            self.assertEqual((out / "ln_assign.json").read_text(), '{"v": "agent"}')
+            self.assertFalse(pipeline.stage_ln_assign(None, STEM, out))
+
 
 if __name__ == "__main__":
     unittest.main()

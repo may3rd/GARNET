@@ -1,0 +1,181 @@
+{
+  "sheet": "14780-8120-25-25-0003",
+  "assignments": [
+    {
+      "id": "line_number_0001",
+      "choice": "A",
+      "trace_id": "obj_000142",
+      "xy": [
+        666.3,
+        687.0
+      ],
+      "via": "alongside",
+      "why": "label sits on the 3\" black PWHT line"
+    },
+    {
+      "id": "line_number_0002",
+      "choice": "A",
+      "trace_id": "branch_000001",
+      "xy": [
+        1136.0,
+        1093.0
+      ],
+      "via": "alongside",
+      "why": "vertical label along red 3\" pipe"
+    },
+    {
+      "id": "line_number_0003",
+      "choice": "A",
+      "trace_id": "obj_000140",
+      "xy": [
+        781.0,
+        1506.0
+      ],
+      "via": "alongside",
+      "why": "1.5\" label on the red 1.5\" horizontal feeding the tee (same no. 003004 as the 4\" riser)"
+    },
+    {
+      "id": "line_number_0004",
+      "choice": "A",
+      "trace_id": "branch_000001",
+      "xy": [
+        1136.0,
+        1545.0
+      ],
+      "via": "leader_arrow",
+      "why": "short leader arrow at label left end hits the 4\" vertical riser just below the tee, not the horizontal 003005 line"
+    },
+    {
+      "id": "line_number_0005",
+      "choice": "D",
+      "trace_id": "branch_000011",
+      "xy": [
+        1281.0,
+        1754.0
+      ],
+      "via": "leader_arrow",
+      "why": "leader arrow from label runs down-left to the manifold horizontal right of the riser tee (branch_000011); horizontal run beside the label is not its target"
+    },
+    {
+      "id": "line_number_0006",
+      "choice": "A",
+      "trace_id": "obj_000142",
+      "xy": [
+        2025.0,
+        1338.1
+      ],
+      "via": "alongside",
+      "why": "vertical label along 4\" black PWHT line"
+    },
+    {
+      "id": "line_number_0007",
+      "choice": "A",
+      "trace_id": "equip_d_2502:port_02",
+      "xy": [
+        2098.0,
+        1418.2
+      ],
+      "via": "alongside",
+      "why": "rotated label hugs the red vertical from D-2502 nozzle; black line further away"
+    },
+    {
+      "id": "line_number_0008",
+      "choice": "A",
+      "trace_id": "obj_000145",
+      "xy": [
+        2414.5,
+        1090.0
+      ],
+      "via": "alongside",
+      "why": "label on 6\" F horizontal run"
+    },
+    {
+      "id": "line_number_0009",
+      "choice": "C",
+      "trace_id": "branch_000006",
+      "xy": [
+        2505.0,
+        1197.6
+      ],
+      "via": "other",
+      "why": "label ends at tick touching the vertical 6\" F riser; right end abuts thick black PWHT pipe and equipment stub, not a 6\"-F line"
+    },
+    {
+      "id": "line_number_0010",
+      "choice": "B",
+      "trace_id": "branch_000008",
+      "xy": [
+        2351.3,
+        1506.0
+      ],
+      "via": "leader_arrow",
+      "why": "leader arrow from label tip lands on the bypass horizontal just right of the tee, not the red vertical"
+    },
+    {
+      "id": "line_number_0011",
+      "choice": "A",
+      "trace_id": "obj_000141",
+      "xy": [
+        3547.2,
+        1135.0
+      ],
+      "via": "alongside",
+      "why": "label on 3\" black line"
+    },
+    {
+      "id": "line_number_0012",
+      "choice": "B",
+      "trace_id": "equip_p_2503b:port_02",
+      "xy": [
+        1286.0,
+        2050.0
+      ],
+      "via": "leader_arrow",
+      "why": "leader arrow points at pump B suction vertical below 6\"x3\" reducer"
+    },
+    {
+      "id": "line_number_0013",
+      "choice": "A",
+      "trace_id": "equip_d_2502:port_05",
+      "xy": [
+        1996.0,
+        2194.0
+      ],
+      "via": "alongside",
+      "why": "engineer review: label belongs to the 6in header; A and B are duplicate traces of the same pipe"
+    },
+    {
+      "id": "line_number_0014",
+      "choice": "A",
+      "trace_id": "obj_000144",
+      "xy": [
+        3143.0,
+        2660.0
+      ],
+      "via": "alongside",
+      "why": "vertical label beside left pipe"
+    },
+    {
+      "id": "line_number_0015",
+      "choice": "A",
+      "trace_id": "obj_000146",
+      "xy": [
+        3255.0,
+        2666.0
+      ],
+      "via": "alongside",
+      "why": "vertical label beside right pipe"
+    },
+    {
+      "id": "line_number_0016",
+      "choice": "A",
+      "trace_id": "obj_000143",
+      "xy": [
+        2332.0,
+        3097.5
+      ],
+      "via": "leader_arrow",
+      "why": "leader arrow to red vertical"
+    }
+  ]
+}

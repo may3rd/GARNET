@@ -1,14 +1,14 @@
 {
   "sheet": "14780-8120-25-25-0003",
-  "status": "draft",
-  "verified_by": "",
-  "verified_on": "",
+  "status": "verified",
+  "verified_by": "Maetee",
+  "verified_on": "2026-10-24",
   "connections": [
     {
       "a": "PC/25-0002A",
       "b": "D-2502/I01",
       "line_core": "25-002007",
-      "confidence": "high",
+      "confidence": "verified",
       "evidence": "garnet/tests/golden/evidence/0003_1.png",
       "why": "PC/25-0002A copy 1 (FROM CUMENE-AMS, upper-left, y~687)",
       "path_px": [
@@ -27,62 +27,62 @@
       ]
     },
     {
-      "a": "PC/25-0002A",
-      "b": "P-2503A/p1",
+      "a": "P-2503A/p1",
+      "b": "PC/25-0002A",
       "line_core": "25-003004",
-      "confidence": "high",
+      "confidence": "verified",
       "evidence": "garnet/tests/golden/evidence/0003_2.png",
       "why": "PC/25-0002A copy 2 (TO CUMENE-AMS, y~1506); discharge (top) nozzle",
       "path_px": [
         [
-          382,
-          1504
-        ],
-        [
-          1137,
-          1504
-        ],
-        [
-          1137,
-          1752
-        ],
-        [
-          988,
-          1752
-        ],
-        [
           988,
           1851
+        ],
+        [
+          988,
+          1752
+        ],
+        [
+          1137,
+          1752
+        ],
+        [
+          1137,
+          1504
+        ],
+        [
+          382,
+          1504
         ]
       ]
     },
     {
-      "a": "PC/25-0002A",
-      "b": "P-2503B/p1",
+      "a": "P-2503B/p1",
+      "b": "PC/25-0002A",
       "line_core": "25-003004",
-      "confidence": "high",
+      "confidence": "verified",
       "evidence": "garnet/tests/golden/evidence/0003_3.png",
       "why": "PC/25-0002A copy 2; discharge (top) nozzle",
       "path_px": [
         [
-          382,
-          1504
-        ],
-        [
-          1137,
-          1504
-        ],
-        [
-          1137,
-          1752
-        ],
-        [
-          1285,
-          1752
-        ],
-        [
           1285,
           1851
+        ],
+        [
+          1285,
+          1752
+        ],
+        [
+          1137,
+          1752
+        ],
+        [
+          1137,
+          1504
+        ],
+        [
+          382,
+          1504
         ]
       ]
     },
@@ -90,7 +90,7 @@
       "a": "D-2502/N02",
       "b": "P-2503A/p2",
       "line_core": "25-003002",
-      "confidence": "high",
+      "confidence": "verified",
       "evidence": "garnet/tests/golden/evidence/0003_4.png",
       "why": "suction (bottom) nozzle via 6in NAS header",
       "path_px": [
@@ -120,7 +120,7 @@
       "a": "D-2502/N02",
       "b": "P-2503B/p2",
       "line_core": "25-003003",
-      "confidence": "high",
+      "confidence": "verified",
       "evidence": "garnet/tests/golden/evidence/0003_5.png",
       "why": "suction (bottom) nozzle via 6in NAS-003003 branch",
       "path_px": [
@@ -147,80 +147,28 @@
       ]
     },
     {
-      "a": "UC/NAS",
-      "b": "D-2502/N02",
-      "line_core": "41-007104",
-      "confidence": "high",
-      "evidence": "garnet/tests/golden/evidence/0003_6.png",
-      "why": "caustic make-up tees into suction header at T(2332,2195)",
-      "path_px": [
-        [
-          2328,
-          3166
-        ],
-        [
-          2328,
-          2194
-        ],
-        [
-          2844,
-          2194
-        ],
-        [
-          2844,
-          1814
-        ]
-      ]
-    },
-    {
-      "a": "UC/PRW",
-      "b": "D-2502/N02",
-      "line_core": "64-052012",
-      "confidence": "high",
-      "evidence": "garnet/tests/golden/evidence/0003_7.png",
-      "why": "process water drop tees off N02 outlet line",
-      "path_px": [
-        [
-          3139,
-          3166
-        ],
-        [
-          3139,
-          2030
-        ],
-        [
-          2844,
-          2030
-        ],
-        [
-          2844,
-          1814
-        ]
-      ]
-    },
-    {
-      "a": "UC/PWD",
-      "b": "D-2502/N02",
+      "a": "D-2502/N02",
+      "b": "UC/PWD",
       "line_core": "25-003007",
-      "confidence": "high",
+      "confidence": "verified",
       "evidence": "garnet/tests/golden/evidence/0003_8.png",
       "why": "drain line tees off N02 outlet line",
       "path_px": [
         [
-          3253,
-          3147
-        ],
-        [
-          3253,
-          2030
-        ],
-        [
-          2844,
-          2030
-        ],
-        [
           2844,
           1814
+        ],
+        [
+          2844,
+          2030
+        ],
+        [
+          3253,
+          2030
+        ],
+        [
+          3253,
+          3147
         ]
       ]
     },
@@ -228,7 +176,7 @@
       "a": "D-2502/O02",
       "b": "PC/25-0004",
       "line_core": "25-003001",
-      "confidence": "high",
+      "confidence": "verified",
       "evidence": "garnet/tests/golden/evidence/0003_9.png",
       "why": "heavy CUL line to TO CUMENE-AMS WATER WASH",
       "path_px": [
@@ -250,7 +198,7 @@
       "a": "D-2502/A01",
       "b": "PSV/obj_000156",
       "line_core": "25-003008",
-      "confidence": "high",
+      "confidence": "verified",
       "evidence": "garnet/tests/golden/evidence/0003_10.png",
       "why": "A01 riser up to PSV-0301A inlet",
       "path_px": [
@@ -272,7 +220,7 @@
       "a": "PSV/obj_000156",
       "b": "UC/F",
       "line_core": "25-003010",
-      "confidence": "high",
+      "confidence": "verified",
       "evidence": "garnet/tests/golden/evidence/0003_11.png",
       "why": "PSV-0301A outlet to F 25-0017",
       "path_px": [
@@ -290,7 +238,7 @@
       "a": "PSV/obj_000157",
       "b": "UC/F",
       "line_core": "25-003011",
-      "confidence": "high",
+      "confidence": "verified",
       "evidence": "garnet/tests/golden/evidence/0003_12.png",
       "why": "PSV-0301B outlet joins F header",
       "path_px": [
@@ -311,38 +259,12 @@
           1089
         ]
       ]
-    },
-    {
-      "a": "D-2502/A01",
-      "b": "PSV/obj_000157",
-      "line_core": "25-003009",
-      "confidence": "high",
-      "evidence": "garnet/tests/golden/evidence/0003_13.png",
-      "why": "A01 riser tee T(2098,1506) -> 003009 -> riser to PSV-0301B inlet",
-      "path_px": [
-        [
-          2097,
-          1633
-        ],
-        [
-          2097,
-          1501
-        ],
-        [
-          2345,
-          1501
-        ],
-        [
-          2345,
-          1266
-        ]
-      ]
     }
   ],
   "line_numbers": [
     "3\"-CUL-25-002007-B1A2-NI",
     "3\"-NAS-25-003006-B2A2-NI",
-    "1\u00bd\"-NAS-25-003004-B2A2-NI",
+    "1½\"-NAS-25-003004-B2A2-NI",
     "4\"-NAS-25-003004-B2A2-NI",
     "4\"-NAS-25-003005-B2A2-NI",
     "4\"-CUL-25-002007-B1A2-NI",
@@ -354,8 +276,8 @@
     "6\"-NAS-25-003003-B2A2-NI",
     "6\"-NAS-25-003002-B1A2-NI",
     "1\"-PRW-64-052012-B1A1-NI",
-    "1\u00bd\"-PWD-25-003007-L1A1-NI",
-    "1\u00bd\"-NAS-41-007104-B1A2-NI"
+    "1½\"-PWD-25-003007-L1A1-NI",
+    "1½\"-NAS-41-007104-B1A2-NI"
   ],
   "inline": [
     {
@@ -410,6 +332,79 @@
       "a": "UC/F",
       "b": "PC/25-0004",
       "why": "F relief header ends at box F 25-0017 (x~2716); heavy 003001 line is to the right and does not touch it"
+    },
+    {
+      "a": "UC/NAS",
+      "b": "D-2502/N02",
+      "why": "engineer review: no flow path from a to b",
+      "line_core": "41-007104",
+      "path_px": [
+        [
+          2328,
+          3166
+        ],
+        [
+          2328,
+          2194
+        ],
+        [
+          2844,
+          2194
+        ],
+        [
+          2844,
+          1814
+        ]
+      ]
+    },
+    {
+      "a": "UC/PRW",
+      "b": "D-2502/N02",
+      "why": "engineer review: no flow path from a to b",
+      "line_core": "64-052012",
+      "path_px": [
+        [
+          3139,
+          3166
+        ],
+        [
+          3139,
+          2030
+        ],
+        [
+          2844,
+          2030
+        ],
+        [
+          2844,
+          1814
+        ]
+      ]
+    },
+    {
+      "a": "D-2502/A01",
+      "b": "PSV/obj_000157",
+      "why": "engineer review: no flow path from a to b",
+      "line_core": "25-003009",
+      "path_px": [
+        [
+          2097,
+          1633
+        ],
+        [
+          2097,
+          1501
+        ],
+        [
+          2345,
+          1501
+        ],
+        [
+          2345,
+          1266
+        ]
+      ]
     }
-  ]
+  ],
+  "verified_scope": "connections and not_connected reviewed one by one; line_numbers, inline and cross_sheet carried over from the draft, not individually reviewed"
 }

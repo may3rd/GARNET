@@ -82,10 +82,15 @@ class _GoldenConnectionReq(TypedDict):
 
 
 class GoldenConnection(_GoldenConnectionReq, total=False):
+    """Directed PROCESS-FLOW path: `a` is upstream, `b` downstream; fluid can flow
+    from a to b along the pipe. Pipe joining the two ends is not enough: a pair joined
+    by pipe but with no flow path a -> b belongs in Golden.not_connected.
+    Optional keys: path_px, confidence, why, evidence, verdict_note (engineer's note)."""
     path_px: List[List[float]]  # waypoints along the real pipe a -> b, sheet pixels
     confidence: str
     why: str
     evidence: str
+    verdict_note: str       # engineer review note, carried from the review verdict
 
 
 class GoldenInline(TypedDict):
@@ -101,6 +106,9 @@ class GoldenNotConnected(TypedDict):
 
 
 class Golden(TypedDict):
+    """Answer key. `connections` are directed flow paths (a upstream -> b downstream).
+    `not_connected` lists pairs with NO flow path a -> b, including pairs whose ends are
+    joined by pipe but where flow cannot go from a to b (e.g. pump suction -> discharge)."""
     sheet: str
     verified_by: str
     verified_on: str  # YYYY-MM-DD

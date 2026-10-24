@@ -162,6 +162,16 @@ def intake(sdir: Path, stem: str, fixtures: Path | None, images: Path | None, re
                     break
 
 
+def stage_ln_assign(fixtures: Path | None, stem: str, odir: Path) -> bool:
+    """Copy a reviewed <stem>_ln_assign.json fixture to out/<stem>/ln_assign.json unless one is already there."""
+    src, dst = (fixtures / f"{stem}_ln_assign.json") if fixtures else None, odir / "ln_assign.json"
+    if src is None or not src.is_file() or dst.exists():
+        return False
+    odir.mkdir(parents=True, exist_ok=True)
+    shutil.copy(src, dst)
+    return True
+
+
 def process_sheet(a, job: Path, stem: str, rep: dict, pending: list) -> dict | None:
     """Return the sheet's graph or None; fills rep['sheets'][stem] with gate results."""
     sdir, odir = job / "sheets" / stem, job / "out" / stem
@@ -272,6 +282,7 @@ def process_sheet(a, job: Path, stem: str, rep: dict, pending: list) -> dict | N
     # G4: deterministic candidates, then a vision agent picks the pipe each label belongs to
     t = time.time()
     cj, aj = odir / "ln_candidates.json", odir / "ln_assign.json"
+    stage_ln_assign(a.from_fixtures, stem, odir)
     if not (a.resume and cj.is_file()):
         run(["garnet.graph.ln_candidates", "--stem", stem, "--dir", str(odir), "--indir", str(sdir)], odir / "ln_candidates.log")
     labels = [l["id"] for l in (_j(cj).get("labels") or [])] if cj.is_file() else []

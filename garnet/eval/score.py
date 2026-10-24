@@ -1,4 +1,10 @@
-"""Score a Contract D graph against Contract E golden files. See garnet/graph/contracts.py."""
+"""Score a Contract D graph against Contract E golden files. See garnet/graph/contracts.py.
+
+Golden connections are DIRECTED process-flow paths: `a` upstream -> `b` downstream. Reachability follows
+pipe-edge `flow` (forward = u->v, reverse = v->u, unknown/absent = both ways); cross_sheet_continues is
+traversed both ways. A `not_connected` pair (a, b) is a false join iff b is reachable FROM a.
+`flow_known_share` (informational, not a gate) = share of pipe edges whose flow is not unknown.
+"""
 import argparse, json, os, re, sys
 from collections import deque
 
@@ -22,15 +28,22 @@ def score(graph, goldens, thresholds=None):
     by_key = {}
     for nid in nodes:
         by_key.setdefault(_key(nid), []).append(nid)
-    adj = {}  # reachability graph: pipe + cross_sheet_continues; has_port is deliberately absent
+    adj, uadj = {}, {}  # directed / undirected reachability; has_port is deliberately absent
     pipe_edges = [e for e in graph["edges"] if e.get("kind") == "pipe"]
     cross_edges = [e for e in graph["edges"] if e.get("kind") == "cross_sheet_continues"]
     for e in pipe_edges + cross_edges:
-        adj.setdefault(e["u"], []).append((e["v"], e))
-        adj.setdefault(e["v"], []).append((e["u"], e))
+        fl = e.get("flow") if e.get("kind") == "pipe" else "unknown"
+        uadj.setdefault(e["u"], []).append((e["v"], e))
+        uadj.setdefault(e["v"], []).append((e["u"], e))
+        if fl != "reverse":
+            adj.setdefault(e["u"], []).append((e["v"], e))
+        if fl != "forward":
+            adj.setdefault(e["v"], []).append((e["u"], e))
+    known = sum(e.get("flow") in ("forward", "reverse") for e in pipe_edges)
+    flow_known_share = known / len(pipe_edges) if pipe_edges else None
     # ponytail: ids only, goldens carry no pixel positions so no position fallback; add one if goldens gain xy_px
 
-    def bfs(starts):
+    def bfs(starts, adj=adj):
         """-> {terminal node: (dist, path edges)}; expands only through tee/end nodes."""
         seen = {s: (0, []) for s in starts}
         q = deque(starts)
@@ -48,15 +61,15 @@ def score(graph, goldens, thresholds=None):
 
     reach_cache = {}
 
-    def reach(k):  # golden key -> {terminal D node: (dist, path)}, best over all matching nodes
-        if k not in reach_cache:
+    def reach(k, directed=True):  # golden key -> {terminal D node: (dist, path)}, best over matching nodes
+        if (k, directed) not in reach_cache:
             out = {}
             for s in by_key.get(k, []):
-                for n, r in bfs([s]).items():
+                for n, r in bfs([s], adj if directed else uadj).items():
                     if n not in out or r[0] < out[n][0]:
                         out[n] = r
-            reach_cache[k] = out
-        return reach_cache[k]
+            reach_cache[(k, directed)] = out
+        return reach_cache[(k, directed)]
 
     def keys_of(res):
         return sorted({_key(n) for n in res})
@@ -95,7 +108,9 @@ def score(graph, goldens, thresholds=None):
         if hit:
             found.append((a, b, core, min(hit, key=lambda n: r[n][0])))
         else:
-            misses.append({"metric": "connection_recall", "golden": f"{a} -- {b}",
+            fu = ok_a and ok_b and any(_key(n) == b for n in reach(a, False))
+            misses.append({"metric": "connection_recall", "golden": f"{a} -> {b}",
+                           "found_undirected": fu, "found_directed": False,
                            "d_had": f"{a} reaches {keys_of(r)}" if ok_a and ok_b else "terminal missing"})
     put("connection_recall", len(found), len(conns))
     bad = 0
@@ -103,30 +118,30 @@ def score(graph, goldens, thresholds=None):
         path = reach(a)[n][1]
         if not any((e.get("line_core") or line_core(e.get("line_number", ""))) == core for e in path):
             bad += 1
-            misses.append({"metric": "line_assignment", "golden": f"{a} -- {b} core {core}",
+            misses.append({"metric": "line_assignment", "golden": f"{a} -> {b} core {core}",
                            "d_had": sorted({e.get("line_core") or line_core(e.get("line_number", "")) for e in path})})
     put("line_assignment", len(found) - bad, len(found))
 
     # precision
     gterms = {k for a, b, _ in conns for k in (a, b)} | {k for a, b in ncs for k in (a, b)}
-    pairs = {frozenset(p[:2]) for p in conns} | {frozenset(p[:2]) for p in cross}
+    pairs = {p[:2] for p in conns} | {p[:2] for p in cross} | {p[1::-1] for p in cross}
     num = den = 0
     for t in sorted(gterms & set(by_key)):
         for k in {_key(n) for n in reach(t)} & gterms:
             if k == t:
                 continue
             den += 1
-            if frozenset((t, k)) in pairs:
+            if (t, k) in pairs:
                 num += 1
             else:
-                misses.append({"metric": "connection_precision", "golden": f"{t} -- {k}",
+                misses.append({"metric": "connection_precision", "golden": f"{t} -> {k}",
                                "d_had": "reachable in D but golden does not list a connection"})
     put("connection_precision", num, den)
 
     # false joins
     for a, b in ncs:
         if a in by_key and b in by_key and any(_key(n) == b for n in reach(a)):
-            false_joins.append({"golden": f"{a} !-- {b}", "d_had": "reachable via pipe edges"})
+            false_joins.append({"golden": f"{a} !-> {b}", "d_had": "reachable along flow direction via pipe edges"})
     put("false_joins", 0, 0, val=len(false_joins))
 
     # line number text
@@ -163,7 +178,8 @@ def score(graph, goldens, thresholds=None):
     put("cross_sheet", nf, len(cross) + len(extra))
 
     return {"pass": all(m["pass"] for m in metrics.values()), "metrics": metrics, "misses": misses,
-            "false_joins": false_joins, "missing_terminals": list(missing.values()), "extra_links": extra}
+            "false_joins": false_joins, "missing_terminals": list(missing.values()), "extra_links": extra,
+            "flow_known_share": flow_known_share}
 
 
 def contact_sheet(result, graph, image_path, out_path):
@@ -175,7 +191,7 @@ def contact_sheet(result, graph, image_path, out_path):
     tiles = []
     for label, text in [(m["golden"], m["metric"]) for m in result["misses"]] + \
                        [(f["golden"], "false_join") for f in result["false_joins"]]:
-        pts = [nodes[k]["xy_px"] for k in re.split(r" !?-- ", label.split(" core ")[0]) if k in nodes]
+        pts = [nodes[k]["xy_px"] for k in re.split(r" !?-?-> ", label.split(" core ")[0]) if k in nodes]
         if not pts:
             continue
         cx, cy = (int(sum(p[i] for p in pts) / len(pts)) for i in (0, 1))
@@ -220,6 +236,8 @@ def main(argv=None):
     for k, m in res["metrics"].items():
         v = "null" if m["value"] is None else f"{m['value']:.3f}"
         print(f"{k:22s} {v:>7s}  thr {m['threshold']}  {'ok' if m['pass'] else 'FAIL'}")
+    f = res["flow_known_share"]
+    print(f"flow_known_share       {'null' if f is None else f'{f:.3f}'}  (info)")
     print("PASS" if res["pass"] else "FAIL")
     if a.image:
         contact_sheet(res, graph, a.image, os.path.join(os.path.dirname(a.out) or ".", "score_contact.png"))

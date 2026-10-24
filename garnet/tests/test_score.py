@@ -17,7 +17,7 @@ def nd(i, kind, **k):
 
 def pe(i, u, v, ln, core, inl=()):
     return {"id": i, "kind": "pipe", "u": f"{S}/{u}", "v": f"{S}/{v}", "line_number": ln,
-            "line_core": core, "inline_objects": list(inl)}
+            "line_core": core, "inline_objects": list(inl), "flow": "forward"}
 
 
 L1, L2 = '4"-CUL-25-000001-B1A2-NI', '3"-CUL-25-000002-B1A2-NI'
@@ -62,6 +62,34 @@ class T(unittest.TestCase):
         r = score(GRAPH, [gold])
         self.assertEqual([m["terminal"] for m in r["missing_terminals"]], [f"{S}/V-9/N1"])
         self.assertLess(r["metrics"]["connection_recall"]["value"], 1)
+
+    def _flow_case(self, flow):
+        def e(i, u, v):
+            return {**pe(i, u, v, L1, "25-000001"), "flow": flow}
+        g = {"nodes": [nd("P-1/N2", "port"), nd("P-2/N2", "port"), nd("T1", "tee"), nd("O", "page_connection")],
+             "edges": [e("a", "P-1/N2", "T1"), e("b", "P-2/N2", "T1"), e("c", "T1", "O")]}
+        gold = {**G, "line_numbers": [], "inline": [],
+                "connections": [{"a": "P-1/N2", "b": "O", "line_core": "25-000001"},
+                                {"a": "O", "b": "P-1/N2", "line_core": "25-000001"},
+                                {"a": "P-1/N2", "b": "P-2/N2", "line_core": "25-000001"}],
+                "not_connected": [{"a": "P-1/N2", "b": "P-2/N2", "why": "both discharge to header"}]}
+        return score(g, [gold]), g
+
+    def test_directed_flow(self):
+        r, _ = self._flow_case("forward")
+        self.assertEqual(r["flow_known_share"], 1.0)
+        self.assertEqual(r["metrics"]["false_joins"]["value"], 0)
+        by = {m["golden"]: m for m in r["misses"] if m["metric"] == "connection_recall"}
+        self.assertNotIn(f"{S}/P-1/N2 -> {S}/O", by)                       # p1 -> O found
+        self.assertEqual(by[f"{S}/O -> {S}/P-1/N2"]["found_undirected"], True)   # O -> p1 not found
+        self.assertEqual(by[f"{S}/O -> {S}/P-1/N2"]["found_directed"], False)
+        self.assertIn(f"{S}/P-1/N2 -> {S}/P-2/N2", by)                     # p1 -> q1 not found
+
+    def test_unknown_flow_gives_false_join(self):
+        r, _ = self._flow_case("unknown")
+        self.assertEqual(r["flow_known_share"], 0.0)
+        self.assertEqual(r["metrics"]["false_joins"]["value"], 1)
+        self.assertFalse(r["pass"])
 
 
 if __name__ == "__main__":

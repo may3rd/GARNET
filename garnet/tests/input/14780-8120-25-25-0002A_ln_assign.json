@@ -1,0 +1,247 @@
+{
+ "sheet": "14780-8120-25-25-0002A",
+ "assignments": [
+  {
+   "id": "line_number_0001",
+   "choice": "A",
+   "trace_id": "equip_v_2501:port_01",
+   "xy": [
+    1332.0,
+    359.0
+   ],
+   "via": "alongside",
+   "why": "label sits on the VG line"
+  },
+  {
+   "id": "line_number_0002",
+   "choice": "A",
+   "trace_id": "obj_000237",
+   "xy": [
+    1154.0,
+    500.0
+   ],
+   "via": "alongside",
+   "why": "label on the 6\" F line"
+  },
+  {
+   "id": "line_number_0003",
+   "choice": "A",
+   "trace_id": "branch_000014",
+   "xy": [
+    1217.0,
+    613.3
+   ],
+   "via": "leader_arrow",
+   "why": "short leader from label end to the red vertical branch"
+  },
+  {
+   "id": "line_number_0004",
+   "choice": "A",
+   "trace_id": "obj_000200",
+   "xy": [
+    3540.6,
+    957.0
+   ],
+   "via": "alongside",
+   "why": "on the black 4\" line"
+  },
+  {
+   "id": "line_number_0005",
+   "choice": "C",
+   "trace_id": "branch_000042",
+   "xy": [
+    1406.0,
+    893.0
+   ],
+   "via": "leader_arrow",
+   "why": "leader arrowhead ends on the green vertical just above the junction"
+  },
+  {
+   "id": "line_number_0006",
+   "choice": "D",
+   "trace_id": "equip_v_2501:port_03",
+   "xy": [
+    1635.0,
+    958.0
+   ],
+   "via": "leader_arrow",
+   "why": "long leader arrow ends on the magenta vertical at right"
+  },
+  {
+   "id": "line_number_0007",
+   "choice": "A",
+   "trace_id": "equip_p_2504a:port_02",
+   "xy": [
+    3794.0,
+    1012.0
+   ],
+   "via": "leader_arrow",
+   "why": "leader tick from label end to the red vertical drop"
+  },
+  {
+   "id": "line_number_0008",
+   "choice": "A",
+   "trace_id": "obj_000202",
+   "xy": [
+    620.5,
+    1084.0
+   ],
+   "via": "alongside",
+   "why": "on red line"
+  },
+  {
+   "id": "line_number_0009",
+   "choice": "A",
+   "trace_id": "branch_000006",
+   "xy": [
+    3055.0,
+    1397.6
+   ],
+   "via": "alongside",
+   "why": "vertical label along red line"
+  },
+  {
+   "id": "line_number_0010",
+   "choice": "A",
+   "trace_id": "equip_v_2501:port_06",
+   "xy": [
+    2479.0,
+    1266.0
+   ],
+   "via": "alongside",
+   "why": "on red line"
+  },
+  {
+   "id": "line_number_0011",
+   "choice": "A",
+   "trace_id": "equip_p_2512:port_02",
+   "xy": [
+    2422.0,
+    1692.0
+   ],
+   "via": "alongside",
+   "why": "vertical label along red line"
+  },
+  {
+   "id": "line_number_0012",
+   "choice": "A",
+   "trace_id": "obj_000197",
+   "xy": [
+    3513.0,
+    1779.0
+   ],
+   "via": "alongside",
+   "why": "on red line, arrow at end points at same line"
+  },
+  {
+   "id": "line_number_0013",
+   "choice": "B",
+   "trace_id": "obj_000204",
+   "xy": [
+    2156.0,
+    2008.0
+   ],
+   "via": "leader_arrow",
+   "why": "leader arrow from label to blue line at S12"
+  },
+  {
+   "id": "line_number_0014",
+   "choice": "D",
+   "trace_id": "branch_000009",
+   "xy": [
+    3297.0,
+    2206.0
+   ],
+   "via": "leader_arrow",
+   "why": "leader arrow ends on the horizontal line left of 1\"X3\" reducer, not the red line above"
+  },
+  {
+   "id": "line_number_0015",
+   "choice": "A",
+   "trace_id": "obj_000199",
+   "xy": [
+    903.5,
+    2381.0
+   ],
+   "via": "alongside",
+   "why": "on red line"
+  },
+  {
+   "id": "line_number_0016",
+   "choice": "A",
+   "trace_id": "obj_000224",
+   "xy": [
+    646.0,
+    2572.5
+   ],
+   "via": "alongside",
+   "why": "vertical label along black line"
+  },
+  {
+   "id": "line_number_0017",
+   "choice": "A",
+   "trace_id": "equip_p_2504b:port_02",
+   "xy": [
+    3303.0,
+    2468.6
+   ],
+   "via": "leader_arrow",
+   "why": "dash leader to red vertical of P-2504B"
+  },
+  {
+   "id": "line_number_0018",
+   "choice": "A",
+   "trace_id": "obj_000203",
+   "xy": [
+    1808.0,
+    2632.6
+   ],
+   "via": "alongside",
+   "why": "vertical label along red line"
+  },
+  {
+   "id": "line_number_0019",
+   "choice": "A",
+   "trace_id": "equip_p_2504a:port_02",
+   "xy": [
+    3043.0,
+    2634.0
+   ],
+   "via": "alongside",
+   "why": "beneath red horizontal"
+  },
+  {
+   "id": "line_number_0020",
+   "choice": "A",
+   "trace_id": "obj_000196",
+   "xy": [
+    572.0,
+    2844.0
+   ],
+   "via": "alongside",
+   "why": "vertical label beside red vertical"
+  },
+  {
+   "id": "line_number_0021",
+   "choice": "A",
+   "trace_id": "branch_000007",
+   "xy": [
+    2281.4,
+    3068.0
+   ],
+   "via": "alongside",
+   "why": "on red line"
+  },
+  {
+   "id": "line_number_0022",
+   "choice": "A",
+   "trace_id": "obj_000201",
+   "xy": [
+    2865.8,
+    3228.0
+   ],
+   "via": "alongside",
+   "why": "on red line"
+  }
+ ]
+}

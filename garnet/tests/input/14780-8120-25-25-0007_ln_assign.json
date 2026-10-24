@@ -1,0 +1,115 @@
+{
+ "sheet": "14780-8120-25-25-0007",
+ "assignments": [
+  {
+   "id": "line_number_0001",
+   "choice": "A",
+   "trace_id": "obj_000088",
+   "xy": [
+    3427.5,
+    645.0
+   ],
+   "via": "alongside",
+   "why": "label directly above red horizontal, no leader"
+  },
+  {
+   "id": "line_number_0002",
+   "choice": "A",
+   "trace_id": "obj_000093",
+   "xy": [
+    2611.0,
+    1038.0
+   ],
+   "via": "leader_arrow",
+   "why": "arrow tip lands on horizontal pipe to F 25-0017"
+  },
+  {
+   "id": "line_number_0003",
+   "choice": "C",
+   "trace_id": "branch_000022",
+   "xy": [
+    2408.0,
+    1124.0
+   ],
+   "via": "leader_arrow",
+   "why": "leader arrow tip lands on green vertical pipe with up-arrow (branch_000022), not horizontal"
+  },
+  {
+   "id": "line_number_0004",
+   "choice": "B",
+   "trace_id": "branch_000015",
+   "xy": [
+    2017.0,
+    1376.5
+   ],
+   "via": "alongside",
+   "why": "vertical text runs along the blue vertical pipe, no leader"
+  },
+  {
+   "id": "line_number_0005",
+   "choice": "A",
+   "trace_id": "branch_000009",
+   "xy": [
+    2216.0,
+    1551.0
+   ],
+   "via": "leader_arrow",
+   "why": "arrow tip points left onto vertical pipe x~2216 (branch_000009)"
+  },
+  {
+   "id": "line_number_0006",
+   "choice": "A",
+   "trace_id": "equip_d_2506:port_02",
+   "xy": [
+    1546.0,
+    2094.0
+   ],
+   "via": "alongside",
+   "why": "label just below red horizontal from nozzle; the arrow nearby belongs to SPOOL PIECE note"
+  },
+  {
+   "id": "line_number_0007",
+   "choice": "A",
+   "trace_id": "obj_000090",
+   "xy": [
+    3439.8,
+    2806.0
+   ],
+   "via": "alongside",
+   "why": "label directly above red line, no leader"
+  },
+  {
+   "id": "line_number_0008",
+   "choice": "A",
+   "trace_id": "obj_000084",
+   "xy": [
+    3434.0,
+    2918.0
+   ],
+   "via": "alongside",
+   "why": "label directly above red line, no leader"
+  },
+  {
+   "id": "line_number_0009",
+   "choice": "A",
+   "trace_id": "obj_000085",
+   "xy": [
+    3434.8,
+    3034.0
+   ],
+   "via": "alongside",
+   "why": "label directly above red line, no leader"
+  },
+  {
+   "id": "line_number_0010",
+   "choice": "A",
+   "trace_id": "obj_000089",
+   "xy": [
+    601.7,
+    3104.0
+   ],
+   "via": "alongside",
+   "why": "label directly below red horizontal, no leader"
+  }
+ ]
+}

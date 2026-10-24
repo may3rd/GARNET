@@ -41,7 +41,8 @@
         "y_max": 994
       },
       "source_model": "ultralytics",
-      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt",
+      "Text": "PSV 0702A"
     },
     {
       "id": "obj_000002",
@@ -54,7 +55,8 @@
         "y_max": 2314
       },
       "source_model": "ultralytics",
-      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt",
+      "Text": "PI 0702"
     },
     {
       "id": "obj_000003",
@@ -67,7 +69,8 @@
         "y_max": 1024
       },
       "source_model": "ultralytics",
-      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt",
+      "Text": "FIF 0701"
     },
     {
       "id": "obj_000004",
@@ -80,7 +83,8 @@
         "y_max": 1173
       },
       "source_model": "ultralytics",
-      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt",
+      "Text": "PSV 0702B"
     },
     {
       "id": "obj_000005",
@@ -93,7 +97,8 @@
         "y_max": 1911
       },
       "source_model": "ultralytics",
-      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt",
+      "Text": "PDT 0703"
     },
     {
       "id": "obj_000006",
@@ -106,7 +111,8 @@
         "y_max": 873
       },
       "source_model": "ultralytics",
-      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt",
+      "Text": "AE 0702"
     },
     {
       "id": "obj_000007",
@@ -119,7 +125,8 @@
         "y_max": 604
       },
       "source_model": "ultralytics",
-      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt",
+      "Text": "FT 0702"
     },
     {
       "id": "obj_000008",
@@ -132,7 +139,8 @@
         "y_max": 873
       },
       "source_model": "ultralytics",
-      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt",
+      "Text": "AT 0702"
     },
     {
       "id": "obj_000009",
@@ -1120,7 +1128,9 @@
         "y_max": 2939
       },
       "source_model": "ultralytics",
-      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt",
+      "Text": "25-0013",
+      "Direction": "from"
     },
     {
       "id": "obj_000085",
@@ -1133,7 +1143,9 @@
         "y_max": 3054
       },
       "source_model": "ultralytics",
-      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt",
+      "Text": "25-0013",
+      "Direction": "to"
     },
     {
       "id": "obj_000086",
@@ -1146,7 +1158,9 @@
         "y_max": 2616
       },
       "source_model": "ultralytics",
-      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt",
+      "Text": "25-0008",
+      "Direction": "to"
     },
     {
       "id": "obj_000087",
@@ -1159,7 +1173,9 @@
         "y_max": 2692
       },
       "source_model": "ultralytics",
-      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt",
+      "Text": "25-0010",
+      "Direction": "to"
     },
     {
       "id": "obj_000088",
@@ -1172,7 +1188,9 @@
         "y_max": 665
       },
       "source_model": "ultralytics",
-      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt",
+      "Text": "25-0007A",
+      "Direction": "to"
     },
     {
       "id": "obj_000089",
@@ -1185,7 +1203,9 @@
         "y_max": 3126
       },
       "source_model": "ultralytics",
-      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt",
+      "Text": "25-0006",
+      "Direction": "from"
     },
     {
       "id": "obj_000090",
@@ -1198,7 +1218,9 @@
         "y_max": 2827
       },
       "source_model": "ultralytics",
-      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt",
+      "Text": "25-0010",
+      "Direction": "from"
     },
     {
       "id": "obj_000091",
@@ -1211,7 +1233,9 @@
         "y_max": 2542
       },
       "source_model": "ultralytics",
-      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt",
+      "Text": "25-0013",
+      "Direction": "to"
     },
     {
       "id": "obj_000092",
@@ -1224,7 +1248,9 @@
         "y_max": 240
       },
       "source_model": "ultralytics",
-      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt",
+      "Text": "25-0007A",
+      "Direction": "to"
     },
     {
       "id": "obj_000093",
@@ -1237,7 +1263,8 @@
         "y_max": 1102
       },
       "source_model": "ultralytics",
-      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt",
+      "Text": "25-0017"
     },
     {
       "id": "obj_000094",
@@ -1302,7 +1329,8 @@
         "y_max": 1735
       },
       "source_model": "ultralytics",
-      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt",
+      "Text": "PDI 0703"
     },
     {
       "id": "obj_000099",
@@ -1315,7 +1343,8 @@
         "y_max": 429
       },
       "source_model": "ultralytics",
-      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt",
+      "Text": "FIC 0702"
     },
     {
       "id": "obj_000100",
@@ -1328,7 +1357,8 @@
         "y_max": 875
       },
       "source_model": "ultralytics",
-      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt"
+      "source_weight": "backend/yolo_weights/yolo26n_PPCL_640_20260227.pt",
+      "Text": "AIC 0702"
     },
     {
       "id": "obj_000101",
