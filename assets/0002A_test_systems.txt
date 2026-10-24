@@ -1,0 +1,479 @@
+==============================================================================
+GARNET TEST SYSTEMS REPORT
+==============================================================================
+  Sheet             0002A.jpg
+  Job               a6fd9abe67d74f8d9c76f2446481e284
+  Generated         2026-10-06T14:35:07+0700
+  Status            completed
+  Gates confirmed   Gate 1, Gate 2, Gate 3
+  Gate 3 confirmed  yes
+  Text edits        version 0
+  Membership rule   direct: a trace belongs to the systems of the accepted line numbers attached to it
+
+  Systems           22
+  Conflicts         2
+  Unassigned traces 20
+
+==============================================================================
+[1] (no text) obj_000024   <NO TEXT>
+------------------------------------------------------------------------------
+  Pipe sections (1)
+    - branch_000006              branch  -> tee_junction
+  Equipment (0)
+  Instruments (2)
+    - FT 0206          instrument tag     obj_000003  on branch_000006
+    - AIC 0202-        instrument dcs     obj_000218  on branch_000006
+  Inline objects (2): globe valve x2
+    - branch_000006:hit_001  globe valve
+    - obj_000169             globe valve
+  Boundaries (0)
+  Labels: obj_000024
+  Flow arrows on these sections: 3
+
+==============================================================================
+[2] 1"-PL-25-002022-N2A1-NI
+------------------------------------------------------------------------------
+  Pipe sections (1)
+    - obj_000201                 port    -> tee_junction
+  Equipment (0)
+  Instruments (0)
+  Inline objects (2): reducer x2
+    - obj_000180             reducer
+    - obj_000201:hit_001     reducer
+  Boundaries (1)
+    - obj_000201             page connection      source
+  Labels: obj_000032
+  Flow arrows on these sections: 1
+
+==============================================================================
+[3] 1½"-CUL-25-002012-B1A2-NI
+------------------------------------------------------------------------------
+  Pipe sections (1)
+    - branch_000006              branch  -> tee_junction
+  Equipment (0)
+  Instruments (2)
+    - FT 0206          instrument tag     obj_000003  on branch_000006
+    - AIC 0202-        instrument dcs     obj_000218  on branch_000006
+  Inline objects (2): globe valve x2
+    - branch_000006:hit_001  globe valve
+    - obj_000169             globe valve
+  Boundaries (0)
+  Labels: obj_000042
+  Flow arrows on these sections: 3
+
+==============================================================================
+[4] 1½"-PL-25-002004-B2A2-NI
+------------------------------------------------------------------------------
+  Pipe sections (1)
+    - obj_000202                 port    -> tee_junction
+  Equipment (0)
+  Instruments (0)
+  Inline objects (4): check valve x2, gate valve x2
+    - obj_000133             gate valve
+    - obj_000202:hit_001     check valve
+    - obj_000202:hit_002     gate valve
+    - obj_000212             check valve
+  Boundaries (1)
+    - obj_000202             page connection      source
+  Labels: obj_000026
+  Flow arrows on these sections: 1
+
+==============================================================================
+[5] 1½"-PWD-25-002016-L1A1-NI
+------------------------------------------------------------------------------
+  Pipe sections (1)
+    - obj_000203                 port    -> tee_junction
+  Equipment (0)
+  Instruments (0)
+  Inline objects (5): gate valve x3, spectacle blind x2
+    - obj_000134             gate valve
+    - obj_000143             gate valve
+    - obj_000152             spectacle blind
+    - obj_000203:hit_001     gate valve
+    - obj_000203:hit_002     spectacle blind
+  Boundaries (1)
+    - obj_000203             utility connection   source
+  Labels: line_number_0001
+  Flow arrows on these sections: 1
+
+==============================================================================
+[6] 1½"-VG-25-002021-L1A1-NI
+------------------------------------------------------------------------------
+  Pipe sections (1)
+    - equip_v_2501:port_01       port    -> tee_junction
+  Equipment (1)
+    - V-2501         column             source    via equip_v_2501:port_01
+  Instruments (0)
+  Inline objects (8): gate valve x2, globe valve x2, reducer x2, spectacle blind x2
+    - equip_v_2501:port_01:hit_001 gate valve
+    - equip_v_2501:port_01:hit_002 spectacle blind
+    - equip_v_2501:port_01:hit_003 globe valve
+    - equip_v_2501:port_01:hit_004 reducer
+    - obj_000115             gate valve
+    - obj_000161             spectacle blind
+    - obj_000167             globe valve
+    - obj_000187             reducer
+  Boundaries (0)
+  Labels: obj_000037
+  Flow arrows on these sections: 0
+
+==============================================================================
+[7] 2"-NAS-25-003004-B2A2-NI   <CONFLICT>
+------------------------------------------------------------------------------
+  Pipe sections (1)
+    - obj_000197                 port    -> equipment  ** also carries: 3"-CUL-25-002008-B1A2-NI
+  Equipment (1)
+    - V-2501         column             terminal  via obj_000197
+  Instruments (5)
+    - FT 0207          instrument tag     obj_000010  on obj_000197
+    - FE 0207          instrument tag     obj_000016  on obj_000197
+    - FV 0207          instrument tag     obj_000023  on obj_000197
+    - (no text)        instrument dcs     obj_000221  on obj_000197
+    - FI NQ2064        instrument logic   obj_000234  on obj_000197
+  Inline objects (16): check valve x3, control valve x2, gate valve x4, reducer x6, spectacle blind x1
+    - obj_000113             gate valve
+    - obj_000126             gate valve
+    - obj_000153             spectacle blind
+    - obj_000176             reducer
+    - obj_000178             reducer
+    - obj_000194             reducer
+    - obj_000197:hit_001     reducer
+    - obj_000197:hit_002     gate valve
+    - obj_000197:hit_003     reducer
+    - obj_000197:hit_004     control valve
+    - obj_000197:hit_005     reducer
+    - obj_000197:hit_006     gate valve
+    - obj_000197:hit_007     check valve
+    - obj_000197:hit_009     check valve
+    - obj_000213             check valve
+    - obj_000232             control valve
+  Boundaries (1)
+    - obj_000197             page connection      source
+  Labels: obj_000029
+  Flow arrows on these sections: 1
+
+==============================================================================
+[8] 2"-PL-25-002015-B1A2-NI
+------------------------------------------------------------------------------
+  Pipe sections (1)
+    - equip_v_2501:port_06       port    -> instrument_tag
+  Equipment (1)
+    - V-2501         column             source    via equip_v_2501:port_06
+  Instruments (1)
+    - FIF 0202         instrument tag     obj_000005  on equip_v_2501:port_06
+  Inline objects (7): check valve x2, gate valve x3, reducer x2
+    - equip_v_2501:port_06:hit_001 reducer
+    - equip_v_2501:port_06:hit_002 gate valve
+    - equip_v_2501:port_06:hit_003 check valve
+    - obj_000118             gate valve
+    - obj_000140             gate valve
+    - obj_000181             reducer
+    - obj_000206             check valve
+  Boundaries (0)
+  Labels: obj_000043
+  Flow arrows on these sections: 1
+
+==============================================================================
+[9] 2"-S12-66-059061-MS12-H
+------------------------------------------------------------------------------
+  Pipe sections (1)
+    - obj_000204                 port    -> equipment
+  Equipment (1)
+    - V-2501         column             terminal  via obj_000204
+  Instruments (0)
+  Inline objects (9): check valve x2, gate valve x5, spectacle blind x2
+    - obj_000110             gate valve
+    - obj_000128             gate valve
+    - obj_000137             gate valve
+    - obj_000149             spectacle blind
+    - obj_000204:hit_001     gate valve
+    - obj_000204:hit_002     check valve
+    - obj_000204:hit_003     spectacle blind
+    - obj_000204:hit_004     gate valve
+    - obj_000211             check valve
+  Boundaries (1)
+    - obj_000204             utility connection   source
+  Labels: obj_000044
+  Flow arrows on these sections: 1
+
+==============================================================================
+[10] 3"-CUL-25-002008-B1A2-NI   <CONFLICT>
+------------------------------------------------------------------------------
+  Pipe sections (2)
+    - equip_p_2504a:port_02      port    -> tee_junction
+    - obj_000197                 port    -> equipment  ** also carries: 2"-NAS-25-003004-B2A2-NI
+  Equipment (2)
+    - P-2504A        pump               source    via equip_p_2504a:port_02
+    - V-2501         column             terminal  via obj_000197
+  Instruments (6)
+    - FT 0207          instrument tag     obj_000010  on obj_000197
+    - FE 0207          instrument tag     obj_000016  on obj_000197
+    - FV 0207          instrument tag     obj_000023  on obj_000197
+    - (no text)        instrument dcs     obj_000221  on obj_000197
+    - FI NQ2064        instrument logic   obj_000234  on obj_000197
+    - FY NQ207N        instrument logic   obj_000236  on equip_p_2504a:port_02
+  Inline objects (24): check valve x3, control valve x2, gate valve x6, reducer x8, spectacle blind x3, strainer x2
+    - equip_p_2504a:port_02:hit_001 reducer
+    - equip_p_2504a:port_02:hit_002 strainer
+    - equip_p_2504a:port_02:hit_003 spectacle blind
+    - equip_p_2504a:port_02:hit_004 gate valve
+    - obj_000113             gate valve
+    - obj_000126             gate valve
+    - obj_000147             gate valve
+    - obj_000151             spectacle blind
+    - obj_000153             spectacle blind
+    - obj_000176             reducer
+    - obj_000178             reducer
+    - obj_000188             reducer
+    - obj_000194             reducer
+    - obj_000197:hit_001     reducer
+    - obj_000197:hit_002     gate valve
+    - obj_000197:hit_003     reducer
+    - obj_000197:hit_004     control valve
+    - obj_000197:hit_005     reducer
+    - obj_000197:hit_006     gate valve
+    - obj_000197:hit_007     check valve
+    - obj_000197:hit_009     check valve
+    - obj_000213             check valve
+    - obj_000229             strainer
+    - obj_000232             control valve
+  Boundaries (1)
+    - obj_000197             page connection      source
+  Labels: obj_000027, obj_000038
+  Flow arrows on these sections: 3
+
+==============================================================================
+[11] 3"-CUL-25-002009-B2A2-NI
+------------------------------------------------------------------------------
+  Pipe sections (1)
+    - equip_p_2504b:port_02      port    -> tee_junction
+  Equipment (1)
+    - P-2504B        pump               source    via equip_p_2504b:port_02
+  Instruments (0)
+  Inline objects (8): gate valve x2, reducer x2, spectacle blind x2, strainer x2
+    - equip_p_2504b:port_02:hit_001 reducer
+    - equip_p_2504b:port_02:hit_002 strainer
+    - equip_p_2504b:port_02:hit_003 spectacle blind
+    - equip_p_2504b:port_02:hit_004 gate valve
+    - obj_000144             gate valve
+    - obj_000154             spectacle blind
+    - obj_000190             reducer
+    - obj_000228             strainer
+  Boundaries (0)
+  Labels: obj_000031
+  Flow arrows on these sections: 0
+
+==============================================================================
+[12] 3"-CUL-25-002010-B2A2-NI
+------------------------------------------------------------------------------
+  Pipe sections (1)
+    - branch_000007              branch  -> tee_junction
+  Equipment (0)
+  Instruments (3)
+    - AT 0202          instrument tag     obj_000001  on branch_000007
+    - FV 02052         instrument tag     obj_000022  on branch_000007
+    - XC 2512-         instrument dcs     obj_000219  on branch_000007
+  Inline objects (16): check valve x2, control valve x2, gate valve x4, reducer x8
+    - branch_000007:hit_001  reducer
+    - branch_000007:hit_002  gate valve
+    - branch_000007:hit_003  reducer
+    - branch_000007:hit_004  control valve
+    - branch_000007:hit_005  reducer
+    - branch_000007:hit_006  gate valve
+    - branch_000007:hit_007  reducer
+    - branch_000007:hit_008  check valve
+    - obj_000123             gate valve
+    - obj_000138             gate valve
+    - obj_000170             reducer
+    - obj_000174             reducer
+    - obj_000182             reducer
+    - obj_000185             reducer
+    - obj_000205             check valve
+    - obj_000233             control valve
+  Boundaries (0)
+  Labels: obj_000039
+  Flow arrows on these sections: 5
+
+==============================================================================
+[13] 3"-CUL-25-002011-B2A2-NI
+------------------------------------------------------------------------------
+  Pipe sections (1)
+    - branch_000049              branch  -> dead_end
+  Equipment (0)
+  Instruments (1)
+    - FE 02062         instrument tag     obj_000007  on branch_000049
+  Inline objects (0)
+  Boundaries (0)
+  Labels: obj_000028
+  Flow arrows on these sections: 0
+
+==============================================================================
+[14] 3"-PL-24-015002-N2A1-NI
+------------------------------------------------------------------------------
+  Pipe sections (1)
+    - obj_000224                 port    -> equipment
+  Equipment (1)
+    - X-2501         mixer              terminal  via obj_000224
+  Instruments (2)
+    - FE 02052         instrument tag     obj_000009  on obj_000224
+    - FT 02052         instrument tag     obj_000017  on obj_000224
+  Inline objects (0)
+  Boundaries (0)
+  Labels: obj_000030
+  Flow arrows on these sections: 2
+
+==============================================================================
+[15] 3"-PL-25-002013-B1A2-NI
+------------------------------------------------------------------------------
+  Pipe sections (1)
+    - obj_000199                 port    -> equipment
+  Equipment (1)
+    - V-2501         column             terminal  via obj_000199
+  Instruments (0)
+  Inline objects (2): spectacle blind x2
+    - obj_000159             spectacle blind
+    - obj_000199:hit_001     spectacle blind
+  Boundaries (1)
+    - obj_000199             page connection      source
+  Labels: obj_000046
+  Flow arrows on these sections: 1
+
+==============================================================================
+[16] 3"-PL-25-002014-B1A2-NI
+------------------------------------------------------------------------------
+  Pipe sections (1)
+    - equip_p_2512:port_02       port    -> equipment
+  Equipment (2)
+    - P-2512         pump               source    via equip_p_2512:port_02
+    - V-2501         column             terminal  via equip_p_2512:port_02
+  Instruments (0)
+  Inline objects (7): gate valve x2, reducer x2, spectacle blind x1, strainer x2
+    - equip_p_2512:port_02:hit_001 reducer
+    - equip_p_2512:port_02:hit_002 strainer
+    - equip_p_2512:port_02:hit_004 gate valve
+    - obj_000142             gate valve
+    - obj_000160             spectacle blind
+    - obj_000189             reducer
+    - obj_000230             strainer
+  Boundaries (0)
+  Labels: obj_000040
+  Flow arrows on these sections: 2
+
+==============================================================================
+[17] 3"-PL-26-003008-N2A1-NI
+------------------------------------------------------------------------------
+  Pipe sections (1)
+    - obj_000196                 port    -> tee_junction
+  Equipment (0)
+  Instruments (0)
+  Inline objects (0)
+  Boundaries (1)
+    - obj_000196             page connection      source
+  Labels: obj_000034
+  Flow arrows on these sections: 0
+
+==============================================================================
+[18] 4"-CUL-25-002007-B1A2-NI
+------------------------------------------------------------------------------
+  Pipe sections (1)
+    - obj_000200                 port    -> equipment
+  Equipment (1)
+    - V-2501         column             terminal  via obj_000200
+  Instruments (0)
+  Inline objects (3): reducer x2, spectacle blind x1
+    - obj_000155             spectacle blind
+    - obj_000172             reducer
+    - obj_000200:hit_001     reducer
+  Boundaries (1)
+    - obj_000200             page connection      source
+  Labels: obj_000025
+  Flow arrows on these sections: 2
+
+==============================================================================
+[19] 4"-CUL-25-002017-B1A2-NI   <CONFLICT>
+------------------------------------------------------------------------------
+  Pipe sections (1)
+    - obj_000195                 port    -> tee_junction  ** also carries: 4"-CUL-25-002018-B1A2-NI
+  Equipment (0)
+  Instruments (3)
+    - 02014            instrument tag     obj_000013  on obj_000195
+    - T 0201           instrument dcs     obj_000216  on obj_000195
+    - LIC 0201         instrument dcs     obj_000220  on obj_000195
+  Inline objects (0)
+  Boundaries (1)
+    - obj_000195             page connection      source
+  Labels: obj_000033
+  Flow arrows on these sections: 0
+
+==============================================================================
+[20] 4"-CUL-25-002018-B1A2-NI   <CONFLICT>
+------------------------------------------------------------------------------
+  Pipe sections (1)
+    - obj_000195                 port    -> tee_junction  ** also carries: 4"-CUL-25-002017-B1A2-NI
+  Equipment (0)
+  Instruments (3)
+    - 02014            instrument tag     obj_000013  on obj_000195
+    - T 0201           instrument dcs     obj_000216  on obj_000195
+    - LIC 0201         instrument dcs     obj_000220  on obj_000195
+  Inline objects (0)
+  Boundaries (1)
+    - obj_000195             page connection      source
+  Labels: obj_000041
+  Flow arrows on these sections: 0
+
+==============================================================================
+[21] 6"-F-25-002019-L1A1-NI
+------------------------------------------------------------------------------
+  Pipe sections (1)
+    - obj_000237                 port    -> pressure_relief_valve
+  Equipment (0)
+  Instruments (0)
+  Inline objects (6): gate valve x3, pressure relief valve x1, reducer x2
+    - obj_000122             gate valve
+    - obj_000130             gate valve
+    - obj_000193             reducer
+    - obj_000237:hit_001     gate valve
+    - obj_000237:hit_002     reducer
+    - obj_000237:hit_003     pressure relief valve
+  Boundaries (1)
+    - obj_000237             utility connection   source
+  Labels: obj_000036
+  Flow arrows on these sections: 1
+
+==============================================================================
+[22] 6"-F-25-002020-L1A1-NI
+------------------------------------------------------------------------------
+  Pipe sections (1)
+    - branch_000035              branch  -> pressure_relief_valve
+  Equipment (0)
+  Instruments (0)
+  Inline objects (6): gate valve x3, pressure relief valve x1, reducer x2
+    - branch_000035:hit_001  gate valve
+    - branch_000035:hit_002  reducer
+    - obj_000127             gate valve
+    - obj_000145             gate valve
+    - obj_000171             reducer
+    - obj_000223             pressure relief valve
+  Boundaries (0)
+  Labels: obj_000035
+  Flow arrows on these sections: 0
+
+==============================================================================
+CONFLICTS (one pipe section carrying more than one line number)
+------------------------------------------------------------------------------
+  - obj_000195: 4"-CUL-25-002017-B1A2-NI | 4"-CUL-25-002018-B1A2-NI
+  - obj_000197: 2"-NAS-25-003004-B2A2-NI | 3"-CUL-25-002008-B1A2-NI
+
+==============================================================================
+PIPE SECTIONS IN NO SYSTEM (no line number attached)
+------------------------------------------------------------------------------
+  branch_000001             branch_000005             branch_000009
+  branch_000012             branch_000014             branch_000015
+  branch_000018             branch_000020             branch_000021
+  branch_000030             branch_000042             branch_000050
+  branch_000054             equip_p_2504a:port_01     equip_p_2504b:port_01
+  equip_p_2512:port_01      equip_v_2501:port_02      equip_v_2501:port_03
+  equip_v_2501:port_08      obj_000198
+
+==============================================================================
+Source: out/test_systems.json. Values are reproduced exactly as stored.
