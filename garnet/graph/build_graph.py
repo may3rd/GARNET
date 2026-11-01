@@ -15,7 +15,10 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
+import cv2
+
 from garnet.graph.contracts import SCHEMA, line_core, parse_line_number, short_sheet
+from garnet.graph.flow import infer_flow
 
 TEE_REACH = 20.0     # px: tee endpoint -> nearest point on another trace
 TEE_MERGE = 12.0     # px: endpoints this close share one tee
@@ -395,8 +398,10 @@ def build_graph(stem: str, out_dir, indir="garnet/tests/input") -> dict:
         if len(cs) > 1:
             flag("port_core_conflict", p, f"port touches edges with different line cores {sorted(cs)}")
 
-    return {"schema": SCHEMA, "sheets": [stem], "nodes": list(nodes.values()), "edges": edges,
-            "line_list": line_list, "equipment_connectivity": conn, "flags": flags}
+    g = {"schema": SCHEMA, "sheets": [stem], "nodes": list(nodes.values()), "edges": edges,
+         "line_list": line_list, "equipment_connectivity": conn, "flags": flags}
+    img = cv2.imread(str(indir / f"{stem}.jpg")) if (indir / f"{stem}.jpg").is_file() else None  # None: arrows unread
+    return infer_flow(g, s6, objs, img, _load(out_dir / "flow_assign.json"))
 
 
 def main(argv=None) -> int:

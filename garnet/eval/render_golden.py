@@ -70,13 +70,16 @@ RED, BLUE, GREEN = (0, 0, 255), (255, 80, 0), (0, 160, 0)
 
 def tracer_path(graph, short, a, b):
     """Edges of the shortest graph path a -> b through tee/end nodes, or None.
-    # ponytail: re-walks the graph (score.py keeps its BFS private); verdict itself comes from score()."""
+    # ponytail: re-walks the graph honouring edge flow (score.py keeps its BFS private); verdict itself comes from score()."""
     nodes = {n["id"]: n for n in graph["nodes"]}
     adj = {}
     for e in graph["edges"]:
         if e.get("kind") in ("pipe", "cross_sheet_continues"):
-            adj.setdefault(e["u"], []).append((e["v"], e))
-            adj.setdefault(e["v"], []).append((e["u"], e))
+            fl = e.get("flow") if e["kind"] == "pipe" else "unknown"
+            if fl != "reverse":
+                adj.setdefault(e["u"], []).append((e["v"], e))
+            if fl != "forward":
+                adj.setdefault(e["v"], []).append((e["u"], e))
     starts = [i for i, _ in resolve(graph, short, a)]
     seen = {i: [] for i in starts}
     q = list(starts)
@@ -93,16 +96,14 @@ def tracer_path(graph, short, a, b):
     return None
 
 
-def verdicts(golden, graph):
-    """-> {(a, b, line_core): (found, line_ok)} from score.score()'s own misses."""
-    short = short_sheet(golden["sheet"])
-    m = {x["golden"] for x in score(graph, [golden])["misses"] if x["metric"] in ("connection_recall", "line_assignment")}
-    out = {}
-    for c in golden.get("connections", []):
-        a, b, core = f"{short}/{c['a']}", f"{short}/{c['b']}", c.get("line_core", "")
-        found = f"{a} -- {b}" not in m
-        out[(c["a"], c["b"], core)] = (found, found and f"{a} -- {b} core {core}" not in m)
-    return out
+def verdict(golden, graph, c):
+    """One connection scored alone via score.score() structured misses -> (found, line_ok, text)."""
+    misses = score(graph, [{"sheet": golden["sheet"], "connections": [c]}])["misses"]
+    rec = next((m for m in misses if m["metric"] == "connection_recall"), None)
+    line_ok = not any(m["metric"] == "line_assignment" for m in misses) and rec is None
+    if rec is None:
+        return True, line_ok, "found"
+    return False, False, "MISSED (pipe exists, flow direction blocks it)" if rec["found_undirected"] else "MISSED (no pipe)"
 
 
 def render(golden, graph, image, out):
@@ -111,7 +112,6 @@ def render(golden, graph, image, out):
         if f.endswith(".png") and f.split("_")[0] in ("pair", "path", "conn"):
             os.remove(os.path.join(out, f))
     short = short_sheet(golden["sheet"])
-    vd = verdicts(golden, graph)
     recs = []
     for n, c in enumerate(golden.get("connections", []), 1):
         path = c.get("path_px") or []
@@ -123,10 +123,10 @@ def render(golden, graph, image, out):
             elif len(cands) > 1:
                 notes.append(f"{gid}: {len(cands)} candidates drawn")
             ends.append(cands)
-        found, line_ok = vd[(c["a"], c["b"], c.get("line_core", ""))]
+        found, line_ok, vtxt = verdict(golden, graph, c)
         tp = tracer_path(graph, short, c["a"], c["b"]) if found else None
         cap = (f"#{n:02d}  {c['a']} -> {c['b']}  {c.get('line_core', '')}  {c.get('confidence', '')}")
-        verdict = f"tracer: {'found' if found else 'MISSED'}, line: {'ok' if line_ok else 'WRONG'}"
+        verdict_s = f"tracer: {vtxt}, line: {'ok' if line_ok else 'WRONG'}"
         if not path:
             notes.append("NO PATH TRACED")
         pts = [p for e in ends for _, p in e] + [tuple(p) for p in path]
@@ -147,11 +147,11 @@ def render(golden, graph, image, out):
                 for _, p in e:
                     ring(tile, tf(p), lab, col)
         img = f"conn_{n:02d}.png"
-        cv2.imwrite(os.path.join(out, img), with_caption(tile, cap + "  " + verdict, "; ".join(notes)))
+        cv2.imwrite(os.path.join(out, img), with_caption(tile, cap + "  " + verdict_s, "; ".join(notes)))
         recs.append({"nn": f"{n:02d}", "a": c["a"], "b": c["b"], "line_core": c.get("line_core", ""),
                      "confidence": c.get("confidence", ""), "why": c.get("why", c.get("note", "")), "image": img,
                      "tracer_found": found, "tracer_line_ok": line_ok, "has_path": bool(path), "_cap": cap,
-                     "_v": verdict, "_n": "; ".join(notes)})
+                     "_v": verdict_s, "tracer_verdict": vtxt, "_n": "; ".join(notes)})
     tr = "".join(f"<tr><td style='width:22%'>{html.escape(r['_cap'])}<br><b>{html.escape(r['_v'])}</b><br>"
                  f"<small>{html.escape(r['_n'])}<br>{html.escape(r['why'])}</small></td>"
                  f"<td><img src='{r['image']}' style='width:100%'></td></tr>" for r in recs)
