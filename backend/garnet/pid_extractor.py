@@ -258,7 +258,11 @@ class PipelineConfig:
     trace_turn_min_step: int = 3
     trace_lookahead_px: int = 30
     trace_raycast_max_snap_shift_px: int = 4
-    trace_branch_min_run_px: int = 25
+    # 12, not 25: drain/vent stubs off a tee run ~50 px and were being skipped as
+    # branches. Measured on GT 0003 (all 40 lines drawn) recall 0.834 -> 0.930 and
+    # fully-traced lines 29/40 -> 35/40; 0002A holds (0.971 -> 0.972). 6 px floods the
+    # sheet with noise branches and drops both metrics; 16 sits between the two.
+    trace_branch_min_run_px: int = 12
     trace_branch_candidate_sample_step_px: int = 5
     trace_branch_cluster_radius_px: int = 8
     trace_branch_max_iterations: int = 5

@@ -165,6 +165,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--debug-artifacts", action="store_true",
                    help="Also emit per-trace images and branch-candidate iteration overlays.")
     p.add_argument("--force", action="store_true", help="Re-trace even if overlays already exist.")
+    p.add_argument("--set", action="append", default=[], metavar="KEY=VALUE",
+                   help="Override a PipelineConfig field for calibration runs, e.g. "
+                        "--set trace_branch_min_run_px=12. Repeatable.")
     args = p.parse_args(argv)
 
     if args.job_dir:
@@ -204,6 +207,21 @@ def main(argv: list[str] | None = None) -> int:
     from garnet.pid_extractor import PIDPipeline, PipelineConfig
 
     cfg = PipelineConfig(debug_artifacts=args.debug_artifacts, ocr_route=args.ocr_route)
+    for item in args.set:
+        key, _, value = item.partition("=")
+        if not hasattr(cfg, key):
+            print(f"error: unknown PipelineConfig field: {key}", file=sys.stderr)
+            return 1
+        current = getattr(cfg, key)
+        if isinstance(current, bool):
+            setattr(cfg, key, value.strip().lower() in ("1", "true", "yes", "on"))
+        elif isinstance(current, int):
+            setattr(cfg, key, int(value))
+        elif isinstance(current, float):
+            setattr(cfg, key, float(value))
+        else:
+            setattr(cfg, key, value)
+        print(f"cfg override: {key} = {getattr(cfg, key)!r}")
     pipe = PIDPipeline(image_path=str(image_path), output_dir=str(out_dir), cfg=cfg)
 
     # ---- prerequisites -------------------------------------------------------

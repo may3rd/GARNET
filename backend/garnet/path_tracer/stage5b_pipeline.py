@@ -29,6 +29,13 @@ try:
 except Exception:  # pragma: no cover
     Image = None
 
+INLINE_SEED_CLASSES = ("pressure relief valve",)
+
+# A symbol/equipment bbox whose edge scan finds no pipe is retried on boxes grown by this
+# step, up to this many px (see _detect_equipment_ports_cv).
+_PORT_SCAN_GROW_STEP = 2
+_PORT_SCAN_MAX_GROW = 10
+
 logger = logging.getLogger("pid")
 
 EQUIPMENT_LABELS = {
@@ -2092,7 +2099,7 @@ class Stage5bPipelineMixin:
         return None
 
     def _detect_equipment_ports_cv(
-        self, image: np.ndarray, bbox: dict[str, int], track_len: int = 60
+        self, image: np.ndarray, bbox: dict[str, int], track_len: int = 60, grow: int = 0
     ) -> list[tuple[int, int, str]]:
         """Detect ALL pipe attachment ports on an equipment bbox.
 
@@ -2175,7 +2182,80 @@ class Stage5bPipelineMixin:
                 i += 15
                 continue
 
-        return all_ports
+        if all_ports or grow >= _PORT_SCAN_MAX_GROW:
+            return all_ports
+        # Nothing touches the box edge: a tight symbol bbox (relief valve, small reducer)
+        # can sit a few px clear of the pipe it feeds, so the edge scan hits only
+        # background. Grow the box and retry — same scan, same thresholds.
+        pad = grow + _PORT_SCAN_GROW_STEP
+        grown = {"x_min": x1 - pad, "y_min": y1 - pad, "x_max": x2 + pad, "y_max": y2 + pad}
+        return self._detect_equipment_ports_cv(image, grown, track_len, pad)
+
+    def _inline_symbol_seeds(
+        self, bbox: dict[str, int], mask: np.ndarray, pad_max: int = 12, min_run: int = 10
+    ) -> list[tuple[int, int, str]]:
+        """Seed ports on an inline symbol from the *pipe mask*, not the grey image.
+
+        An edge scan of the grey image cannot tell a nozzle from a tag leader line: on
+        0002A the PSV-0201B seed picked an UP leader that ended on an instrument tag and
+        its real outlet (top-right corner, running right then down) was never walked.
+        Scanning rings of pixels just outside the box finds every pipe touching the
+        glyph, corner exits included; min_run then rejects leader stubs, which die
+        within a few px.
+        """
+        h_img, w_img = mask.shape[:2]
+        x1, y1, x2, y2 = (int(bbox[k]) for k in ("x_min", "y_min", "x_max", "y_max"))
+        cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+
+        ring_px: list[tuple[int, int]] = []
+        for pad in range(2, pad_max + 1, 2):
+            gx1, gy1, gx2, gy2 = x1 - pad, y1 - pad, x2 + pad, y2 + pad
+            for x in range(max(0, gx1), min(w_img, gx2 + 1)):
+                for y in (gy1, gy2):
+                    if 0 <= y < h_img and mask[y, x]:
+                        ring_px.append((x, y))
+            for y in range(max(0, gy1), min(h_img, gy2 + 1)):
+                for x in (gx1, gx2):
+                    if 0 <= x < w_img and mask[y, x]:
+                        ring_px.append((x, y))
+        if not ring_px:
+            return []
+
+        # Cluster the ring hits so one nozzle gives one seed (greedy: within 12 px).
+        clusters: list[list[tuple[int, int]]] = []
+        for x, y in ring_px:
+            for c in clusters:
+                if any(abs(x - a) <= 12 and abs(y - b) <= 12 for a, b in c):
+                    c.append((x, y))
+                    break
+            else:
+                clusters.append([(x, y)])
+
+        seeds: list[tuple[int, int, str]] = []
+        for c in clusters:
+            px = int(sum(a for a, _ in c) / len(c))
+            py = int(sum(b for _, b in c) / len(c))
+            dx, dy = px - cx, py - cy
+            if abs(dx) >= abs(dy):
+                direction = "RIGHT" if dx >= 0 else "LEFT"
+                step = (1 if dx >= 0 else -1, 0)
+            else:
+                direction = "DOWN" if dy >= 0 else "UP"
+                step = (0, 1 if dy >= 0 else -1)
+            run = 0
+            tx, ty = px, py
+            for _ in range(40):
+                tx += step[0]
+                ty += step[1]
+                if not (0 <= tx < w_img and 0 <= ty < h_img):
+                    break
+                if mask[ty, tx]:
+                    run += 1
+                elif run:
+                    break
+            if run >= min_run:
+                seeds.append((px, py, direction))
+        return seeds
 
     def _compute_connection_ports(
         self, objects: list[dict[str, Any]]
@@ -2260,6 +2340,34 @@ class Stage5bPipelineMixin:
                     )
                 else:
                     logger.info("  %s (%s) -> no ports detected", eq_id, label)
+
+        # --- Inline-symbol seeds ---------------------------------------------------
+        # A relief valve's own glyph is a line *endpoint*: its pressure side runs to a
+        # tee, and the walk stops at the valve rather than turning through it. Seeded
+        # only from connections + equipment, a PSV's pressure-side line is never walked
+        # (GT 0002A lines L23/L28 scored 0.02/0.74 coverage). Seed the glyph's faces.
+        inline_seeds = [o for o in objects
+                        if o.get("class_name") in INLINE_SEED_CLASSES and o.get("id") not in ports]
+        if inline_seeds:
+            logger.info("Inline-symbol seeds: %d candidates", len(inline_seeds))
+            import cv2 as _cv2
+
+            seed_mask = _cv2.imread(str(self.out_dir / "stage5_pipe_mask.png"), _cv2.IMREAD_GRAYSCALE)
+            if seed_mask is None:
+                seed_mask = np.zeros((1, 1), np.uint8)
+            for obj in inline_seeds:
+                # Union of both scans: the grey edge scan catches nozzles the mask lost to
+                # text erasure (PSV-0201A), the mask ring scan catches corner exits the
+                # grey scan mistook for a tag leader (PSV-0201B). Neither alone is enough.
+                found: list[tuple[int, int, str]] = []
+                for cand in (self._detect_equipment_ports_cv(image, obj["bbox"])
+                             + self._inline_symbol_seeds(obj["bbox"], seed_mask)):
+                    if not any(abs(cand[0] - f[0]) <= 12 and abs(cand[1] - f[1]) <= 12 for f in found):
+                        found.append(cand)
+                if found:
+                    ports[obj["id"]] = found
+                    logger.info("  %s (%s) -> %d ports [CV]: %s", obj["id"], obj.get("class_name"),
+                                len(found), ", ".join(f"{d}({x},{y})" for x, y, d in found))
 
         equip_port_ids = {k for k in ports if k.startswith("equip_")}
         conn_port_ids = {k for k in ports if not k.startswith("equip_")}
@@ -2677,5 +2785,27 @@ class Stage5bPipelineMixin:
                 all_results,
                 branch_results,
             )
+
+        # Endpoint verification, part of the trace itself so every run produces it: each walk
+        # is classified as ending on an item / a node / the sheet edge, or HOLD (stopped in
+        # empty space 20-60 px from anything). Without this, a dead-ended walk is
+        # indistinguishable from "no pipe here" downstream. Repair stays off -- it measured
+        # neutral-to-negative on the reference sheets; see trace_verify.py.
+        try:
+            from .trace_verify import verify_run as _verify_trace_endpoints
+
+            _verify_summary = _verify_trace_endpoints(
+                self.out_dir,
+                params=self._trace_cv_params(),
+                stem="stage5b_trace_verification",
+                overlay=self.out_dir / "stage5b_trace_verification_overlay.png",
+            )
+            logger.info(
+                "Trace verification: %d traces -> %d on item, %d on node, %d HOLD",
+                _verify_summary["traces"], _verify_summary["ok_item"],
+                _verify_summary["ok_node"], _verify_summary["hold"],
+            )
+        except Exception as _exc:          # verification must never break tracing
+            logger.warning("Trace verification skipped: %s: %s", type(_exc).__name__, _exc)
 
 
